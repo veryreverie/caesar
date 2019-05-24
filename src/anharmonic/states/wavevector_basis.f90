@@ -1,6 +1,5 @@
 ! ======================================================================
-! A basis of monomial and harmonic states for a given subspace
-!    at a given wavevector.
+! A basis harmonic states for a given subspace at a given wavevector.
 ! N.B. the wavevector in this context is the wavevector of the state,
 !    not the wavevector of the mode.
 ! e.g. the state |p> along a mode at q-point q has a wavevector of p*q.
@@ -8,44 +7,58 @@
 module wavevector_basis_module
   use common_module
   
+  use anharmonic_common_module
+  
+  use harmonic_state_1d_module
+  use harmonic_state_2d_module
+  use harmonic_state_real_module
+  use harmonic_state_complex_module
   use monomial_state_module
   use harmonic_state_module
   use state_conversion_module
   use coupled_states_module
+  use wavevector_state_module
+  use wavevector_states_module
+  use polynomial_state_module
+  use anharmonic_data_module
   implicit none
   
   private
   
   public :: WavevectorBasis
-  public :: size
   
   type, extends(Stringsable) :: WavevectorBasis
-    integer                                     :: maximum_power
-    integer                                     :: expansion_order
-    integer                                     :: subspace_id
-    real(dp)                                    :: frequency
-    type(FractionVector)                        :: wavevector
-    integer                                     :: degeneracy
-    type(MonomialState),   allocatable          :: monomial_states(:)
-    type(HarmonicState),   allocatable          :: harmonic_states(:)
-    type(StateConversion), allocatable, private :: states_to_basis_(:)
-    type(StateConversion), allocatable, private :: basis_to_states_(:)
-    type(CoupledStates),   allocatable          :: harmonic_couplings(:)
+    integer                                   :: maximum_power
+    integer                                   :: expansion_order
+    integer                                   :: subspace_id
+    real(dp)                                  :: frequency
+    type(FractionVector)                      :: wavevector
+    type(HarmonicState), allocatable, private :: harmonic_states_(:)
+    type(SubspaceStatePointer), allocatable, private :: harmonic_states2_(:)
+    type(CoupledStates), allocatable, private :: harmonic_couplings_(:)
   contains
     ! Set the frequency of the basis.
     procedure, public :: set_frequency => set_frequency_WavevectorBasis
     
-    ! Transform vectors of coefficients.
-    procedure, public :: coefficients_states_to_basis
-    procedure, public :: coefficients_basis_to_states
+    ! State procedures.
+    procedure, public :: inner_product => &
+                       & inner_product_WavevectorBasis
+    procedure, public :: braket => &
+                       & braket_WavevectorBasis
+    procedure, public :: kinetic_energy => &
+                       & kinetic_energy_WavevectorBasis
+    procedure, public :: harmonic_potential_energy => &
+                       & harmonic_potential_energy_WavevectorBasis
+    procedure, public :: kinetic_stress => &
+                       & kinetic_stress_WavevectorBasis
     
-    ! Transform operator matrices.
-    procedure, public :: operator_states_to_basis
-    procedure, public :: operator_basis_to_states
-    
-    ! Transform Hamiltonian matrices.
-    procedure, public :: hamiltonian_states_to_basis
-    procedure, public :: hamiltonian_basis_to_states
+    ! Basis procedures.
+    procedure, public :: initial_ground_state => &
+                       & initial_ground_state_WavevectorBasis
+    procedure, public :: initial_states => &
+                       & initial_states_WavevectorBasis
+    procedure, public :: calculate_states => &
+                       & calculate_states_WavevectorBasis
     
     ! I/O.
     procedure, public :: read  => read_WavevectorBasis
@@ -58,68 +71,40 @@ module wavevector_basis_module
     module procedure new_WavevectorBasis_Strings
     module procedure new_WavevectorBasis_StringArray
   end interface
-  
-  interface size
-    module procedure size_WavevectorBasis
-  end interface
 contains
 
 ! Constructor and size function.
-function new_WavevectorBasis(maximum_power,expansion_order,subspace_id,    &
-   & frequency,wavevector,degeneracy,monomial_states,harmonic_states, &
-   & states_to_basis,basis_to_states,harmonic_couplings) result(this)
+function new_WavevectorBasis(maximum_power,expansion_order,subspace_id, &
+   & frequency,wavevector,harmonic_states,harmonic_states2,             &
+   & harmonic_couplings) result(this)
   implicit none
   
-  integer,               intent(in) :: maximum_power
-  integer,               intent(in) :: expansion_order
-  integer,               intent(in) :: subspace_id
-  real(dp),              intent(in) :: frequency
-  type(FractionVector),  intent(in) :: wavevector
-  integer,               intent(in) :: degeneracy
-  type(MonomialState),   intent(in) :: monomial_states(:)
-  type(HarmonicState),   intent(in) :: harmonic_states(:)
-  type(StateConversion), intent(in) :: states_to_basis(:)
-  type(StateConversion), intent(in) :: basis_to_states(:)
-  type(CoupledStates),   intent(in) :: harmonic_couplings(:)
-  type(WavevectorBasis)             :: this
+  integer,                    intent(in) :: maximum_power
+  integer,                    intent(in) :: expansion_order
+  integer,                    intent(in) :: subspace_id
+  real(dp),                   intent(in) :: frequency
+  type(FractionVector),       intent(in) :: wavevector
+  type(HarmonicState),        intent(in) :: harmonic_states(:)
+  type(SubspaceStatePointer), intent(in) :: harmonic_states2(:)
+  type(CoupledStates),        intent(in) :: harmonic_couplings(:)
+  type(WavevectorBasis)                  :: this
   
-  if (size(harmonic_states)/=size(monomial_states)) then
-    call print_line(CODE_ERROR//': monomial states and harmonic states do not &
-       &match.')
-    call err()
-  elseif (size(states_to_basis)/=size(monomial_states)) then
-    call print_line(CODE_ERROR//': monomial states and states to basis do not &
-       &match.')
-    call err()
-  elseif (size(basis_to_states)/=size(monomial_states)) then
-    call print_line(CODE_ERROR//': monomial states and basis to states do not &
-       &match.')
-    call err()
-  elseif (size(harmonic_couplings)/=size(monomial_states)) then
-    call print_line(CODE_ERROR//': monomial states and harmonic couplings do &
+  if (size(harmonic_couplings)/=size(harmonic_states)) then
+    call print_line(CODE_ERROR//': harmonic states and harmonic couplings do &
+       &not match.')
+  elseif (size(harmonic_couplings)/=size(harmonic_states2)) then
+    call print_line(CODE_ERROR//': harmonic states and harmonic couplings do &
        &not match.')
   endif
   
-  this%maximum_power      = maximum_power
-  this%expansion_order    = expansion_order
-  this%subspace_id        = subspace_id
-  this%frequency          = frequency
-  this%wavevector         = wavevector
-  this%degeneracy         = degeneracy
-  this%monomial_states    = monomial_states
-  this%harmonic_states    = harmonic_states
-  this%states_to_basis_   = states_to_basis
-  this%basis_to_states_   = basis_to_states
-  this%harmonic_couplings = harmonic_couplings
-end function
-
-function size_WavevectorBasis(this) result(output)
-  implicit none
-  
-  type(WavevectorBasis), intent(in) :: this
-  integer                           :: output
-  
-  output = size(this%monomial_states)
+  this%maximum_power       = maximum_power
+  this%expansion_order     = expansion_order
+  this%subspace_id         = subspace_id
+  this%frequency           = frequency
+  this%wavevector          = wavevector
+  this%harmonic_states_    = harmonic_states
+  this%harmonic_states2_   = harmonic_states2
+  this%harmonic_couplings_ = harmonic_couplings
 end function
 
 ! Set the frequency of the basis.
@@ -130,8 +115,8 @@ impure elemental subroutine set_frequency_WavevectorBasis(this,frequency)
   real(dp),               intent(in)    :: frequency
   
   this%frequency = frequency
-  this%monomial_states%frequency = frequency
-  this%harmonic_states%frequency = frequency
+  this%harmonic_states_%frequency = frequency
+  call this%harmonic_states2_%set_frequency(frequency)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -232,13 +217,12 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
   
   integer, allocatable :: ids(:)
   
-  type(ComplexUnivariate), allocatable :: univariates(:)
-  type(ComplexMonomial),   allocatable :: monomials(:)
-  type(MonomialState),     allocatable :: monomial_states(:)
-  type(HarmonicState),     allocatable :: harmonic_states(:)
-  type(StateConversion),   allocatable :: states_to_basis(:)
-  type(StateConversion),   allocatable :: basis_to_states(:)
-  type(CoupledStates),     allocatable :: harmonic_couplings(:)
+  type(ComplexUnivariate),    allocatable :: univariates(:)
+  type(ComplexMonomial),      allocatable :: monomials(:)
+  type(HarmonicState),        allocatable :: harmonic_states(:)
+  type(HarmonicState1D),      allocatable :: harmonic_states_1d(:)
+  type(SubspaceStatePointer), allocatable :: harmonic_states2(:)
+  type(CoupledStates),        allocatable :: harmonic_couplings(:)
   
   integer               :: no_states
   integer               :: power
@@ -268,79 +252,27 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
                & no_states                                                  )]
   monomials(1) = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
                                 & modes       = [ComplexUnivariate::]    )
-  monomial_states = [( MonomialState(subspace%id, frequency, monomials(i)), &
-                     & i=1,                                                 &
-                     & no_states                                            )]
   harmonic_states = [( HarmonicState(subspace%id, frequency, monomials(i)), &
                      & i=1,                                                 &
                      & no_states                                            )]
   
-  ! A harmonic basis state |i> is defined in terms of monomial states |j> as
-  !    |i> = sum h[i,j]|j>.
-  ! h[0,0] = 1.
-  ! h[i,j] = sqrt((2j-1)/i)       h[i-1,j-1]
-  !        - (j+1)/sqrt(i(2j+1))) h[i-1,j+1]
-  allocate(states_to_basis(no_states), stat=ialloc); call err(ialloc)
-  states_to_basis(1) = StateConversion(ids=[1], coefficients=[1.0_dp])
-  do state=2,no_states
-    ! Construct h[i,j] from old = h[i-1,{j}].
-    old = states_to_basis(state-1)
-    
-    states_to_basis(state) = StateConversion()
-    i  = state-1
-    do term=1,size(old)
-      ! Add sqrt((2j-1)/i) h[i-1,j-1]
-      j = univariates(old%id(term))%power + 1
-      coefficient = sqrt((2*j-1.0_dp)/i) * old%coefficient(term)
-      call states_to_basis(state)%add_element( id          = ids(j),     &
-                                             & coefficient = coefficient )
-      
-      ! Subtract (j+1)/sqrt(i(2j+1)) h[i-1,j+1]
-      j = univariates(old%id(term))%power - 1
-      if (j>=0) then
-        coefficient = (-(j+1)/sqrt(i*(2*j+1.0_dp))) * old%coefficient(term)
-        call states_to_basis(state)%add_element( id          = ids(j),     &
-                                               & coefficient = coefficient )
-      endif
-    enddo
-  enddo
-  
-  ! A monomial state |i> is defined in terms of harmonic basis states |j> as
-  !    |i> = sum g[i,j]|j>, where g is the inverse of h above.
-  ! g[0,0] = 1.
-  ! g[i,j] = sqrt(j/(2i-1))     g[i-1,j-1]
-  !        + sqrt((j+1)/(2i-1)) g[i-1,j+1]
-  allocate(basis_to_states(no_states), stat=ialloc); call err(ialloc)
-  basis_to_states(1) = StateConversion(ids=[1], coefficients=[1.0_dp])
-  do state=2,no_states
-    ! Construct g[i,j] from g[i-1,{j}].
-    old = basis_to_states(state-1)
-    
-    basis_to_states(state) = StateConversion()
-    i  = state-1
-    do term=1,size(old)
-      ! Add sqrt(j/(2i-1)) g[i-1,j-1]
-      j = univariates(old%id(term))%power + 1
-      coefficient = sqrt(j/(2*i-1.0_dp)) * old%coefficient(term)
-      call basis_to_states(state)%add_element( id          = ids(j),     &
-                                             & coefficient = coefficient )
-      
-      ! Add sqrt((j+1)/(2i-1)) g[i-1,j+1]
-      j = univariates(old%id(term))%power - 1
-      if (j>=0) then
-        coefficient = sqrt((j+1)/(2*i-1.0_dp)) * old%coefficient(term)
-        call basis_to_states(state)%add_element( id          = ids(j),     &
-                                               & coefficient = coefficient )
-      endif
-    enddo
-  enddo
+  harmonic_states_1d = HarmonicState1D( id         = mode%id,           &
+                                      & occupation = [( power,          &
+                                      &                 power=0,        &
+                                      &                 maximum_power)] )
+  harmonic_states2 = SubspaceStatePointer(                 &
+     & HarmonicStateReal( subspace%id,                     &
+     &                    frequency,                       &
+     &                    [( [harmonic_states_1d(i)],      &
+     &                       i=1,                          &
+     &                       size(harmonic_states_1d) )] ) )
   
   ! Calculate which states have non-zero <i|H|j> elements.
   ! |i> = a^n|0> and |j> = a^m|0>.
   ! If |n-m|>expansion_order then <i|H|j>=0.
   allocate(harmonic_couplings(no_states), stat=ialloc); call err(ialloc)
   do i=1,no_states
-    coupling_ids = [( j,                                         &
+    coupling_ids = [( j,                                        &
                    & j=max(1,i-potential_expansion_order),      &
                    & min(no_states,i+potential_expansion_order) )]
     separations = [(abs(coupling_ids(j)-i), j=1, size(coupling_ids))]
@@ -353,11 +285,8 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
                           & subspace_id        = subspace%id,               &
                           & frequency          = frequency,                 &
                           & wavevector         = fracvec(zeroes(3)),        &
-                          & degeneracy         = 1,                         &
-                          & monomial_states    = monomial_states,           &
                           & harmonic_states    = harmonic_states,           &
-                          & states_to_basis    = states_to_basis,           &
-                          & basis_to_states    = basis_to_states,           &
+                          & harmonic_states2   = harmonic_states2,          &
                           & harmonic_couplings = harmonic_couplings         )
 end function
 
@@ -374,13 +303,14 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
   
   integer, allocatable :: ids(:,:) ! N.B. ids is zero-indexed.
   
-  type(ComplexUnivariate), allocatable :: univariates(:)
-  type(ComplexMonomial),   allocatable :: monomials(:)
-  type(MonomialState),     allocatable :: monomial_states(:)
-  type(HarmonicState),     allocatable :: harmonic_states(:)
-  type(StateConversion),   allocatable :: states_to_basis(:)
-  type(StateConversion),   allocatable :: basis_to_states(:)
-  type(CoupledStates),     allocatable :: harmonic_couplings(:)
+  type(ComplexUnivariate),    allocatable :: univariates(:)
+  type(ComplexMonomial),      allocatable :: monomials(:)
+  type(HarmonicState),        allocatable :: harmonic_states(:)
+  type(HarmonicState2D),      allocatable :: harmonic_states_2d(:)
+  type(SubspaceStatePointer), allocatable :: harmonic_states2(:)
+  type(CoupledStates),        allocatable :: harmonic_couplings(:)
+  
+  integer :: total_power
   
   integer               :: no_states
   integer               :: power
@@ -422,131 +352,26 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
                & no_states                                                  )]
   monomials(1) = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
                                 & modes       = [ComplexUnivariate::]    )
-  monomial_states = [( MonomialState(subspace%id, frequency, monomials(i)), &
-                     & i=1,                                                 &
-                     & no_states                                            )]
   harmonic_states = [( HarmonicState(subspace%id, frequency, monomials(i)), &
                      & i=1,                                                 &
                      & no_states                                            )]
   
-  ! A harmonic basis state |ip,im> is defined in terms of monomial states
-  !    |jp,jm> as |ip,im> = sum h[ip,im,jp,jm]|jp,jm>.
-  ! h[0,0,0,0} = 1.
-  ! h[ip,im,jp,jm] = sqrt((jp+jm)/ip)         h[ip-1, im, jp-1, jm  ]
-  !                - (jm+1)/sqrt(ip(jp+jm+1)) h[ip-1, im, jp,   jm+1]
-  ! also
-  ! h[ip,im,jp,jm] = sqrt((jp+jm)/im)          h[ip, im-1, jp,   jm-1]
-  !                - (jp+1)/sqrt(im(jp+jm+1))  h[ip, im-1, jp+1, jm  ]
-  allocate(states_to_basis(no_states), stat=ialloc); call err(ialloc)
-  states_to_basis(1) = StateConversion(ids=[1], coefficients=[1.0_dp])
-  do state=2,no_states
-    ip = univariates(state)%power
-    im = univariates(state)%paired_power
-    
-    ! If ip>0, construct h[ip,im,jp,jm] from h[ip-1,im,{jp},{jm}].
-    ! Otherwise, construct h[ip,im,jp,jm] from h[ip,im-1,{jp},{jm}].
-    
-    states_to_basis(state) = StateConversion()
-    if (ip>0) then
-      old = states_to_basis(ids(ip-1,im))
-      do term=1,size(old)
-        ! Add sqrt((jp+jm)/ip) h[ip-1,im,jp-1,jm]
-        jp = univariates(old%id(term))%power + 1
-        jm = univariates(old%id(term))%paired_power
-        coefficient = sqrt((1.0_dp*(jp+jm))/ip)*old%coefficient(term)
-        call states_to_basis(state)%add_element( id          = ids(jp,jm), &
-                                               & coefficient = coefficient )
-        
-        ! Subtract (jm+1)/sqrt(ip(jp+jm+1)) h[ip-1,im,jp,jm+1]
-        jp = univariates(old%id(term))%power
-        jm = univariates(old%id(term))%paired_power - 1
-        if (jm>=0) then
-          coefficient = -((jm+1)/sqrt(ip*(jp+jm+1.0_dp)))*old%coefficient(term)
-          call states_to_basis(state)%add_element( id          = ids(jp,jm), &
-                                                 & coefficient = coefficient )
-        endif
-      enddo
-    else
-      old = states_to_basis(ids(ip,im-1))
-      do term=1,size(old)
-        ! Add sqrt((jp+jm)/im) h[ip,im-1,jp-1,jm-1]
-        jp = univariates(old%id(term))%power
-        jm = univariates(old%id(term))%paired_power + 1
-        coefficient = sqrt((1.0_dp*(jp+jm))/im)*old%coefficient(term)
-        call states_to_basis(state)%add_element( id          = ids(jp,jm), &
-                                               & coefficient = coefficient )
-        
-        ! Subtract (jp+1)/sqrt(im(jp+jm+1)) h[ip,im-1,jp+1,jm]
-        jp = univariates(old%id(term))%power - 1
-        jm = univariates(old%id(term))%paired_power
-        if (jp>=0) then
-          coefficient = -((jp+1)/sqrt(im*(jp+jm+1.0_dp)))*old%coefficient(term)
-          call states_to_basis(state)%add_element( id          = ids(jp,jm), &
-                                                 & coefficient = coefficient )
-        endif
-      enddo
-    endif
-  enddo
-  
-  ! A monomial state |ip,im> is defined in terms of harmonic basis states
-  !    |jp,jm> as |ip,im> = sum g[ip,im,jp,jm]|jp,jm>,
-  !    where g is the inverse of h above.
-  ! g[0,0,0,0] = 1.
-  ! g[ip,im,jp,jm] = sqrt(jp/(ip+im))    g[ip-1,im,jp-1,jm  ]
-  !                + sqrt((jm+1)/(ip+im) g[ip-1,im,jp,  jm+1]
-  ! also
-  ! g[ip,im,jp,jm] = sqrt(jm/(ip+im))    g[ip-1,im,jp,  jm-1]
-  !                + sqrt((jp+1)/(ip+im) g[ip-1,im,jp+1,jm  ]
-  allocate(basis_to_states(no_states), stat=ialloc); call err(ialloc)
-  basis_to_states(1) = StateConversion(ids=[1], coefficients=[1.0_dp])
-  do state=2,no_states
-    ip = univariates(state)%power
-    im = univariates(state)%paired_power
-    
-    ! If ip>0, construct g[ip,im,jp,jm] from g[ip-1,im,{jp},{jm}].
-    ! Otherwise, construct g[ip,im,jp,jm] from f[ip,im-1,{jp},{jm}].
-    
-    basis_to_states(state) = StateConversion()
-    if (ip>0) then
-      old = basis_to_states(ids(ip-1,im))
-      do term=1,size(old)
-        ! Add sqrt(jp/(ip+im)) g[ip-1,im,jp-1,jm]
-        jp = univariates(old%id(term))%power + 1
-        jm = univariates(old%id(term))%paired_power
-        coefficient = sqrt((1.0_dp*jp)/(ip+im)) * old%coefficient(term)
-        call basis_to_states(state)%add_element( id          = ids(jp,jm), &
-                                               & coefficient = coefficient )
-        
-        ! Add sqrt((jm-1)/(ip+im)) g[ip-1,im,jp,jm+1]
-        jp = univariates(old%id(term))%power
-        jm = univariates(old%id(term))%paired_power - 1
-        if (jm>=0) then
-          coefficient = sqrt((jm+1.0_dp)/(ip+im)) * old%coefficient(term)
-          call basis_to_states(state)%add_element( id          = ids(jp,jm), &
-                                                 & coefficient = coefficient )
-        endif
-      enddo
-    else
-      old = basis_to_states(ids(ip,im-1))
-      do term=1,size(old)
-        ! Add sqrt(jm/(ip+im)) g[ip,im-1,jp,jm-1]
-        jp = univariates(old%id(term))%power
-        jm = univariates(old%id(term))%paired_power + 1
-        coefficient = sqrt((1.0_dp*jm)/(ip+im)) * old%coefficient(term)
-        call basis_to_states(state)%add_element( id          = ids(jp,jm), &
-                                               & coefficient = coefficient )
-        
-        ! Add sqrt((jp-1)/(ip+im)) g[ip,im-1,jp+1,jm]
-        jp = univariates(old%id(term))%power - 1
-        jm = univariates(old%id(term))%paired_power
-        if (jp>=0) then
-          coefficient = sqrt((jp+1.0_dp)/(ip+im)) * old%coefficient(term)
-          call basis_to_states(state)%add_element( id          = ids(jp,jm), &
-                                                 & coefficient = coefficient )
-        endif
-      enddo
-    endif
-  enddo
+  harmonic_states_2d =                                                     &
+     & [( [( HarmonicState2D( id                = mode%id,                 &
+     &                        paired_id         = mode%paired_id,          &
+     &                        occupation        = power,                   &
+     &                        paired_occupation = total_power-power ),     &
+     &       power = total_power,                                          &
+     &       0,                                                            &
+     &       -1                                                        )], &
+     & total_power=0,                                                      &
+     & maximum_power                                                       )]
+  harmonic_states2 = SubspaceStatePointer(                   &
+     & HarmonicStateComplex( subspace%id,                    &
+     &                      frequency,                       &
+     &                      [( [harmonic_states_2d(i)],      &
+     &                         i=1,                          &
+     &                         size(harmonic_states_2d) )] ) )
   
   ! Calculate which states have non-zero <i|H|j> elements.
   ! |i> = (a+)^(m+).(a-)^(m-).|0>
@@ -573,11 +398,8 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
                           & subspace_id        = subspace%id,               &
                           & frequency          = frequency,                 &
                           & wavevector         = fracvec(zeroes(3)),        &
-                          & degeneracy         = 1,                         &
-                          & monomial_states    = monomial_states,           &
                           & harmonic_states    = harmonic_states,           &
-                          & states_to_basis    = states_to_basis,           &
-                          & basis_to_states    = basis_to_states,           &
+                          & harmonic_states2   = harmonic_states2,          &
                           & harmonic_couplings = harmonic_couplings         )
 end function
 
@@ -595,8 +417,8 @@ function tensor_product(this,that) result(output)
   type(WavevectorBasis), intent(in) :: that
   type(WavevectorBasis)             :: output
   
-  integer, allocatable :: this_powers(:)
-  integer, allocatable :: that_powers(:)
+  integer, allocatable :: this_occupations(:)
+  integer, allocatable :: that_occupations(:)
   integer, allocatable :: no_states(:)
   integer, allocatable :: this_to_output(:)
   
@@ -605,17 +427,14 @@ function tensor_product(this,that) result(output)
   integer  :: separation
   
   ! Output variables.
-  integer                            :: maximum_power
-  integer                            :: expansion_order
-  integer                            :: subspace_id
-  real(dp)                           :: frequency
-  type(FractionVector)               :: wavevector
-  integer                            :: degeneracy
-  type(MonomialState),   allocatable :: monomial_states(:)
-  type(HarmonicState),   allocatable :: harmonic_states(:)
-  type(StateConversion), allocatable :: states_to_basis(:)
-  type(StateConversion), allocatable :: basis_to_states(:)
-  type(CoupledStates),   allocatable :: harmonic_couplings(:)
+  integer                                :: maximum_power
+  integer                                :: expansion_order
+  integer                                :: subspace_id
+  real(dp)                               :: frequency
+  type(FractionVector)                   :: wavevector
+  type(HarmonicState),        allocatable :: harmonic_states(:)
+  type(SubspaceStatePointer), allocatable :: harmonic_states2(:)
+  type(CoupledStates),        allocatable :: harmonic_couplings(:)
   
   integer :: i,j,k,l,ialloc
   
@@ -633,89 +452,51 @@ function tensor_product(this,that) result(output)
   subspace_id     = this%subspace_id
   frequency       = this%frequency
   wavevector      = this%wavevector
-  degeneracy      = this%degeneracy
   
-  ! Check that the states in 'that' are in ascending order of total power.
-  this_powers = this%monomial_states%total_power()
-  that_powers = that%monomial_states%total_power()
-  if (any(that_powers(2:)<that_powers(:size(that)-1))) then
+  ! Check that the states in 'that' are in ascending order
+  !    of total occupation.
+  this_occupations = this%harmonic_states_%total_occupation()
+  that_occupations = that%harmonic_states_%total_occupation()
+  if (any(that_occupations(2:)<that_occupations(:size(that%harmonic_states_)-1))) then
     call print_line(CODE_ERROR//': Powers are not in ascending order.')
     call err()
   endif
   
   ! Count the number of output states corresponding to each state in 'this'.
-  no_states = [( count(that_powers + this_powers(i) <= maximum_power), &
+  no_states = [( count(that_occupations + this_occupations(i) <= maximum_power), &
                & i=1,                                                  &
-               & size(this)                                            )]
-  this_to_output = [( sum(no_states(:i-1)), i=1, size(this) )]
+               & size(this%harmonic_states_)                           )]
+  this_to_output = [( sum(no_states(:i-1)),       &
+                    & i=1,                        &
+                    & size(this%harmonic_states_) )]
   
   ! Generate monomial and harmonic states.
-  allocate( monomial_states(sum(no_states)), &
-          & harmonic_states(sum(no_states)), &
+  allocate( harmonic_states(sum(no_states)), &
+          & harmonic_states2(sum(no_states)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    monomial_states(this_to_output(i)+1:this_to_output(i)+no_states(i)) = &
-       & this%monomial_states(i) * that%monomial_states(:no_states(i))
+  do i=1,size(this%harmonic_states_)
     harmonic_states(this_to_output(i)+1:this_to_output(i)+no_states(i)) = &
-       & this%harmonic_states(i) * that%harmonic_states(:no_states(i))
-  enddo
-  
-  ! Generate states-to-basis conversion.
-  allocate( states_to_basis(size(monomial_states)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    do j=1,no_states(i)
-      states_to_basis(this_to_output(i)+j) = StateConversion()
-      do k=1,size(this%states_to_basis_(i))
-        do l=1,size(that%states_to_basis_(j))
-          id = this_to_output(this%states_to_basis_(i)%id(k)) &
-           & + that%states_to_basis_(j)%id(l)
-          coefficient = this%states_to_basis_(i)%coefficient(k) &
-                    & * that%states_to_basis_(j)%coefficient(l)
-          call states_to_basis(this_to_output(i)+j)%add_element( &
-                                     & id          = id,         &
-                                     & coefficient = coefficient )
-        enddo
-      enddo
-    enddo
-  enddo
-  
-  ! Generate basis-to-states conversion.
-  allocate( basis_to_states(size(monomial_states)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    do j=1,no_states(i)
-      basis_to_states(this_to_output(i)+j) = StateConversion()
-      do k=1,size(this%basis_to_states_(i))
-        do l=1,size(that%basis_to_states_(j))
-          id = this_to_output(this%basis_to_states_(i)%id(k)) &
-           & + that%basis_to_states_(j)%id(l)
-          coefficient = this%basis_to_states_(i)%coefficient(k) &
-                    & * that%basis_to_states_(j)%coefficient(l)
-          call basis_to_states(this_to_output(i)+j)%add_element( &
-                                     & id          = id,         &
-                                     & coefficient = coefficient )
-        enddo
-      enddo
-    enddo
+       & this%harmonic_states_(i) * that%harmonic_states_(:no_states(i))
+    harmonic_states2(this_to_output(i)+1:this_to_output(i)+no_states(i)) = &
+       & prod(this%harmonic_states2_(i),that%harmonic_states2_(:no_states(i)))
   enddo
   
   ! Generate harmonic couplings.
-  allocate( harmonic_couplings(size(monomial_states)), &
+  allocate( harmonic_couplings(size(harmonic_states)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(this)
+  do i=1,size(this%harmonic_states_)
     do j=1,no_states(i)
       harmonic_couplings(this_to_output(i)+j) = CoupledStates()
-      do k=1,size(this%harmonic_couplings(i))
-        do l=1,size(that%harmonic_couplings(j))
-          if ( that%harmonic_couplings(j)%id(l) >          &
-             & no_states(this%harmonic_couplings(i)%id(k)) ) then
+      do k=1,size(this%harmonic_couplings_(i))
+        do l=1,size(that%harmonic_couplings_(j))
+          if ( that%harmonic_couplings_(j)%id(l) >          &
+             & no_states(this%harmonic_couplings_(i)%id(k)) ) then
             exit
           endif
-          id = this_to_output(this%harmonic_couplings(i)%id(k)) &
-           & + that%harmonic_couplings(j)%id(l)
-          separation = this%harmonic_couplings(i)%separation(k) &
-                   & + that%harmonic_couplings(j)%separation(l)
+          id = this_to_output(this%harmonic_couplings_(i)%id(k)) &
+           & + that%harmonic_couplings_(j)%id(l)
+          separation = this%harmonic_couplings_(i)%separation(k) &
+                   & + that%harmonic_couplings_(j)%separation(l)
           if (separation<=expansion_order) then
             call harmonic_couplings(this_to_output(i)+j)%add_coupling( &
                                              & id         = id,        &
@@ -732,12 +513,33 @@ function tensor_product(this,that) result(output)
                           & subspace_id        = subspace_id,       &
                           & frequency          = frequency,         &
                           & wavevector         = wavevector,        &
-                          & degeneracy         = degeneracy,        &
-                          & monomial_states    = monomial_states,   &
                           & harmonic_states    = harmonic_states,   &
-                          & states_to_basis    = states_to_basis,   &
-                          & basis_to_states    = basis_to_states,   &
+                          & harmonic_states2   = harmonic_states2,  &
                           & harmonic_couplings = harmonic_couplings )
+end function
+
+impure elemental function prod(lhs,rhs) result(output)
+  implicit none
+  
+  type(SubspaceStatePointer), intent(in) :: lhs
+  type(SubspaceStatePointer), intent(in) :: rhs
+  type(SubspaceStatePointer)             :: output
+  
+  class(SubspaceState), allocatable :: lhs2
+  class(SubspaceState), allocatable :: rhs2
+  
+  lhs2 = lhs%state()
+  rhs2 = rhs%state()
+  
+  select type(lhs2); type is(HarmonicStateReal)
+    select type(rhs2); type is (HarmonicStateReal)
+      output = SubspaceStatePointer(prod_real(lhs2,rhs2))
+    end select
+  type is(HarmonicStateComplex)
+    select type(rhs2); type is(HarmonicStateComplex)
+      output = SubspaceStatePointer(prod_complex(lhs2,rhs2))
+    end select
+  end select
 end function
 
 ! Splits up a WavevectorBasis by wavevector.
@@ -760,30 +562,27 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   integer, allocatable :: allowed_couplings(:)
   
   ! Output variables.
-  integer                            :: maximum_power
-  integer                            :: expansion_order
-  integer                            :: subspace_id
-  real(dp)                           :: frequency
-  type(FractionVector)               :: wavevector
-  integer                            :: degeneracy
-  type(MonomialState),   allocatable :: monomial_states(:)
-  type(HarmonicState),   allocatable :: harmonic_states(:)
-  type(StateConversion), allocatable :: states_to_basis(:)
-  type(StateConversion), allocatable :: basis_to_states(:)
-  type(CoupledStates),   allocatable :: couplings(:)
+  integer                                 :: maximum_power
+  integer                                 :: expansion_order
+  integer                                 :: subspace_id
+  real(dp)                                :: frequency
+  type(FractionVector)                    :: wavevector
+  type(HarmonicState),        allocatable :: harmonic_states(:)
+  type(SubspaceStatePointer), allocatable :: harmonic_states2(:)
+  type(CoupledStates),        allocatable :: couplings(:)
   
   integer :: i,j,ialloc
   
-  wavevectors = [( input%monomial_states(i)%wavevector(modes,qpoints), &
-                 & i=1,                                                &
-                 & size(input)                                         )]
+  wavevectors = [( input%harmonic_states_(i)%wavevector(modes,qpoints), &
+                 & i=1,                                                 &
+                 & size(input%harmonic_states_)                         )]
   
   qpoint_set = filter([( any(wavevectors==qpoints(i)%qpoint), &
                        & i=1,                                 &
                        & size(qpoints)                        )])
   
   allocate(output(size(qpoint_set)), stat=ialloc); call err(ialloc)
-  new_ids = [(0,i=1,size(input))]
+  new_ids = [(0,i=1,size(input%harmonic_states_))]
   do i=1,size(output)
     ! Copy over the maximum power, subspace ID and frequency.
     maximum_power = input%maximum_power
@@ -793,24 +592,15 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
     
     ! Identify the states at the given wavevector.
     wavevector = qpoints(qpoint_set(i))%qpoint
-    degeneracy = 1
     wavevector_states = filter(wavevectors==wavevector)
-    monomial_states = input%monomial_states(wavevector_states)
-    harmonic_states = input%harmonic_states(wavevector_states)
-    states_to_basis = input%states_to_basis_(wavevector_states)
-    basis_to_states = input%basis_to_states_(wavevector_states)
-    couplings       = input%harmonic_couplings(wavevector_states)
+    harmonic_states = input%harmonic_states_(wavevector_states)
+    harmonic_states2 = input%harmonic_states2_(wavevector_states)
+    couplings       = input%harmonic_couplings_(wavevector_states)
     
     ! Re-map IDs to correspond to states at the given wavevector only.
     new_ids = 0
     new_ids(wavevector_states) = [(j,j=1,size(wavevector_states))]
     do j=1,size(wavevector_states)
-      states_to_basis(j) = StateConversion(                  &
-         & ids          = new_ids(states_to_basis(j)%ids()), &
-         & coefficients = states_to_basis(j)%coefficients()  )
-      basis_to_states(j) = StateConversion(                  &
-         & ids          = new_ids(basis_to_states(j)%ids()), &
-         & coefficients = basis_to_states(j)%coefficients()  )
       ids = couplings(j)%ids()
       separations = couplings(j)%separations()
       ids = new_ids(ids)
@@ -820,149 +610,296 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
     enddo
     
     ! Construct output.
-    output(i) = WavevectorBasis( maximum_power,   &
-                               & expansion_order, &
-                               & subspace_id,     &
-                               & frequency,       &
-                               & wavevector,      &
-                               & degeneracy,      &
-                               & monomial_states, &
-                               & harmonic_states, &
-                               & states_to_basis, &
-                               & basis_to_states, &
-                               & couplings        )
+    output(i) = WavevectorBasis( maximum_power,    &
+                               & expansion_order,  &
+                               & subspace_id,      &
+                               & frequency,        &
+                               & wavevector,       &
+                               & harmonic_states,  &
+                               & harmonic_states2, &
+                               & couplings         )
   enddo
 end function
 
 ! ----------------------------------------------------------------------
-! Transform coefficients between monomial states and the orthonormal basis.
+! Operations involving WavevectorStates.
 ! ----------------------------------------------------------------------
-function coefficients_states_to_basis(this,coefficients) result(output)
+impure elemental function inner_product_WavevectorBasis(this,bra,ket, &
+   & subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in)           :: this
+  type(WavevectorState),    intent(in)           :: bra
+  type(WavevectorState),    intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  if (present(ket)) then
+    ! The basis is orthonormal, so the dot product of the states is
+    !    simply the dot product of the coefficients.
+    output = dot_product(bra%coefficients, ket%coefficients)
+  else
+    ! States are orthonormal, so <p|p>=1.
+    output = 1.0_dp
+  endif
+end function
+
+impure elemental function braket_WavevectorBasis(this,bra,monomial,ket, &
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in)           :: this
+  type(WavevectorState),    intent(in)           :: bra
+  type(ComplexMonomial),    intent(in)           :: monomial
+  type(WavevectorState),    intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis ! TODO
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint ! TODO
+  type(ComplexMonomial)                          :: output
+  
+  type(ComplexMonomial) :: term
+  
+  integer :: i,j,k
+  
+  ! TODO: Improve this.
+  output = this%harmonic_states_(1)%braket( &
+        & monomial        = monomial,       &
+        & subspace        = subspace,       &
+        & subspace_basis  = subspace_basis, &
+        & anharmonic_data = anharmonic_data )
+  output%coefficient = 0
+  do i=1,size(this%harmonic_states_)
+    do j=1,size(this%harmonic_couplings_(i))
+      k = this%harmonic_couplings_(i)%id(j)
+      term = this%harmonic_states_(i)%braket( monomial,                 &
+                                            & this%harmonic_states_(k), &
+                                            & subspace,                 &
+                                            & subspace_basis,           &
+                                            & anharmonic_data,          &
+                                            & qpoint                    )
+      if (present(ket)) then
+        output%coefficient = output%coefficient  &
+                         & + bra%coefficients(i) &
+                         & * term%coefficient    &
+                         & * ket%coefficients(k)
+      else
+        output%coefficient = output%coefficient  &
+                         & + bra%coefficients(i) &
+                         & * term%coefficient    &
+                         & * bra%coefficients(k)
+      endif
+    enddo
+  enddo
+end function
+
+impure elemental function kinetic_energy_WavevectorBasis(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in)           :: this
+  type(WavevectorState),    intent(in)           :: bra
+  type(WavevectorState),    intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis ! TODO
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint ! TODO
+  real(dp)                                       :: output
+  
+  real(dp) :: term
+  
+  integer :: i,j,k
+  
+  output = 0
+  do i=1,size(this%harmonic_states_)
+    do j=1,size(this%harmonic_couplings_(i))
+      k = this%harmonic_couplings_(i)%id(j)
+      term = this%harmonic_states_(i)%kinetic_energy( &
+                          & this%harmonic_states_(k), &
+                          & subspace,                 &
+                          & subspace_basis,           &
+                          & anharmonic_data,          &
+                          & qpoint                    )
+      if (present(ket)) then
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * ket%coefficients(k)
+      else
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * bra%coefficients(k)
+      endif
+    enddo
+  enddo
+end function
+
+impure elemental function harmonic_potential_energy_WavevectorBasis(this, &
+   & bra,ket,subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in)           :: this
+  type(WavevectorState),    intent(in)           :: bra
+  type(WavevectorState),    intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis ! TODO
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  real(dp) :: term
+  
+  integer :: i,j,k
+  
+  output = 0
+  do i=1,size(this%harmonic_states_)
+    do j=1,size(this%harmonic_couplings_(i))
+      k = this%harmonic_couplings_(i)%id(j)
+      term = this%harmonic_states_(i)%harmonic_potential_energy( &
+                                     & this%harmonic_states_(k), &
+                                     & subspace,                 &
+                                     & subspace_basis,           &
+                                     & anharmonic_data           )
+      if (present(ket)) then
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * ket%coefficients(k)
+      else
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * bra%coefficients(k)
+      endif
+    enddo
+  enddo
+end function
+
+impure elemental function kinetic_stress_WavevectorBasis(this,bra,ket, &
+   & subspace,subspace_basis,stress_prefactors,anharmonic_data)        &
+   & result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in)           :: this
+  type(WavevectorState),    intent(in)           :: bra
+  type(WavevectorState),    intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis ! TODO
+  type(StressPrefactors),   intent(in)           :: stress_prefactors
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  type(RealMatrix) :: term
+  
+  integer :: i,j,k
+  
+  output = dblemat(zeroes(3,3))
+  do i=1,size(this%harmonic_states_)
+    do j=1,size(this%harmonic_couplings_(i))
+      k = this%harmonic_couplings_(i)%id(j)
+      term = this%harmonic_states_(i)%kinetic_stress( &
+                          & this%harmonic_states_(k), &
+                          & subspace,                 &
+                          & subspace_basis,           &
+                          & stress_prefactors,        &
+                          & anharmonic_data           )
+      if (present(ket)) then
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * ket%coefficients(k)
+      else
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * bra%coefficients(k)
+      endif
+    enddo
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Operations which generate WavevectorStates.
+! ----------------------------------------------------------------------
+impure elemental function initial_ground_state_WavevectorBasis(this) &
+   & result(output)
   implicit none
   
   class(WavevectorBasis), intent(in) :: this
-  real(dp),               intent(in) :: coefficients(:)
-  real(dp), allocatable              :: output(:)
+  type(WavevectorState)              :: output
+  
+  real(dp), allocatable :: coefficients(:)
   
   integer :: i
   
-  output = [( 0.0_dp, i=1, size(this) )]
+  coefficients = [( 0.0_dp, i=1, size(this%harmonic_states_) )]
+  coefficients(first(this%harmonic_states_%total_occupation()==0)) = 1
   
-  do i=1,size(this)
-    output(this%basis_to_states_(i)%ids()) =      &
-       &   output(this%basis_to_states_(i)%ids()) &
-       & + coefficients(i)                        &
-       & * this%basis_to_states_(i)%coefficients()
-  enddo
+  output = WavevectorState(coefficients)
 end function
 
-function coefficients_basis_to_states(this,coefficients) result(output)
+function initial_states_WavevectorBasis(this,subspace,anharmonic_data) &
+   & result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in) :: this
-  real(dp),               intent(in) :: coefficients(:)
-  real(dp), allocatable              :: output(:)
+  class(WavevectorBasis),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(WavevectorStates)               :: output
   
-  integer :: i
-  
-  output = [( 0.0_dp, i=1, size(this) )]
-  
-  do i=1,size(this)
-      output(this%states_to_basis_(i)%ids()) =      &
-         &   output(this%states_to_basis_(i)%ids()) &
-         & + coefficients(i)                        &
-         & * this%states_to_basis_(i)%coefficients()
-  enddo
+  output = WavevectorStates( [this%initial_ground_state()], &
+                           & [0.0_dp]                       )
 end function
 
-! ----------------------------------------------------------------------
-! Transform operators between monomial states and the orthonormal basis.
-! ----------------------------------------------------------------------
-function operator_states_to_basis(this,operator) result(output)
+function calculate_states_WavevectorBasis(this,potential,subspace, &
+   & subspace_basis,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in) :: this
-  real(dp),               intent(in) :: operator(:,:)
-  real(dp), allocatable              :: output(:,:)
+  class(WavevectorBasis),   intent(in)           :: this
+  class(PotentialData),     intent(in)           :: potential
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis ! TODO
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
+  type(WavevectorStates)                         :: output
   
-  integer :: i,j,ialloc
+  type(HarmonicState)                    :: bra
+  type(HarmonicState)                    :: ket
+  real(dp),                  allocatable :: hamiltonian(:,:)
+  type(SymmetricEigenstuff), allocatable :: estuff(:)
   
-  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
-  output = 0.0_dp
-  do i=1,size(this)
-    do j=1,size(this)
-      output(j,i) = dble( vec(this%states_to_basis_(j)%coefficients())    &
-                      & * mat(operator( this%states_to_basis_(j)%ids(),   &
-                      &                 this%states_to_basis_(i)%ids() )) &
-                      & * vec(this%states_to_basis_(i)%coefficients())    )
+  integer :: i,j,k,ialloc
+  
+  allocate( hamiltonian( size(this%harmonic_states_),    &
+          &              size(this%harmonic_states_)  ), &
+          & stat=ialloc); call err(ialloc)
+  hamiltonian = 0
+  do i=1,size(this%harmonic_states_)
+    bra = this%harmonic_states_(i)
+    do j=1,size(this%harmonic_couplings_(i))
+      k = this%harmonic_couplings_(i)%id(j)
+      ket = this%harmonic_states_(k)
+      
+      hamiltonian(i,k) = bra%kinetic_energy( ket,               &
+                     &                       subspace,          &
+                     &                       subspace_basis,    &
+                     &                       anharmonic_data,   &
+                     &                       qpoint           ) &
+                     & + potential_energy( bra,                 &
+                     &                     potential,           &
+                     &                     ket,                 &
+                     &                     subspace,            &
+                     &                     subspace_basis,      &
+                     &                     anharmonic_data )
     enddo
   enddo
-end function
-
-function operator_basis_to_states(this,operator) result(output)
-  implicit none
   
-  class(WavevectorBasis), intent(in) :: this
-  real(dp),               intent(in) :: operator(:,:)
-  real(dp), allocatable              :: output(:,:)
+  estuff = diagonalise_symmetric(hamiltonian)
   
-  integer :: i,j,ialloc
-  
-  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
-  output = 0.0_dp
-  do i=1,size(this)
-    do j=1,size(this)
-      output(j,i) = dble( vec(this%basis_to_states_(j)%coefficients())    &
-                      & * mat(operator( this%basis_to_states_(j)%ids(),   &
-                      &                 this%basis_to_states_(i)%ids() )) &
-                      & * vec(this%basis_to_states_(i)%coefficients())    )
-    enddo
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! As operator transformations, but uses symmetry to accelerate calculation.
-! ----------------------------------------------------------------------
-function hamiltonian_states_to_basis(this,hamiltonian) result(output)
-  implicit none
-  
-  class(WavevectorBasis), intent(in) :: this
-  real(dp),               intent(in) :: hamiltonian(:,:)
-  real(dp), allocatable              :: output(:,:)
-  
-  integer :: i,j,ialloc
-  
-  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
-  output = 0.0_dp
-  do i=1,size(this)
-    do j=1,size(this)
-      output(j,i) = dble( vec(this%states_to_basis_(j)%coefficients())       &
-                      & * mat(hamiltonian( this%states_to_basis_(j)%ids(),   &
-                      &                    this%states_to_basis_(i)%ids() )) &
-                      & * vec(this%states_to_basis_(i)%coefficients())       )
-    enddo
-  enddo
-end function
-
-function hamiltonian_basis_to_states(this,hamiltonian) result(output)
-  implicit none
-  
-  class(WavevectorBasis), intent(in) :: this
-  real(dp),               intent(in) :: hamiltonian(:,:)
-  real(dp), allocatable              :: output(:,:)
-  
-  integer :: i,j,ialloc
-  
-  allocate(output(size(this), size(this)), stat=ialloc); call err(ialloc)
-  output = 0.0_dp
-  do i=1,size(this)
-    do j=1,size(this)
-      output(j,i) = dble( vec(this%basis_to_states_(j)%coefficients())       &
-                      & * mat(hamiltonian( this%basis_to_states_(j)%ids(),   &
-                      &                    this%basis_to_states_(i)%ids() )) &
-                      & * vec(this%basis_to_states_(i)%coefficients())       )
-    enddo
-  enddo
+  output = WavevectorStates(                                      &
+     & [(WavevectorState(estuff(i)%evec), i=1, size(estuff))],    &
+     & estuff%eval * anharmonic_data%anharmonic_supercell%sc_size )
 end function
 
 ! ----------------------------------------------------------------------
@@ -974,23 +911,22 @@ subroutine read_WavevectorBasis(this,input)
   class(WavevectorBasis), intent(out) :: this
   type(String),           intent(in)  :: input(:)
   
-  integer                            :: maximum_power
-  integer                            :: expansion_order
-  integer                            :: subspace_id
-  real(dp)                           :: frequency
-  type(FractionVector)               :: wavevector
-  integer                            :: degeneracy
-  type(MonomialState),   allocatable :: monomial_states(:)
-  type(HarmonicState),   allocatable :: harmonic_states(:)
-  type(StateConversion), allocatable :: states_to_basis(:)
-  type(StateConversion), allocatable :: basis_to_states(:)
-  type(CoupledStates),   allocatable :: couplings(:)
+  integer                                 :: maximum_power
+  integer                                 :: expansion_order
+  integer                                 :: subspace_id
+  real(dp)                                :: frequency
+  type(FractionVector)                    :: wavevector
+  type(HarmonicState),        allocatable :: harmonic_states(:)
+  type(SubspaceStatePointer), allocatable :: harmonic_states2(:)
+  type(CoupledStates),        allocatable :: couplings(:)
   
   type(String), allocatable :: line(:)
   
   integer :: no_states
   
   integer :: i,ialloc
+  
+  ! TODO
   
   select type(this); type is(WavevectorBasis)
     line = split_line(input(1))
@@ -1008,44 +944,27 @@ subroutine read_WavevectorBasis(this,input)
     line = split_line(input(5))
     wavevector = FractionVector(join(line(3:5)))
     
-    line = split_line(input(6))
-    degeneracy = int(line(3))
+    no_states = (size(input)-10)/5
     
-    no_states = (size(input)-11)/5
-    
-    allocate( monomial_states(no_states), &
-            & harmonic_states(no_states), &
-            & states_to_basis(no_states), &
-            & basis_to_states(no_states), &
-            & couplings(no_states),       &
+    allocate( harmonic_states(no_states),  &
+            & harmonic_states2(no_states), &
+            & couplings(no_states),        &
             & stat=ialloc); call err(ialloc)
     do i=1,no_states
-      line = split_line(input(7+i))
-      monomial_states(i) = MonomialState([input(3:4), str('State'), line(3)])
-      
-      line = split_line(input(8+no_states+i))
+      line = split_line(input(6+no_states+i))
       harmonic_states(i) = HarmonicState([input(3:4), str('State'), line(3)])
       
-      line = split_line(input(9+2*no_states+i))
-      states_to_basis(i) = StateConversion(join(line(3:)))
-      
-      line = split_line(input(10+3*no_states+i))
-      basis_to_states(i) = StateConversion(join(line(3:)))
-      
-      couplings(i) = CoupledStates(input(11+4*no_states+i))
+      couplings(i) = CoupledStates(input(7+2*no_states+i))
     enddo
     
-    this = WavevectorBasis( maximum_power,   &
-                          & expansion_order, &
-                          & subspace_id,     &
-                          & frequency,       &
-                          & wavevector,      &
-                          & degeneracy,      &
-                          & monomial_states, &
-                          & harmonic_states, &
-                          & states_to_basis, &
-                          & basis_to_states, &
-                          & couplings        )
+    this = WavevectorBasis( maximum_power,    &
+                          & expansion_order,  &
+                          & subspace_id,      &
+                          & frequency,        &
+                          & wavevector,       &
+                          & harmonic_states,  &
+                          & harmonic_states2, &
+                          & couplings         )
   class default
     call err()
   end select
@@ -1061,43 +980,22 @@ function write_WavevectorBasis(this) result(output)
   
   integer :: i
   
+  ! TODO
+  
   select type(this); type is(WavevectorBasis)
     output = [ 'Maximum power   : '//this%maximum_power,   &
              & 'Expansion order : '//this%expansion_order, &
              & 'Subspace        : '//this%subspace_id,     &
              & 'Frequency       : '//this%frequency,       &
              & 'Wavevector      : '//this%wavevector,      &
-             & 'Degeneracy      : '//this%degeneracy,      &
-             & str('Monomial states')                      ]
-    do i=1,size(this%monomial_states)
-      state_strings = str(this%monomial_states(i))
+             & str('Harmonic states')                      ]
+    do i=1,size(this%harmonic_states_)
+      state_strings = str(this%harmonic_states_(i))
       output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
     enddo
-    
-    output = [ output,                &
-             & str('Harmonic states') ]
-    do i=1,size(this%harmonic_states)
-      state_strings = str(this%harmonic_states(i))
-      output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
-    enddo
-    
-    output = [ output,                                   &
-             & str('Harmonic states in monomial basis.') ]
-    do i=1,size(this%states_to_basis_)
-      output = [ output,                                       &
-               & '|'//i//'> = '//str(this%states_to_basis_(i)) ] 
-    enddo
-    
-    output = [ output,                                  &
-             & str('Monomial states in harmonic Basis') ]
-    do i=1,size(this%basis_to_states_)
-      output = [ output,                                       &
-               & '|'//i//'> = '//str(this%basis_to_states_(i)) ] 
-    enddo
-    
     output = [ output,                                              &
              & str('Non-zero <i|H|j> integrals in harmonic basis'), &
-             & str(this%harmonic_couplings)                         ]
+             & str(this%harmonic_couplings_)                        ]
   class default
     call err()
   end select

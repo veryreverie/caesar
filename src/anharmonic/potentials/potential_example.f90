@@ -39,8 +39,12 @@ module potential_example_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialDataExample
     
-    procedure, public :: braket_state  => braket_state_PotentialDataExample
-    procedure, public :: braket_states => braket_states_PotentialDataExample
+    procedure, public :: braket_SubspaceState  => &
+                       & braket_SubspaceState_PotentialDataExample
+    procedure, public :: braket_BasisState  => &
+                       & braket_BasisState_PotentialDataExample
+    procedure, public :: braket_BasisStates => &
+                       & braket_BasisStates_PotentialDataExample
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PotentialDataExample
@@ -217,13 +221,28 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
   ! Code to calculate forces at complex displacements goes here.
 end function
 
-subroutine braket_state_PotentialDataExample(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data,qpoint)
+subroutine braket_SubspaceState_PotentialDataExample(this,bra,ket, &
+   & anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
   class(SubspaceState),        intent(in)           :: bra
   class(SubspaceState),        intent(in), optional :: ket
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  
+  call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
+  
+  ! Code to integrate this potential between <bra| and |ket> goes here.
+  ! This likely just involves calling braket on the constituent parts of this.
+end subroutine
+
+subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
+   & subspace_basis,anharmonic_data,qpoint)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout)        :: this
+  class(BasisState),           intent(in)           :: bra
+  class(BasisState),           intent(in), optional :: ket
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
@@ -235,12 +254,12 @@ subroutine braket_state_PotentialDataExample(this,bra,ket,subspace, &
   ! This likely just involves calling braket on the constituent parts of this.
 end subroutine
 
-subroutine braket_states_PotentialDataExample(this,states,subspace, &
+subroutine braket_BasisStates_PotentialDataExample(this,states,subspace, &
    & subspace_basis,anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
-  class(SubspaceStates),       intent(in)    :: states
+  class(BasisStates),          intent(in)    :: states
   type(DegenerateSubspace),    intent(in)    :: subspace
   class(SubspaceBasis),        intent(in)    :: subspace_basis
   type(AnharmonicData),        intent(in)    :: anharmonic_data

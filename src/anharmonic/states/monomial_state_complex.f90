@@ -20,7 +20,12 @@ module monomial_state_complex_module
     real(dp)                                    :: frequency
     type(MonomialState2D), private, allocatable :: modes_(:)
   contains
-    procedure, public, nopass :: representation => representation_MonomialStateComplex
+    procedure, public, nopass :: representation => &
+                               & representation_MonomialStateComplex
+    
+    procedure, public :: modes => modes_MonomialStateComplex
+    
+    procedure, public :: set_frequency => set_frequency_MonomialStateComplex
     
     procedure, public :: change_modes => change_modes_MonomialStateComplex
     
@@ -109,6 +114,30 @@ impure elemental function representation_MonomialStateComplex() result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Returns the modes spanned by the state.
+! ----------------------------------------------------------------------
+function modes_MonomialStateComplex(this) result(output)
+  implicit none
+  
+  class(MonomialStateComplex), intent(in) :: this
+  integer, allocatable                    :: output(:)
+  
+  output = [this%modes_%id(), this%modes_%paired_id()]
+end function
+
+! ----------------------------------------------------------------------
+! Set the frequency.
+! ----------------------------------------------------------------------
+impure elemental subroutine set_frequency_MonomialStateComplex(this,frequency)
+  implicit none
+  
+  class(MonomialStateComplex), intent(inout) :: this
+  real(dp),                    intent(in)    :: frequency
+  
+  this%frequency = frequency
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Returns the total power of a given state.
 ! ----------------------------------------------------------------------
 ! The total power of the state product_{q,i} |(u_{q,i})^(n_{q,i})> is equal to
@@ -187,25 +216,24 @@ end function
 ! SubspaceState methods.
 ! ----------------------------------------------------------------------
 ! Returns whether or not braket(bra,ket) is non-zero.
-impure elemental function finite_overlap_MonomialStateComplexs(bra,ket) &
-   & result(output)
+impure elemental function finite_overlap_MonomialStateComplexs(bra,ket, &
+   & anharmonic_data) result(output)
   implicit none
   
   type(MonomialStateComplex), intent(in) :: bra
   type(MonomialStateComplex), intent(in) :: ket
+  type(AnharmonicData),       intent(in) :: anharmonic_data
   logical                                :: output
   
   output = all(bra%modes_%finite_overlap(ket%modes_))
 end function
 
 impure elemental function inner_product_MonomialStateComplex(this, &
-   & ket,subspace,subspace_basis,anharmonic_data) result(output)
+   & ket,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in)           :: this
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   real(dp)                                          :: output
   
@@ -220,17 +248,14 @@ impure elemental function inner_product_MonomialStateComplex(this, &
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_MonomialStateComplex(this,monomial, &
-   & ket,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+impure elemental function braket_ComplexMonomial_MonomialStateComplex(this, &
+   & monomial,ket,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in)           :: this
   type(ComplexMonomial),       intent(in)           :: monomial
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(QpointData),            intent(in), optional :: qpoint
   type(ComplexMonomial)                             :: output
   
   type(MonomialStateComplex) :: monomial_ket
@@ -273,15 +298,12 @@ impure elemental function braket_ComplexMonomial_MonomialStateComplex(this,monom
 end function
 
 impure elemental function kinetic_energy_MonomialStateComplex(this,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+   & anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in)           :: this
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(QpointData),            intent(in), optional :: qpoint
   real(dp)                                          :: output
   
   type(MonomialStateComplex)         :: monomial_ket
@@ -321,17 +343,15 @@ impure elemental function kinetic_energy_MonomialStateComplex(this,ket, &
 end function
 
 impure elemental function harmonic_potential_energy_MonomialStateComplex( &
-   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
+   & this,ket,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(SubspaceState),        intent(in), optional :: ket
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  real(dp)                                          :: output
   
-  type(MonomialStateComplex)              :: monomial_ket
+  type(MonomialStateComplex)           :: monomial_ket
   type(MonomialState2D),   allocatable :: bra_modes(:)
   type(MonomialState2D),   allocatable :: ket_modes(:)
   type(ComplexUnivariate), allocatable :: harmonic_potential(:)
@@ -378,13 +398,11 @@ impure elemental function harmonic_potential_energy_MonomialStateComplex( &
 end function
 
 impure elemental function kinetic_stress_MonomialStateComplex(this,ket, &
-   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
+   & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in)           :: this
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(StressPrefactors),      intent(in)           :: stress_prefactors
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   type(RealMatrix)                                  :: output

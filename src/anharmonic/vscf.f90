@@ -19,10 +19,10 @@ module vscf_module
   public :: run_vscf
   
   type, extends(NoDefaultConstructor) :: VscfStep
-    type(PotentialPointer),      allocatable :: input_potentials(:)
-    type(SubspaceStatesPointer), allocatable :: states(:)
-    type(EnergySpectra),         allocatable :: spectra(:)
-    type(PotentialPointer),      allocatable :: output_potentials(:)
+    type(PotentialPointer),   allocatable :: input_potentials(:)
+    type(BasisStatesPointer), allocatable :: states(:)
+    type(EnergySpectra),      allocatable :: spectra(:)
+    type(PotentialPointer),   allocatable :: output_potentials(:)
   end type
   
   interface VscfStep
@@ -30,8 +30,8 @@ module vscf_module
   end interface
   
   type, extends(NoDefaultConstructor) :: VscfOutput
-    type(PotentialPointer)      :: potential
-    type(SubspaceStatesPointer) :: states
+    type(PotentialPointer)   :: potential
+    type(BasisStatesPointer) :: states
   end type
   
   interface VscfOutput
@@ -45,7 +45,7 @@ function new_VscfStep(input_potentials,states,spectra,output_potentials) &
   implicit none
   
   class(PotentialData),  intent(in) :: input_potentials(:)
-  class(SubspaceStates), intent(in) :: states(:)
+  class(BasisStates),    intent(in) :: states(:)
   type(EnergySpectra),   intent(in) :: spectra(:)
   class(PotentialData),  intent(in) :: output_potentials(:)
   type(VscfStep)                    :: this
@@ -63,7 +63,7 @@ function new_VscfStep(input_potentials,states,spectra,output_potentials) &
   endif
   
   this%input_potentials = PotentialPointer(input_potentials)
-  this%states = SubspaceStatesPointer(states)
+  this%states = BasisStatesPointer(states)
   this%spectra = spectra
   this%output_potentials = PotentialPointer(output_potentials)
 end function
@@ -71,12 +71,12 @@ end function
 impure elemental function new_VscfOutput(potential,states) result(this)
   implicit none
   
-  class(PotentialData),  intent(in) :: potential
-  Class(SubspaceStates), intent(in) :: states
-  type(VscfOutput)                  :: this
+  class(PotentialData), intent(in) :: potential
+  Class(BasisStates),   intent(in) :: states
+  type(VscfOutput)                 :: this
   
   this%potential = PotentialPointer(potential)
-  this%states = SubspaceStatesPointer(states)
+  this%states = BasisStatesPointer(states)
 end function
 
 ! ----------------------------------------------------------------------
@@ -99,10 +99,10 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(VscfOutput), allocatable        :: output(:)
   
-  type(PotentialPointer),      allocatable :: input_potentials(:)
-  type(SubspaceStatesPointer), allocatable :: subspace_states(:)
-  type(EnergySpectra),         allocatable :: subspace_spectra(:)
-  type(PotentialPointer),      allocatable :: output_potentials(:)
+  type(PotentialPointer),   allocatable :: input_potentials(:)
+  type(BasisStatesPointer), allocatable :: subspace_states(:)
+  type(EnergySpectra),      allocatable :: subspace_spectra(:)
+  type(PotentialPointer),   allocatable :: output_potentials(:)
   
   type(PotentialPointer), allocatable :: in_potentials(:)
   type(PotentialPointer), allocatable :: out_potentials(:)
@@ -118,9 +118,9 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
   ! Generate initial states,
   !    and use these states to generate initial potentials.
   call print_line('Generating initial states and potentials.')
-  subspace_states = SubspaceStatesPointer(subspace_bases%initial_states( &
-                                                       & subspaces,      &
-                                                       & anharmonic_data ))
+  subspace_states = BasisStatesPointer(subspace_bases%initial_states( &
+                                                    & subspaces,      &
+                                                    & anharmonic_data ))
   input_potentials = generate_subspace_potentials( potential,       &
                                                  & subspaces,       &
                                                  & subspace_bases,  &
@@ -133,7 +133,7 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     
     ! Use the single-subspace potentials to calculate the new states.
     call print_line('Generating single-subspace ground states.')
-    subspace_states = SubspaceStatesPointer(                           &
+    subspace_states = BasisStatesPointer(                              &
        & subspace_bases%calculate_states( subspaces,                   &
        &                                  input_potentials,            &
        &                                  energy_convergence,          &

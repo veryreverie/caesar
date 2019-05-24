@@ -27,11 +27,16 @@ module stress_basis_function_module
     procedure, private :: stress_RealModeDisplacement_StressBasisFunction
     procedure, private :: stress_ComplexModeDisplacement_StressBasisFunction
     
-    generic,   public :: braket =>     &
-                       & braket_state, &
-                       & braket_states
-    procedure, public :: braket_state  => braket_state_StressBasisFunction
-    procedure, public :: braket_states => braket_states_StressBasisFunction
+    generic,   public :: braket =>             &
+                       & braket_SubspaceState, &
+                       & braket_BasisState,    &
+                       & braket_BasisStates
+    procedure, public :: braket_SubspaceState => &
+                       & braket_SubspaceState_StressBasisFunction
+    procedure, public :: braket_BasisState => &
+                       & braket_BasisState_StressBasisFunction
+    procedure, public :: braket_BasisStates => &
+                       & braket_BasisStates_StressBasisFunction
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_StressBasisFunction
@@ -360,13 +365,25 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-subroutine braket_state_StressBasisFunction(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data)
+subroutine braket_SubspaceState_StressBasisFunction(this,bra,ket, &
+   & anharmonic_data)
   implicit none
   
   class(StressBasisFunction), intent(inout)        :: this
   class(SubspaceState),       intent(in)           :: bra
   class(SubspaceState),       intent(in), optional :: ket
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  
+  call this%elements_%braket(bra,ket,anharmonic_data)
+end subroutine
+
+subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
+   & subspace_basis,anharmonic_data)
+  implicit none
+  
+  class(StressBasisFunction), intent(inout)        :: this
+  class(BasisState),          intent(in)           :: bra
+  class(BasisState),          intent(in), optional :: ket
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   type(AnharmonicData),       intent(in)           :: anharmonic_data
@@ -374,12 +391,12 @@ subroutine braket_state_StressBasisFunction(this,bra,ket,subspace, &
   call this%elements_%braket(bra,ket,subspace,subspace_basis,anharmonic_data)
 end subroutine
 
-subroutine braket_states_StressBasisFunction(this,states,subspace, &
+subroutine braket_BasisStates_StressBasisFunction(this,states,subspace, &
    & subspace_basis,anharmonic_data)
   implicit none
   
   class(StressBasisFunction), intent(inout)        :: this
-  class(SubspaceStates),      intent(in)           :: states
+  class(BasisStates),         intent(in)           :: states
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   type(AnharmonicData),       intent(in)           :: anharmonic_data

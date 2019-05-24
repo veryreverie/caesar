@@ -44,7 +44,7 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(SubspaceStates),    intent(in) :: subspace_states(:)
+  class(BasisStates),       intent(in) :: subspace_states(:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(PotentialPointer), allocatable  :: output(:)
   
@@ -132,7 +132,7 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
   class(StressData),        intent(in) :: stress
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(SubspaceStates),    intent(in) :: subspace_states(:)
+  class(BasisStates),       intent(in) :: subspace_states(:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(StressPointer), allocatable     :: output(:)
   

@@ -16,11 +16,17 @@ module harmonic_state_complex_module
   
   public :: HarmonicStateComplex
   
+  public :: prod_complex
+  
   type, extends(SubspaceState) :: HarmonicStateComplex
     real(dp)                                    :: frequency
     type(HarmonicState2D), private, allocatable :: modes_(:)
   contains
     procedure, public, nopass :: representation => representation_HarmonicStateComplex
+    
+    procedure, public :: modes => modes_HarmonicStateComplex
+    
+    procedure, public :: set_frequency => set_frequency_HarmonicStateComplex
     
     procedure, public :: change_modes => change_modes_HarmonicStateComplex
     
@@ -56,6 +62,16 @@ module harmonic_state_complex_module
     module procedure finite_overlap_HarmonicStateComplexs
   end interface
 contains
+
+function prod_complex(lhs,rhs) result(output)
+  implicit none
+  
+  type(HarmonicStateComplex), intent(in) :: lhs
+  type(HarmonicStateComplex), intent(in) :: rhs
+  type(HarmonicStateComplex)             :: output
+  
+  output = HarmonicStateComplex(lhs%subspace_id, lhs%frequency, [lhs%modes_,rhs%modes_])
+end function
 
 ! Startup procedure.
 subroutine startup_harmonic_state_complex()
@@ -109,11 +125,36 @@ impure elemental function representation_HarmonicStateComplex() result(output)
 end function
 
 ! ----------------------------------------------------------------------
+! Returns the modes spanned by the state.
+! ----------------------------------------------------------------------
+function modes_HarmonicStateComplex(this) result(output)
+  implicit none
+  
+  class(HarmonicStateComplex), intent(in) :: this
+  integer, allocatable                   :: output(:)
+  
+  output = [this%modes_%id(), this%modes_%paired_id()]
+end function
+
+! ----------------------------------------------------------------------
+! Set the frequency.
+! ----------------------------------------------------------------------
+impure elemental subroutine set_frequency_HarmonicStateComplex(this,frequency)
+  implicit none
+  
+  class(HarmonicStateComplex), intent(inout) :: this
+  real(dp),                    intent(in)    :: frequency
+  
+  this%frequency = frequency
+end subroutine
+
+! ----------------------------------------------------------------------
 ! Returns the total occupation of a given state.
 ! ----------------------------------------------------------------------
 ! The total occupation of the state product_{q,i}|n_{q,i}> is equal to
 !    sum_{q,i} n_{q,i}.
-impure elemental function total_occupation_HarmonicStateComplex(this) result(output)
+impure elemental function total_occupation_HarmonicStateComplex(this) &
+   & result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in) :: this
@@ -163,25 +204,24 @@ end function
 ! SubspaceState methods.
 ! ----------------------------------------------------------------------
 ! Returns whether or not braket(bra,ket) is non-zero.
-impure elemental function finite_overlap_HarmonicStateComplexs(bra,ket) &
-   & result(output)
+impure elemental function finite_overlap_HarmonicStateComplexs(bra,ket, &
+   & anharmonic_data) result(output)
   implicit none
   
   type(HarmonicStateComplex), intent(in) :: bra
   type(HarmonicStateComplex), intent(in) :: ket
+  type(AnharmonicData),       intent(in) :: anharmonic_data
   logical                                :: output
   
   output = all(bra%modes_%finite_overlap(ket%modes_))
 end function
 
 impure elemental function inner_product_HarmonicStateComplex(this, &
-   & ket,subspace,subspace_basis,anharmonic_data) result(output)
+   & ket,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in)           :: this
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   real(dp)                                          :: output
   
@@ -197,16 +237,13 @@ impure elemental function inner_product_HarmonicStateComplex(this, &
 end function
 
 impure elemental function braket_ComplexMonomial_HarmonicStateComplex(this,monomial, &
-   & ket,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+   & ket,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in)           :: this
   type(ComplexMonomial),       intent(in)           :: monomial
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(QpointData),            intent(in), optional :: qpoint
   type(ComplexMonomial)                             :: output
   
   type(HarmonicStateComplex) :: harmonic_ket
@@ -249,15 +286,12 @@ impure elemental function braket_ComplexMonomial_HarmonicStateComplex(this,monom
 end function
 
 impure elemental function kinetic_energy_HarmonicStateComplex(this,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+   & anharmonic_data) result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in)           :: this
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(QpointData),            intent(in), optional :: qpoint
   real(dp)                                          :: output
   
   type(HarmonicStateComplex)         :: harmonic_ket
@@ -300,17 +334,15 @@ impure elemental function kinetic_energy_HarmonicStateComplex(this,ket, &
 end function
 
 impure elemental function harmonic_potential_energy_HarmonicStateComplex( &
-   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
+   & this,ket,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(SubspaceState),        intent(in), optional :: ket
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  real(dp)                                          :: output
   
-  type(HarmonicStateComplex)              :: harmonic_ket
+  type(HarmonicStateComplex)           :: harmonic_ket
   type(HarmonicState2D),   allocatable :: bra_modes(:)
   type(HarmonicState2D),   allocatable :: ket_modes(:)
   type(ComplexUnivariate), allocatable :: harmonic_potential(:)
@@ -361,13 +393,11 @@ impure elemental function harmonic_potential_energy_HarmonicStateComplex( &
 end function
 
 impure elemental function kinetic_stress_HarmonicStateComplex(this,ket, &
-   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
+   & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in)           :: this
   class(SubspaceState),        intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(StressPrefactors),      intent(in)           :: stress_prefactors
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   type(RealMatrix)                                  :: output

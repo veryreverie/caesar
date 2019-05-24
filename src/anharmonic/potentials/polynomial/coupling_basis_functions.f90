@@ -35,11 +35,16 @@ module coupling_basis_functions_module
     procedure, private :: force_RealModeDisplacement_CouplingBasisFunctions
     procedure, private :: force_ComplexModeDisplacement_CouplingBasisFunctions
     
-    generic,   public :: braket =>     &
-                       & braket_state, &
-                       & braket_states
-    procedure, public :: braket_state  => braket_state_CouplingBasisFunctions
-    procedure, public :: braket_states => braket_states_CouplingBasisFunctions
+    generic,   public :: braket =>             &
+                       & braket_SubspaceState, &
+                       & braket_BasisState,    &
+                       & braket_BasisStates
+    procedure, public :: braket_SubspaceState => &
+                       & braket_SubspaceState_CouplingBasisFunctions
+    procedure, public :: braket_BasisState => &
+                       & braket_BasisState_CouplingBasisFunctions
+    procedure, public :: braket_BasisStates => &
+                       & braket_BasisStates_CouplingBasisFunctions
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_CouplingBasisFunctions
@@ -163,42 +168,58 @@ impure elemental function                                                    &
   endif
 end function
 
-impure elemental subroutine braket_state_CouplingBasisFunctions(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint)
+impure elemental subroutine braket_SubspaceState_CouplingBasisFunctions(this, &
+   & bra,ket,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
   class(SubspaceState),          intent(in)           :: bra
   class(SubspaceState),          intent(in), optional :: ket
+  type(AnharmonicData),          intent(in)           :: anharmonic_data
+  
+  integer :: i
+  
+  do i=1,size(this)
+    call this%basis_functions_(i)%braket(bra, ket, anharmonic_data)
+  enddo
+  
+  ! Simplify the potential.
+  call this%basis_functions_%simplify()
+end subroutine
+
+impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
+   & bra,ket,subspace,subspace_basis,anharmonic_data,qpoint)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout)        :: this
+  class(BasisState),             intent(in)           :: bra
+  class(BasisState),             intent(in), optional :: ket
   type(DegenerateSubspace),      intent(in)           :: subspace
   class(SubspaceBasis),          intent(in)           :: subspace_basis
   type(AnharmonicData),          intent(in)           :: anharmonic_data
   type(QpointData),              intent(in), optional :: qpoint
   
-  integer :: i,j
+  integer :: i
   
-  i = first(this%coupling%ids==subspace%id, default=0)
-  if (i/=0) then
-    do j=1,size(this)
-      call this%basis_functions_(j)%braket( bra,             &
-                                          & ket,             &
-                                          & subspace,        &
-                                          & subspace_basis,  &
-                                          & anharmonic_data, &
-                                          & qpoint           )
-    enddo
-    
-    ! Simplify the potential.
-    call this%basis_functions_%simplify()
-  endif
+  do i=1,size(this)
+    call this%basis_functions_(i)%braket( bra,             &
+                                        & ket,             &
+                                        & subspace,        &
+                                        & subspace_basis,  &
+                                        & anharmonic_data, &
+                                        & qpoint           )
+  enddo
+  
+  ! Simplify the potential.
+  call this%basis_functions_%simplify()
 end subroutine
 
-impure elemental subroutine braket_states_CouplingBasisFunctions(this,states, &
-   & subspace,subspace_basis,anharmonic_data)
+impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
+   & states,subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout) :: this
-  class(SubspaceStates),         intent(in)    :: states
+  class(BasisStates),            intent(in)    :: states
   type(DegenerateSubspace),      intent(in)    :: subspace
   class(SubspaceBasis),          intent(in)    :: subspace_basis
   type(AnharmonicData),          intent(in)    :: anharmonic_data

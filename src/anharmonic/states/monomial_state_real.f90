@@ -22,7 +22,12 @@ module monomial_state_real_module
     real(dp)                                    :: frequency
     type(MonomialState1D), private, allocatable :: modes_(:)
   contains
-    procedure, public, nopass :: representation => representation_MonomialStateReal
+    procedure, public, nopass :: representation => &
+                               & representation_MonomialStateReal
+    
+    procedure, public :: modes => modes_MonomialStateReal
+    
+    procedure, public :: set_frequency => set_frequency_MonomialStateReal
     
     procedure, public :: change_modes => change_modes_MonomialStateReal
     
@@ -109,6 +114,30 @@ impure elemental function representation_MonomialStateReal() result(output)
   
   output = 'monomial real'
 end function
+
+! ----------------------------------------------------------------------
+! Returns the modes spanned by the state.
+! ----------------------------------------------------------------------
+function modes_MonomialStateReal(this) result(output)
+  implicit none
+  
+  class(MonomialStateReal), intent(in) :: this
+  integer, allocatable                 :: output(:)
+  
+  output = this%modes_%id()
+end function
+
+! ----------------------------------------------------------------------
+! Set the frequency.
+! ----------------------------------------------------------------------
+impure elemental subroutine set_frequency_MonomialStateReal(this,frequency)
+  implicit none
+  
+  class(MonomialStateReal), intent(inout) :: this
+  real(dp),                 intent(in)    :: frequency
+  
+  this%frequency = frequency
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Generates all monomial states in a subspace up to a given power.
@@ -240,25 +269,24 @@ end function
 ! SubspaceState methods.
 ! ----------------------------------------------------------------------
 ! Returns whether or not braket(bra,ket) is non-zero.
-impure elemental function finite_overlap_MonomialStateReals(bra,ket) &
-   & result(output)
+impure elemental function finite_overlap_MonomialStateReals(bra,ket, &
+   & anharmonic_data) result(output)
   implicit none
   
   type(MonomialStateReal), intent(in) :: bra
   type(MonomialStateReal), intent(in) :: ket
+  type(AnharmonicData),    intent(in) :: anharmonic_data
   logical                             :: output
   
   output = all(bra%modes_%finite_overlap(ket%modes_))
 end function
 
 impure elemental function inner_product_MonomialStateReal(this, &
-   & ket,subspace,subspace_basis,anharmonic_data) result(output)
+   & ket,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateReal), intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
@@ -273,17 +301,14 @@ impure elemental function inner_product_MonomialStateReal(this, &
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_MonomialStateReal(this,monomial, &
-   & ket,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+impure elemental function braket_ComplexMonomial_MonomialStateReal(this, &
+   & monomial,ket,anharmonic_data) result(output)
   implicit none
   
-  class(MonomialStateReal),     intent(in)           :: this
+  class(MonomialStateReal), intent(in)           :: this
   type(ComplexMonomial),    intent(in)           :: monomial
   class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
   type(ComplexMonomial)                          :: output
   
   type(MonomialStateReal) :: monomial_ket
@@ -326,15 +351,12 @@ impure elemental function braket_ComplexMonomial_MonomialStateReal(this,monomial
 end function
 
 impure elemental function kinetic_energy_MonomialStateReal(this,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+   & anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateReal), intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(MonomialStateReal)            :: monomial_ket
@@ -374,13 +396,11 @@ impure elemental function kinetic_energy_MonomialStateReal(this,ket, &
 end function
 
 impure elemental function harmonic_potential_energy_MonomialStateReal( &
-   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
+   & this,ket,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateReal), intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
@@ -430,13 +450,11 @@ impure elemental function harmonic_potential_energy_MonomialStateReal( &
 end function
 
 impure elemental function kinetic_stress_MonomialStateReal(this,ket, &
-   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
+   & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateReal), intent(in)           :: this
   class(SubspaceState),     intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(StressPrefactors),   intent(in)           :: stress_prefactors
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(RealMatrix)                               :: output

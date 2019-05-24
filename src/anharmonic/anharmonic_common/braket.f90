@@ -35,7 +35,7 @@ recursive function potential_energy_state(state,potential,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceState),     intent(in) :: state
+  class(BasisState),        intent(in) :: state
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspace
   class(SubspaceBasis),     intent(in) :: subspace_basis
@@ -57,9 +57,9 @@ recursive function potential_energy_state_state(bra,potential,ket,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceState),     intent(in) :: bra
+  class(BasisState),        intent(in) :: bra
   class(PotentialData),     intent(in) :: potential
-  class(SubspaceState),     intent(in) :: ket
+  class(BasisState),        intent(in) :: ket
   type(DegenerateSubspace), intent(in) :: subspace
   class(SubspaceBasis),     intent(in) :: subspace_basis
   type(AnharmonicData),     intent(in) :: anharmonic_data
@@ -85,7 +85,7 @@ recursive function potential_stress_state(state,stress,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceState),     intent(in) :: state
+  class(BasisState),        intent(in) :: state
   class(StressData),        intent(in) :: stress
   type(DegenerateSubspace), intent(in) :: subspace
   class(SubspaceBasis),     intent(in) :: subspace_basis
@@ -107,9 +107,9 @@ recursive function potential_stress_state_state(bra,stress,ket,subspace, &
    & subspace_basis,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceState),     intent(in) :: bra
+  class(BasisState),        intent(in) :: bra
   class(StressData),        intent(in) :: stress
-  class(SubspaceState),     intent(in) :: ket
+  class(BasisState),        intent(in) :: ket
   type(DegenerateSubspace), intent(in) :: subspace
   class(SubspaceBasis),     intent(in) :: subspace_basis
   type(AnharmonicData),     intent(in) :: anharmonic_data

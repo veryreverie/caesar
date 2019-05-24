@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
 include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(states)
 
-add_library(states state_helper.f90 monomial_state_1d.f90 monomial_state_2d.f90 harmonic_state_1d.f90 harmonic_state_2d.f90 monomial_state.f90 monomial_state_real.f90 monomial_state_complex.f90 polynomial_state.f90 harmonic_state.f90 harmonic_state_real.f90 harmonic_state_complex.f90 state_conversion.f90 coupled_states.f90 wavevector_basis.f90 full_subspace_wavefunctions.f90 split_qpoints_wavefunctions.f90 full_subspace_basis_and_states.f90 split_qpoints_basis_and_states.f90 states.f90)
+add_library(states state_helper.f90 monomial_state_1d.f90 monomial_state_2d.f90 harmonic_state_1d.f90 harmonic_state_2d.f90 monomial_state.f90 monomial_state_real.f90 monomial_state_complex.f90 polynomial_state.f90 harmonic_state.f90 harmonic_state_real.f90 harmonic_state_complex.f90 state_conversion.f90 coupled_states.f90 wavevector_state.f90 wavevector_states.f90 wavevector_basis.f90 full_subspace_wavefunctions.f90 split_qpoints_wavefunctions.f90 full_subspace_basis_and_states.f90 split_qpoints_basis_and_states.f90 states.f90)
 target_include_directories(states PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link against other modules.

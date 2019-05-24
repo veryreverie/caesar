@@ -43,11 +43,16 @@ module basis_function_module
     procedure, private :: force_RealModeDisplacement_BasisFunction
     procedure, private :: force_ComplexModeDisplacement_BasisFunction
     
-    generic,   public :: braket =>     &
-                       & braket_state, &
-                       & braket_states
-    procedure, public :: braket_state  => braket_state_BasisFunction
-    procedure, public :: braket_states => braket_states_BasisFunction
+    generic,   public :: braket =>             &
+                       & braket_SubspaceState, &
+                       & braket_BasisState,    &
+                       & braket_BasisStates
+    procedure, public :: braket_SubspaceState => &
+                       & braket_SubspaceState_BasisFunction
+    procedure, public :: braket_BasisState => &
+                       & braket_BasisState_BasisFunction
+    procedure, public :: braket_BasisStates => &
+                       & braket_BasisStates_BasisFunction
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_BasisFunction
@@ -373,13 +378,65 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-impure elemental subroutine braket_state_BasisFunction(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data,qpoint)
+impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
+   & anharmonic_data)
   implicit none
   
   class(BasisFunction),     intent(inout)        :: this
   class(SubspaceState),     intent(in)           :: bra
   class(SubspaceState),     intent(in), optional :: ket
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  
+  integer,              allocatable :: integrated_modes(:)
+  
+  type(ComplexMatrix)               :: complex_to_real_conversion
+  complex(dp),          allocatable :: complex_coefficients(:)
+  real(dp),             allocatable :: real_coefficients(:)
+  type(RealUnivariate), allocatable :: real_modes(:)
+  logical,              allocatable :: mode_integrated(:)
+  
+  integer :: i,j
+  
+  integrated_modes = bra%modes()
+  
+  ! Generate conversion between complex and real representation.
+  complex_to_real_conversion = coefficient_conversion_matrix( &
+                        & this%real_representation_%terms,    &
+                        & this%complex_representation_%terms, &
+                        & include_coefficients = .false.      )
+  
+  ! Perform integration in complex co-ordinates.
+  this%complex_representation_ = bra%braket( this%complex_representation_, &
+                                           & ket,                          &
+                                           & anharmonic_data               )
+  
+  ! Use calculated complex coefficients and conversion to generate new
+  !    coefficients for real representation.
+  complex_coefficients = this%complex_representation_%terms%coefficient
+  real_coefficients = real(cmplx( complex_to_real_conversion &
+                              & * vec(complex_coefficients)  ))
+  this%real_representation_%terms%coefficient = real_coefficients
+  
+  ! Remove modes in real representation which have been integrated over.
+  do i=1,size(this%real_representation_)
+    real_modes = this%real_representation_%terms(i)%modes()
+    mode_integrated = [( any(real_modes(j)%id==integrated_modes), &
+                       & j=1,                                     &
+                       & size(real_modes)                         )]
+    real_modes = real_modes(filter(.not.mode_integrated))
+    this%real_representation_%terms(i) = RealMonomial(                &
+       & modes       = real_modes,                                    &
+       & coefficient = this%real_representation_%terms(i)%coefficient )
+  enddo
+end subroutine
+
+impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data,qpoint)
+  implicit none
+  
+  class(BasisFunction),     intent(inout)        :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -442,12 +499,12 @@ impure elemental subroutine braket_state_BasisFunction(this,bra,ket,subspace, &
   enddo
 end subroutine
 
-impure elemental subroutine braket_states_BasisFunction(this,states,subspace, &
-   & subspace_basis,anharmonic_data)
+impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
+   & subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(BasisFunction),     intent(inout) :: this
-  class(SubspaceStates),    intent(in)    :: states
+  class(BasisStates),       intent(in)    :: states
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data

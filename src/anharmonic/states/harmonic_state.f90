@@ -21,7 +21,7 @@ module harmonic_state_module
   public :: HarmonicState
   
   public :: operator(*)
-  public :: generate_harmonic_states
+  !public :: generate_harmonic_states
   
   ! A HarmonicState is a product of single-mode and double-mode states
   ! A state |n_1,n_2,n_3,...,n_> = |n_1>|n_2,n_3>...|n_>.
@@ -54,12 +54,15 @@ module harmonic_state_module
   !    atomic masses, arising as a result of mass reduction) and N (the number
   !    of primitive cells in the supercell) , and allows the frequency to be
   !    changed without having to re-calculate coefficients.
-  type, extends(SubspaceState) :: HarmonicState
+  type, extends(BasisState) :: HarmonicState
     real(dp)                       :: frequency
+    integer, allocatable,  private :: modes_
     type(ComplexMonomial), private :: state_
   contains
     procedure, public, nopass :: representation => &
                                & representation_HarmonicState
+    
+    procedure, public :: modes => modes_HarmonicState
     
     procedure, public :: inner_product => &
                        & inner_product_HarmonicState
@@ -82,7 +85,7 @@ module harmonic_state_module
   
   interface HarmonicState
     module procedure new_HarmonicState
-    module procedure new_HarmonicState_SubspaceState
+    module procedure new_HarmonicState_BasisState
     module procedure new_HarmonicState_Strings
     module procedure new_HarmonicState_StringArray
   end interface
@@ -121,15 +124,15 @@ function new_HarmonicState(subspace_id,frequency,state) result(this)
   this%state_      = state
 end function
 
-recursive function new_HarmonicState_SubspaceState(input) result(this)
+recursive function new_HarmonicState_BasisState(input) result(this)
   implicit none
   
-  class(SubspaceState), intent(in) :: input
-  type(HarmonicState)              :: this
+  class(BasisState), intent(in) :: input
+  type(HarmonicState)           :: this
   
   select type(input); type is(HarmonicState)
     this = input
-  type is(SubspaceStatePointer)
+  type is(BasisStatePointer)
     this = HarmonicState(input%state())
   class default
     call err()
@@ -145,6 +148,18 @@ impure elemental function representation_HarmonicState() result(output)
   type(String) :: output
   
   output = 'harmonic'
+end function
+
+! ----------------------------------------------------------------------
+! Returns the modes spanned by the state.
+! ----------------------------------------------------------------------
+function modes_HarmonicState(this) result(output)
+  implicit none
+  
+  class(HarmonicState), intent(in) :: this
+  integer, allocatable             :: output(:)
+  
+  output = this%modes_
 end function
 
 ! ----------------------------------------------------------------------
@@ -256,14 +271,14 @@ function wavevector_HarmonicState(this,modes,qpoints) result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! SubspaceState methods.
+! BasisState methods.
 ! ----------------------------------------------------------------------
 impure elemental function inner_product_HarmonicState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -289,7 +304,7 @@ impure elemental function braket_ComplexMonomial_HarmonicState(this,monomial, &
   
   class(HarmonicState),     intent(in)           :: this
   type(ComplexMonomial),    intent(in)           :: monomial
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -353,7 +368,7 @@ impure elemental function kinetic_energy_HarmonicState(this,ket, &
   implicit none
   
   class(HarmonicState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -370,18 +385,16 @@ impure elemental function kinetic_energy_HarmonicState(this,ket, &
   if (present(ket)) then
     ! Process the bra and ket.
     harmonic_ket = HarmonicState(ket)
-    helper = StateHelper( this%state_,                       &
-                        & harmonic_ket%state_,               &
-                        & subspace        = subspace,        &
-                        & anharmonic_data = anharmonic_data, &
-                        & qpoint          = qpoint           )
+    helper = StateHelper( this%state_,                      &
+                        & harmonic_ket%state_,              &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data,qpoint=qpoint )
   else
     ! Process the bra and ket.
-    helper = StateHelper( this%state_,                       &
-                        & this%state_,                       &
-                        & subspace        = subspace,        &
-                        & anharmonic_data = anharmonic_data, &
-                        & qpoint          = qpoint           )
+    helper = StateHelper( this%state_,                      &
+                        & this%state_,                      &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data,qpoint=qpoint )
   endif
   
   ! Calculate which single- and double-mode states have non-zero overlaps.
@@ -408,7 +421,7 @@ impure elemental function harmonic_potential_energy_HarmonicState(this,ket, &
   implicit none
   
   class(HarmonicState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -462,7 +475,7 @@ impure elemental function kinetic_stress_HarmonicState(this,ket, &
   implicit none
   
   class(HarmonicState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(StressPrefactors),   intent(in)           :: stress_prefactors

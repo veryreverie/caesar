@@ -21,7 +21,7 @@ module monomial_state_module
   public :: MonomialState
   
   public :: operator(*)
-  public :: generate_monomial_states
+  !public :: generate_monomial_states
   
   ! N.B. throughout, f(n) is the odd factorial of n, f(n) = (2n)!/(n! 2^n).
   !
@@ -53,11 +53,14 @@ module monomial_state_module
   !    normalised such that <state|state>=1. This removes the need to keep
   !    track of the various factors of two, pi, m and N, and allows
   !    the frequency to be changed without having to re-calculate coefficients.
-  type, extends(SubspaceState) :: MonomialState
+  type, extends(BasisState) :: MonomialState
     real(dp)                       :: frequency
+    integer, allocatable,  private :: modes_
     type(ComplexMonomial), private :: state_
   contains
     procedure, public, nopass :: representation => representation_MonomialState
+    
+    procedure, public :: modes => modes_MonomialState
     
     procedure, public :: inner_product => &
                        & inner_product_MonomialState
@@ -84,7 +87,7 @@ module monomial_state_module
   
   interface MonomialState
     module procedure new_MonomialState
-    module procedure new_MonomialState_SubspaceState
+    module procedure new_MonomialState_BasisState
     module procedure new_MonomialState_Strings
     module procedure new_MonomialState_StringArray
   end interface
@@ -123,15 +126,15 @@ function new_MonomialState(subspace_id,frequency,state) result(this)
   this%state_      = state
 end function
 
-recursive function new_MonomialState_SubspaceState(input) result(this)
+recursive function new_MonomialState_BasisState(input) result(this)
   implicit none
   
-  class(SubspaceState), intent(in) :: input
-  type(MonomialState)              :: this
+  class(BasisState), intent(in) :: input
+  type(MonomialState)           :: this
   
   select type(input); type is(MonomialState)
     this = input
-  type is(SubspaceStatePointer)
+  type is(BasisStatePointer)
     this = MonomialState(input%state())
   class default
     call err()
@@ -147,6 +150,18 @@ impure elemental function representation_MonomialState() result(output)
   type(String) :: output
   
   output = 'monomial'
+end function
+
+! ----------------------------------------------------------------------
+! Returns the modes spanned by the state.
+! ----------------------------------------------------------------------
+function modes_MonomialState(this) result(output)
+  implicit none
+  
+  class(MonomialState), intent(in) :: this
+  integer, allocatable             :: output(:)
+  
+  output = this%modes_
 end function
 
 ! ----------------------------------------------------------------------
@@ -300,14 +315,14 @@ impure elemental function wavefunction_MonomialState(this,frequency, &
 end function
 
 ! ----------------------------------------------------------------------
-! SubspaceState methods.
+! BasisState methods.
 ! ----------------------------------------------------------------------
 impure elemental function inner_product_MonomialState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
   class(MonomialState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -332,7 +347,7 @@ impure elemental function braket_ComplexMonomial_MonomialState(this,monomial, &
   
   class(MonomialState),     intent(in)           :: this
   type(ComplexMonomial),    intent(in)           :: monomial
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -396,7 +411,7 @@ impure elemental function kinetic_energy_MonomialState(this,ket, &
   implicit none
   
   class(MonomialState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -413,18 +428,16 @@ impure elemental function kinetic_energy_MonomialState(this,ket, &
   if (present(ket)) then
     ! Process the bra and ket.
     monomial_ket = MonomialState(ket)
-    helper = StateHelper( this%state_,                       &
-                        & monomial_ket%state_,               &
-                        & subspace        = subspace,        &
-                        & anharmonic_data = anharmonic_data, &
-                        & qpoint          = qpoint           )
+    helper = StateHelper( this%state_,                      &
+                        & monomial_ket%state_,              &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data,qpoint=qpoint )
   else
     ! Process the bra and ket.
-    helper = StateHelper( this%state_,                       &
-                        & this%state_,                       &
-                        & subspace        = subspace,        &
-                        & anharmonic_data = anharmonic_data, &
-                        & qpoint          = qpoint           )
+    helper = StateHelper( this%state_,                      &
+                        & this%state_,                      &
+                        & subspace        = subspace,       &
+                        & anharmonic_data = anharmonic_data,qpoint=qpoint )
   endif
   
   if (all(finite_overlap_mode(helper%bra, helper%ket))) then
@@ -452,7 +465,7 @@ impure elemental function harmonic_potential_energy_MonomialState( &
   implicit none
   
   class(MonomialState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -498,7 +511,7 @@ impure elemental function kinetic_stress_MonomialState(this,ket, &
   implicit none
   
   class(MonomialState),     intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(StressPrefactors),   intent(in)           :: stress_prefactors

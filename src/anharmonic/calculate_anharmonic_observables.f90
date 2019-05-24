@@ -171,10 +171,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(SubspaceBasisPointer), allocatable :: basis(:)
   
   ! VSCF ground states.
-  type(VscfOutput),            allocatable :: vscf_output(:)
-  type(PotentialPointer),      allocatable :: subspace_potentials(:)
-  type(SubspaceStatesPointer), allocatable :: subspace_states(:)
-  type(StressPointer),         allocatable :: subspace_stresses(:)
+  type(VscfOutput),         allocatable :: vscf_output(:)
+  type(PotentialPointer),   allocatable :: subspace_potentials(:)
+  type(BasisStatesPointer), allocatable :: subspace_states(:)
+  type(StressPointer),      allocatable :: subspace_stresses(:)
   
   ! Finite-temperature effective harmonic frequencies.
   real(dp), allocatable :: frequencies(:)

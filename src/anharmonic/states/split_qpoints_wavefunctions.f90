@@ -19,7 +19,6 @@ module split_qpoints_wavefunctions_module
     integer,      allocatable :: paired_mode_ids(:)
     type(String)              :: harmonic_ground_state
     real(dp),     allocatable :: energies(:)
-    integer,      allocatable :: degeneracies(:)
     type(String), allocatable :: wavefunctions(:)
   contains
     ! Type representation.
@@ -47,7 +46,7 @@ subroutine startup_split_qpoints_wavefunctions()
 end subroutine
 
 function new_SplitQpointsWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
-   & harmonic_ground_state,energies,degeneracies,wavefunctions) result(this)
+   & harmonic_ground_state,energies,wavefunctions) result(this)
   implicit none
     
   integer,      intent(in)        :: subspace_id
@@ -55,13 +54,10 @@ function new_SplitQpointsWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
   integer,      intent(in)        :: paired_mode_ids(:)
   type(String), intent(in)        :: harmonic_ground_state
   real(dp),     intent(in)        :: energies(:)
-  integer,      intent(in)        :: degeneracies(:)
   type(String), intent(in)        :: wavefunctions(:)
   type(SplitQpointsWavefunctions) :: this
   
-  if (size(energies)/=size(degeneracies)) then
-    call err()
-  elseif (size(energies)/=size(wavefunctions)) then
+  if (size(energies)/=size(wavefunctions)) then
     call err()
   endif
   
@@ -70,7 +66,6 @@ function new_SplitQpointsWavefunctions(subspace_id,mode_ids,paired_mode_ids, &
   this%paired_mode_ids = paired_mode_ids
   this%harmonic_ground_state = harmonic_ground_state
   this%energies = energies
-  this%degeneracies = degeneracies
   this%wavefunctions = wavefunctions
 end function
 
@@ -97,7 +92,6 @@ subroutine read_SplitQpointsWavefunctions(this,input)
   integer,      allocatable :: paired_mode_ids(:)
   type(String)              :: harmonic_ground_state
   real(dp),     allocatable :: energies(:)
-  integer,      allocatable :: degeneracies(:)
   type(String), allocatable :: wavefunctions(:)
   
   type(String), allocatable :: line(:)
@@ -121,15 +115,11 @@ subroutine read_SplitQpointsWavefunctions(this,input)
     
     no_wavefunctions = (size(input)-5)/4
     allocate( energies(no_wavefunctions),      &
-            & degeneracies(no_wavefunctions),  &
             & wavefunctions(no_wavefunctions), &
             & stat=ialloc); call err(ialloc)
     do i=1,no_wavefunctions
       line = split_line(input(5+4*(i-1)+2))
       energies(i) = dble(line(4))
-      
-      line = split_line(input(5+4*(i-1)+3))
-      degeneracies(i) = int(line(4))
       
       line = split_line(input(5+4*(i-1)+4))
       wavefunctions(i) = join(line(3:))
@@ -140,7 +130,6 @@ subroutine read_SplitQpointsWavefunctions(this,input)
                                     & paired_mode_ids,       &
                                     & harmonic_ground_state, &
                                     & energies,              &
-                                    & degeneracies,          &
                                     & wavefunctions          )
   class default
     call err()
@@ -165,7 +154,6 @@ function write_SplitQpointsWavefunctions(this) result(output)
       output = [ output,                                      &
                & str(''),                                     &
                & 'State energy     : '//this%energies(i),     &
-               & 'State degeneracy : '//this%degeneracies(i), &
                & 'Wavefunction     : '//this%wavefunctions(i) ]
     enddo
   

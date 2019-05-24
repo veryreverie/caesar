@@ -17,12 +17,14 @@ module polynomial_state_module
   
   public :: size
   
-  type, extends(SubspaceState) :: PolynomialState
+  type, extends(BasisState) :: PolynomialState
     type(MonomialState), allocatable :: states(:)
     real(dp),            allocatable :: coefficients(:)
   contains
     procedure, public, nopass :: representation => &
                                & representation_PolynomialState
+    
+    procedure, public :: modes => modes_PolynomialState
     
     procedure, public :: inner_product => &
                        & inner_product_PolynomialState
@@ -45,7 +47,7 @@ module polynomial_state_module
   
   interface PolynomialState
     module procedure new_PolynomialState
-    module procedure new_PolynomialState_SubspaceState
+    module procedure new_PolynomialState_BasisState
     module procedure new_PolynomialState_Strings
     module procedure new_PolynomialState_StringArray
   end interface
@@ -86,15 +88,15 @@ function new_PolynomialState(subspace_id,states,coefficients) result(this)
   this%coefficients = coefficients
 end function
 
-recursive function new_PolynomialState_SubspaceState(input) result(this)
+recursive function new_PolynomialState_BasisState(input) result(this)
   implicit none
   
-  class(SubspaceState), intent(in) :: input
-  type(PolynomialState)            :: this
+  class(BasisState), intent(in) :: input
+  type(PolynomialState)         :: this
   
   select type(input); type is(PolynomialState)
     this = input
-  type is(SubspaceStatePointer)
+  type is(BasisStatePointer)
     this = PolynomialState(input%state())
   class default
     call err()
@@ -122,14 +124,26 @@ impure elemental function representation_PolynomialState() result(output)
 end function
 
 ! ----------------------------------------------------------------------
-! SubspaceState methods.
+! Returns the modes spanned by the state.
+! ----------------------------------------------------------------------
+function modes_PolynomialState(this) result(output)
+  implicit none
+  
+  class(PolynomialState), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%states(1)%modes()
+end function
+
+! ----------------------------------------------------------------------
+! BasisState methods.
 ! ----------------------------------------------------------------------
 impure elemental function inner_product_PolynomialState(this, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialState),   intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -176,7 +190,7 @@ impure elemental function braket_ComplexMonomial_PolynomialState(this, &
   
   class(PolynomialState),   intent(in)           :: this
   type(ComplexMonomial),    intent(in)           :: monomial
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -236,11 +250,11 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
   implicit none
   
   class(PolynomialState),   intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
+  type(QpointData), intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(PolynomialState) :: polynomial_ket
@@ -256,8 +270,7 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
              & + this%states(i)%kinetic_energy( polynomial_ket%states(j),   &
              &                                  subspace,                   &
              &                                  subspace_basis,             &
-             &                                  anharmonic_data,            &
-             &                                  qpoint                    ) &
+             &                                  anharmonic_data,qpoint           ) &
              & * this%coefficients(i)                                       &
              & * polynomial_ket%coefficients(j)
       enddo
@@ -266,13 +279,12 @@ impure elemental function kinetic_energy_PolynomialState(this,ket, &
     output = 0.0_dp
     do i=1,size(this)
       do j=1,size(this)
-        output = output                                            &
-             & + this%states(i)%kinetic_energy( this%states(j),    &
-             &                                  subspace,          &
-             &                                  subspace_basis,    &
-             &                                  anharmonic_data,   &
-             &                                  qpoint           ) &
-             & * this%coefficients(i)                              &
+        output = output                                           &
+             & + this%states(i)%kinetic_energy( this%states(j),   &
+             &                                  subspace,         &
+             &                                  subspace_basis,   &
+             &                                  anharmonic_data,qpoint ) &
+             & * this%coefficients(i)                             &
              & * this%coefficients(j)
       enddo
     enddo
@@ -284,7 +296,7 @@ impure elemental function harmonic_potential_energy_PolynomialState( &
   implicit none
   
   class(PolynomialState),   intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
@@ -331,7 +343,7 @@ impure elemental function kinetic_stress_PolynomialState(this,ket, &
   implicit none
   
   class(PolynomialState),   intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
+  class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(StressPrefactors),   intent(in)           :: stress_prefactors

@@ -248,7 +248,6 @@ function new_StateHelper_bra_ket_subspace(bra,ket,monomial,subspace, &
   
   integer :: i,ialloc
   
-  
   if (present(qpoint)) then
     subspace_qpoints = subspace%qpoints( anharmonic_data%complex_modes, &
                                        & anharmonic_data%qpoints        )
