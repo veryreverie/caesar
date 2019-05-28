@@ -219,14 +219,17 @@ end function
 
 ! <p_i,p_j|(u_i)^(n_i)(u_j)^(n_j)|q_i,q_j>.
 !    = 0                                 if p_i-p_j-n_i+n_j-q_i+q_j /= 0.
-!    = 0                                 if n_i < p_i-q_i. (ditto for _j).
+!    = 0                                 if n_i < p_i-q_i.
+!    = 0                                 if n_i < q_j-p_j.
+!    = 0                                 if n_j < p_j-q_j.
+!    = 0                                 if n_j < q_i-p_i.
 !    = 1/sqrt(2Nw)^{n_i+n_j}
 !    * sqrt(p_i!q_i!/(p_j!q_j!))
-!    * sum_{k=max(0,p_i-q_i)}^{min(n_i,p_i)}[
-!                      binom(n_i,k)
-!                    * binom(n_j,q_i-p_i+k)
-!                    * (p_j+n_i-k)!
-!                    / (p_i-k)!              ] otherwise.
+!    * sum_{k=max(0,p_i-n_i,q_i-n_j)}^{min(p_i,q_i)}[
+!                                    binom(n_i,p_i-k)
+!                                  * binom(n_j,q_i-k)
+!                                  * (n_i+p_j-p_i+k)!
+!                                  / k!               ] otherwise.
 !
 ! N.B. the factor of 1/sqrt(2Nw)^{n_i+n_j} is neglected.
 impure elemental function braket_HarmonicState2D(bra,ket,potential) &
@@ -248,28 +251,26 @@ impure elemental function braket_HarmonicState2D(bra,ket,potential) &
   n_i = potential%power
   n_j = potential%paired_power
   
-  if (p_i-p_j-n_i+n_j-q_i+q_j/=0) then
-    output = 0
-  elseif (n_i<p_i-q_i) then
+  if (p_i-p_j-n_i+n_j-q_i+q_j/=0 .or. n_i<p_i-q_i .or. n_i<q_j-p_j) then
     output = 0
   else
-    output = exp(0.5_dp*( log_factorial(p_i)            &
-         &              + log_factorial(q_i)            &
-         &              - log_factorial(p_j)            &
-         &              - log_factorial(q_j) ))         &
-         & * sum([( exp( log_binomial(n_i,k)            &
-         &             + log_binomial(n_j,q_i-p_i+k)    &
-         &             + log_factorial(p_j+n_i-k)       &
-         &             - log_factorial(p_i-k)        ), &
-         &          k=max(0,p_i-q_i),                   &
-         &          min(n_i,p_i)                        )])
+    output = exp(0.5_dp*( log_factorial(p_i)             &
+         &              + log_factorial(q_i)             &
+         &              - log_factorial(p_j)             &
+         &              - log_factorial(q_j) ))          &
+         & * sum([( exp( log_binomial(n_i,p_i-k)         &
+         &             + log_binomial(n_j,q_i-k)         &
+         &             + log_factorial(n_i+p_j-p_i+k)    &
+         &             - log_factorial(k)             ), &
+         &          k=max(0,p_i-n_i,q_i-n_j),            &
+         &          min(p_i,q_i)                         )])
   endif
 end function
 
 ! <p_i,p_j|d/d(u_i)|q_i,q_j>.
-!    = sqrt(2Nw) * sqrt(p_i)/2   if p_i-q_i=1 and p_j=q_j.
-!    = sqrt(2Nw) * sqrt(q_j)/2   if q_j-p_j=1 and p_i=q_i.
-!    = 0                         otherwise.
+!    = -sqrt(2Nw) * sqrt(p_i)/2   if p_i-q_i=1 and p_j=q_j.
+!    =  sqrt(2Nw) * sqrt(q_j)/2   if q_j-p_j=1 and p_i=q_i.
+!    =  0                         otherwise.
 !
 ! N.B. the factor of sqrt(2Nw) is neglected.
 impure elemental function plus_derivative_HarmonicState2D(bra,ket) &
@@ -288,7 +289,7 @@ impure elemental function plus_derivative_HarmonicState2D(bra,ket) &
   q_j = ket%paired_occupation_
   
   if (p_i-q_i==1 .and. p_j==q_j) then
-    output = sqrt(p_i/4.0_dp)
+    output = -sqrt(p_i/4.0_dp)
   elseif (q_j-p_j==1 .and. p_i==q_i) then
     output = sqrt(q_j/4.0_dp)
   else
@@ -297,9 +298,9 @@ impure elemental function plus_derivative_HarmonicState2D(bra,ket) &
 end function
 
 ! <p_i,p_j|d/d(u_j)|q_i,q_j>.
-!    = sqrt(2Nw) * sqrt(p_j)/2   if p_j-q_j=1 and p_i=q_i.
-!    = sqrt(2Nw) * sqrt(q_i)/2   if q_i-p_i=1 and p_j=q_j.
-!    = 0                         otherwise.
+!    = -sqrt(2Nw) * sqrt(p_j)/2   if p_j-q_j=1 and p_i=q_i.
+!    =  sqrt(2Nw) * sqrt(q_i)/2   if q_i-p_i=1 and p_j=q_j.
+!    =  0                         otherwise.
 !
 ! N.B. the factor of sqrt(2Nw) is neglected.
 impure elemental function minus_derivative_HarmonicState2D(bra,ket) &
@@ -318,7 +319,7 @@ impure elemental function minus_derivative_HarmonicState2D(bra,ket) &
   q_j = ket%paired_occupation_
   
   if (p_j-q_j==1 .and. p_i==q_i) then
-    output = sqrt(p_j/4.0_dp)
+    output = -sqrt(p_j/4.0_dp)
   elseif (q_i-p_i==1 .and. p_j==q_j) then
     output = sqrt(q_i/4.0_dp)
   else
@@ -327,10 +328,10 @@ impure elemental function minus_derivative_HarmonicState2D(bra,ket) &
 end function
 
 ! <p_i,p_j|d2/d(u_i)d(u_j)|q_i,q_j>.
-!    = 2Nw * (p_i+p_j+1)/4     if p_i=q_i and p_j=q_j.
-!    = 2Nw * sqrt(p_i*p_j)/4   if p_i-q_i=p_j-q_j=1.
-!    = 2Nw * sqrt(q_i*q_j)/4   if q_i-p_i=q_j-p_j=1.
-!    = 0                       otherwise.
+!    = -2Nw * (p_i+p_j+1)/4     if p_i=q_i and p_j=q_j.
+!    =  2Nw * sqrt(p_i*p_j)/4   if p_i-q_i=p_j-q_j=1.
+!    =  2Nw * sqrt(q_i*q_j)/4   if q_i-p_i=q_j-p_j=1.
+!    =  0                       otherwise.
 !
 ! N.B. the factor of 2Nw is neglected.
 impure elemental function second_derivative_HarmonicState2D(bra,ket) &
@@ -349,7 +350,7 @@ impure elemental function second_derivative_HarmonicState2D(bra,ket) &
   q_j = ket%paired_occupation_
   
   if (p_i==q_i .and. p_j==q_j) then
-    output = (p_i+p_j+1)/4.0_dp
+    output = -(p_i+p_j+1)/4.0_dp
   elseif (p_i-q_i==1 .and. p_j-q_j==1) then
     output = sqrt(p_i*p_j/16.0_dp)
   elseif (q_i-p_i==1 .and. q_j-p_j==1) then

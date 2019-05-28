@@ -29,9 +29,10 @@ module monomial_state_real_module
     
     procedure, public :: set_frequency => set_frequency_MonomialStateReal
     
+    procedure, public :: occupation => occupation_MonomialStateReal
+    
     procedure, public :: change_modes => change_modes_MonomialStateReal
     
-    procedure, public :: total_power => total_power_MonomialStateReal
     procedure, public :: wavevector => wavevector_MonomialStateReal
     
     procedure, public :: wavefunction => wavefunction_MonomialStateReal
@@ -196,7 +197,7 @@ end function
 ! ----------------------------------------------------------------------
 ! The total power of the state product_{q,i} |(u_{q,i})^(n_{q,i})> is equal to
 !    sum_{q,i} n_{q,i}.
-impure elemental function total_power_MonomialStateReal(this) result(output)
+impure elemental function occupation_MonomialStateReal(this) result(output)
   implicit none
   
   class(MonomialStateReal), intent(in) :: this
@@ -617,10 +618,10 @@ function write_MonomialStateReal(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(MonomialStateReal)
-    output = [ 'Subspace  : '//this%subspace_id, &
-             & 'Frequency : '//this%frequency,   &
-             & str('State'),                     &
-             & join(str(this%modes_))            ]
+    output = [ 'Subspace  : '//this%subspace_id,    &
+             & 'Frequency : '//this%frequency,      &
+             & str('State'),                        &
+             & join(str(this%modes_), delimiter='') ]
   class default
     call err()
   end select

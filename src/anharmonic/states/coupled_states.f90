@@ -111,7 +111,7 @@ impure elemental function separation_CoupledStates(this,index) &
   
   class(CoupledStates), intent(in) :: this
   integer,              intent(in) :: index
-  real(dp)                         :: output
+  integer                          :: output
   
   output = this%separations_(index)
 end function
@@ -120,7 +120,7 @@ function separations_CoupledStates(this) result(output)
   implicit none
   
   class(CoupledStates), intent(in) :: this
-  real(dp), allocatable            :: output(:)
+  integer, allocatable             :: output(:)
   
   output = this%separations_
 end function

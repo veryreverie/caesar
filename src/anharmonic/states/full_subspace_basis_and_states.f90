@@ -6,11 +6,6 @@ module full_subspace_basis_and_states_module
   
   use anharmonic_common_module
   
-  use state_helper_module
-  use monomial_state_module
-  use harmonic_state_module
-  use polynomial_state_module
-  use state_conversion_module
   use wavevector_state_module
   use wavevector_states_module
   use wavevector_basis_module
@@ -349,8 +344,6 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
   do i=1,size(this%wavevectors)
     wavevector_states = this%wavevectors(i)%calculate_states( &
                                         & subspace_potential, &
-                                        & subspace,           &
-                                        & this,               &
                                         & anharmonic_data     )
     
     do j=1,size(wavevector_states%states)
@@ -446,12 +439,10 @@ impure elemental function inner_product_FullSubspaceState(this, &
     full_ket = FullSubspaceState(ket)
     output = full_basis%wavevectors(i)%inner_product( this%state,     &
                                                     & full_ket%state, &
-                                                    & subspace,       &
                                                     & anharmonic_data )
   else
     output = full_basis%wavevectors(i)%inner_product( &
                   & bra             = this%state,     &
-                  & subspace        = subspace,       &
                   & anharmonic_data = anharmonic_data )
   endif
 end function
@@ -480,21 +471,15 @@ impure elemental function braket_ComplexMonomial_FullSubspaceState(this, &
   
   if (present(ket)) then
     full_ket = FullSubspaceState(ket)
-    output = full_basis%wavevectors(i)%braket( this%state,      &
-                                             & monomial,        &
-                                             & full_ket%state,  &
-                                             & subspace,        &
-                                             & subspace_basis,  &
-                                             & anharmonic_data, &
-                                             & qpoint           )
+    output = full_basis%wavevectors(i)%braket( this%state,     &
+                                             & monomial,       &
+                                             & full_ket%state, &
+                                             & anharmonic_data )
   else
     output = full_basis%wavevectors(i)%braket( &
-          & bra             = this%state,      &
-          & monomial        = monomial,        &
-          & subspace        = subspace,        &
-          & subspace_basis  = subspace_basis,  &
-          & anharmonic_data = anharmonic_data, &
-          & qpoint          = qpoint           )
+           & bra             = this%state,     &
+           & monomial        = monomial,       &
+           & anharmonic_data = anharmonic_data )
   endif
 end function
 
@@ -520,19 +505,13 @@ impure elemental function kinetic_energy_FullSubspaceState(this,ket, &
   
   if (present(ket)) then
     full_ket = FullSubspaceState(ket)
-    output = full_basis%wavevectors(i)%kinetic_energy( this%state,      &
-                                                     & full_ket%state,  &
-                                                     & subspace,        &
-                                                     & subspace_basis,  &
-                                                     & anharmonic_data, &
-                                                     & qpoint           )
+    output = full_basis%wavevectors(i)%kinetic_energy( this%state,     &
+                                                     & full_ket%state, &
+                                                     & anharmonic_data )
   else
     output = full_basis%wavevectors(i)%kinetic_energy( &
-                  & bra             = this%state,      &
-                  & subspace        = subspace,        &
-                  & subspace_basis  = subspace_basis,  &
-                  & anharmonic_data = anharmonic_data, &
-                  & qpoint          = qpoint           )
+                   & bra             = this%state,     &
+                   & anharmonic_data = anharmonic_data )
   endif
 end function
 
@@ -560,14 +539,10 @@ impure elemental function harmonic_potential_energy_FullSubspaceState( &
     output = full_basis%wavevectors(i)%harmonic_potential_energy( &
                                                 & this%state,     &
                                                 & full_ket%state, &
-                                                & subspace,       &
-                                                & subspace_basis, &
                                                 & anharmonic_data )
   else
     output = full_basis%wavevectors(i)%harmonic_potential_energy( &
                               & bra             = this%state,     &
-                              & subspace        = subspace,       &
-                              & subspace_basis  = subspace_basis, &
                               & anharmonic_data = anharmonic_data )
   endif
 end function
@@ -596,15 +571,11 @@ impure elemental function kinetic_stress_FullSubspaceState(this,ket, &
     full_ket = FullSubspaceState(ket)
     output = full_basis%wavevectors(i)%kinetic_stress( this%state,        &
                                                      & full_ket%state,    &
-                                                     & subspace,          &
-                                                     & subspace_basis,    &
                                                      & stress_prefactors, &
                                                      & anharmonic_data    )
   else
     output = full_basis%wavevectors(i)%kinetic_stress( &
               & bra               = this%state,        &
-              & subspace          = subspace,          &
-              & subspace_basis    = subspace_basis,    &
               & stress_prefactors = stress_prefactors, &
               & anharmonic_data   = anharmonic_data    )
   endif

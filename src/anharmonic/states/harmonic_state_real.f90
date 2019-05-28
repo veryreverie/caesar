@@ -31,7 +31,8 @@ module harmonic_state_real_module
     
     procedure, public :: change_modes => change_modes_HarmonicStateReal
     
-    procedure, public :: total_occupation => total_occupation_HarmonicStateReal
+    procedure, public :: occupation => occupation_HarmonicStateReal
+    
     procedure, public :: wavevector => wavevector_HarmonicStateReal
     
     procedure, public :: wavefunction => wavefunction_HarmonicStateReal
@@ -154,8 +155,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! The total occupation of the state product_{q,i} |n_{q,i}> is equal to
 !    sum_{q,i} n_{q,i}.
-impure elemental function total_occupation_HarmonicStateReal(this) &
-   & result(output)
+impure elemental function occupation_HarmonicStateReal(this) result(output)
   implicit none
   
   class(HarmonicStateReal), intent(in) :: this
@@ -546,10 +546,10 @@ function write_HarmonicStateReal(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(HarmonicStateReal)
-    output = [ 'Subspace  : '//this%subspace_id, &
-             & 'Frequency : '//this%frequency,   &
-             & str('State'),                     &
-             & join(str(this%modes_))            ]
+    output = [ 'Subspace  : '//this%subspace_id,    &
+             & 'Frequency : '//this%frequency,      &
+             & str('State'),                        &
+             & join(str(this%modes_), delimiter='') ]
   class default
     call err()
   end select

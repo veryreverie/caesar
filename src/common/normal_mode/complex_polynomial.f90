@@ -521,7 +521,7 @@ function modes_ComplexMonomial(this,indices,ids,paired_ids,exclude_ids) &
       if (j<=size(this%modes_)) then
         if (this%modes_(j)%id == ids(sort_key(i))) then
           output(sort_key(i)) = this%modes_(j)
-          continue
+          cycle
         endif
       endif
       
@@ -563,7 +563,7 @@ function modes_ComplexMonomial(this,indices,ids,paired_ids,exclude_ids) &
       
       ! If the mode is not in exclude_ids, add it to the output.
       k = k+1
-      output(k) = this%modes_(j)
+      output(k) = this%modes_(i)
     enddo
     output = output(:k)
   else

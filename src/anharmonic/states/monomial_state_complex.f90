@@ -27,9 +27,10 @@ module monomial_state_complex_module
     
     procedure, public :: set_frequency => set_frequency_MonomialStateComplex
     
+    procedure, public :: occupation => occupation_MonomialStateComplex
+    
     procedure, public :: change_modes => change_modes_MonomialStateComplex
     
-    procedure, public :: total_power => total_power_MonomialStateComplex
     procedure, public :: wavevector => wavevector_MonomialStateComplex
     
     procedure, public :: wavefunction => wavefunction_MonomialStateComplex
@@ -142,7 +143,7 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! The total power of the state product_{q,i} |(u_{q,i})^(n_{q,i})> is equal to
 !    sum_{q,i} n_{q,i}.
-impure elemental function total_power_MonomialStateComplex(this) result(output)
+impure elemental function occupation_MonomialStateComplex(this) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in) :: this
@@ -578,10 +579,10 @@ function write_MonomialStateComplex(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(MonomialStateComplex)
-    output = [ 'Subspace  : '//this%subspace_id, &
-             & 'Frequency : '//this%frequency,   &
-             & str('State'),                     &
-             & join(str(this%modes_))            ]
+    output = [ 'Subspace  : '//this%subspace_id,    &
+             & 'Frequency : '//this%frequency,      &
+             & str('State'),                        &
+             & join(str(this%modes_), delimiter='') ]
   class default
     call err()
   end select

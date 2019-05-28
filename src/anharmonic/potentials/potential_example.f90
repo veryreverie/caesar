@@ -390,8 +390,8 @@ subroutine potential_example_subroutine()
   ! Variables for integrating potential.
   type(DegenerateSubspace)   :: subspace
   type(SubspaceBasisPointer) :: subspace_basis
-  type(MonomialState)        :: state_1
-  type(MonomialState)        :: state_2
+  type(HarmonicStateReal)    :: state_1
+  type(HarmonicStateReal)    :: state_2
   
   ! Files.
   type(OFile) :: output_file
@@ -431,8 +431,6 @@ subroutine potential_example_subroutine()
   ! The potential can also be integrated between two states.
   call potential%braket( state_1,        &
                        & state_2,        &
-                       & subspace,       &
-                       & subspace_basis, &
                        & anharmonic_data )
   
   ! The potential can be written to and read from file using the potential

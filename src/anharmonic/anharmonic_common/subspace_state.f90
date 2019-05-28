@@ -27,6 +27,12 @@ module subspace_state_module
     ! Set the frequency of the state.
     procedure(set_frequency_SubspaceState), public, deferred :: set_frequency
     
+    ! Returns the occupation of the state.
+    procedure(occupation_SubspaceState), public, deferred :: occupation
+    
+    ! Returns the wavevector of the state.
+    procedure(wavevector_SubspaceState), public, deferred :: wavevector
+    
     ! If ket is not given, <this|this>, otherwise <this|ket>.
     procedure(inner_product_SubspaceState), public, deferred :: inner_product
     
@@ -70,6 +76,10 @@ module subspace_state_module
     procedure, public :: modes => modes_SubspaceStatePointer
     
     procedure, public :: set_frequency => set_frequency_SubspaceStatePointer
+    
+    procedure, public :: occupation => occupation_SubspaceStatePointer
+    
+    procedure, public :: wavevector => wavevector_SubspaceStatePointer
     
     procedure, public :: inner_product => &
                        & inner_product_SubspaceStatePointer
@@ -117,6 +127,28 @@ module subspace_state_module
       class(SubspaceState), intent(inout) :: this
       real(dp),             intent(in)    :: frequency
     end subroutine
+    
+    impure elemental function occupation_SubspaceState(this) result(output)
+      import SubspaceState
+      implicit none
+      
+      class(SubspaceState), intent(in) :: this
+      integer                          :: output
+    end function
+    
+    function wavevector_SubspaceState(this,modes,qpoints) &
+       & result(output)
+      import SubspaceState
+      import ComplexMode
+      import QpointData
+      import FractionVector
+      implicit none
+      
+      class(SubspaceState), intent(in) :: this
+      type(ComplexMode),    intent(in) :: modes(:)
+      type(QpointData),     intent(in) :: qpoints(:)
+      type(FractionVector)             :: output
+    end function
     
     impure elemental function inner_product_SubspaceState(this,ket, &
        & anharmonic_data) result(output)
@@ -289,8 +321,32 @@ impure elemental subroutine set_frequency_SubspaceStatePointer(this,frequency)
   
   call this%check()
   
-  call this%set_frequency(frequency)
+  call this%state_%set_frequency(frequency)
 end subroutine
+
+impure elemental function occupation_SubspaceStatePointer(this) result(output)
+  implicit none
+  
+  class(SubspaceStatePointer), intent(in) :: this
+  integer                                 :: output
+  
+  call this%check()
+  
+  output = this%state_%occupation()
+end function
+
+function wavevector_SubspaceStatePointer(this,modes,qpoints) result(output)
+  implicit none
+  
+  class(SubspaceStatePointer), intent(in) :: this
+  type(ComplexMode),           intent(in) :: modes(:)
+  type(QpointData),            intent(in) :: qpoints(:)
+  type(FractionVector)                    :: output
+  
+  call this%check()
+  
+  output = this%state_%wavevector(modes,qpoints)
+end function
 
 impure elemental function inner_product_SubspaceStatePointer(this,ket, &
    & anharmonic_data) result(output)

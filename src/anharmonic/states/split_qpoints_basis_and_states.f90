@@ -8,11 +8,6 @@ module split_qpoints_basis_and_states_module
   
   use anharmonic_common_module
   
-  use state_helper_module
-  use monomial_state_module
-  use harmonic_state_module
-  use polynomial_state_module
-  use state_conversion_module
   use wavevector_state_module
   use wavevector_states_module
   use wavevector_basis_module
@@ -556,10 +551,7 @@ impure elemental function calculate_split_states_SplitQpointsBasis(this, &
   do i=1,size(this%wavevectors)
     wavevector_states = this%wavevectors(i)%calculate_states( &
                                         & subspace_potential, &
-                                        & subspace,           &
-                                        & this,               &
-                                        & anharmonic_data,    &
-                                        & qpoint              )
+                                        & anharmonic_data     )
     do j=1,size(wavevector_states%states)
       vscf_state = SplitQpointsState(                    &
          & subspace_id = this%subspace_id,               &
@@ -666,12 +658,10 @@ impure elemental function inner_product_SplitQpointsState(this, &
     split_ket = SplitQpointsState(ket)
     output = split_basis%wavevectors(i)%inner_product( this%state,     &
                                                      & split_ket%state, &
-                                                     & subspace,       &
                                                      & anharmonic_data )
   else
     output = split_basis%wavevectors(i)%inner_product( &
                    & bra             = this%state,     &
-                   & subspace        = subspace,       &
                    & anharmonic_data = anharmonic_data )
   endif
 end function
@@ -703,18 +693,12 @@ impure elemental function braket_ComplexMonomial_SplitQpointsState(this, &
     output = split_basis%wavevectors(i)%braket( this%state,      &
                                               & monomial,        &
                                               & split_ket%state, &
-                                              & subspace,        &
-                                              & subspace_basis,  &
-                                              & anharmonic_data, &
-                                              & qpoint           )
+                                              & anharmonic_data  )
   else
     output = split_basis%wavevectors(i)%braket( &
-           & bra             = this%state,      &
-           & monomial        = monomial,        &
-           & subspace        = subspace,        &
-           & subspace_basis  = subspace_basis,  &
-           & anharmonic_data = anharmonic_data, &
-           & qpoint          = qpoint           )
+            & bra             = this%state,     &
+            & monomial        = monomial,       &
+            & anharmonic_data = anharmonic_data )
   endif
 end function
 
@@ -742,17 +726,11 @@ impure elemental function kinetic_energy_SplitQpointsState(this,ket, &
     split_ket = SplitQpointsState(ket)
     output = split_basis%wavevectors(i)%kinetic_energy( this%state,      &
                                                       & split_ket%state, &
-                                                      & subspace,        &
-                                                      & subspace_basis,  &
-                                                      & anharmonic_data, &
-                                                      & qpoint           )
+                                                      & anharmonic_data  )
   else
     output = split_basis%wavevectors(i)%kinetic_energy( &
-                   & bra             = this%state,      &
-                   & subspace        = subspace,        &
-                   & subspace_basis  = subspace_basis,  &
-                   & anharmonic_data = anharmonic_data, &
-                   & qpoint          = qpoint           )
+                    & bra             = this%state,     &
+                    & anharmonic_data = anharmonic_data )
   endif
 end function
 
@@ -778,16 +756,12 @@ impure elemental function harmonic_potential_energy_SplitQpointsState( &
   if (present(ket)) then
     split_ket = SplitQpointsState(ket)
     output = split_basis%wavevectors(i)%harmonic_potential_energy( &
-                                                 & this%state,     &
-                                                 & split_ket%state,&
-                                                 & subspace,       &
-                                                 & subspace_basis, &
-                                                 & anharmonic_data )
+                                                & this%state,      &
+                                                & split_ket%state, &
+                                                & anharmonic_data  )
   else
     output = split_basis%wavevectors(i)%harmonic_potential_energy( &
                                & bra             = this%state,     &
-                               & subspace        = subspace,       &
-                               & subspace_basis  = subspace_basis, &
                                & anharmonic_data = anharmonic_data )
   endif
 end function
@@ -816,15 +790,11 @@ impure elemental function kinetic_stress_SplitQpointsState(this,ket, &
     split_ket = SplitQpointsState(ket)
     output = split_basis%wavevectors(i)%kinetic_stress( this%state,        &
                                                       & split_ket%state,   &
-                                                      & subspace,          &
-                                                      & subspace_basis,    &
                                                       & stress_prefactors, &
                                                       & anharmonic_data    )
   else
     output = split_basis%wavevectors(i)%kinetic_stress( &
                & bra               = this%state,        &
-               & subspace          = subspace,          &
-               & subspace_basis    = subspace_basis,    &
                & stress_prefactors = stress_prefactors, &
                & anharmonic_data   = anharmonic_data    )
   endif

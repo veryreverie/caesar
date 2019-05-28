@@ -223,8 +223,9 @@ impure elemental function braket_HarmonicState1D(bra,ket,potential) &
 end function
 
 ! <p|d/du|q>.
-!    = 0                              if |p-q|/=1.
-!    = sqrt(2Nw) * sqrt(max(p,q))/2   otherwise.
+!    = -sqrt(2Nw) * sqrt(p)/2   if p=q+1.
+!    =  sqrt(2Nw) * sqrt(q)/2   if q=p+1.
+!    =  0                       otherwise.
 !
 ! N.B. the factor of sqrt(2Nw) is neglected.
 impure elemental function first_derivative_HarmonicState1D(bra,ket) &
@@ -240,17 +241,19 @@ impure elemental function first_derivative_HarmonicState1D(bra,ket) &
   p = bra%occupation_
   q = ket%occupation_
   
-  if (abs(p-q)/=1) then
-    output = 0
+  if (p==q+1) then
+    output = -sqrt(p/4.0_dp)
+  elseif (q==p+1) then
+    output =  sqrt(q/4.0_dp)
   else
-    output = sqrt(max(p,q)/4.0_dp)
+    output = 0
   endif
 end function
 
 ! <p|d2/du2|q>.
-!    = 2Nw (p+0.5)/2                       if p=q.
-!    = 2Nw sqrt(max(p,q)*(max(p,q)-1))/2   if |p-q|=2.
-!    = 0                                   otherwise.
+!    = -2Nw (p+0.5)/2                       if p=q.
+!    =  2Nw sqrt(max(p,q)*(max(p,q)-1))/2   if |p-q|=2.
+!    =  0                                   otherwise.
 !
 ! N.B. the factor of 2Nw is neglected.
 impure elemental function second_derivative_HarmonicState1D(bra,ket) &
@@ -267,7 +270,7 @@ impure elemental function second_derivative_HarmonicState1D(bra,ket) &
   q = ket%occupation_
   
   if (p==q) then
-    output = (p+0.5_dp)/2
+    output = -(p+0.5_dp)/2
   elseif (abs(p-q)==2) then
     output = sqrt(max(p,q)*(max(p,q)-1.0_dp))/2
   else
