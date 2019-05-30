@@ -25,18 +25,14 @@ module abstract_classes_module
   use subspace_wavefunctions_module
   use stress_prefactors_module
   use subspace_state_module
+  use basis_state_module
+  use basis_states_module
   implicit none
   
   private
   
   public :: SubspaceBasis
   public :: SubspaceBasisPointer
-  
-  public :: BasisState
-  public :: BasisStatePointer
-  
-  public :: BasisStates
-  public :: BasisStatesPointer
   
   public :: PotentialData
   public :: PotentialPointer
@@ -57,41 +53,10 @@ module abstract_classes_module
        & representation
     procedure, public :: startup => startup_SubspaceBasis
     
+    ! Functionality for generating SubspaceStates.
     procedure(initial_states_SubspaceBasis), public, deferred :: initial_states
     procedure(calculate_states_SubspaceBasis), public, deferred :: &
        & calculate_states
-  end type
-  
-  type, extends(SubspaceBasis) :: SubspaceBasisPointer
-    type(String),                      private :: representation_
-    class(SubspaceBasis), allocatable, private :: basis_
-  contains
-    procedure, private :: check => check_SubspaceBasisPointer
-    
-    procedure, public, nopass :: representation => &
-                               & representation_SubspaceBasisPointer
-    
-    procedure, public :: basis => basis_SubspaceBasisPointer
-    
-    procedure, public :: initial_states => initial_states_SubspaceBasisPointer
-    procedure, public :: calculate_states => &
-                       & calculate_states_SubspaceBasisPointer
-    
-    ! I/O.
-    procedure, public :: read  => read_SubspaceBasisPointer
-    procedure, public :: write => write_SubspaceBasisPointer
-  end type
-  
-  ! An array of all types which extend SubspaceBasis.
-  ! This array will be filled in by startup routines.
-  type(SubspaceBasisPointer), allocatable :: TYPES_SubspaceBasis(:)
-  
-  type, abstract, extends(Stringsable) :: BasisState
-    integer :: subspace_id
-  contains
-    procedure(representation_BasisState), public, deferred, nopass :: &
-       & representation
-    procedure, public :: startup => startup_BasisState
     
     ! If ket is not given, <this|this>, otherwise <this|ket>.
     procedure(inner_product_BasisState), public, deferred :: inner_product
@@ -120,22 +85,37 @@ module abstract_classes_module
     !    kinetic stress.
     procedure(kinetic_stress_BasisState), public, deferred :: &
        & kinetic_stress
+    
+    ! Functionality involving SubspaceStates.
+    procedure(spectra_BasisStates),       public, deferred :: spectra
+    procedure(wavefunctions_BasisStates), public, deferred :: wavefunctions
+    
+    generic, public :: integrate =>               &
+                     & integrate_ComplexMonomial, &
+                     & integrate_ComplexPolynomial
+    procedure(integrate_ComplexMonomial_BasisStates), public, deferred :: &
+       & integrate_ComplexMonomial
+    procedure, public :: integrate_ComplexPolynomial => &
+                       & integrate_ComplexPolynomial_BasisStates
   end type
   
-  type, extends(BasisState) :: BasisStatePointer
-    type(String),                   private :: representation_
-    class(BasisState), allocatable, private :: state_
+  type, extends(SubspaceBasis) :: SubspaceBasisPointer
+    type(String),                      private :: representation_
+    class(SubspaceBasis), allocatable, private :: basis_
   contains
-    procedure, private :: check => check_BasisStatePointer
+    procedure, private :: check => check_SubspaceBasisPointer
     
     procedure, public, nopass :: representation => &
-                               & representation_BasisStatePointer
+                               & representation_SubspaceBasisPointer
     
-    procedure, public :: state => state_BasisStatePointer
+    procedure, public :: basis => basis_SubspaceBasisPointer
+    
+    procedure, public :: initial_states => initial_states_SubspaceBasisPointer
+    procedure, public :: calculate_states => &
+                       & calculate_states_SubspaceBasisPointer
     
     procedure, public :: inner_product => &
                        & inner_product_BasisStatePointer
-    
     procedure, public :: braket_ComplexMonomial => &
                        & braket_ComplexMonomial_BasisStatePointer
     procedure, public :: kinetic_energy => &
@@ -145,56 +125,19 @@ module abstract_classes_module
     procedure, public :: kinetic_stress => &
                        & kinetic_stress_BasisStatePointer
     
-    ! I/O.
-    procedure, public :: read  => read_BasisStatePointer
-    procedure, public :: write => write_BasisStatePointer
-  end type
-  
-  ! An array of all types which extend BasisState.
-  ! This array will be filled in by startup routines.
-  type(BasisStatePointer), allocatable :: TYPES_BasisState(:)
-  
-  type, abstract, extends(Stringsable) :: BasisStates
-  contains
-    procedure(representation_BasisStates), public, deferred, nopass :: &
-       & representation
-    procedure, public :: startup => startup_BasisStates
-    
-    procedure(spectra_BasisStates),       public, deferred :: spectra
-    procedure(wavefunctions_BasisStates), public, deferred :: wavefunctions
-    
-    generic, public :: braket =>               &
-                     & braket_ComplexMonomial, &
-                     & braket_ComplexPolynomial
-    procedure(braket_ComplexMonomial_BasisStates), public, deferred :: &
-       & braket_ComplexMonomial
-    procedure, public :: braket_ComplexPolynomial => &
-                       & braket_ComplexPolynomial_BasisStates
-  end type
-  
-  type, extends(BasisStates) :: BasisStatesPointer
-    type(String),                    private :: representation_
-    class(BasisStates), allocatable, private :: states_
-  contains
-    procedure, private :: check => check_BasisStatesPointer
-    
-    procedure, public, nopass :: representation => &
-                               & representation_BasisStatesPointer
-    
-    procedure, public :: states => states_BasisStatesPointer
     procedure, public :: spectra => spectra_BasisStatesPointer
     procedure, public :: wavefunctions => wavefunctions_BasisStatesPointer
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_BasisStatesPointer
+    procedure, public :: integrate_ComplexMonomial => &
+                       & integrate_ComplexMonomial_BasisStatesPointer
     
     ! I/O.
-    procedure, public :: read  => read_BasisStatesPointer
-    procedure, public :: write => write_BasisStatesPointer
+    procedure, public :: read  => read_SubspaceBasisPointer
+    procedure, public :: write => write_SubspaceBasisPointer
   end type
   
-  ! An array of all types which extend BasisStates.
+  ! An array of all types which extend SubspaceBasis.
   ! This array will be filled in by startup routines.
-  type(BasisStatesPointer), allocatable :: TYPES_BasisStates(:)
+  type(SubspaceBasisPointer), allocatable :: TYPES_SubspaceBasis(:)
   
   type, abstract, extends(Stringsable) :: PotentialData
   contains
@@ -437,170 +380,152 @@ module abstract_classes_module
       type(BasisStatesPointer)             :: output
     end function
     
-    ! BasisState procedures.
-    impure elemental function representation_BasisState() result(output)
-      import String
-      implicit none
-      
-      type(String) :: output
-    end function
-    
-    impure elemental function inner_product_BasisState(this,ket, &
-       & subspace,subspace_basis,anharmonic_data) result(output)
+    impure elemental function inner_product_BasisState(this,bra,ket, &
+       & subspace,anharmonic_data) result(output)
+      import SubspaceBasis
       import BasisState
       import DegenerateSubspace
-      import SubspaceBasis
       import AnharmonicData
       import dp
       implicit none
       
-      class(BasisState),        intent(in)           :: this
+      class(SubspaceBasis),     intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
       class(BasisState),        intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       real(dp)                                       :: output
     end function
     
     impure elemental function braket_ComplexMonomial_BasisState(this, &
-       & monomial,ket,subspace,subspace_basis,anharmonic_data,qpoint) &
+       & bra,monomial,ket,subspace,anharmonic_data,qpoint) &
        & result(output)
+      import SubspaceBasis
       import BasisState
       import ComplexMonomial
       import DegenerateSubspace
-      import SubspaceBasis
       import QpointData
       import AnharmonicData
       implicit none
       
-      class(BasisState),        intent(in)           :: this
+      class(SubspaceBasis),     intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
       type(ComplexMonomial),    intent(in)           :: monomial
       class(BasisState),        intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(QpointData),         intent(in), optional :: qpoint
       type(ComplexMonomial)                          :: output
     end function
     
-    impure elemental function kinetic_energy_BasisState(this,ket, &
-       & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+    impure elemental function kinetic_energy_BasisState(this,bra,ket, &
+       & subspace,anharmonic_data,qpoint) result(output)
+      import SubspaceBasis
       import BasisState
       import DegenerateSubspace
-      import SubspaceBasis
       import AnharmonicData
       import QpointData
       import dp
       implicit none
       
-      class(BasisState),        intent(in)           :: this
+      class(SubspaceBasis),     intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
       class(BasisState),        intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(QpointData),         intent(in), optional :: qpoint
       real(dp)                                       :: output
     end function
     
     impure elemental function harmonic_potential_energy_BasisState(this, &
-       & ket,subspace,subspace_basis,anharmonic_data) result(output)
+       & bra,ket,subspace,anharmonic_data) result(output)
+      import SubspaceBasis
       import BasisState
       import DegenerateSubspace
-      import SubspaceBasis
       import AnharmonicData
       import dp
       implicit none
       
-      class(BasisState),        intent(in)           :: this
+      class(SubspaceBasis),     intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
       class(BasisState),        intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       real(dp)                                       :: output
     end function
     
-    impure elemental function kinetic_stress_BasisState(this,ket, &
-       & subspace,subspace_basis,stress_prefactors,anharmonic_data)  &
-       & result(output)
+    impure elemental function kinetic_stress_BasisState(this,bra,ket, &
+       & subspace,stress_prefactors,anharmonic_data) result(output)
+      import SubspaceBasis
       import BasisState
       import DegenerateSubspace
-      import SubspaceBasis
       import StressPrefactors
       import AnharmonicData
       import RealMatrix
       implicit none
       
-      class(BasisState),        intent(in)           :: this
+      class(SubspaceBasis),     intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
       class(BasisState),        intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(StressPrefactors),   intent(in)           :: stress_prefactors
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(RealMatrix)                               :: output
     end function
     
-    ! BasisStates procedures.
-    impure elemental function representation_BasisStates() result(output)
-      import String
-      implicit none
-      
-      type(String) :: output
-    end function
-    
-    impure elemental function spectra_BasisStates(this,subspace, &
-       & subspace_potential,subspace_stress,subspace_basis,      &
-       & stress_prefactors,anharmonic_data) result(output)
+    impure elemental function spectra_BasisStates(this,states,subspace, &
+       & subspace_potential,subspace_stress,stress_prefactors,          &
+       & anharmonic_data) result(output)
+      import SubspaceBasis
       import BasisStates
       import DegenerateSubspace
       import PotentialData
       import StressData
-      import SubspaceBasis
       import StressPrefactors
       import AnharmonicData
       import EnergySpectra
       implicit none
       
-      class(BasisStates),       intent(in)           :: this
+      class(SubspaceBasis),     intent(in)           :: this
+      class(BasisStates),       intent(in)           :: states
       type(DegenerateSubspace), intent(in)           :: subspace
       class(PotentialData),     intent(in)           :: subspace_potential
       class(StressData),        intent(in), optional :: subspace_stress
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(StressPrefactors),   intent(in), optional :: stress_prefactors
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(EnergySpectra)                            :: output
     end function
     
-    impure elemental function wavefunctions_BasisStates(this,subspace, &
-       & subspace_basis,anharmonic_data) result(output)
+    impure elemental function wavefunctions_BasisStates(this,states, &
+       & subspace,anharmonic_data) result(output)
+      import SubspaceBasis
       import BasisStates
       import DegenerateSubspace
-      import SubspaceBasis
       import AnharmonicData
       import SubspaceWavefunctionsPointer
       implicit none
       
-      class(BasisStates),       intent(in) :: this
+      class(SubspaceBasis),     intent(in) :: this
+      class(BasisStates),       intent(in) :: states
       type(DegenerateSubspace), intent(in) :: subspace
-      class(SubspaceBasis),     intent(in) :: subspace_basis
       type(AnharmonicData),     intent(in) :: anharmonic_data
       type(SubspaceWavefunctionsPointer)   :: output
     end function
     
-    impure elemental function braket_ComplexMonomial_BasisStates(this, &
-       & monomial,subspace,subspace_basis,anharmonic_data,qpoint)      &
-       & result(output)
+    impure elemental function integrate_ComplexMonomial_BasisStates(this, &
+       & states,monomial,subspace,anharmonic_data,qpoint) result(output)
+      import SubspaceBasis
       import BasisStates
       import ComplexMonomial
       import DegenerateSubspace
-      import SubspaceBasis
       import QpointData
       import AnharmonicData
       implicit none
       
-      class(BasisStates),       intent(in)           :: this
+      class(SubspaceBasis),     intent(in)           :: this
+      class(BasisStates),       intent(in)           :: states
       type(ComplexMonomial),    intent(in)           :: monomial
       type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
       type(AnharmonicData),     intent(in)           :: anharmonic_data
       type(QpointData),         intent(in), optional :: qpoint
       type(ComplexMonomial)                          :: output
@@ -933,18 +858,6 @@ module abstract_classes_module
     module procedure new_SubspaceBasisPointer_StringArray
   end interface
   
-  interface BasisStatePointer
-    module procedure new_BasisStatePointer
-    module procedure new_BasisStatePointer_Strings
-    module procedure new_BasisStatePointer_StringArray
-  end interface
-  
-  interface BasisStatesPointer
-    module procedure new_BasisStatesPointer
-    module procedure new_BasisStatesPointer_Strings
-    module procedure new_BasisStatesPointer_StringArray
-  end interface
-  
   interface PotentialPointer
     module procedure new_PotentialPointer
     module procedure new_PotentialPointer_Strings
@@ -976,42 +889,6 @@ subroutine startup_SubspaceBasis(this)
      & i=1,                                                  &
      & size(TYPES_SubspaceBasis)                             )])) then
     TYPES_SubspaceBasis = [TYPES_SubspaceBasis, SubspaceBasisPointer(this)]
-  endif
-end subroutine
-
-subroutine startup_BasisState(this)
-  implicit none
-  
-  class(BasisState), intent(in) :: this
-  
-  integer :: i
-  
-  if (.not.allocated(TYPES_BasisState)) then
-    TYPES_BasisState = [BasisStatePointer(this)]
-  elseif (.not.any([(                                     &
-     & this%representation()                              &
-     &    == TYPES_BasisState(i)%state_%representation(), &
-     & i=1,                                               &
-     & size(TYPES_BasisState)                             )])) then
-    TYPES_BasisState = [TYPES_BasisState, BasisStatePointer(this)]
-  endif
-end subroutine
-
-subroutine startup_BasisStates(this)
-  implicit none
-  
-  class(BasisStates), intent(in) :: this
-  
-  integer :: i
-  
-  if (.not.allocated(TYPES_BasisStates)) then
-    TYPES_BasisStates = [BasisStatesPointer(this)]
-  elseif (.not.any([(                                       &
-     & this%representation()                                &
-     &    == TYPES_BasisStates(i)%states_%representation(), &
-     & i=1,                                                 &
-     & size(TYPES_BasisStates)                              )])) then
-    TYPES_BasisStates = [TYPES_BasisStates, BasisStatesPointer(this)]
   endif
 end subroutine
 
@@ -1147,6 +1024,171 @@ impure elemental function calculate_states_SubspaceBasisPointer(this,     &
                                        & anharmonic_data            )
 end function
 
+impure elemental function inner_product_BasisStatePointer(this,bra,ket, &
+   & subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in)           :: this
+  class(BasisState),           intent(in)           :: bra
+  class(BasisState),           intent(in), optional :: ket
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  real(dp)                                          :: output
+  
+  call this%check()
+  
+  output = this%basis_%inner_product( bra,            &
+                                    & ket,            &
+                                    & subspace,       &
+                                    & anharmonic_data )
+end function
+
+impure elemental function braket_ComplexMonomial_BasisStatePointer(this,bra, &
+   & monomial,ket,subspace,anharmonic_data,qpoint) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in)           :: this
+  class(BasisState),           intent(in)           :: bra
+  type(ComplexMonomial),       intent(in)           :: monomial
+  class(BasisState),           intent(in), optional :: ket
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(QpointData),            intent(in), optional :: qpoint
+  type(ComplexMonomial)                             :: output
+  
+  call this%check()
+  
+  output = this%basis_%braket( bra,             &
+                             & monomial,        &
+                             & ket,             &
+                             & subspace,        &
+                             & anharmonic_data, &
+                             & qpoint           )
+end function
+
+impure elemental function kinetic_energy_BasisStatePointer(this,bra,ket, &
+   & subspace,anharmonic_data,qpoint) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in)           :: this
+  class(BasisState),           intent(in)           :: bra
+  class(BasisState),           intent(in), optional :: ket
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(QpointData),            intent(in), optional :: qpoint
+  real(dp)                                          :: output
+  
+  call this%check()
+  
+  output = this%basis_%kinetic_energy( bra,             &
+                                     & ket,             &
+                                     & subspace,        &
+                                     & anharmonic_data, &
+                                     & qpoint           )
+end function
+
+impure elemental function harmonic_potential_energy_BasisStatePointer( &
+   & this,bra,ket,subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in)           :: this
+  class(BasisState),           intent(in)           :: bra
+  class(BasisState),           intent(in), optional :: ket
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  real(dp)                                          :: output
+  
+  call this%check()
+  
+  output = this%basis_%harmonic_potential_energy( bra,            &
+                                                & ket,            &
+                                                & subspace,       &
+                                                & anharmonic_data )
+end function
+
+impure elemental function kinetic_stress_BasisStatePointer(this,bra,ket, &
+   & subspace,stress_prefactors,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in)           :: this
+  class(BasisState),           intent(in)           :: bra
+  class(BasisState),           intent(in), optional :: ket
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  type(StressPrefactors),      intent(in)           :: stress_prefactors
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(RealMatrix)                                  :: output
+  
+  call this%check()
+  
+  output = this%basis_%kinetic_stress( bra,               &
+                                     & ket,               &
+                                     & subspace,          &
+                                     & stress_prefactors, &
+                                     & anharmonic_data    )
+end function
+
+impure elemental function spectra_BasisStatesPointer(this,states,subspace, &
+   & subspace_potential,subspace_stress,stress_prefactors,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in)           :: this
+  class(BasisStates),          intent(in)           :: states
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  class(PotentialData),        intent(in)           :: subspace_potential
+  class(StressData),           intent(in), optional :: subspace_stress
+  type(StressPrefactors),      intent(in), optional :: stress_prefactors
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(EnergySpectra)                               :: output
+  
+  call this%check()
+  
+  output = this%basis_%spectra( states,             &
+                              & subspace,           &
+                              & subspace_potential, &
+                              & subspace_stress,    &
+                              & stress_prefactors,  &
+                              & anharmonic_data     )
+end function
+
+impure elemental function wavefunctions_BasisStatesPointer(this,states, &
+   & subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in) :: this
+  class(BasisStates),          intent(in) :: states
+  type(DegenerateSubspace),    intent(in) :: subspace
+  type(AnharmonicData),        intent(in) :: anharmonic_data
+  type(SubspaceWavefunctionsPointer)      :: output
+  
+  call this%check()
+  
+  output = this%basis_%wavefunctions( states,         &
+                                    & subspace,       &
+                                    & anharmonic_data )
+end function
+
+impure elemental function integrate_ComplexMonomial_BasisStatesPointer(this, &
+   & states,monomial,subspace,anharmonic_data,qpoint) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in)           :: this
+  class(BasisStates),          intent(in)           :: states
+  type(ComplexMonomial),       intent(in)           :: monomial
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
+  type(QpointData),            intent(in), optional :: qpoint
+  type(ComplexMonomial)                             :: output
+  
+  call this%check()
+  
+  output = this%basis_%integrate( states,          &
+                                & monomial,        &
+                                & subspace,        &
+                                & anharmonic_data, &
+                                & qpoint           )
+end function
+
 ! I/O.
 subroutine read_SubspaceBasisPointer(this,input)
   implicit none
@@ -1208,452 +1250,6 @@ impure elemental function new_SubspaceBasisPointer_StringArray(input) &
   type(SubspaceBasisPointer)    :: this
   
   this = SubspaceBasisPointer(str(input))
-end function
-
-! ----------------------------------------------------------------------
-! BasisStatePointer methods.
-! ----------------------------------------------------------------------
-! Construct a BasisStatePointer from any type which extends BasisState.
-impure elemental function new_BasisStatePointer(state) result(this)
-  implicit none
-  
-  class(BasisState), intent(in) :: state
-  type(BasisStatePointer)       :: this
-  
-  integer :: ialloc
-  
-  select type(state); type is(BasisStatePointer)
-    this = state
-  class default
-    this%representation_ = state%representation()
-    allocate( this%state_, source=state, &
-            & stat=ialloc); call err(ialloc)
-  end select
-end function
-
-! Checks that the pointer has been allocated before it is used.
-subroutine check_BasisStatePointer(this)
-  implicit none
-  
-  class(BasisStatePointer), intent(in) :: this
-  
-  if (.not. allocated(this%state_)) then
-    call print_line(CODE_ERROR//': Trying to use a BasisStatePointer &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Type representation.
-impure elemental function representation_BasisStatePointer() &
-   & result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'pointer'
-end function
-
-! BasisState methods.
-function state_BasisStatePointer(this) result(output)
-  implicit none
-  
-  class(BasisStatePointer), intent(in) :: this
-  class(BasisState), allocatable       :: output
-  
-  output = this%state_
-end function
-
-impure elemental function inner_product_BasisStatePointer(this, &
-   & ket,subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisStatePointer), intent(in)           :: this
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
-  
-  call this%check()
-  
-  output = this%state_%inner_product( ket,            &
-                                    & subspace,       &
-                                    & subspace_basis, &
-                                    & anharmonic_data )
-end function
-
-impure elemental function braket_ComplexMonomial_BasisStatePointer(this, &
-   & monomial,ket,subspace,subspace_basis,anharmonic_data,qpoint)        &
-   & result(output)
-  implicit none
-  
-  class(BasisStatePointer), intent(in)           :: this
-  type(ComplexMonomial),    intent(in)           :: monomial
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  call this%check()
-  
-  output = this%state_%braket( monomial,        &
-                             & ket,             &
-                             & subspace,        &
-                             & subspace_basis,  &
-                             & anharmonic_data, &
-                             & qpoint           )
-end function
-
-impure elemental function kinetic_energy_BasisStatePointer(this,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(BasisStatePointer), intent(in)           :: this
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  real(dp)                                       :: output
-  
-  call this%check()
-  
-  if (present(ket)) then
-    select type(ket); type is(BasisStatePointer)
-      call ket%check()
-      output = this%state_%kinetic_energy( ket%state_,     &
-                                         & subspace,       &
-                                         & subspace_basis, &
-                                         & anharmonic_data, qpoint )
-    class default
-      output = this%state_%kinetic_energy( ket,            &
-                                         & subspace,       &
-                                         & subspace_basis, &
-                                         & anharmonic_data, qpoint )
-    end select
-  else
-    output = this%state_%kinetic_energy( subspace        = subspace,       &
-                                       & subspace_basis  = subspace_basis, &
-                                       & anharmonic_data = anharmonic_data, qpoint=qpoint )
-  endif
-end function
-
-impure elemental function harmonic_potential_energy_BasisStatePointer( &
-   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisStatePointer), intent(in)           :: this
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
-  
-  call this%check()
-  
-  if (present(ket)) then
-    select type(ket); type is(BasisStatePointer)
-      call ket%check()
-      output = this%state_%harmonic_potential_energy( ket%state_,     &
-                                                    & subspace,       &
-                                                    & subspace_basis, &
-                                                    & anharmonic_data )
-    class default
-      output = this%state_%harmonic_potential_energy( ket,            &
-                                                    & subspace,       &
-                                                    & subspace_basis, &
-                                                    & anharmonic_data )
-    end select
-  else
-    output = this%state_%harmonic_potential_energy( &
-                & subspace        = subspace,       &
-                & subspace_basis  = subspace_basis, &
-                & anharmonic_data = anharmonic_data )
-  endif
-end function
-
-impure elemental function kinetic_stress_BasisStatePointer(this,ket, &
-   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisStatePointer), intent(in)           :: this
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(StressPrefactors),   intent(in)           :: stress_prefactors
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(RealMatrix)                               :: output
-  
-  call this%check()
-  
-  if (present(ket)) then
-    select type(ket); type is(BasisStatePointer)
-      call ket%check()
-      output = this%state_%kinetic_stress( ket%state_,        &
-                                         & subspace,          &
-                                         & subspace_basis,    &
-                                         & stress_prefactors, &
-                                         & anharmonic_data    )
-    class default
-      output = this%state_%kinetic_stress( ket,               &
-                                         & subspace,          &
-                                         & subspace_basis,    &
-                                         & stress_prefactors, &
-                                         & anharmonic_data    )
-    end select
-  else
-    output = this%state_%kinetic_stress(        &
-       & subspace          = subspace,          &
-       & subspace_basis    = subspace_basis,    &
-       & stress_prefactors = stress_prefactors, &
-       & anharmonic_data   = anharmonic_data    )
-  endif
-end function
-
-! I/O.
-subroutine read_BasisStatePointer(this,input)
-  implicit none
-  
-  class(BasisStatePointer), intent(out) :: this
-  type(String),             intent(in)  :: input(:)
-  
-  type(String), allocatable :: line(:)
-  
-  type(String) :: representation
-  
-  integer :: i
-  
-  select type(this); type is(BasisStatePointer)
-    line = split_line(input(1))
-    representation = line(3)
-    
-    ! Identify which type corresponds to the representation.
-    i = first([(                                                      &
-       & TYPES_BasisState(i)%state_%representation()==representation, &
-       & i=1,                                                         &
-       & size(TYPES_BasisState)                                       )])
-    
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_BasisState(i)%state_%read(input(2:))
-    this = BasisStatePointer(TYPES_BasisState(i))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_BasisStatePointer(this) result(output)
-  implicit none
-  
-  class(BasisStatePointer), intent(in) :: this
-  type(String), allocatable            :: output(:)
-  
-  select type(this); type is(BasisStatePointer)
-    output = [ 'BasisState representation: '//this%representation_, &
-             & str(this%state_)                                     ]
-  end select
-end function
-
-function new_BasisStatePointer_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(BasisStatePointer)  :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_BasisStatePointer_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(BasisStatePointer)       :: this
-  
-  this = BasisStatePointer(str(input))
-end function
-
-! ----------------------------------------------------------------------
-! BasisStatesPointer methods.
-! ----------------------------------------------------------------------
-! Construct a BasisStatesPointer from any type which extends BasisStates.
-impure elemental function new_BasisStatesPointer(states) result(this)
-  implicit none
-  
-  class(BasisStates), intent(in) :: states
-  type(BasisStatesPointer)       :: this
-  
-  integer :: ialloc
-  
-  select type(states); type is(BasisStatesPointer)
-    this = states
-  class default
-    this%representation_ = states%representation()
-    allocate( this%states_, source=states, &
-            & stat=ialloc); call err(ialloc)
-  end select
-end function
-
-! Checks that the pointer has been allocated before it is used.
-subroutine check_BasisStatesPointer(this)
-  implicit none
-  
-  class(BasisStatesPointer), intent(in) :: this
-  
-  if (.not. allocated(this%states_)) then
-    call print_line(CODE_ERROR//': Trying to use a BasisStatesPointer &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Type representation.
-impure elemental function representation_BasisStatesPointer() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'pointer'
-end function
-
-! BasisStates methods.
-function states_BasisStatesPointer(this) result(output)
-  implicit none
-  
-  class(BasisStatesPointer), intent(in) :: this
-  class(BasisStates), allocatable       :: output
-  
-  call this%check()
-  
-  output = this%states_
-end function
-
-impure elemental function spectra_BasisStatesPointer(this,subspace,       &
-   & subspace_potential,subspace_stress,subspace_basis,stress_prefactors, &
-   & anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisStatesPointer), intent(in)           :: this
-  type(DegenerateSubspace),  intent(in)           :: subspace
-  class(PotentialData),      intent(in)           :: subspace_potential
-  class(StressData),         intent(in), optional :: subspace_stress
-  class(SubspaceBasis),      intent(in)           :: subspace_basis
-  type(StressPrefactors),    intent(in), optional :: stress_prefactors
-  type(AnharmonicData),      intent(in)           :: anharmonic_data
-  type(EnergySpectra)                             :: output
-  
-  call this%check()
-  
-  output = this%states_%spectra( subspace,           &
-                               & subspace_potential, &
-                               & subspace_stress,    &
-                               & subspace_basis,     &
-                               & stress_prefactors,  &
-                               & anharmonic_data     )
-end function
-
-impure elemental function wavefunctions_BasisStatesPointer(this,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisStatesPointer), intent(in) :: this
-  type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(SubspaceWavefunctionsPointer)    :: output
-  
-  call this%check()
-  
-  output = this%states_%wavefunctions( subspace,       &
-                                     & subspace_basis, &
-                                     & anharmonic_data )
-end function
-
-impure elemental function braket_ComplexMonomial_BasisStatesPointer(this, &
-   & monomial,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
-  implicit none
-  
-  class(BasisStatesPointer), intent(in)           :: this
-  type(ComplexMonomial),     intent(in)           :: monomial
-  type(DegenerateSubspace),  intent(in)           :: subspace
-  class(SubspaceBasis),      intent(in)           :: subspace_basis
-  type(AnharmonicData),      intent(in)           :: anharmonic_data
-  type(QpointData),          intent(in), optional :: qpoint
-  type(ComplexMonomial)                           :: output
-  
-  call this%check()
-  
-  output = this%states_%braket( monomial,        &
-                              & subspace,        &
-                              & subspace_basis,  &
-                              & anharmonic_data, &
-                              & qpoint           )
-end function
-
-! I/O.
-subroutine read_BasisStatesPointer(this,input)
-  implicit none
-  
-  class(BasisStatesPointer), intent(out) :: this
-  type(String),              intent(in)  :: input(:)
-  
-  type(String), allocatable :: line(:)
-  
-  type(String) :: representation
-  
-  integer :: i
-  
-  select type(this); type is(BasisStatesPointer)
-    line = split_line(input(1))
-    representation = line(3)
-    
-    ! Identify which type corresponds to the representation.
-    i = first([(                                                        &
-       & TYPES_BasisStates(i)%states_%representation()==representation, &
-       & i=1,                                                           &
-       & size(TYPES_BasisStates)                                        )])
-    
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_BasisStates(i)%states_%read(input(2:))
-    this = BasisStatesPointer(TYPES_BasisStates(i))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_BasisStatesPointer(this) result(output)
-  implicit none
-  
-  class(BasisStatesPointer), intent(in) :: this
-  type(String), allocatable             :: output(:)
-  
-  select type(this); type is(BasisStatesPointer)
-    output = [ 'BasisStates representation: '//this%representation_, &
-             & str(this%states_)                                     ]
-  end select
-end function
-
-function new_BasisStatesPointer_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(BasisStatesPointer) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_BasisStatesPointer_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(BasisStatesPointer)      :: this
-  
-  this = BasisStatesPointer(str(input))
 end function
 
 ! ----------------------------------------------------------------------
@@ -2233,51 +1829,49 @@ end function
 ! ----------------------------------------------------------------------
 ! BasisState methods.
 impure elemental function braket_ComplexPolynomial_BasisState(this, &
-   & polynomial,ket,subspace,subspace_basis,anharmonic_data,qpoint) &
-   & result(output)
+   & bra,polynomial,ket,subspace,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(BasisState),        intent(in)           :: this
+  class(SubspaceBasis),     intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
   type(ComplexPolynomial),  intent(in)           :: polynomial
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(QpointData),         intent(in), optional :: qpoint
   type(ComplexPolynomial)                        :: output
   
   type(ComplexMonomial), allocatable :: monomials(:)
   
-  monomials = this%braket( polynomial%terms, &
+  monomials = this%braket( bra,              &
+                         & polynomial%terms, &
                          & ket,              &
                          & subspace,         &
-                         & subspace_basis,   &
                          & anharmonic_data,  &
                          & qpoint            )
   output = ComplexPolynomial(monomials)
 end function
 
 ! BasisStates methods.
-impure elemental function braket_ComplexPolynomial_BasisStates(this, &
-   & polynomial,subspace,subspace_basis,anharmonic_data,qpoint)      &
-   & result(output)
+impure elemental function integrate_ComplexPolynomial_BasisStates(this, &
+   & states,polynomial,subspace,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(BasisStates),       intent(in)           :: this
+  class(SubspaceBasis),     intent(in)           :: this
+  class(BasisStates),       intent(in)           :: states
   type(ComplexPolynomial),  intent(in)           :: polynomial
   type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(QpointData),         intent(in), optional :: qpoint
   type(ComplexPolynomial)                        :: output
   
   type(ComplexMonomial), allocatable :: monomials(:)
   
-  monomials = this%braket( polynomial%terms, &
-                         & subspace,         &
-                         & subspace_basis,   &
-                         & anharmonic_data,  &
-                         & qpoint            )
+  monomials = this%integrate( states,           &
+                            & polynomial%terms, &
+                            & subspace,         &
+                            & anharmonic_data,  &
+                            & qpoint            )
   output = ComplexPolynomial(monomials)
 end function
 

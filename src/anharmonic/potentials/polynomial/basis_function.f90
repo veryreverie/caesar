@@ -472,12 +472,13 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
                         & include_coefficients = .false.      )
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_ = bra%braket( this%complex_representation_, &
-                                           & ket,                          &
-                                           & subspace,                     &
-                                           & subspace_basis,               &
-                                           & anharmonic_data,              &
-                                           & qpoint                        )
+  this%complex_representation_ = subspace_basis%braket( &
+                        & bra,                          &
+                        & this%complex_representation_, &
+                        & ket,                          &
+                        & subspace,                     &
+                        & anharmonic_data,              &
+                        & qpoint                        )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
@@ -530,10 +531,11 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
                         & include_coefficients = .false.      )
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_ = states%braket( this%complex_representation_, &
-                                              & subspace,                     &
-                                              & subspace_basis,               &
-                                              & anharmonic_data               )
+  this%complex_representation_ = subspace_basis%integrate( &
+                           & states,                       &
+                           & this%complex_representation_, &
+                           & subspace,                     &
+                           & anharmonic_data               )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.

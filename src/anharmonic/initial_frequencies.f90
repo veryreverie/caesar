@@ -292,15 +292,15 @@ impure elemental function optimise_frequency(potential,subspace,           &
     
     do i=1,3
       call new_basis%set_frequency(frequencies(i))
-      energies(i) = potential_energy( subspace_states%vscf_states(1),   &
-                &                     potential,                        &
-                &                     subspace,                         &
-                &                     new_basis,                        &
-                &                     anharmonic_data                 ) &
-                & + subspace_states%vscf_states(1)%kinetic_energy(      &
-                &              subspace        = subspace,              &
-                &              subspace_basis  = new_basis,             &
-                &              anharmonic_data = anharmonic_data )
+      energies(i) = potential_energy( subspace_states%states(1),    &
+                &                     potential,                    &
+                &                     subspace,                     &
+                &                     new_basis,                    &
+                &                     anharmonic_data            )  &
+                & + new_basis%kinetic_energy(                       &
+                &      bra             = subspace_states%states(1), &
+                &      subspace        = subspace,                  &
+                &      anharmonic_data = anharmonic_data            )
     enddo
     
     call solver%set_outputs(energies)

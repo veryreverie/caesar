@@ -3,7 +3,7 @@
 ! ======================================================================
 ! N.B. only states at a single q-point are calculated and stored.
 ! All other q-points are included by symmetry.
-module split_qpoints_basis_and_states_module
+module split_qpoints_basis_module
   use common_module
   
   use anharmonic_common_module
@@ -12,15 +12,15 @@ module split_qpoints_basis_and_states_module
   use wavevector_states_module
   use wavevector_basis_module
   use split_qpoints_wavefunctions_module
+  
+  use full_subspace_states_module
   implicit none
   
   private
   
-  public :: startup_split_qpoints_basis_and_states
+  public :: startup_split_qpoints_basis
   
   public :: SplitQpointsBasis
-  public :: SplitQpointsState
-  public :: SplitQpointsStates
   
   public :: initial_ground_state
   
@@ -72,6 +72,25 @@ module split_qpoints_basis_and_states_module
     procedure, private :: calculate_split_states => &
                         & calculate_split_states_SplitQpointsBasis
     
+    ! Procedures involving individual states.
+    procedure, public :: inner_product => &
+                       & inner_product_WavevectorState
+    procedure, public :: braket_ComplexMonomial => &
+                       & braket_ComplexMonomial_WavevectorState
+    procedure, public :: kinetic_energy => &
+                       & kinetic_energy_WavevectorState
+    procedure, public :: harmonic_potential_energy => &
+                       & harmonic_potential_energy_WavevectorState
+    procedure, public :: kinetic_stress => &
+                       & kinetic_stress_WavevectorState
+    procedure, public :: wavefunction => wavefunction_WavevectorState
+    
+    ! Procedures involving sets of states.
+    procedure, public :: spectra => spectra_FullSubspaceStates
+    procedure, public :: wavefunctions => wavefunctions_FullSubspaceStates
+    procedure, public :: integrate_ComplexMonomial => &
+                       & integrate_ComplexMonomial_FullSubspaceStates
+    
     ! I/O.
     procedure, public :: read  => read_SplitQpointsBasis
     procedure, public :: write => write_SplitQpointsBasis
@@ -84,76 +103,15 @@ module split_qpoints_basis_and_states_module
     module procedure new_SplitQpointsBasis_Strings
     module procedure new_SplitQpointsBasis_StringArray
   end interface
-  
-  type, extends(BasisState) :: SplitQpointsState
-    type(FractionVector)  :: wavevector
-    real(dp)              :: energy
-    type(WavevectorState) :: state
-  contains
-    procedure, public, nopass :: representation => &
-                               & representation_SplitQpointsState
-    
-    procedure, public :: inner_product => &
-                       & inner_product_SplitQpointsState
-    
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_SplitQpointsState
-    procedure, public :: kinetic_energy => &
-                       & kinetic_energy_SplitQpointsState
-    procedure, public :: harmonic_potential_energy => &
-                       & harmonic_potential_energy_SplitQpointsState
-    procedure, public :: kinetic_stress => &
-                       & kinetic_stress_SplitQpointsState
-    
-    procedure, public :: wavefunction => wavefunction_SplitQpointsState
-    
-    ! I/O.
-    procedure, public :: read  => read_SplitQpointsState
-    procedure, public :: write => write_SplitQpointsState
-  end type
-  
-  interface SplitQpointsState
-    module procedure new_SplitQpointsState
-    module procedure new_SplitQpointsState_BasisState
-    module procedure new_SplitQpointsState_Strings
-    module procedure new_SplitQpointsState_StringArray
-  end interface
-  
-  type, extends(BasisStates) :: SplitQpointsStates
-    type(SplitQpointsState), allocatable :: vscf_states(:)
-  contains
-    procedure, public, nopass :: representation => &
-                               & representation_SplitQpointsStates
-    
-    procedure, public :: spectra => spectra_SplitQpointsStates
-    procedure, public :: wavefunctions => wavefunctions_SplitQpointsStates
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_SplitQpointsStates
-    
-    ! I/O.
-    procedure, public :: read  => read_SplitQpointsStates
-    procedure, public :: write => write_SplitQpointsStates
-  end type
-  
-  interface SplitQpointsStates
-    module procedure new_SplitQpointsStates
-    module procedure new_SplitQpointsStates_BasisStates
-    module procedure new_SplitQpointsStates_Strings
-    module procedure new_SplitQpointsStates_StringArray
-  end interface
 contains
 
 ! Startup procedure.
-subroutine startup_split_qpoints_basis_and_states()
+subroutine startup_split_qpoints_basis()
   implicit none
   
-  type(SplitQpointsBasis)  :: basis
-  type(SplitQpointsState)  :: state
-  type(SplitQpointsStates) :: states
+  type(SplitQpointsBasis) :: basis
   
   call basis%startup()
-  call state%startup()
-  call states%startup()
 end subroutine
 
 ! QpointModes methods.
@@ -348,7 +306,7 @@ impure elemental function initial_states_SplitQpointsBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  type(SplitQpointsState) :: ground_state
+  type(WavevectorState) :: ground_state
   
   integer :: ialloc
   
@@ -356,7 +314,7 @@ impure elemental function initial_states_SplitQpointsBasis(this,subspace, &
   ground_state = initial_ground_state(this)
   
   ! Generate the set of states {|0>}.
-  output = BasisStatesPointer(SplitQpointsStates([ground_state]))
+  output = BasisStatesPointer(FullSubspaceStates([ground_state],[0.0_dp]))
 end function
 
 ! Generate initial guess. This is simply the basis state |0>, i.e. the
@@ -366,24 +324,16 @@ impure elemental function initial_ground_state(basis) result(output)
   implicit none
   
   type(SplitQpointsBasis), intent(in) :: basis
-  type(SplitQpointsState)             :: output
+  type(WavevectorState)               :: output
   
   type(WavevectorBasis) :: wavevector_basis
-  type(WavevectorState) :: ground_state
   
   ! Find the basis at wavevector [0,0,0].
   wavevector_basis = basis%wavevectors(            &
      & first(is_int(basis%wavevectors%wavevector)) )
   
   ! Construct the ground state at [0,0,0].
-  ground_state = wavevector_basis%initial_ground_state()
-  
-  ! Construct output.
-  output = SplitQpointsState(                      &
-     & subspace_id  = basis%subspace_id,           &
-     & wavevector   = wavevector_basis%wavevector, &
-     & energy       = 0.0_dp,                      &
-     & state        = ground_state                 )
+  output = wavevector_basis%initial_ground_state()
 end function
 
 ! Calculate the eigenstates of a single-subspace potential.
@@ -429,15 +379,15 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
   integer,                  intent(in) :: pre_pulay_iterations
   real(dp),                 intent(in) :: pre_pulay_damping
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(SplitQpointsStates)             :: output
+  type(FullSubspaceStates)             :: output
   
-  type(SplitQPointsStates) :: initial_states
-  type(SplitQpointsState)  :: initial_state
+  type(FullSubspaceStates) :: initial_states
+  type(WavevectorState)    :: initial_state
   type(PotentialPointer)   :: initial_potential
   
   type(PotentialPointer),   allocatable :: input_potentials(:)
-  type(SplitQpointsStates), allocatable :: states(:)
-  type(SplitQpointsState)               :: state
+  type(FullSubspaceStates), allocatable :: states(:)
+  type(WavevectorState)                 :: state
   type(PotentialPointer),   allocatable :: output_potentials(:)
   
   integer :: first_pulay_step
@@ -446,10 +396,9 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
   
   call print_line( 'Running inter-subspace VSCF in subspace '// &
                  & subspace%id//'.')
-  initial_states = SplitQpointsStates(basis%initial_states( subspace,       &
+  initial_states = FullSubspaceStates(basis%initial_states( subspace,       &
                                                           & anharmonic_data ))
-  initial_state = initial_states%vscf_states(      &
-     & minloc(initial_states%vscf_states%energy,1) )
+  initial_state = initial_states%states(minloc(initial_states%energies,1) )
   initial_potential = PotentialPointer(potential)
   do i=2,size(basis%qpoint_modes)
     call initial_potential%braket(                      &
@@ -462,7 +411,7 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
   call initial_potential%zero_energy()
   
   input_potentials = [initial_potential]
-  states = [SplitQpointsStates::]
+  states = [FullSubspaceStates::]
   output_potentials = [PotentialPointer::]
   i = 1
   do
@@ -472,7 +421,7 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
              &                               input_potentials(i),         &
              &                               anharmonic_data,             &
              &                               basis%qpoint_modes(1)%qpoint ) ]
-    state = states(i)%vscf_states(minloc(states(i)%vscf_states%energy,1))
+    state = states(i)%states(minloc(states(i)%energies,1))
     
     ! Use states to calculate new potential.
     output_potentials = [output_potentials, PotentialPointer(potential)]
@@ -538,96 +487,47 @@ impure elemental function calculate_split_states_SplitQpointsBasis(this, &
   class(PotentialData),     intent(in) :: subspace_potential
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(QpointData),         intent(in) :: qpoint
-  type(SplitQpointsStates)             :: output
+  type(FullSubspaceStates)             :: output
   
-  type(SplitQpointsState)              :: vscf_state
-  type(SplitQpointsState), allocatable :: vscf_states(:)
+  type(WavevectorState)              :: state
+  type(WavevectorState), allocatable :: states(:)
+  real(dp),              allocatable :: energies(:)
   
   type(WavevectorStates) :: wavevector_states
   
   integer :: i,j
   
-  vscf_states = [SplitQpointsState::]
+  states = [WavevectorState::]
+  energies = [real(dp)::]
   do i=1,size(this%wavevectors)
     wavevector_states = this%wavevectors(i)%calculate_states( &
                                         & subspace_potential, &
                                         & anharmonic_data     )
-    do j=1,size(wavevector_states%states)
-      vscf_state = SplitQpointsState(                    &
-         & subspace_id = this%subspace_id,               &
-         & wavevector  = this%wavevectors(i)%wavevector, &
-         & energy      = wavevector_states%energies(j),  &
-         & state       = wavevector_states%states(j)     )
-      vscf_states = [vscf_states, vscf_state]
-    enddo
+    states = [states, wavevector_states%states]
+    energies = [energies, wavevector_states%energies]
   enddo
   
-  output = SplitQpointsStates(vscf_states)
+  output = FullSubspaceStates(states, energies)
 end function
 
 impure elemental function steps_converged(this,that,energy_convergence) &
    & result(output)
   implicit none
   
-  type(SplitQpointsStates), intent(in) :: this
-  type(SplitQpointsStates), intent(in) :: that
+  type(FullSubspaceStates), intent(in) :: this
+  type(FullSubspaceStates), intent(in) :: that
   real(dp),                 intent(in) :: energy_convergence
   logical                              :: output
   
-  output = all( abs(this%vscf_states%energy-that%vscf_states%energy) &
-            & < energy_convergence                                   )
+  output = all(abs(this%energies-that%energies) < energy_convergence)
 end function
 
-! ----------------------------------------------------------------------
-! SplitQpointsState methods.
-! ----------------------------------------------------------------------
-! Constructor.
-function new_SplitQpointsState(subspace_id,wavevector,energy,state) &
-   & result(this)
-  implicit none
-  
-  integer,               intent(in) :: subspace_id
-  type(FractionVector),  intent(in) :: wavevector
-  real(dp),              intent(in) :: energy
-  type(WavevectorState), intent(in) :: state
-  type(SplitQpointsState)           :: this
-  
-  this%subspace_id = subspace_id
-  this%wavevector  = wavevector
-  this%energy      = energy
-  this%state       = state
-end function
-
-recursive function new_SplitQpointsState_BasisState(input) result(this)
-  implicit none
-  
-  class(BasisState), intent(in) :: input
-  type(SplitQpointsState)       :: this
-  
-  select type(input); type is(SplitQpointsState)
-    this = input
-  type is(BasisStatePointer)
-    this = SplitQpointsState(input%state())
-  class default
-    call err()
-  end select
-end function
-
-! Type representation.
-impure elemental function representation_SplitQpointsState() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'split_qpoints'
-end function
-
-impure elemental function wavefunction_SplitQpointsState(this,basis, &
+impure elemental function wavefunction_WavevectorState(this,state, &
    & supercell) result(output)
   implicit none
   
-  class(SplitQpointsState), intent(in) :: this
-  type(SplitQpointsBasis),  intent(in) :: basis
+  class(SplitQpointsBasis), intent(in) :: this
+  type(WavevectorState),    intent(in) :: state
   type(StructureData),      intent(in) :: supercell
   type(String)                         :: output
   
@@ -635,224 +535,190 @@ impure elemental function wavefunction_SplitQpointsState(this,basis, &
   output = ''
 end function
 
-impure elemental function inner_product_SplitQpointsState(this, &
-   & ket,subspace,subspace_basis,anharmonic_data) result(output)
+impure elemental function inner_product_WavevectorState(this,bra,ket, &
+   & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsState), intent(in)           :: this
+  class(SplitQpointsBasis), intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(SplitQpointsBasis) :: split_basis
-  type(SplitQpointsState) :: split_ket
+  type(WavevectorState) :: split_bra
+  type(WavevectorState) :: split_ket
   
   integer :: i
   
-  split_basis = SplitQpointsBasis(subspace_basis)
-  i = first(split_basis%wavevectors%wavevector == this%wavevector)
+  split_bra = WavevectorState(bra)
+  
+  i = first(this%wavevectors%wavevector == split_bra%wavevector)
   
   if (present(ket)) then
-    split_ket = SplitQpointsState(ket)
-    output = split_basis%wavevectors(i)%inner_product( this%state,     &
-                                                     & split_ket%state, &
-                                                     & anharmonic_data )
-  else
-    output = split_basis%wavevectors(i)%inner_product( &
-                   & bra             = this%state,     &
-                   & anharmonic_data = anharmonic_data )
-  endif
-end function
-
-impure elemental function braket_ComplexMonomial_SplitQpointsState(this, &
-   & monomial,ket,subspace,subspace_basis,anharmonic_data,qpoint)        &
-   & result(output)
-  implicit none
-  
-  class(SplitQpointsState), intent(in)           :: this
-  type(ComplexMonomial),    intent(in)           :: monomial
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
-  
-  type(SplitQpointsBasis) :: split_basis
-  type(SplitQpointsState) :: split_ket
-  
-  integer :: i
-  
-  split_basis = SplitQpointsBasis(subspace_basis)
-  i = first(split_basis%wavevectors%wavevector == this%wavevector)
-  
-  if (present(ket)) then
-    split_ket = SplitQpointsState(ket)
-    output = split_basis%wavevectors(i)%braket( this%state,      &
-                                              & monomial,        &
-                                              & split_ket%state, &
+    split_ket = WavevectorState(ket)
+    output = this%wavevectors(i)%inner_product( split_bra,       &
+                                              & split_ket,       &
                                               & anharmonic_data  )
   else
-    output = split_basis%wavevectors(i)%braket( &
-            & bra             = this%state,     &
-            & monomial        = monomial,       &
+    output = this%wavevectors(i)%inner_product( &
+            & bra             = split_bra,      &
             & anharmonic_data = anharmonic_data )
   endif
 end function
 
-impure elemental function kinetic_energy_SplitQpointsState(this,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+impure elemental function braket_ComplexMonomial_WavevectorState(this, &
+   & bra,monomial,ket,subspace,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(SplitQpointsState), intent(in)           :: this
+  class(SplitQpointsBasis), intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  type(ComplexMonomial),    intent(in)           :: monomial
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData), intent(in), optional :: qpoint
-  real(dp)                                       :: output
+  type(QpointData),         intent(in), optional :: qpoint
+  type(ComplexMonomial)                          :: output
   
-  type(SplitQpointsBasis) :: split_basis
-  type(SplitQpointsState) :: split_ket
+  type(WavevectorState) :: split_bra
+  type(WavevectorState) :: split_ket
   
   integer :: i
   
-  split_basis = SplitQpointsBasis(subspace_basis)
-  i = first(split_basis%wavevectors%wavevector == this%wavevector)
+  split_bra = WavevectorState(bra)
+  
+  i = first(this%wavevectors%wavevector == split_bra%wavevector)
   
   if (present(ket)) then
-    split_ket = SplitQpointsState(ket)
-    output = split_basis%wavevectors(i)%kinetic_energy( this%state,      &
-                                                      & split_ket%state, &
-                                                      & anharmonic_data  )
+    split_ket = WavevectorState(ket)
+    output = this%wavevectors(i)%braket( split_bra,      &
+                                       & monomial,       &
+                                       & split_ket,      &
+                                       & anharmonic_data )
   else
-    output = split_basis%wavevectors(i)%kinetic_energy( &
-                    & bra             = this%state,     &
-                    & anharmonic_data = anharmonic_data )
+    output = this%wavevectors(i)%braket(   &
+       & bra             = split_bra,      &
+       & monomial        = monomial,       &
+       & anharmonic_data = anharmonic_data )
   endif
 end function
 
-impure elemental function harmonic_potential_energy_SplitQpointsState( &
-   & this,ket,subspace,subspace_basis,anharmonic_data) result(output)
+impure elemental function kinetic_energy_WavevectorState(this,bra,ket, &
+   & subspace,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(SplitQpointsState), intent(in)           :: this
+  class(SplitQpointsBasis), intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
-  type(SplitQpointsBasis) :: split_basis
-  type(SplitQpointsState) :: split_ket
+  type(WavevectorState) :: split_bra
+  type(WavevectorState) :: split_ket
   
   integer :: i
   
-  split_basis = SplitQpointsBasis(subspace_basis)
-  i = first(split_basis%wavevectors%wavevector == this%wavevector)
+  split_bra = WavevectorState(bra)
+  
+  i = first(this%wavevectors%wavevector == split_bra%wavevector)
   
   if (present(ket)) then
-    split_ket = SplitQpointsState(ket)
-    output = split_basis%wavevectors(i)%harmonic_potential_energy( &
-                                                & this%state,      &
-                                                & split_ket%state, &
-                                                & anharmonic_data  )
+    split_ket = WavevectorState(ket)
+    output = this%wavevectors(i)%kinetic_energy( split_bra,      &
+                                               & split_ket,      &
+                                               & anharmonic_data )
   else
-    output = split_basis%wavevectors(i)%harmonic_potential_energy( &
-                               & bra             = this%state,     &
-                               & anharmonic_data = anharmonic_data )
+    output = this%wavevectors(i)%kinetic_energy( &
+             & bra             = split_bra,      &
+             & anharmonic_data = anharmonic_data )
   endif
 end function
 
-impure elemental function kinetic_stress_SplitQpointsState(this,ket, &
-   & subspace,subspace_basis,stress_prefactors,anharmonic_data) result(output)
+impure elemental function harmonic_potential_energy_WavevectorState(this, &
+   & bra,ket,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsState), intent(in)           :: this
+  class(SplitQpointsBasis), intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(WavevectorState) :: split_bra
+  type(WavevectorState) :: split_ket
+  
+  integer :: i
+  
+  split_bra = WavevectorState(bra)
+  
+  i = first(this%wavevectors%wavevector == split_bra%wavevector)
+  
+  if (present(ket)) then
+    split_ket = WavevectorState(ket)
+    output = this%wavevectors(i)%harmonic_potential_energy( split_bra,      &
+                                                          & split_ket,      &
+                                                          & anharmonic_data )
+  else
+    output = this%wavevectors(i)%harmonic_potential_energy( &
+                        & bra             = split_bra,      &
+                        & anharmonic_data = anharmonic_data )
+  endif
+end function
+
+impure elemental function kinetic_stress_WavevectorState(this,bra,ket, &
+   & subspace,stress_prefactors,anharmonic_data) result(output)
+  implicit none
+  
+  class(SplitQpointsBasis), intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
   type(StressPrefactors),   intent(in)           :: stress_prefactors
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(RealMatrix)                               :: output
   
-  type(SplitQpointsBasis) :: split_basis
-  type(SplitQpointsState) :: split_ket
+  type(WavevectorState) :: split_bra
+  type(WavevectorState) :: split_ket
   
   integer :: i
   
-  split_basis = SplitQpointsBasis(subspace_basis)
-  i = first(split_basis%wavevectors%wavevector == this%wavevector)
+  split_bra = WavevectorState(bra)
+  
+  i = first(this%wavevectors%wavevector == split_bra%wavevector)
   
   if (present(ket)) then
-    split_ket = SplitQpointsState(ket)
-    output = split_basis%wavevectors(i)%kinetic_stress( this%state,        &
-                                                      & split_ket%state,   &
-                                                      & stress_prefactors, &
-                                                      & anharmonic_data    )
+    split_ket = WavevectorState(ket)
+    output = this%wavevectors(i)%kinetic_stress( split_bra,         &
+                                               & split_ket,         &
+                                               & stress_prefactors, &
+                                               & anharmonic_data    )
   else
-    output = split_basis%wavevectors(i)%kinetic_stress( &
-               & bra               = this%state,        &
-               & stress_prefactors = stress_prefactors, &
-               & anharmonic_data   = anharmonic_data    )
+    output = this%wavevectors(i)%kinetic_stress( &
+        & bra               = split_bra,         &
+        & stress_prefactors = stress_prefactors, &
+        & anharmonic_data   = anharmonic_data    )
   endif
 end function
 
-! ----------------------------------------------------------------------
-! SplitQpointsStates methods.
-! ----------------------------------------------------------------------
-! Constructor.
-function new_SplitQpointsStates(vscf_states) result(this)
-  implicit none
-  
-  type(SplitQpointsState), intent(in) :: vscf_states(:)
-  type(SplitQpointsStates)            :: this
-  
-  this%vscf_states = vscf_states
-end function
-
-recursive function new_SplitQpointsStates_BasisStates(input) result(this)
-  implicit none
-  
-  class(BasisStates), intent(in) :: input
-  type(SplitQpointsStates)       :: this
-  
-  select type(input); type is(SplitQpointsStates)
-    this = input
-  type is(BasisStatesPointer)
-    this = SplitQpointsStates(input%states())
-  class default
-    call err()
-  end select
-end function
-
-! Type representation.
-impure elemental function representation_SplitQpointsStates() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'split_qpoints'
-end function
-
 ! Energy spectra.
-impure elemental function spectra_SplitQpointsStates(this,subspace,       &
-   & subspace_potential,subspace_stress,subspace_basis,stress_prefactors, &
-   & anharmonic_data) result(output)
+impure elemental function spectra_FullSubspaceStates(this,states,subspace, &
+   & subspace_potential,subspace_stress,stress_prefactors,anharmonic_data) &
+   & result(output)
   implicit none
   
-  class(SplitQpointsStates), intent(in)           :: this
-  type(DegenerateSubspace),  intent(in)           :: subspace
-  class(PotentialData),      intent(in)           :: subspace_potential
-  class(StressData),         intent(in), optional :: subspace_stress
-  class(SubspaceBasis),      intent(in)           :: subspace_basis
-  type(StressPrefactors),    intent(in), optional :: stress_prefactors
-  type(AnharmonicData),      intent(in)           :: anharmonic_data
-  type(EnergySpectra)                             :: output
+  class(SplitQpointsBasis), intent(in)           :: this
+  class(BasisStates),       intent(in)           :: states
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(PotentialData),     intent(in)           :: subspace_potential
+  class(StressData),        intent(in), optional :: subspace_stress
+  type(StressPrefactors),   intent(in), optional :: stress_prefactors
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(EnergySpectra)                            :: output
   
-  type(SplitQpointsBasis)       :: split_basis
+  type(FullSubspaceStates)      :: split_states
   type(RealMatrix), allocatable :: stress(:)
   type(EnergySpectrum)          :: energy_spectrum
   
@@ -862,106 +728,107 @@ impure elemental function spectra_SplitQpointsStates(this,subspace,       &
     call err()
   endif
   
-  split_basis = SplitQpointsBasis(subspace_basis)
+  split_states = FullSubspaceStates(states)
   
   if (present(subspace_stress)) then
-    allocate(stress(size(this%vscf_states)), stat=ialloc); call err(ialloc)
-    do i=1,size(this%vscf_states)
-      stress(i) = potential_stress( this%vscf_states(i),    &
-              &                     subspace_stress,        &
-              &                     subspace,               &
-              &                     subspace_basis,         &
-              &                     anharmonic_data      )  &
-              & + this%vscf_states(i)%kinetic_stress(       &
-              &      subspace          = subspace,          &
-              &      subspace_basis    = subspace_basis,    &
-              &      stress_prefactors = stress_prefactors, &
-              &      anharmonic_data   = anharmonic_data    )
+    allocate( stress(size(split_states%states)), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(split_states%states)
+      stress(i) = potential_stress( split_states%states(i),        &
+              &                     subspace_stress,               &
+              &                     subspace,                      &
+              &                     this,                          &
+              &                     anharmonic_data              ) &
+              & + this%kinetic_stress(                             &
+              &        bra               = split_states%states(i), &
+              &        subspace          = subspace,               &
+              &        stress_prefactors = stress_prefactors,      &
+              &        anharmonic_data   = anharmonic_data         )
     enddo
-    energy_spectrum =  EnergySpectrum( this%vscf_states%energy, &
-                                     & stresses = stress        )
+    energy_spectrum =  EnergySpectrum(split_states%energies, stresses=stress)
   else
-    energy_spectrum = EnergySpectrum(this%vscf_states%energy)
+    energy_spectrum = EnergySpectrum(split_states%energies)
   endif
   
-  output = EnergySpectra([( energy_spectrum,               &
-                          & i=1,                           &
-                          & size(split_basis%qpoint_modes) )])
+  output = EnergySpectra([( energy_spectrum,        &
+                          & i=1,                    &
+                          & size(this%qpoint_modes) )])
 end function
 
 ! Wavefunctions.
-impure elemental function wavefunctions_SplitQpointsStates(this,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
+impure elemental function wavefunctions_FullSubspaceStates(this,states, &
+   & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsStates), intent(in) :: this
+  class(SplitQpointsBasis),  intent(in) :: this
+  class(BasisStates),        intent(in) :: states
   type(DegenerateSubspace),  intent(in) :: subspace
-  class(SubspaceBasis),      intent(in) :: subspace_basis
   type(AnharmonicData),      intent(in) :: anharmonic_data
   type(SubspaceWavefunctionsPointer)    :: output
   
-  type(SplitQpointsBasis)         :: split_basis
+  type(FullSubspaceStates)        :: split_states
   type(String)                    :: ground_state
   type(String), allocatable       :: state_wavefunctions(:)
   type(SplitQpointsWavefunctions) :: wavefunctions
   
   integer :: ialloc
   
-  split_basis = SplitQpointsBasis(subspace_basis)
+  split_states = FullSubspaceStates(states)
   
   ! Construct the wavefunction of |0>.
-  ground_state = split_basis%ground_state_wavefunction( &
-                 & subspace,                            &
-                 & anharmonic_data%anharmonic_supercell )
+  ground_state = this%ground_state_wavefunction( &
+          & subspace,                            &
+          & anharmonic_data%anharmonic_supercell )
   
   ! Construct the wavefunctions of each state, in terms of |0>.
-  state_wavefunctions = this%vscf_states%wavefunction( &
-                & split_basis,                         &
-                & anharmonic_data%anharmonic_supercell )
+  state_wavefunctions = this%wavefunction(  &
+     & split_states%states,                 &
+     & anharmonic_data%anharmonic_supercell )
   
   ! Pack the wavefunctions into the output,
   !    of concrete type SplitQpointsWavefunctions.
-  wavefunctions = SplitQpointsWavefunctions( subspace%id,             &
-                                           & subspace%mode_ids,       &
-                                           & subspace%paired_ids,     &
-                                           & ground_state,            &
-                                           & this%vscf_states%energy, &
-                                           & state_wavefunctions      )
+  wavefunctions = SplitQpointsWavefunctions( subspace%id,           &
+                                           & subspace%mode_ids,     &
+                                           & subspace%paired_ids,   &
+                                           & ground_state,          &
+                                           & split_states%energies, &
+                                           & state_wavefunctions    )
   
   ! Convert the output to abstract class SubspaceWavefunctions.
   output = SubspaceWavefunctionsPointer(wavefunctions)
 end function
 
 ! Integrate a monomial.
-impure elemental function braket_ComplexMonomial_SplitQpointsStates(this, &
-   & monomial,subspace,subspace_basis,anharmonic_data,qpoint) result(output)
+impure elemental function integrate_ComplexMonomial_FullSubspaceStates(this, &
+   & states,monomial,subspace,anharmonic_data,qpoint) result(output)
   implicit none
   
-  class(SplitQpointsStates), intent(in)           :: this
+  class(SplitQpointsBasis),  intent(in)           :: this
+  class(BasisStates),        intent(in)           :: states
   type(ComplexMonomial),     intent(in)           :: monomial
   type(DegenerateSubspace),  intent(in)           :: subspace
-  class(SubspaceBasis),      intent(in)           :: subspace_basis
   type(AnharmonicData),      intent(in)           :: anharmonic_data
   type(QpointData),          intent(in), optional :: qpoint
   type(ComplexMonomial)                           :: output
   
-  type(SplitQpointsState) :: ground_state
-  type(SplitQpointsBasis) :: split_basis
+  type(FullSubspaceStates) :: split_states
+  type(WavevectorState)    :: ground_state
   
   integer :: i
   
+  split_states = FullSubspaceStates(states)
+  
   ! Identify the ground state.
-  ground_state = this%vscf_states(minloc(this%vscf_states%energy,1))
+  ground_state = split_states%states(minloc(split_states%energies,1))
   
   ! Braket the potential between the ground state.
-  split_basis = SplitQpointsBasis(subspace_basis)
-  do i=1,size(split_basis%qpoint_modes)
-    output = ground_state%braket(                             &
-       & monomial,                                            &
-       & subspace        = subspace,                          &
-       & subspace_basis  = subspace_basis,                    &
-       & anharmonic_data = anharmonic_data,                   &
-       & qpoint          = split_basis%qpoint_modes(i)%qpoint )
+  do i=1,size(this%qpoint_modes)
+    output = this%braket(                              &
+       & bra             = ground_state,               &
+       & monomial        = monomial,                   &
+       & subspace        = subspace,                   &
+       & anharmonic_data = anharmonic_data,            &
+       & qpoint          = this%qpoint_modes(i)%qpoint )
   enddo
 end function
 
@@ -1075,124 +942,5 @@ impure elemental function new_SplitQpointsBasis_StringArray(input) result(this)
   type(SplitQpointsBasis)       :: this
   
   this = SplitQpointsBasis(str(input))
-end function
-
-subroutine read_SplitQpointsState(this,input)
-  implicit none
-  
-  class(SplitQpointsState), intent(out) :: this
-  type(String),             intent(in)  :: input(:)
-  
-  integer               :: subspace_id
-  type(FractionVector)  :: wavevector
-  real(dp)              :: energy
-  type(WavevectorState) :: state
-  
-  type(String), allocatable :: line(:)
-  
-  select type(this); type is(SplitQpointsState)
-    line = split_line(input(1))
-    subspace_id = int(line(3))
-    
-    line = split_line(input(2))
-    wavevector = FractionVector(join(line(3:5)))
-    
-    line = split_line(input(3))
-    energy = dble(line(3))
-    
-    line = split_line(input(4))
-    state = WavevectorState(dble(line(3:)))
-    
-    this = SplitQpointsState( subspace_id, &
-                            & wavevector,  &
-                            & energy,      &
-                            & state        )
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_SplitQpointsState(this) result(output)
-  implicit none
-  
-  class(SplitQpointsState), intent(in) :: this
-  type(String), allocatable            :: output(:)
-  
-  select type(this); type is(SplitQpointsState)
-    output = [ 'Subspace     : '//this%subspace_id, &
-             & 'Wavevector   : '//this%wavevector,  &
-             & 'Energy       : '//this%energy,      &
-             & 'Coefficients : '//this%state        ]
-  class default
-    call err()
-  end select
-end function
-
-function new_SplitQpointsState_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(SplitQpointsState)  :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_SplitQpointsState_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(SplitQpointsState)       :: this
-  
-  this = SplitQpointsState(str(input))
-end function
-
-subroutine read_SplitQpointsStates(this,input)
-  implicit none
-  
-  class(SplitQpointsStates), intent(out) :: this
-  type(String),              intent(in)  :: input(:)
-  
-  type(SplitQpointsState), allocatable :: vscf_states(:)
-  
-  select type(this); type is(SplitQpointsStates)
-    vscf_states = SplitQpointsState(                           &
-       & split_into_sections( input,                           &
-       &                      separating_line=repeat('=',50) ) )
-    this = SplitQpointsStates(vscf_states)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_SplitQpointsStates(this) result(output)
-  implicit none
-  
-  class(SplitQpointsStates), intent(in) :: this
-  type(String), allocatable            :: output(:)
-  
-  select type(this); type is(SplitQpointsStates)
-    output = str(this%vscf_states, separating_line=repeat('=',50))
-  class default
-    call err()
-  end select
-end function
-
-function new_SplitQpointsStates_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(SplitQpointsStates) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_SplitQpointsStates_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(SplitQpointsStates)      :: this
-  
-  this = SplitQpointsStates(str(input))
 end function
 end module

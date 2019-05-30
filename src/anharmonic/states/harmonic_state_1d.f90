@@ -216,7 +216,7 @@ impure elemental function braket_HarmonicState1D(bra,ket,potential) &
          &               - log_factorial(min(p,q)) ) ) &
          & * sum([( exp( k*log(2.0_dp)                 &
          &             + log_binomial((n+d)/2, d+k)    &
-         &             - log_binomial(min(p,q), k)  ), &
+         &             + log_binomial(min(p,q), k)  ), &
          &          k=0,                               &
          &          min(p,q,(n-d)/2)                   )]) 
   endif
@@ -252,7 +252,7 @@ end function
 
 ! <p|d2/du2|q>.
 !    = -2Nw (p+0.5)/2                       if p=q.
-!    =  2Nw sqrt(max(p,q)*(max(p,q)-1))/2   if |p-q|=2.
+!    =  2Nw sqrt(max(p,q)*(max(p,q)-1))/4   if |p-q|=2.
 !    =  0                                   otherwise.
 !
 ! N.B. the factor of 2Nw is neglected.
@@ -272,7 +272,7 @@ impure elemental function second_derivative_HarmonicState1D(bra,ket) &
   if (p==q) then
     output = -(p+0.5_dp)/2
   elseif (abs(p-q)==2) then
-    output = sqrt(max(p,q)*(max(p,q)-1.0_dp))/2
+    output = sqrt(max(p,q)*(max(p,q)-1.0_dp))/4
   else
     output = 0
   endif

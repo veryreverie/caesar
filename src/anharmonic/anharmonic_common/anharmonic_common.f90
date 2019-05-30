@@ -13,6 +13,8 @@ module anharmonic_common_module
   use subspace_wavefunctions_module
   use stress_prefactors_module
   use subspace_state_module
+  use basis_state_module
+  use basis_states_module
   use abstract_classes_module
   use braket_module
   implicit none

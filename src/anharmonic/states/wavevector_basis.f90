@@ -735,7 +735,7 @@ impure elemental function initial_ground_state_WavevectorBasis(this) &
   coefficients = [( 0.0_dp, i=1, size(this%harmonic_states2_) )]
   coefficients(first(this%harmonic_states2_%occupation()==0)) = 1
   
-  output = WavevectorState(coefficients)
+  output = WavevectorState(this%subspace_id,this%wavevector,coefficients)
 end function
 
 function initial_states_WavevectorBasis(this,anharmonic_data) &
@@ -764,6 +764,8 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
   real(dp),                  allocatable :: hamiltonian(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
+  real(dp) :: T,V
+  
   integer :: i,j,k,ialloc
   
   allocate( hamiltonian( size(this%harmonic_states2_),    &
@@ -776,20 +778,41 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
       k = this%harmonic_couplings_(i)%id(j)
       ket = this%harmonic_states2_(k)
       
+      T = bra%kinetic_energy(ket,anharmonic_data)
+      V = potential_energy(bra,potential,ket,anharmonic_data)
+      
       hamiltonian(i,k) = bra%kinetic_energy( ket,              &
                      &                       anharmonic_data ) &
                      & + potential_energy( bra,                &
                      &                     potential,          &
                      &                     ket,                &
                      &                     anharmonic_data )
+      if (abs(T-V)>1e-7_dp .and. abs(T+V)>1e-7_dp) then
+        ! TODO: DEBUG
+        call print_line('')
+        call print_lines(potential)
+        call print_line('')
+        call print_lines(bra)
+        call print_line('')
+        call print_lines(ket)
+        call print_line('')
+        call print_line(T)
+        call print_line(V)
+        call quit()
+      endif
     enddo
   enddo
   
   estuff = diagonalise_symmetric(hamiltonian)
   
-  output = WavevectorStates(                                      &
-     & [(WavevectorState(estuff(i)%evec), i=1, size(estuff))],    &
-     & estuff%eval * anharmonic_data%anharmonic_supercell%sc_size )
+  ! TODO: Why is this multiplied by sqrt(N)???
+  output = WavevectorStates( [( WavevectorState( this%subspace_id,      &
+     &                                           this%wavevector,       &
+     &                                           estuff(i)%evec),       &
+     &                           i=1,                                   &
+     &                           size(estuff)                       )], &
+     &   estuff%eval                                                    &
+     & * sqrt(1.0_dp*anharmonic_data%anharmonic_supercell%sc_size)      )
 end function
 
 ! ----------------------------------------------------------------------

@@ -126,7 +126,7 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
                                                  & subspace_bases,  &
                                                  & subspace_states, &
                                                  & anharmonic_data  )
-    
+  
   i = 1
   do
     call print_line('Beginning VSCF self-consistency step '//i//'.')
@@ -144,10 +144,10 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
        &                                  anharmonic_data            ) )
     
     ! Generate the energy spectra from the states.
-    subspace_spectra = subspace_states%spectra( &
+    subspace_spectra = subspace_bases%spectra(  &
+       & states             = subspace_states,  &
        & subspace           = subspaces,        &
        & subspace_potential = input_potentials, &
-       & subspace_basis     = subspace_bases,   &
        & anharmonic_data    = anharmonic_data   )
     call print_line( 'Ground-state energy: '//                    &
                    & sum(subspace_spectra%min_energy())//' (Ha).' )

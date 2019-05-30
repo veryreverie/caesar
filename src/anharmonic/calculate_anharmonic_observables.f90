@@ -449,25 +449,24 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Generate energy spectra and wavefunctions from states.
   call print_line('Generating single-subspace spectra.')
   if (calculate_stress) then
-    subspace_spectra = subspace_states%spectra(    &
+    subspace_spectra = basis%spectra(              &
+       & states             = subspace_states,     &
        & subspace           = subspaces,           &
        & subspace_potential = subspace_potentials, &
        & subspace_stress    = subspace_stresses,   &
-       & subspace_basis     = basis,               &
        & anharmonic_data    = anharmonic_data      )
   else
-    subspace_spectra = subspace_states%spectra(    &
+    subspace_spectra = basis%spectra(              &
+       & states             = subspace_states,     &
        & subspace           = subspaces,           &
        & subspace_potential = subspace_potentials, &
-       & subspace_basis     = basis,               &
        & anharmonic_data    = anharmonic_data      )
   endif
   
   subspace_wavefunctions = SubspaceWavefunctionsPointer( &
-      & subspace_states%wavefunctions( subspaces,        &
-      &                                basis,            &
-      &                                anharmonic_data ) )
-  
+                & basis%wavefunctions( subspace_states,  &
+                &                      subspaces,        &
+                &                      anharmonic_data ) )
   
   ! Print finite basis error information.
   i = minloc(subspace_spectra%max_energy()-subspace_spectra%min_energy(),1)

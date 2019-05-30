@@ -4,6 +4,7 @@
 module braket_module
   use common_module
   
+  use basis_state_module
   use subspace_state_module
   use anharmonic_data_module
   use stress_prefactors_module

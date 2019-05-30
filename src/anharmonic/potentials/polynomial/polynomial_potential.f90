@@ -789,11 +789,11 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   integer :: i,j,k
   
   ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-  this%reference_energy = this%reference_energy              &
-                      & * bra%inner_product( ket,            &
-                      &                      subspace,       &
-                      &                      subspace_basis, &
-                      &                      anharmonic_data )
+  this%reference_energy = this%reference_energy                         &
+                      & * subspace_basis%inner_product( bra,            &
+                      &                                 ket,            &
+                      &                                 subspace,       &
+                      &                                 anharmonic_data )
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
