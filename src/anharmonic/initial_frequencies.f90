@@ -96,7 +96,7 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp),                 allocatable :: frequencies(:)
   type(FullSubspaceBasis),  allocatable :: subspace_bases(:)
-  type(FullSubspaceStates), allocatable :: subspace_states(:)
+  type(WavevectorStates),   allocatable :: subspace_states(:)
   
   type(RealVector), allocatable :: input_frequencies(:)
   type(RealVector), allocatable :: output_frequencies(:)
@@ -134,7 +134,7 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   
   ! Calculate the first guess ground states.
   subspace_states = [(                                           &
-     & FullSubspaceStates(                                       &
+     & WavevectorStates(                                         &
      &    subspace_bases(i)%initial_states( subspaces(i),        &
      &                                      anharmonic_data ) ), &
      & i=1,                                                      &
@@ -231,7 +231,7 @@ function optimise_frequencies(potential,subspaces,subspace_bases, &
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   type(FullSubspaceBasis),  intent(in) :: subspace_bases(:)
-  type(FullSubspaceStates), intent(in) :: subspace_states(:)
+  type(WavevectorStates),   intent(in) :: subspace_states(:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp),                 intent(in) :: frequency_convergence
   real(dp), allocatable                :: output(:)
@@ -266,7 +266,7 @@ impure elemental function optimise_frequency(potential,subspace,           &
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspace
   type(FullSubspaceBasis),  intent(in) :: subspace_basis
-  type(FullSubspaceStates), intent(in) :: subspace_states
+  type(WavevectorStates),   intent(in) :: subspace_states
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp),                 intent(in) :: frequency_convergence
   real(dp)                             :: output

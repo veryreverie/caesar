@@ -237,7 +237,7 @@ subroutine braket_SubspaceState_PotentialDataExample(this,bra,ket, &
 end subroutine
 
 subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data,qpoint)
+   & subspace_basis,anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
@@ -246,7 +246,6 @@ subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(QpointData),            intent(in), optional :: qpoint
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
   

@@ -1,6 +1,8 @@
 ! ======================================================================
 ! For a given state |i>, records which states |j> have non-zero <i|H|j>.
 ! ======================================================================
+! This class gets appended to millions of times, so it handles its storage
+!    like a C++ vector for speed reasons.
 module coupled_states_module
   use common_module
   implicit none
@@ -11,6 +13,7 @@ module coupled_states_module
   public :: size
   
   type, extends(Stringable) :: CoupledStates
+    integer,              private :: length_
     integer, allocatable, private :: ids_(:)
     integer, allocatable, private :: separations_(:)
   contains
@@ -20,7 +23,7 @@ module coupled_states_module
     procedure, public :: separation => separation_CoupledStates
     procedure, public :: separations => separations_CoupledStates
     
-    ! Add and id and separation to the CoupledStates.
+    ! Add an id and separation to the CoupledStates.
     procedure, public :: add_coupling
     
     ! I/O.
@@ -45,6 +48,7 @@ function new_CoupledStates_null() result(this)
   
   type(CoupledStates) :: this
   
+  this%length_ = 0
   this%ids_ = [integer::]
   this%separations_ = [integer::]
 end function
@@ -56,24 +60,14 @@ function new_CoupledStates(ids,separations) result(this)
   integer, intent(in) :: separations(:)
   type(CoupledStates) :: this
   
-  integer, allocatable :: sort_key(:)
-  
   if (size(ids)/=size(separations)) then
     call print_line(CODE_ERROR//': ids and separations do not match.')
     call err()
   endif
   
-  sort_key = sort(ids)
-  
-  this%ids_ = ids(sort_key)
-  this%separations_ = separations(sort_key)
-  
-  if (size(this)>1) then
-    if (any(this%ids_(2:)==this%ids_(:size(this)-1))) then
-      call print_line(CODE_ERROR//': An ID has been given twice.')
-      call err()
-    endif
-  endif
+  this%length_ = size(ids)
+  this%ids_ = ids
+  this%separations_ = separations
 end function
 
 function size_CoupledStates(this) result(output)
@@ -82,7 +76,7 @@ function size_CoupledStates(this) result(output)
   type(CoupledStates), intent(in) :: this
   integer                         :: output
   
-  output = size(this%ids_)
+  output = this%length_
 end function
 
 ! Getters.
@@ -102,7 +96,7 @@ function ids_CoupledStates(this) result(output)
   class(CoupledStates), intent(in) :: this
   integer, allocatable             :: output(:)
   
-  output = this%ids_
+  output = this%ids_(:this%length_)
 end function
 
 impure elemental function separation_CoupledStates(this,index) &
@@ -122,13 +116,12 @@ function separations_CoupledStates(this) result(output)
   class(CoupledStates), intent(in) :: this
   integer, allocatable             :: output(:)
   
-  output = this%separations_
+  output = this%separations_(:this%length_)
 end function
 
 ! ----------------------------------------------------------------------
 ! Add a coupling to a CoupledStates.
 ! ----------------------------------------------------------------------
-! Assumes that this%ids_ is sorted, and keeps it sorted.
 subroutine add_coupling(this,id,separation)
   implicit none
   
@@ -144,21 +137,16 @@ subroutine add_coupling(this,id,separation)
     call err()
   endif
   
-  i = first(this%ids_>=id, default=0, sorted=.true.)
-  if (i==0) then
-    this%ids_ = [this%ids_, id]
-    this%separations_ = [this%separations_, separation]
+  this%length_ = this%length_ + 1
+  if (size(this%ids_)>=this%length_) then
+    ! There is space left in the arrays; simply add the coupling.
+    this%ids_(this%length_) = id
+    this%separations_(this%length_) = separation
   else
-    if (this%ids_(i)==id) then
-      call print_line(CODE_ERROR//': Trying to add a coupling which has &
-         &already been added.')
-      call err()
-    else
-      this%ids_ = [this%ids_(:i-1), id, this%ids_(i:)]
-      this%separations_ = [ this%separations_(:i-1), &
-                          & separation,              &
-                          & this%separations_(i:)    ]
-    endif
+    ! There is not sufficient space left in the array.
+    ! First double the allocated space, then add the coupling.
+    this%ids_ = [this%ids_, id, [(0,i=1,this%length_)]]
+    this%separations_ = [this%separations_, separation, [(0,i=1,this%length_)]]
   endif
 end subroutine
 

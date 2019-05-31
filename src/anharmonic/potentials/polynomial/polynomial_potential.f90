@@ -773,7 +773,7 @@ end subroutine
 
 ! Integrate the potential between two states.
 subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data,qpoint)
+   & subspace_basis,anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
@@ -782,7 +782,6 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   type(AnharmonicData),       intent(in)           :: anharmonic_data
-  type(QpointData),           intent(in), optional :: qpoint
   
   logical, allocatable :: to_remove(:)
   
@@ -797,12 +796,11 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket( bra,             &
-                                        & ket,             &
-                                        & subspace,        &
-                                        & subspace_basis,  &
-                                        & anharmonic_data, &
-                                        & qpoint           )
+    call this%basis_functions_(i)%braket( bra,            &
+                                        & ket,            &
+                                        & subspace,       &
+                                        & subspace_basis, &
+                                        & anharmonic_data )
   enddo
   
   ! Check if the basis function is now a constant.

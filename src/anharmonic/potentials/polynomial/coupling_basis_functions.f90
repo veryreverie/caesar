@@ -188,7 +188,7 @@ impure elemental subroutine braket_SubspaceState_CouplingBasisFunctions(this, &
 end subroutine
 
 impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
-   & bra,ket,subspace,subspace_basis,anharmonic_data,qpoint)
+   & bra,ket,subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
@@ -197,17 +197,15 @@ impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
   type(DegenerateSubspace),      intent(in)           :: subspace
   class(SubspaceBasis),          intent(in)           :: subspace_basis
   type(AnharmonicData),          intent(in)           :: anharmonic_data
-  type(QpointData),              intent(in), optional :: qpoint
   
   integer :: i
   
   do i=1,size(this)
-    call this%basis_functions_(i)%braket( bra,             &
-                                        & ket,             &
-                                        & subspace,        &
-                                        & subspace_basis,  &
-                                        & anharmonic_data, &
-                                        & qpoint           )
+    call this%basis_functions_(i)%braket( bra,            &
+                                        & ket,            &
+                                        & subspace,       &
+                                        & subspace_basis, &
+                                        & anharmonic_data )
   enddo
   
   ! Simplify the potential.

@@ -10,7 +10,6 @@ module full_subspace_basis_module
   use wavevector_states_module
   use wavevector_basis_module
   use full_subspace_wavefunctions_module
-  use full_subspace_states_module
   implicit none
   
   private
@@ -51,6 +50,9 @@ module full_subspace_basis_module
     ! Generate the eigenstates of a single-subspace potential.
     procedure, public :: calculate_states => calculate_states_FullSubspaceBasis
     
+    ! Return the modes spanned by this basis.
+    procedure, public :: modes => modes_FullSubspaceBasis
+    
     ! Procedures involving individual states.
     procedure, public :: inner_product => &
                        & inner_product_WavevectorState
@@ -65,10 +67,10 @@ module full_subspace_basis_module
     procedure, public :: wavefunction => wavefunction_WavevectorState
     
     ! Procedures involving sets of states.
-    procedure, public :: spectra => spectra_FullSubspaceStates
-    procedure, public :: wavefunctions => wavefunctions_FullSubspaceStates
+    procedure, public :: spectra => spectra_WavevectorStates
+    procedure, public :: wavefunctions => wavefunctions_WavevectorStates
     procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_FullSubspaceStates
+                       & integrate_ComplexMonomial_WavevectorStates
     
     ! I/O.
     procedure, public :: read  => read_FullSubspaceBasis
@@ -242,7 +244,7 @@ impure elemental function initial_states_FullSubspaceBasis(this,subspace, &
   ground_state = initial_ground_state(this)
   
   ! Generate the set of states {|0>}.
-  output = BasisStatesPointer(FullSubspaceStates([ground_state],[0.0_dp]))
+  output = BasisStatesPointer(WavevectorStates([ground_state],[0.0_dp]))
 end function
 
 ! Generate initial guess. This is simply the basis state |0>, i.e. the
@@ -300,7 +302,7 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
     energies = [energies, wavevector_states%energies]
   enddo
   
-  output = BasisStatesPointer(FullSubspaceStates(states, energies))
+  output = BasisStatesPointer(WavevectorStates(states, energies))
 end function
 
 impure elemental function wavefunction_WavevectorState(this,state, &
@@ -314,6 +316,17 @@ impure elemental function wavefunction_WavevectorState(this,state, &
   
   ! TODO
   output = ''
+end function
+
+function modes_FullSubspaceBasis(this,subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(FullSubspaceBasis), intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  integer, allocatable                 :: output(:)
+  
+  output = subspace%mode_ids
 end function
 
 impure elemental function inner_product_WavevectorState(this,bra,ket, &
@@ -349,7 +362,7 @@ impure elemental function inner_product_WavevectorState(this,bra,ket, &
 end function
 
 impure elemental function braket_ComplexMonomial_WavevectorState(this, &
-   & bra,monomial,ket,subspace,anharmonic_data,qpoint) result(output)
+   & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in)           :: this
@@ -358,7 +371,6 @@ impure elemental function braket_ComplexMonomial_WavevectorState(this, &
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
   type(ComplexMonomial)                          :: output
   
   type(WavevectorState) :: full_bra
@@ -385,7 +397,7 @@ impure elemental function braket_ComplexMonomial_WavevectorState(this, &
 end function
 
 impure elemental function kinetic_energy_WavevectorState(this,bra,ket, &
-   & subspace,anharmonic_data,qpoint) result(output)
+   & subspace,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in)           :: this
@@ -393,7 +405,6 @@ impure elemental function kinetic_energy_WavevectorState(this,bra,ket, &
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
   real(dp)                                       :: output
   
   type(WavevectorState) :: full_bra
@@ -485,7 +496,7 @@ impure elemental function kinetic_stress_WavevectorState(this,bra,ket, &
 end function
 
 ! Energy spectra.
-impure elemental function spectra_FullSubspaceStates(this,states,subspace, &
+impure elemental function spectra_WavevectorStates(this,states,subspace,   &
    & subspace_potential,subspace_stress,stress_prefactors,anharmonic_data) &
    & result(output)
   implicit none
@@ -499,13 +510,13 @@ impure elemental function spectra_FullSubspaceStates(this,states,subspace, &
   type(AnharmonicData),      intent(in)           :: anharmonic_data
   type(EnergySpectra)                             :: output
   
-  type(FullSubspaceStates) :: full_states
+  type(WavevectorStates) :: full_states
   
   type(RealMatrix), allocatable :: stress(:)
   
   integer :: i,ialloc
   
-  full_states = FullSubspaceStates(states)
+  full_states = WavevectorStates(states)
   
   if (present(subspace_stress) .neqv. present(stress_prefactors)) then
     call err()
@@ -534,7 +545,7 @@ impure elemental function spectra_FullSubspaceStates(this,states,subspace, &
 end function
 
 ! Wavefunctions.
-impure elemental function wavefunctions_FullSubspaceStates(this,states, &
+impure elemental function wavefunctions_WavevectorStates(this,states, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -544,14 +555,14 @@ impure elemental function wavefunctions_FullSubspaceStates(this,states, &
   type(AnharmonicData),      intent(in) :: anharmonic_data
   type(SubspaceWavefunctionsPointer)    :: output
   
-  type(FullSubspaceStates)        :: full_states
+  type(WavevectorStates)          :: full_states
   type(String)                    :: ground_state
   type(String), allocatable       :: state_wavefunctions(:)
   type(FullSubspaceWavefunctions) :: wavefunctions
   
   integer :: ialloc
   
-  full_states = FullSubspaceStates(states)
+  full_states = WavevectorStates(states)
   
   ! Construct the wavefunction of |0>.
   ground_state = this%ground_state_wavefunction(      &
@@ -578,22 +589,21 @@ impure elemental function wavefunctions_FullSubspaceStates(this,states, &
 end function
 
 ! Integrate a monomial.
-impure elemental function integrate_ComplexMonomial_FullSubspaceStates(this, &
-   & states,monomial,subspace,anharmonic_data,qpoint) result(output)
+impure elemental function integrate_ComplexMonomial_WavevectorStates(this, &
+   & states,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(FullSubspaceBasis), intent(in)           :: this
-  class(BasisStates),       intent(in)           :: states
-  type(ComplexMonomial),    intent(in)           :: monomial
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
-  type(ComplexMonomial)                          :: output
+  class(FullSubspaceBasis), intent(in) :: this
+  class(BasisStates),       intent(in) :: states
+  type(ComplexMonomial),    intent(in) :: monomial
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(ComplexMonomial)                :: output
   
-  type(FullSubspaceStates) :: full_states
-  type(WavevectorState)    :: ground_state
+  type(WavevectorStates) :: full_states
+  type(WavevectorState)  :: ground_state
   
-  full_states = FullSubspaceStates(states)
+  full_states = WavevectorStates(states)
   
   ! Identify the ground state.
   ground_state = full_states%states(minloc(full_states%energies,1))

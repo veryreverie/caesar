@@ -14,7 +14,7 @@ module states_module
   use full_subspace_wavefunctions_module
   use split_qpoints_wavefunctions_module
   use wavevector_state_module
-  use full_subspace_states_module
+  use wavevector_states_module
   use full_subspace_basis_module
   use split_qpoints_basis_module
   implicit none
@@ -27,9 +27,9 @@ subroutine startup_states()
   call startup_harmonic_state_real()
   call startup_harmonic_state_complex()
   call startup_wavevector_state()
+  call startup_wavevector_states()
   call startup_full_subspace_wavefunctions()
   call startup_split_qpoints_wavefunctions()
-  call startup_full_subspace_states()
   call startup_full_subspace_basis()
   call startup_split_qpoints_basis()
 end subroutine

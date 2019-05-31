@@ -1,6 +1,10 @@
 ! ======================================================================
 ! Basis functions for generating the Born-Oppenheimer surface mapping.
 ! ======================================================================
+! N.B. basis functions are initially generated with both a real and complex
+!    representation.
+! The real representation is used for fitting, and the complex representation
+!    is used for calculating overlap integrals.
 module basis_function_module
   use common_module
   
@@ -431,7 +435,7 @@ impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
 end subroutine
 
 impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data,qpoint)
+   & subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(BasisFunction),     intent(inout)        :: this
@@ -440,11 +444,8 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(QpointData),         intent(in), optional :: qpoint
   
-  type(ComplexMode),    allocatable :: subspace_modes(:)
-  type(QpointData),     allocatable :: subspace_qpoints(:)
-  integer,              allocatable :: integrated_modes(:)
+  integer, allocatable :: integrated_modes(:)
   
   type(ComplexMatrix)               :: complex_to_real_conversion
   complex(dp),          allocatable :: complex_coefficients(:)
@@ -454,16 +455,7 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   
   integer :: i,j
   
-  subspace_modes = subspace%modes(anharmonic_data%complex_modes)
-  subspace_qpoints = subspace%qpoints( anharmonic_data%complex_modes, &
-                                     & anharmonic_data%qpoints        )
-  if (present(qpoint)) then
-    integrated_modes = subspace_modes(filter(         &
-       & subspace_qpoints%id==qpoint%id .or.          &
-       & subspace_qpoints%id==qpoint%paired_qpoint_id ))%id
-  else
-    integrated_modes = subspace_modes%id
-  endif
+  integrated_modes = subspace_basis%modes(subspace,anharmonic_data)
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &
@@ -477,8 +469,7 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
                         & this%complex_representation_, &
                         & ket,                          &
                         & subspace,                     &
-                        & anharmonic_data,              &
-                        & qpoint                        )
+                        & anharmonic_data               )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
@@ -510,8 +501,7 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   
-  type(ComplexMode), allocatable :: subspace_modes(:)
-  integer,           allocatable :: integrated_modes(:)
+  integer, allocatable :: integrated_modes(:)
   
   type(ComplexMatrix)               :: complex_to_real_conversion
   complex(dp),          allocatable :: complex_coefficients(:)
@@ -521,8 +511,7 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   
   integer :: i,j
   
-  subspace_modes = subspace%modes(anharmonic_data%complex_modes)
-  integrated_modes = subspace_modes%id
+  integrated_modes = subspace_basis%modes(subspace,anharmonic_data)
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &

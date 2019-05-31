@@ -290,8 +290,8 @@ impure elemental function new_ComplexUnivariate(id,paired_id,power, &
   endif
 end function
 
-function new_ComplexUnivariate_ComplexMode(mode,power,paired_power) &
-   & result(this)
+impure elemental function new_ComplexUnivariate_ComplexMode(mode,power, &
+   & paired_power) result(this)
   implicit none
   
   type(ComplexMode), intent(in)           :: mode
@@ -1157,34 +1157,20 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
   type(StructureData),      intent(in) :: supercell
   real(dp)                             :: output
   
-  real(dp), allocatable, save :: a(:,:)
-  real(dp), allocatable, save :: b(:,:)
-  
-  real(dp), allocatable :: temp(:,:)
-  
   integer :: n
-  integer :: old_n
   
-  real(dp) :: z
-  
-  integer :: i,j,ialloc
+  real(dp) :: factor
   
   ! If the mode is its own conjugate, then
-  !    <u^(2n+1) = 0
-  !    <u^(2n)>  = sum_{i=0}^n [ a_{i,n} * z^i ] / (2Nw)^n
+  !            f(n) (1+e^(-w/T))^n
+  ! <(u)^2n> = -------------------
+  !            (2Nw(1-e^(-w/T)))^n
+  ! where f(n) is the odd factorial.
   
   ! If the mode is not its own conjugate, then
-  !    <u+^n+*u-^n-> = 0 if n+ /= n-
-  !    <(u+u-)^n>    = sum_{i=0}^n [ b_{i,n} * z^i ] / (2Nw)^n
-  
-  ! z = 1/(1-e^{w/T}) is the partition function.
-  
-  ! The coefficients a_{i,n} and b_{i,n} are calculated via
-  !    recurrence relations:
-  ! a_{i,0} = b_{i,0} = 1 if i=0.
-  !                   = 0 otherwise.
-  ! a_{i,n} = (2n-2i-3)*a_{i,n-1} + 2i   *a_{i-1,n-1}
-  ! b_{i,n} = ( n- i-2)*b_{i,n-1} + (i+1)*b_{i-1,n-1}
+  !               n! (1+e^(-w/T))^n
+  ! <(u+u-)^n> = -------------------
+  !              (2Nw(1-e^(-w/T)))^n
   
   ! Calculate n, and return if the answer is 0 or 1.
   if (this%id==this%paired_id) then
@@ -1201,107 +1187,49 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
     n = this%power
   endif
   
+  ! <X^0> = <1> = 1.
   if (n==0) then
     output = 1
     return
   endif
   
-  ! Check if the coefficients need updating.
-  ! As ever, to handle zero-indexing,
-  !    a(i,j)=a_{i-1,j-1} and b(i,j)=b_{i-1,j-1}.
-  if (this%id==this%paired_id) then
-    if (.not. allocated(a)) then
-      allocate(a(n+1,n+1), stat=ialloc); call err(ialloc)
-      a(1,1) = 1
-      old_n = 0
-    elseif (size(a,1)<n+1) then
-      temp = a
-      old_n = size(a,1)-1
-      deallocate(a, stat=ialloc); call err(ialloc)
-      allocate(a(n+1,n+1), stat=ialloc); call err(ialloc)
-      a(:old_n+1,:old_n+1) = temp
-    else
-      old_n = n
-    endif
-    
-    if (old_n<n) then
-      do i=old_n+1,n
-        ! a_{0,i} = (2i-3)*a_{0,i-1}
-        a(1,i+1) = (2*i-3)*a(1,i)
-        do j=1,i-1
-          ! a_{j,i} = (2i-2j-3)*a_{j,i-1} + 2j*a_{j-1,i-1}
-          a(j+1,i+1) = (2*i-2*j-3)*a(j+1,i) + 2*j*a(j,i)
-        enddo
-        ! a_{i,i} = 2i*a_{i-1,i-1}
-        a(i+1,i+1) = 2*i*a(i,i)
-      enddo
-    endif
-  else
-    if (.not. allocated(b)) then
-      allocate(b(n+1,n+1), stat=ialloc); call err(ialloc)
-      b(1,1) = 1
-      old_n = 0
-    elseif (size(b,1)<n+1) then
-      temp = b
-      old_n = size(b,1)-1
-      deallocate(b, stat=ialloc); call err(ialloc)
-      allocate(b(n+1,n+1), stat=ialloc); call err(ialloc)
-      b(:old_n+1,:old_n+1) = temp
-    else
-      old_n = n
-    endif
-    
-    if (old_n<n) then
-      do i=old_n+1,n
-        ! b_{0,i} = (i-2)*b_{0,i-1}
-        b(1,i+1) = (i-2)*b(1,i)
-        do j=1,i-1
-          ! b_{j,i} = (i-j-2)*b_{j,i-1} + (j+1)*b_{j-1,i-1}
-          b(j+1,i+1) = (i-j-2)*b(j+1,i) + (j+1)*b(j,i)
-        enddo
-        ! b_{i,i} = (i+1)*b_{i-1,i-1}
-        b(i+1,i+1) = (i+1)*b(i,i)
-      enddo
-    endif
-  endif
-  
-  ! Calculate the partition function.
-  if (frequency < 1e-20_dp*thermal_energy) then
+  ! Calculate (1+e^(-w/T))/(1-e^(-w/T)).
+  if (frequency < 1e-10_dp*thermal_energy) then
     ! High temperature regime (N.B. this is unbounded for w=0).
-    ! If T>>w, 1/(1-e^{-w/T}) = 1/(w/T - 0.5(w/T)^2 + O((w/T)^3))
-    !                         = T/w * 1/(1-0.5w/T+O((w/T)^2))
-    !                         = T/w * (1 + 0.5w/T + O((w/T)^2))
-    !                         = T/w + 0.5 + O(w/T)
-    z = thermal_energy/frequency + 0.5_dp
+    ! If w/T<1e-10, (w/T)^2 < 1e-20, smaller than floating point error.
+    !
+    ! e^(-w/T) = 1 - w/T + 0.5(w/T)^2 + ...
+    !
+    ! (1+e^(-w/T))/(1-e^(-w/T)) = (2 - w/T + ...) / (w/T - 0.5(w/T)^2 + ...)
+    !                           = (2T/w - 1 + ...) / (1 - 0.5w/T + ...)
+    !                           = (2T/w - 1 + ...) * (1 + 0.5w/T + ...)
+    !                           = 2T/w + 0 + ...
+    factor = 2*thermal_energy/frequency
   elseif (frequency < 23*thermal_energy) then
     ! Normal temperature regime.
-    ! z = 1/(1-e^{-w/T}).
-    z = 1/(1-exp(-frequency/thermal_energy))
+    factor = (1+exp(-frequency/thermal_energy)) &
+         & / (1-exp(-frequency/thermal_energy))
   elseif (frequency < 690*thermal_energy) then
-    ! Low temperature regime. exp(-23)<1e-9, so O(exp(-2w/T)) < 1e-20.
-    ! if w>>T, 1/(1-e^{-w/T}) = 1 + e^{-w/T} + O(e^{-2w/T}).
-    z = 1+exp(-frequency/thermal_energy)
+    ! Low temperature regime.
+    ! If w/T>23, exp(-w/T)<1e-9, so exp(-2w/T) < 1e-20.
+    ! 
+    ! (1+e^(-w/T))/(1-e^(-w/T)) = (1 + e^(-w/T)) * (1 + e^(-w/T) + ...)
+    !                           = 1 + 2e^(-w/T) + ...
+    factor = 1+2*exp(-frequency/thermal_energy)
   else
-    ! Very low temperature regime. exp(-690)<1e-300.
-    ! 1/(1-e^{-w/T}) = 1 + O(e^{-w/T}).
-    z = 1
+    ! Very low temperature regime.
+    ! If w/T>690, exp(-w/T)<1e-300, smaller than floating point can store.
+    factor = 1
   endif
   
-  ! Calculate (sum_{i=0}^n [ x_{i,n} z^i ]), using Horner's method.
+  ! Calculate the output.
   if (this%id==this%paired_id) then
-    output = a(n+1,n+1)
-    do i=n-1,0,-1
-      output = output*z + a(i+1,n+1)
-    enddo
+    output = odd_factorial(n) &
+         & * (factor/(2.0_dp*supercell%sc_size*frequency))**n
   else
-    output = b(n+1,n+1)
-    do i=n-1,0,-1
-      output = output*z + b(i+1,n+1)
-    enddo
+    output = factorial(n) &
+         & * (factor/(2.0_dp*supercell%sc_size*frequency))**n
   endif
-  
-  ! Divide by (2Nw)^n
-  output = output / (2.0_dp*supercell%sc_size*frequency) ** n
 end function
 
 ! Multiplication and division by scalars.
