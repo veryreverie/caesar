@@ -38,13 +38,14 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  type(MonomialState1D) :: state1
-  type(MonomialState2D) :: state2
+  type(String) :: a
   
-  state1 = MonomialState1D(str('|u1^2>'))
-  call print_line(state1)
-  
-  state2 = MonomialState2D(str('|u1^2,u3^4>'))
-  call print_line(state2)
+  a = 'this is a string'
+  call print_line(token(a,2))
+  call print_line(token(a,1,delimiter='r'))
+  call print_lines(tokens(a,2,4))
+  call print_lines(tokens(a,3))
+  call print_lines(tokens(a,last=3))
+  call print_lines(tokens(a,4,18,'x'))
 end subroutine
 end module

@@ -20,6 +20,8 @@ module fraction_algebra_module
   public :: frac
   public :: fracvec
   public :: fracmat
+  public :: intvec
+  public :: intmat
   public :: dblevec
   public :: dblemat
   public :: size
@@ -89,6 +91,14 @@ module fraction_algebra_module
   
   interface fracmat
     module procedure fracmat_IntMatrix
+  end interface
+  
+  interface intvec
+    module procedure intvec_FractionVector
+  end interface
+  
+  interface intmat
+    module procedure intmat_FractionMatrix
   end interface
   
   interface dblevec
@@ -329,6 +339,24 @@ impure elemental function fracmat_IntMatrix(input) result(output)
   type(FractionMatrix)           :: output
   
   output = frac(int(input))
+end function
+
+impure elemental function intvec_FractionVector(input) result(output)
+  implicit none
+  
+  type(FractionVector), intent(in) :: input
+  type(IntVector)                  :: output
+  
+  output = int(frac(input))
+end function
+
+impure elemental function intmat_FractionMatrix(input) result(output)
+  implicit none
+  
+  type(FractionMatrix), intent(in) :: input
+  type(IntMatrix)                  :: output
+  
+  output = int(frac(input))
 end function
 
 impure elemental function dblevec_FractionVector(input) result(output)

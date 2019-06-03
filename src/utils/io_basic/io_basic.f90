@@ -12,6 +12,7 @@ module io_basic_module
   use print_module
   use intrinsics_module
   use io_utils_module
+  use token_module
   implicit none
 contains
 subroutine startup_io_basic()

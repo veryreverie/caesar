@@ -163,7 +163,7 @@ subroutine read_CoupledStates(this,input)
   integer, allocatable :: separations(:)
   
   type(String), allocatable :: line(:)
-  type(String), allocatable :: token(:)
+  type(String), allocatable :: coupling(:)
   
   integer :: i,ialloc
   
@@ -173,9 +173,9 @@ subroutine read_CoupledStates(this,input)
             & separations(size(line)), &
             & stat=ialloc); call err(ialloc)
     do i=1,size(line)
-      token = split_line(line(i),delimiter=':')
-      ids(i) = int(token(1))
-      separations(i) = int(token(2))
+      coupling = split_line(line(i),delimiter=':')
+      ids(i) = int(coupling(1))
+      separations(i) = int(coupling(2))
     enddo
     this = CoupledStates(ids,separations)
   class default

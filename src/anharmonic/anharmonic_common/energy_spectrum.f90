@@ -233,12 +233,13 @@ subroutine read_EnergySpectrum(this,input)
   type(String),          intent(in)  :: input
   
   type(String), allocatable :: line(:)
-  type(String), allocatable :: token(:)
   
   real(dp), allocatable :: spectrum(:)
   integer,  allocatable :: degeneracies(:)
   
   integer :: i,ialloc
+  
+  ! TODO
   
   select type(this); type is(EnergySpectrum)
     line = split_line(input)
@@ -246,7 +247,6 @@ subroutine read_EnergySpectrum(this,input)
             & degeneracies(size(line)), &
             & stat=ialloc); call err(ialloc)
     do i=1,size(line)
-      token = split_line(line(i), delimiter='x')
       spectrum(i) = dble(line(2))
       degeneracies(i) = int(line(1))
     enddo

@@ -106,10 +106,10 @@ function new_CartesianHessian_elements(structure,elements,logfile) &
    & result(this)
   implicit none
   
-  type(StructureData), intent(in)    :: structure
-  type(RealMatrix),    intent(in)    :: elements(:,:)
-  type(OFile),         intent(inout) :: logfile
-  type(CartesianHessian)             :: this
+  type(StructureData), intent(in)              :: structure
+  type(RealMatrix),    intent(in)              :: elements(:,:)
+  type(OFile),         intent(inout), optional :: logfile
+  type(CartesianHessian)                       :: this
   
   ! Variables for checking Hessian.
   type(AtomData)   :: atom_i
@@ -156,8 +156,12 @@ function new_CartesianHessian_elements(structure,elements,logfile) &
       enddo
     enddo
   enddo
-  call logfile%print_line('Fractional L2 difference in force constants at &
-     &different R-vectors: '//sqrt(difference/average))
+  
+  if (present(logfile)) then
+    call logfile%print_line('Fractional L2 difference in force constants at &
+       &different R-vectors: '//sqrt(difference/average))
+  endif
+  
   if (sqrt(difference/average)>1.0e-10_dp) then
     call print_line(WARNING//': Reconstructed Hessian does not obey &
        &R-vector symmetries. Please check log files.')

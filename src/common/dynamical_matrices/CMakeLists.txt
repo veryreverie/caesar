@@ -3,7 +3,7 @@ include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(dynamical_matrices)
 
 # Normal mode modules.
-add_library(dynamical_matrices unique_directions.f90 min_images.f90 cartesian_hessian.f90 dynamical_matrix.f90 force_constants_file.f90 dynamical_matrices.f90)
+add_library(dynamical_matrices unique_directions.f90 min_images.f90 cartesian_hessian.f90 dynamical_matrix.f90 phonon_file.f90 force_constants_file.f90 dynamical_matrices.f90)
 
 # Link against required module.
 target_link_libraries(dynamical_matrices utils)

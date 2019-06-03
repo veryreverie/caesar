@@ -14,7 +14,6 @@ module electronic_structure_module
   use calculation_writer_module
   use calculation_runner_module
   use calculation_reader_module
-  use phonon_file_module
   
   use qe_wrapper_module, only: QeInputFile
   implicit none

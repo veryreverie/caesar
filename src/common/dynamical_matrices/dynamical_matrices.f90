@@ -11,6 +11,7 @@ module dynamical_matrices_module
   use min_images_module
   use cartesian_hessian_module
   use dynamical_matrix_module
+  use phonon_file_module
   use force_constants_file_module
   implicit none
 end module
