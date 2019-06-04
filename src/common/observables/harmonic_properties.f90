@@ -6,6 +6,7 @@ module harmonic_properties_module
   use utils_module
   
   use structure_module
+  use normal_mode_module
   use dynamical_matrices_module
   
   use thermodynamic_data_module
@@ -212,8 +213,9 @@ function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
   integer,  allocatable :: points_per_segment(:)
   
   ! q-point and dynamical matrix variables.
-  type(RealVector)      :: qpoint
-  type(DynamicalMatrix) :: dyn_mat
+  type(RealVector)               :: qpoint
+  type(DynamicalMatrix)          :: dynamical_matrix
+  type(ComplexMode), allocatable :: complex_modes(:)
   
   ! Output variables.
   type(QpointPath),      allocatable :: path(:)
@@ -262,39 +264,36 @@ function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
       qpoint = ( (points_per_segment(i)-j)*path_qpoints(i)     &
            &   + j                        *path_qpoints(i+1) ) &
            & / points_per_segment(i)
-      dyn_mat = DynamicalMatrix( qpoint,          &
-                               & large_supercell, &
-                               & hessian,         &
-                               & min_images       )
-      call dyn_mat%check( large_supercell,         &
-                        & logfile,                 &
-                        & check_eigenstuff=.false. )
-      frequencies = [                                                         &
-         & frequencies,                                                       &
-         & PathFrequencies(                                                   &
-         &    path_fraction=fractional_distances(i)+j*fractional_separation,  &
-         &    qpoint = qpoint,                                                &
-         &    frequencies=dyn_mat%complex_modes%frequency,                    &
-         &    dynamical_matrix = dyn_mat                                     )]
+      dynamical_matrix = DynamicalMatrix( qpoint,          &
+                                        & large_supercell, &
+                                        & hessian,         &
+                                        & min_images       )
+      call dynamical_matrix%check(large_supercell, logfile)
+      complex_modes = ComplexMode(dynamical_matrix, large_supercell)
+      frequencies = [ frequencies,                                   &
+                    & PathFrequencies(                               &
+                    &    path_fraction    = fractional_distances(i)  &
+                    &                     + j*fractional_separation, &
+                    &    qpoint           = qpoint,                  &
+                    &    frequencies      = complex_modes%frequency, &
+                    &    dynamical_matrix = dynamical_matrix         )]
     enddo
   enddo
   
   ! Calculate frequencies at final k-space point.
   qpoint = path_qpoints(no_vertices)
-  dyn_mat = DynamicalMatrix( qpoint,          &
-                           & large_supercell, &
-                           & hessian,         &
-                           & min_images       )
-  call dyn_mat%check( large_supercell,         &
-                    & logfile,                 &
-                    & check_eigenstuff=.false. )
-  frequencies = [                                      &
-     & frequencies,                                    &
-     & PathFrequencies(                                &
-     &    path_fraction=1.0_dp,                        &
-     &    qpoint = qpoint,                             &
-     &    frequencies=dyn_mat%complex_modes%frequency, &
-     &    dynamical_matrix = dyn_mat                   )]
+  dynamical_matrix = DynamicalMatrix( qpoint,          &
+                                    & large_supercell, &
+                                    & hessian,         &
+                                    & min_images       )
+  call dynamical_matrix%check(large_supercell, logfile)
+  complex_modes = ComplexMode(dynamical_matrix, large_supercell)
+  frequencies = [ frequencies,                                   &
+                & PathFrequencies(                               &
+                &    path_fraction    =1.0_dp,                   &
+                &    qpoint           = qpoint,                  &
+                &    frequencies      = complex_modes%frequency, &
+                &    dynamical_matrix = dynamical_matrix         )]
   
   ! Write outputs to file.
   this = PhononDispersion(path, frequencies)
@@ -341,6 +340,8 @@ function json_PhononDispersion(this,seedname,structure) result(output)
   type(String), allocatable :: distances(:)
   type(String), allocatable :: eigenvalues(:)
   type(String), allocatable :: vectors(:)
+  
+  type(ComplexMode), allocatable :: modes(:)
   
   complex(dp) :: element
   
@@ -475,6 +476,7 @@ function json_PhononDispersion(this,seedname,structure) result(output)
   allocate( vectors(size(this%frequencies_)*(structure%no_modes+2)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this%frequencies_)
+    modes = ComplexMode(this%frequencies_(i)%dynamical_matrix, structure)
     n = (i-1)*(structure%no_modes+2) + 1
     vectors(n) = '    ['
     do j=1,structure%no_modes
@@ -483,10 +485,7 @@ function json_PhononDispersion(this,seedname,structure) result(output)
       do k=1,structure%no_atoms
         vectors(n) = vectors(n)//'['
         do l=1,3
-          element = this%frequencies_(i                &
-                  & )%dynamical_matrix%complex_modes(j &
-                  & )%unit_vector(k                    &
-                  & )%element(l)
+          element = modes(j)%unit_vector(k)%element(l)
           vectors(n) = vectors(n)//'['//real(element)//','//aimag(element)//']'
           if (l/=3) then
             vectors(n) = vectors(n)//','
@@ -590,8 +589,9 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   
   ! Working variables.
   type(RealVector)                     :: qpoint
-  type(DynamicalMatrix)                :: dyn_mat
+  type(DynamicalMatrix)                :: dynamical_matrix
   real(dp)                             :: frequency
+  type(ComplexMode),       allocatable :: complex_modes(:)
   integer,                 allocatable :: no_frequencies_ignored(:)
   type(ThermodynamicData), allocatable :: thermodynamics(:)
   
@@ -611,18 +611,15 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   min_freq = 0.0_dp
   do i=1,no_prelims
     qpoint = random_generator%random_numbers(3)
-    dyn_mat = DynamicalMatrix( qpoint,    &
-                             & supercell, &
-                             & hessian,   &
-                             & min_images )
-    call dyn_mat%check( supercell,               &
-                      & logfile,                 &
-                      & check_eigenstuff=.false. )
+    dynamical_matrix = DynamicalMatrix( qpoint,    &
+                                      & supercell, &
+                                      & hessian,   &
+                                      & min_images )
+    call dynamical_matrix%check(supercell, logfile)
     
-    min_freq = min( min_freq, &
-                  & dyn_mat%complex_modes(1)%frequency)
-    max_freq = max( max_freq, &
-                  & dyn_mat%complex_modes(supercell%no_modes_prim)%frequency)
+    complex_modes = ComplexMode(dynamical_matrix, supercell)
+    min_freq = min(min_freq, complex_modes(1)%frequency)
+    max_freq = max(max_freq, complex_modes(size(complex_modes))%frequency)
   enddo
   
   if (max_freq<=min_frequency) then
@@ -652,16 +649,15 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   allocate(qpoints(no_dos_samples), stat=ialloc); call err(ialloc)
   do i=1,no_dos_samples
     qpoint = random_generator%random_numbers(3)
-    dyn_mat = DynamicalMatrix( qpoint,    &
-                             & supercell, &
-                             & hessian,   &
-                             & min_images )
-    call dyn_mat%check( supercell,               &
-                      & logfile,                 &
-                      & check_eigenstuff=.false. )
+    dynamical_matrix = DynamicalMatrix( qpoint,    &
+                                      & supercell, &
+                                      & hessian,   &
+                                      & min_images )
+    call dynamical_matrix%check(supercell, logfile)
+    complex_modes = ComplexMode(dynamical_matrix, supercell)
     
     do j=1,supercell%no_modes_prim
-      frequency = dyn_mat%complex_modes(j)%frequency
+      frequency = complex_modes(j)%frequency
       
       ! Bin frequency for density of states.
       bin = ceiling( (frequency-min_freq) / bin_width)

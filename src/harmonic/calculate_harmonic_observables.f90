@@ -97,9 +97,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(CartesianHessian)       :: hessian
   type(MinImages), allocatable :: min_images(:,:)
   
-  ! Dynamical matrix for checking.
-  type(DynamicalMatrix) :: dyn_mat
-  
   ! Dispersion and density of states.
   type(PhononDispersion) :: phonon_dispersion
   type(PhononDos)        :: phonon_dos
@@ -219,17 +216,6 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   
   ! Calculate minimum image distances.
   min_images = calculate_min_images(large_supercell)
-  
-  ! Reconstruct calculated dynamical matrices, to check for consistency.
-  do i=1,size(qpoints)
-    dyn_mat = DynamicalMatrix( dblevec(qpoints(i)%qpoint), &
-                             & large_supercell,            &
-                             & hessian,                    &
-                             & min_images                  )
-    call logfile%print_line('Comparing dynamical matrices before and after &
-       &reconstruction of Hessian.'                                        )
-    call compare_dynamical_matrices(dynamical_matrices(i),dyn_mat,logfile)
-  enddo
   
   ! Generate harmonic phonon dispersion curve by interpolating between
   !    calculated q-points using Fourier interpolation.

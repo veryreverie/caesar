@@ -163,8 +163,8 @@ function new_CartesianHessian_elements(structure,elements,logfile) &
   endif
   
   if (sqrt(difference/average)>1.0e-10_dp) then
-    call print_line(WARNING//': Reconstructed Hessian does not obey &
-       &R-vector symmetries. Please check log files.')
+    call print_line(WARNING//': Hessian does not obey R-vector symmetries. &
+       & Please check log files.')
     call err()
   endif
 end function

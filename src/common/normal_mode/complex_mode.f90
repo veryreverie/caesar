@@ -50,6 +50,7 @@ module complex_mode_module
   
   interface ComplexMode
     module procedure new_ComplexMode
+    module procedure new_ComplexMode_unprocessed
     module procedure new_ComplexMode_HermitianEigenstuff
     module procedure new_ComplexMode_Strings
     module procedure new_ComplexMode_StringArray
@@ -105,6 +106,36 @@ function new_ComplexMode(id,paired_id,frequency,spring_constant,soft_mode,  &
 end function
 
 ! ----------------------------------------------------------------------
+! Construct a complex mode, but without ids.
+! ----------------------------------------------------------------------
+function new_ComplexMode_unprocessed(frequency,unit_vector) result(this)
+  implicit none
+  
+  real(dp),            intent(in) :: frequency
+  type(ComplexVector), intent(in) :: unit_vector(:)
+  type(ComplexMode)               :: this
+  
+  real(dp) :: spring_constant
+  
+  if (frequency>=0.0_dp) then
+    spring_constant = frequency**2
+  else
+    spring_constant = -frequency**2
+  endif
+  
+  this = ComplexMode( id                 = 0,                    &
+                    & paired_id          = 0,                    &
+                    & frequency          = frequency,            &
+                    & spring_constant    = spring_constant,      &
+                    & soft_mode          = frequency<-1.0e-6_dp, &
+                    & translational_mode = .false.,              &
+                    & unit_vector        = unit_vector,          &
+                    & qpoint_id          = 0,                    &
+                    & paired_qpoint_id   = 0,                    &
+                    & subspace_id        = 0                     )
+end function
+
+! ----------------------------------------------------------------------
 ! Construct a complex mode from the eigenstuff of the dynamical matrix.
 ! ----------------------------------------------------------------------
 impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
@@ -115,9 +146,7 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   type(StructureData),       intent(in) :: structure
   type(ComplexMode)                     :: this
   
-  real(dp) :: frequency
-  real(dp) :: spring_constant
-  
+  real(dp)                         :: frequency
   type(ComplexVector), allocatable :: unit_vector(:)
   
   integer :: i,ialloc
@@ -131,7 +160,6 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   ! V = sum[ 0.5*w^2*u^2 ] where w is the frequency.
   ! F = -2V = sum[ -w^2*u^2 ]
   ! -> the evals of F are -w^2.
-  spring_constant = - eigenstuff%eval
   if (eigenstuff%eval>=0.0_dp) then
     ! Unstable mode.
     frequency = - sqrt(eigenstuff%eval)
@@ -149,16 +177,8 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   enddo
   
   ! Call private constructor.
-  this = ComplexMode( id                 = 0,                    &
-                    & paired_id          = 0,                    &
-                    & frequency          = frequency,            &
-                    & spring_constant    = spring_constant,      &
-                    & soft_mode          = frequency<-1.0e-6_dp, &
-                    & translational_mode = .false.,              &
-                    & unit_vector        = unit_vector,          &
-                    & qpoint_id          = 0,                    &
-                    & paired_qpoint_id   = 0,                    &
-                    & subspace_id        = 0                     )
+  this = ComplexMode( frequency   = frequency,  &
+                    & unit_vector = unit_vector )
 end function
 
 ! ----------------------------------------------------------------------
@@ -234,10 +254,15 @@ impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
   no_atoms = size(input%unit_vector)
   no_modes = 3*no_atoms
   
-  id = input%id + no_modes*(qpoint_to%id-qpoint_from%id)
-  paired_id = input%paired_id                         &
-          & + no_modes*( qpoint_to%paired_qpoint_id   &
-          &            - qpoint_from%paired_qpoint_id )
+  if (input%id==0) then
+    id = 0
+    paired_id = 0
+  else
+    id = input%id + no_modes*(qpoint_to%id-qpoint_from%id)
+    paired_id = input%paired_id                         &
+            & + no_modes*( qpoint_to%paired_qpoint_id   &
+            &            - qpoint_from%paired_qpoint_id )
+  endif
   
   allocate( unit_vector(no_atoms), &
           & stat=ialloc); call err(ialloc)

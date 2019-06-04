@@ -27,5 +27,6 @@ module normal_mode_module
   use real_complex_conversion_module
   use complex_mode_symmetry_module
   use degenerate_subspace_module
+  use process_modes_module
   implicit none
 end module
