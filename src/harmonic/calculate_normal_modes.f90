@@ -231,8 +231,8 @@ subroutine calculate_normal_modes_subroutine(arguments)
     
     ! Write out normal modes.
     complex_modes_file = OFile(qpoint_dir//'/complex_modes.dat')
-    call complex_modes_file%print_lines( matrices_and_modes(i)%modes, &
-                                       & separating_line=''           )
+    call complex_modes_file%print_lines( complex_modes(:,i), &
+                                       & separating_line=''  )
   enddo
   
   ! Write out Castep .phonon file. This contains all normal modes.
@@ -331,11 +331,8 @@ function calculate_dynamical_matrices(structure,supercells, &
   ! --------------------------------------------------
   ! Calculate the dynamical matrix and normal modes at each q-point.
   ! --------------------------------------------------
-  allocate( modes_calculated(size(qpoints)), &
-          & output(size(qpoints)),           &
-          & stat=ialloc); call err(ialloc)
-  modes_calculated = .false.
-  
+  allocate(output(size(qpoints)), stat=ialloc); call err(ialloc)
+  modes_calculated = [(.false.,i=1,size(qpoints))]
   subspace_id = 1
   iter : do while (.not. all(modes_calculated))
     ! ------------------------------
@@ -404,7 +401,7 @@ function calculate_dynamical_matrices(structure,supercells, &
     enddo
     
     ! ------------------------------
-    ! Finally check if there is a q-point which is a G-vector of any of the
+    ! Finally, check if there is a q-point which is a G-vector of any of the
     !    calculated supercells.
     ! ------------------------------
     do i=1,size(qpoints)

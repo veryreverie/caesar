@@ -102,12 +102,12 @@ subroutine write_castep_phonon_file(phonon_file,complex_modes,qpoints, &
   call unset_print_settings()
 end subroutine
 
-function read_castep_phonon_file(phonon_file,qpoints,structure) result(output)
+function read_castep_phonon_file(phonon_file,structure,qpoints) result(output)
   implicit none
   
   type(IFile),         intent(in) :: phonon_file
-  type(QpointData),    intent(in) :: qpoints(:)
   type(StructureData), intent(in) :: structure
+  type(QpointData),    intent(in) :: qpoints(:)
   type(ComplexMode), allocatable  :: output(:,:)
   
   type(String), allocatable :: lines(:)
@@ -157,7 +157,7 @@ function read_castep_phonon_file(phonon_file,qpoints,structure) result(output)
     call print_line(ERROR//': .phonon file contains an unexpected number of &
        &q-points ("wavevectors").')
     call err()
-  elseif (any(tokens(lines(5),1,2)/=tokens('frequenies in'))) then
+  elseif (any(tokens(lines(5),1,2)/=tokens('frequencies in'))) then
     call print_line(ERROR//': .phonon file line 5 does not begin &
        &"Frequencies in".')
     call err()

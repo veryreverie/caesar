@@ -316,16 +316,20 @@ function new_DynamicalMatrix_ComplexModes(modes,frequencies) result(this)
   
   integer :: i,j,k,ialloc
   
+  if (present(frequencies)) then
+    if (size(modes)/=size(frequencies)) then
+      call print_line(CODE_ERROR//': modes and frequencies do not match.')
+      call err()
+    endif
+  endif
+  
   if (size(modes)==0) then
     no_atoms = 1
   else
     no_atoms = size(modes(1)%unit_vector)
   endif
   
-  if (size(modes)/=size(frequencies)) then
-    call print_line(CODE_ERROR//': modes and frequencies do not match.')
-    call err()
-  elseif (size(modes)/=3*no_atoms .and. size(modes)/=3*(no_atoms-1)) then
+  if (size(modes)/=3*no_atoms .and. size(modes)/=3*(no_atoms-1)) then
     call print_line(CODE_ERROR//': modes and no_atoms do not match.')
   endif
   

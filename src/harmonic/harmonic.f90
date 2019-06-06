@@ -8,6 +8,7 @@ module harmonic_module
   use setup_harmonic_module
   use run_harmonic_module
   use calculate_normal_modes_module
+  use read_normal_modes_module
   use plot_normal_modes_module
   use calculate_harmonic_observables_module
   use plot_dos_and_dispersion_module
@@ -23,6 +24,7 @@ subroutine startup_harmonic()
   call startup_setup_harmonic()
   call startup_run_harmonic()
   call startup_calculate_normal_modes()
+  call startup_read_normal_modes()
   call startup_plot_normal_modes()
   call startup_calculate_harmonic_observables()
   call startup_plot_dos_and_dispersion()

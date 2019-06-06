@@ -215,6 +215,8 @@ function read_qe_force_constants_file(fc_file,structure,supercell) &
               line_no = line_no+1
               do r1=1,grid(1)
                 line_no = line_no + 1
+                a1 = ids(1,r1,r2,r3,p1,p2)
+                a2 = ids(2,r1,r2,r3,p1,p2)
                 elements(i1,i2,a1,a2) = -dble(token(lines(line_no),4))     &
                                     & / sqrt( structure%atoms(p1)%mass()   &
                                     &       * structure%atoms(p2)%mass() ) &
