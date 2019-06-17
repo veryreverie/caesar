@@ -122,11 +122,16 @@ subroutine write_input_file_vasp(structure,poscar_filename)
   enddo
 end subroutine
 
-function read_output_file_vasp(filename,structure) result(output)
+function read_output_file_vasp(directory,seedname,structure,use_forces, &
+   & use_hessians,calculate_stress) result(output)
   implicit none
   
-  type(String),        intent(in) :: filename
+  type(String),        intent(in) :: directory
+  type(String),        intent(in) :: seedname
   type(StructureData), intent(in) :: structure
+  logical,             intent(in) :: use_forces
+  logical,             intent(in) :: use_hessians
+  logical,             intent(in) :: calculate_stress
   type(ElectronicStructure)       :: output
   
   call print_line(CODE_ERROR//': VASP not yet supported.')

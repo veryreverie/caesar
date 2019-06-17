@@ -178,6 +178,8 @@ subroutine run_harmonic_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation runner.
   ! --------------------------------------------------
+  ! N.B. if Hessians are available, the alternative "read_normal_modes" should
+  !    be used instead.
   calculation_runner = CalculationRunner(        &
      & file_type           = file_type,          &
      & seedname            = seedname,           &
@@ -186,6 +188,8 @@ subroutine run_harmonic_subroutine(arguments)
      & no_nodes            = no_nodes,           &
      & run_script_data     = run_script_data,    &
      & calculation_type    = calculation_type,   &
+     & use_forces          = .true.,             &
+     & use_hessians        = .false.,            &
      & calculate_stress    = .false.,            &
      & exit_on_error       = exit_on_error,      &
      & repeat_calculations = repeat_calculations )

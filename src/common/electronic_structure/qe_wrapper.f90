@@ -12,6 +12,7 @@ module qe_wrapper_module
   
   use electronic_structure_data_module
   use kpoint_grid_module
+  use force_constants_file_module
   implicit none
   
   private
@@ -280,14 +281,20 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   call new_qe_in_file%print_lines(qe_file)
 end subroutine
 
-function read_output_file_qe(filename,structure) result(output)
+function read_output_file_qe(directory,seedname,structure,use_forces, &
+   & use_hessians,calculate_stress) result(output)
   implicit none
   
-  type(String),        intent(in) :: filename
+  type(String),        intent(in) :: directory
+  type(String),        intent(in) :: seedname
   type(StructureData), intent(in) :: structure
+  logical,             intent(in) :: use_forces
+  logical,             intent(in) :: use_hessians
+  logical,             intent(in) :: calculate_stress
   type(ElectronicStructure)       :: output
   
   ! File contents.
+  type(String)              :: filename
   type(IFile)               :: qe_file
   type(String), allocatable :: line(:)
   
@@ -309,13 +316,16 @@ function read_output_file_qe(filename,structure) result(output)
   logical,      allocatable :: forces_found(:)
   
   ! Output variables.
-  real(dp)                      :: energy
-  type(RealVector), allocatable :: forces(:)
-  real(dp)                      :: stress(3,3)
+  real(dp)                          :: energy
+  type(RealVector),     allocatable :: forces_elements(:)
+  type(CartesianForce), allocatable :: forces
+  real(dp)                          :: stress_elements(3,3)
+  type(RealMatrix),     allocatable :: stress
   
   ! Temporary variables.
   integer :: i,j,ialloc
   
+  filename = directory//'/'//make_output_filename_qe(seedname)
   qe_file = IFile(filename)
   
   ! Work out line numbers.
@@ -366,62 +376,74 @@ function read_output_file_qe(filename,structure) result(output)
     endif
   enddo
   
-  ! Check counts.
-  if (forces_start_line==0) then
-    call print_line(ERROR//': No forces found in Quantum Espresso output &
-       &file.')
-    call quit()
-  elseif (no_forces/=structure%no_atoms) then
-    call print_line(ERROR//': The number of atoms in the Quantum Espresso &
-       &output file does not match that in the input file.')
-    call quit()
-  endif
-  
-  ! Allocate arrays.
-  allocate( species(no_species),        &
-          & forces(structure%no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  forces_found = [(.false.,i=1,structure%no_atoms)]
-  
-  ! Read data.
-  do i=1,no_species
-    line = split_line(qe_file%line(species_start_line+i))
-    species(i) = line(1)
-  enddo
-  
+  ! Read energy.
   line = split_line(qe_file%line(energy_line))
   energy = dble(line(5)) / RYDBERG_PER_HARTREE
   
-  do i=1,no_forces
-    line = split_line(qe_file%line(forces_start_line+i))
-    
-    j = first( structure%atoms%species()==species(int(line(4))), &
-             & mask=.not.forces_found,                           &
-             & default=0                                         )
-    
-    if (j==0) then
-      call print_line(ERROR//': Unable to match species in Quantum Espresso &
-         &output file with those in input file.')
+  ! Read forces.
+  if (use_forces) then
+    if (forces_start_line==0) then
+      call print_line(ERROR//': No forces found in Quantum Espresso output &
+         &file.')
+      call quit()
+    elseif (no_forces/=structure%no_atoms) then
+      call print_line(ERROR//': The number of atoms in the Quantum Espresso &
+         &output file does not match that in the input file.')
       call quit()
     endif
     
-    forces(j) = dble(line(7:9)) / RYDBERG_PER_HARTREE
-    forces_found(j) = .true.
-  enddo
-  
-  if (.not.all(forces_found)) then
-    call print_line(ERROR//': Unable to match forces in Quantum Espresso &
-       &output file with atoms in input file.')
-    call quit()
+    allocate( species(no_species),                 &
+            & forces_elements(structure%no_atoms), &
+            & stat=ialloc); call err(ialloc)
+    forces_found = [(.false.,i=1,structure%no_atoms)]
+    do i=1,no_species
+      line = split_line(qe_file%line(species_start_line+i))
+      species(i) = line(1)
+    enddo
+    
+    do i=1,no_forces
+      line = split_line(qe_file%line(forces_start_line+i))
+      
+      j = first( structure%atoms%species()==species(int(line(4))), &
+               & mask=.not.forces_found,                           &
+               & default=0                                         )
+      
+      if (j==0) then
+        call print_line(ERROR//': Unable to match species in Quantum Espresso &
+           &output file with those in input file.')
+        call quit()
+      endif
+      
+      forces_elements(j) = dble(line(7:9)) / RYDBERG_PER_HARTREE
+      forces_found(j) = .true.
+    enddo
+    
+    if (.not.all(forces_found)) then
+      call print_line(ERROR//': Unable to match forces in Quantum Espresso &
+         &output file with atoms in input file.')
+      call quit()
+    endif
+    
+    forces = CartesianForce(forces_elements)
   endif
   
-  do i=1,3
-    line = split_line(qe_file%line(stress_start_line+i))
-    stress(i,:) = dble(line(1:3)) / RYDBERG_PER_HARTREE
-  enddo
+  ! Read stress.
+  if (calculate_stress) then
+    do i=1,3
+      line = split_line(qe_file%line(stress_start_line+i))
+      stress_elements(i,:) = dble(line(1:3)) / RYDBERG_PER_HARTREE
+    enddo
+    
+    stress = mat(stress_elements)
+  endif
+  
+  ! Read Hessian.
+  ! TODO
   
   ! Construct output.
-  output = ElectronicStructure(energy,CartesianForce(forces),mat(stress))
+  output = ElectronicStructure( energy = energy, &
+                              & forces = forces, &
+                              & stress = stress  )
 end function
 
 ! ----------------------------------------------------------------------

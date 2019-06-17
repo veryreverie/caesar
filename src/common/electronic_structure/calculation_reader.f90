@@ -74,7 +74,7 @@ function read_calculation(this,directory,displacement) result(output)
   output = ElectronicStructure(electronic_structure_file%lines())
   
   if (allocated(this%loto_direction_)) then
-    if (.not. allocated(output%linear_response)) then
+    if (.not. output%has_linear_response()) then
       call print_line(ERROR//': LO/TO splitting requested, but linear &
          &response data is not present in electronic structure file in &
          &directory '//directory)
@@ -87,10 +87,10 @@ function read_calculation(this,directory,displacement) result(output)
     
     structure_file = IFile(directory//'/structure.dat')
     structure = StructureData(structure_file%lines())
-    loto_correction = LotoCorrection( output%linear_response, &
-                                    & this%loto_direction_,   &
-                                    & displacement,           &
-                                    & structure               )
+    loto_correction = LotoCorrection( output%linear_response(), &
+                                    & this%loto_direction_,     &
+                                    & displacement,             &
+                                    & structure                 )
     output = calculate_loto_correction(output, loto_correction)
   endif
   

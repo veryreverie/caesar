@@ -8,7 +8,7 @@ module dynamical_matrix_module
   use normal_mode_module
   
   use min_images_module
-  use cartesian_hessian_module
+  use construct_hessian_module
   implicit none
   
   private
@@ -18,11 +18,11 @@ module dynamical_matrix_module
   public :: ComplexMode
   
   type, extends(Stringsable) :: DynamicalMatrix
-    type(ComplexMatrix), allocatable, private :: matrices_(:,:)
+    type(ComplexMatrix), allocatable, private :: elements_(:,:)
   contains
     procedure, public :: check
     
-    procedure, public :: matrices => matrices_DynamicalMatrix
+    procedure, public :: elements => elements_DynamicalMatrix
     
     ! I/O.
     procedure, public :: read  => read_DynamicalMatrix
@@ -48,23 +48,23 @@ module dynamical_matrix_module
 contains
 
 ! Constructors.
-function new_DynamicalMatrix(matrices) result(this)
+function new_DynamicalMatrix(elements) result(this)
   implicit none
   
-  type(ComplexMatrix), intent(in) :: matrices(:,:)
+  type(ComplexMatrix), intent(in) :: elements(:,:)
   type(DynamicalMatrix)           :: this
   
-  this%matrices_ = matrices
+  this%elements_ = elements
 end function
 
-! Getter for matrices.
-function matrices_DynamicalMatrix(this) result(output)
+! Getter for elements.
+function elements_DynamicalMatrix(this) result(output)
   implicit none
   
   class(DynamicalMatrix), intent(in) :: this
   type(ComplexMatrix), allocatable   :: output(:,:)
   
-  output = this%matrices_
+  output = this%elements_
 end function
 
 ! ----------------------------------------------------------------------
@@ -89,11 +89,58 @@ function new_DynamicalMatrix_interpolated(q,supercell,hessian,min_images) &
   type(MinImages),        intent(in), optional :: min_images(:,:)
   type(DynamicalMatrix)                        :: this
   
-  ! Evaluate the dynamical matrix.
-  this%matrices_ = calculate_dynamical_matrix( q,         &
-                                             & supercell, &
-                                             & hessian,   &
-                                             & min_images )
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  type(AtomData)               :: atom_1
+  type(AtomData)               :: atom_2
+  type(IntVector)              :: rvector
+  type(IntVector), allocatable :: rvectors(:)
+  
+  integer :: i,j,k,ialloc
+  
+  ! Allocate and zero elements.
+  allocate( elements( supercell%no_atoms_prim,  &
+          &           supercell%no_atoms_prim), &
+          & stat=ialloc); call err(ialloc)
+  elements = cmplxmat(zeroes(3,3))
+  
+  ! Add up contributions to the dynamical matrix from
+  !    the force constants between each pair of atoms.
+  do i=1,supercell%no_atoms
+    atom_1 = supercell%atoms(i)
+    
+    ! Atom 2 will always be at R=0, so the R-vector from atom 2 to atom 1
+    !    is simply that of atom 1.
+    rvector = supercell%rvectors(atom_1%rvec_id())
+    do j=1,supercell%no_atoms_prim
+      atom_2 = supercell%atoms(j)
+      
+      if (present(min_images)) then
+        rvectors = min_images(atom_2%id(),atom_1%id())%image_rvectors
+        ! Check that all min image R-vectors actually point from atom 2 to
+        !    a copy of atom 1.
+        do k=1,size(rvectors)
+          if (.not. is_int( supercell%recip_supercell &
+                        & * (rvectors(k)-rvector))) then
+            call print_line(CODE_ERROR// &
+               & ': Problem with minimum image R-vectors.')
+            call err()
+          endif
+        enddo
+      else
+        rvectors = [rvector]
+      endif
+      
+      elements(atom_2%prim_id(),atom_1%prim_id()) =    &
+         & elements(atom_2%prim_id(),atom_1%prim_id()) &
+         & + hessian%elements(atom_2,atom_1)           &
+         & * sum(exp_2pii(q*rvectors))                 &
+         & / (supercell%sc_size*size(rvectors))
+    enddo
+  enddo
+  
+  ! Construct output.
+  this = DynamicalMatrix(elements)
 end function
 
 function calculate_dynamical_matrix(q,supercell,hessian,min_images) &
@@ -183,15 +230,15 @@ subroutine check(this,structure,logfile)
   integer :: no_atoms
   integer :: i,j
   
-  no_atoms = size(this%matrices_,1)
+  no_atoms = size(this%elements_,1)
   
   ! Check the dynamical matrix is Hermitian.
   average = 0.0_dp
   difference = 0.0_dp
   do i=1,no_atoms
     do j=1,i
-      matrix = this%matrices_(j,i)
-      hermitian_matrix = hermitian(this%matrices_(i,j))
+      matrix = this%elements_(j,i)
+      hermitian_matrix = hermitian(this%elements_(i,j))
       
       average = average + sum_squares((matrix+hermitian_matrix)/2.0_dp)
       difference = difference + sum_squares(matrix-hermitian_matrix)
@@ -226,19 +273,19 @@ function new_ComplexMode_DynamicalMatrix(dynamical_matrix,structure, &
   
   if (present(modes_real)) then
     if (modes_real) then
-      output = calculate_modes(real(dynamical_matrix%matrices()), structure)
+      output = calculate_modes(real(dynamical_matrix%elements()), structure)
       return
     endif
   endif
   
-  output = calculate_modes(dynamical_matrix%matrices(), structure)
+  output = calculate_modes(dynamical_matrix%elements(), structure)
 end function
 
 ! Calculate modes at a q-point where 2q/=G.
-function calculate_modes_complex(matrices,structure) result(output)
+function calculate_modes_complex(elements,structure) result(output)
   implicit none
   
-  type(ComplexMatrix), intent(in) :: matrices(:,:)
+  type(ComplexMatrix), intent(in) :: elements(:,:)
   type(StructureData), intent(in) :: structure
   type(ComplexMode), allocatable  :: output(:)
   
@@ -252,7 +299,7 @@ function calculate_modes_complex(matrices,structure) result(output)
           & stat=ialloc); call err(ialloc)
   do i=1,structure%no_atoms_prim
     do j=1,structure%no_atoms_prim
-      dyn_mat(3*j-2:3*j, 3*i-2:3*i) = cmplx(matrices(j,i))
+      dyn_mat(3*j-2:3*j, 3*i-2:3*i) = cmplx(elements(j,i))
     enddo
   enddo
   
@@ -265,10 +312,10 @@ function calculate_modes_complex(matrices,structure) result(output)
 end function
 
 ! Calculate modes at a q-point where 2q=G.
-function calculate_modes_real(matrices,structure) result(output)
+function calculate_modes_real(elements,structure) result(output)
   implicit none
   
-  type(RealMatrix),    intent(in) :: matrices(:,:)
+  type(RealMatrix),    intent(in) :: elements(:,:)
   type(StructureData), intent(in) :: structure
   type(ComplexMode), allocatable  :: output(:)
   
@@ -283,7 +330,7 @@ function calculate_modes_real(matrices,structure) result(output)
           & stat=ialloc); call err(ialloc)
   do i=1,structure%no_atoms_prim
     do j=1,structure%no_atoms_prim
-      dyn_mat(3*j-2:3*j, 3*i-2:3*i) = dble(matrices(j,i))
+      dyn_mat(3*j-2:3*j, 3*i-2:3*i) = dble(elements(j,i))
     enddo
   enddo
   
@@ -354,13 +401,13 @@ function new_DynamicalMatrix_ComplexModes(modes,frequencies) result(this)
   
   ! A dynamical matrix is D = sum_i e_i u_i^(u_i)*.
   ! The eigenvalue e_i is the negative of the mode's spring constant.
-  allocate(this%matrices_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
-  this%matrices_ = cmplxmat(zeroes(3,3))
+  allocate(this%elements_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
+  this%elements_ = cmplxmat(zeroes(3,3))
   do i=1,size(modes)
     do j=1,no_atoms
       do k=1,no_atoms
-        this%matrices_(k,j) =                                    &
-           &   this%matrices_(k,j)                               &
+        this%elements_(k,j) =                                    &
+           &   this%elements_(k,j)                               &
            & - new_modes(i)%spring_constant                      &
            & * outer_product( new_modes(i)%unit_vector(k),       &
            &                  conjg(new_modes(i)%unit_vector(j)) )
@@ -413,7 +460,7 @@ function reconstruct_hessian(large_supercell,qpoints,dynamical_matrices, &
         ! Add in the contribution to the Hessian.
         hessian(atom_1%id(),atom_2%id()) =                               &
            &   hessian(atom_1%id(),atom_2%id())                          &
-           & + real( dynamical_matrices(i)%matrices_( atom_1%prim_id(),  &
+           & + real( dynamical_matrices(i)%elements_( atom_1%prim_id(),  &
            &                                          atom_2%prim_id() ) &
            &       * exp_2pii(-q*r)                                      )
       enddo
@@ -440,12 +487,12 @@ subroutine read_DynamicalMatrix(this,input)
   select type(this); type is(DynamicalMatrix)
     elements = split_into_sections(input)
     no_atoms = int_sqrt(size(elements))
-    allocate(this%matrices_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
+    allocate(this%elements_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
     k = 0
     do i=1,no_atoms
       do j=1,no_atoms
         k = k+1
-        this%matrices_(j,i) = ComplexMatrix(elements(k)%strings(2:4))
+        this%elements_(j,i) = ComplexMatrix(elements(k)%strings(2:4))
       enddo
     enddo
   class default
@@ -466,8 +513,8 @@ function write_DynamicalMatrix(this) result(output)
   integer :: i,j,k,ialloc
   
   select type(this); type is(DynamicalMatrix)
-    no_atoms = size(this%matrices_,1)
-    if (size(this%matrices_,2)/=no_atoms) then
+    no_atoms = size(this%elements_,1)
+    if (size(this%elements_,2)/=no_atoms) then
       call err()
     endif
     
@@ -476,7 +523,7 @@ function write_DynamicalMatrix(this) result(output)
     do i=1,no_atoms
       do j=1,no_atoms
         k = k+1
-        matrix_strings = str(this%matrices_(j,i))
+        matrix_strings = str(this%elements_(j,i))
         output(5*k-4) = 'Atoms: ('//j//' '//i//')'
         output(5*k-3) = matrix_strings(1)
         output(5*k-2) = matrix_strings(2)

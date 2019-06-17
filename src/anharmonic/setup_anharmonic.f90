@@ -53,17 +53,44 @@ subroutine startup_setup_anharmonic()
   &only be expanded in terms of basis functions which are relevant to vscf.', &
   &              default_value='true'),                                       &
   & KeywordData( 'maximum_displacement',                                      &
-  &              'maximum_displacement is the largest distance any sampling &
-  &point will be from the equilibrium position. maximum_displacement should &
-  &be given in Bohr. Due to the use of mass-reduced co-ordinates, in systems &
-  &containing different elements modes with higher contributions from heavier &
-  &atoms will be displaced less far than this.'),                             &
+  &              'maximum_displacement, u_max, is the largest distance any &
+  &sampling point will be from the equilibrium position. maximum_displacement &
+  &should be given in Bohr. Due to the use of mass-reduced co-ordinates, in &
+  &systems containing different elements modes with higher contributions from &
+  &heavier atoms will be displaced less far than this, by a factor of &
+  &sqrt(m_min/m), where m is the mass of the element and m_min is the minimum &
+  &atomic mass in the structure.'),                                           &
+  & KeywordData( 'max_energy_of_displacement',                                &
+  &              'max_energy_of_displacement, E_max is the energy of the &
+  &harmonic potential up to which the anharmonic potential is sampled. A mode &
+  &with harmonic frequency w and effective mass m will be displaced up to &
+  &0.5*m*(wu)^2=E_max, unless this would lead to u>u_max. This is equivalent &
+  &to E_max = 0.5 * m_min * (w_max*u_max)^2. E_max should be given in &
+  &Hartree.',                                                                 &
+  &              exclusive_with=[str('frequency_of_max_displacement')]),      &
   & KeywordData( 'frequency_of_max_displacement',                             &
   &              'frequency_of_max_displacement is the frequency, w_min, at &
   &which maximum displacement happens. Displacement along modes with w>w_min &
   &is scaled by sqrt(w_min/w), and displacement along modes with w<w_min &
-  &is unscaled. w_min should be given in Hartree.'),                          &
-  & KeywordData( 'calculate_stress', &
+  &is unscaled. This is equivalent to E_max = 0.5 * m_min * (w_max*u_max)^2. &
+  &w_min should be given in Hartree.',                                        &
+  &              exclusive_with=[str('max_energy_of_displacement')]),         &
+  & KeywordData( 'use_forces',                                                &
+  &              'use_forces specifies whether or not each single-point &
+  &calculation will produce forces which can be used for fitting the &
+  &potential. It is only worth using forces if they are calculated using a &
+  &faster method than finite differences.',                                   &
+  &              default_value='true'),                                       &
+  & KeywordData( 'use_hessians',                                              &
+  &              'use_hessians specifies whether or not each single-point &
+  &calculation will produce a Hessian (the second derivatives of the &
+  &potential) or an equivalent, such as dynamical matrices or phonons, which &
+  &can be used for fitting the potential. Only calculations at the Gamma &
+  &point of each single point calculation are used. It is only worth using &
+  &Hessians if they are calculated using a faster method than finite &
+  &differences.',                                                             &
+  &              default_value='false'),                                      &
+  & KeywordData( 'calculate_stress',                                          &
   &              'calculate_stress specifies whether or not to calculate &
   &stress and pressure. If calculate_stress is true then all electronic &
   &structure calculations must produce a stress tensor or virial tensor.',    &
@@ -89,7 +116,10 @@ subroutine setup_anharmonic_subroutine(arguments)
   integer      :: maximum_coupling_order
   logical      :: vscf_basis_functions_only
   real(dp)     :: maximum_displacement
+  real(dp)     :: max_energy_of_displacement
   real(dp)     :: frequency_of_max_displacement
+  logical      :: use_forces
+  logical      :: use_hessians
   logical      :: calculate_stress
   
   ! Previous user inputs.
@@ -108,6 +138,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(CalculationWriter) :: calculation_writer
   
   ! Maximum displacement in mass-weighted co-ordinates.
+  real(dp) :: minimum_mass
   real(dp) :: maximum_weighted_displacement
   
   ! Anharmonic q-points and the corresponding supercell.
@@ -165,8 +196,15 @@ subroutine setup_anharmonic_subroutine(arguments)
   vscf_basis_functions_only = &
      & lgcl(arguments%value('vscf_basis_functions_only'))
   maximum_displacement = dble(arguments%value('maximum_displacement'))
-  frequency_of_max_displacement = &
-     & dble(arguments%value('frequency_of_max_displacement'))
+  if (arguments%is_set('frequency_of_max_displacement')) then
+    frequency_of_max_displacement = &
+       & dble(arguments%value('frequency_of_max_displacement'))
+  else
+    max_energy_of_displacement = &
+       & dble(arguments%value('max_energy_of_displacement'))
+  endif
+  use_forces = lgcl(arguments%value('use_forces'))
+  use_hessians = lgcl(arguments%value('use_hessians'))
   calculate_stress = lgcl(arguments%value('calculate_stress'))
   
   ! Read setup_harmonic arguments.
@@ -197,8 +235,18 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Calculate the maximum mass-weighted displacement from the maximum
   !    displacement. This corresponds to a mode made entirely from the
   !    lightest element moving up to maximum_displacement.
-  maximum_weighted_displacement = maximum_displacement &
-                              & * sqrt(minval(structure%atoms%mass()))
+  ! Also calculate whichever of max_energy_of_displacement and
+  !    frequency_of_max_displacement was not given by the user, by
+  !    E_max = 0.5 * m_min * (w_max*u_max)^2.
+  minimum_mass = minval(structure%atoms%mass())
+  maximum_weighted_displacement = maximum_displacement * sqrt(minimum_mass)
+  if (arguments%is_set('frequency_of_max_displacement')) then
+    max_energy_of_displacement = 0.5_dp * ( frequency_of_max_displacement &
+                                        & * maximum_weighted_displacement )**2
+  else
+    frequency_of_max_displacement = sqrt(2*max_energy_of_displacement) &
+                                & / maximum_weighted_displacement
+  endif
   
   ! Generate anharmonic q-point grid, and the supercell which has all
   !    anharmonic q-points as G-vectors.
@@ -328,11 +376,13 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
   logfile = OFile('setup_anharmonic_logfile.dat')
-  call potential%generate_sampling_points( &
-                    & anharmonic_data,     &
-                    & sampling_points_dir, &
-                    & calculation_writer,  &
-                    & logfile              )
+  call potential%generate_sampling_points( anharmonic_data,     &
+                                         & use_forces,          &
+                                         & use_hessians,        &
+                                         & calculate_stress,    &
+                                         & sampling_points_dir, &
+                                         & calculation_writer,  &
+                                         & logfile              )
   
   ! Write out calculation directories to file.
   calculation_directories_file = OFile('calculation_directories.dat')

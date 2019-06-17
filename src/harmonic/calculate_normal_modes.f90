@@ -290,8 +290,7 @@ impure elemental function construct_supercell_hessian(supercell,directory, &
            & calculation_directory,                                &
            & CartesianDisplacement(unique_directions(i),supercell) )
     
-    if (    size(electronic_structure(i)%forces%vectors) &
-       & /= supercell%no_atoms                           ) then
+    if (size(electronic_structure(i)%forces()) /= supercell%no_atoms) then
       call print_line( ERROR//': Wrong number of forces in '//            &
                      & calculation_directory//'/electronic_structure.dat' )
       call err()
@@ -353,8 +352,8 @@ function calculate_dynamical_matrices(structure,supercells, &
         
         ! The dynamical matrix at G-q is the complex conjugate of that at q.
         ! N.B. the complex conjugate, not the Hermitian conjugate.
-        output(i)%matrix = DynamicalMatrix(                     &
-           & matrices      = conjg(output(j)%matrix%matrices()) )
+        output(i)%matrix = DynamicalMatrix(                &
+           & elements = conjg(output(j)%matrix%elements()) )
         
         ! The displacements of the normal modes at G-q are
         !    the complex conjugates of those at q.
@@ -551,7 +550,7 @@ function construct_dynamical_matrix(qpoint,supercells,hessian, &
                                           & structure%symmetries(i), &
                                           & q_prime,                 &
                                           & qpoint                   )
-        copy_matrices(:,:,k) = dynamical_matrix%matrices()
+        copy_matrices(:,:,k) = dynamical_matrix%elements()
         sym_id(k) = i
         sup_id(k) = j
       endif
@@ -646,8 +645,8 @@ subroutine compare_dynamical_matrices(a,b,logfile)
   
   integer :: i,j
   
-  mats_a = a%matrices()
-  mats_b = b%matrices()
+  mats_a = a%elements()
+  mats_b = b%elements()
   
   no_atoms = size(mats_a,1)
   if (size(mats_b,1)/=no_atoms) then
@@ -700,11 +699,11 @@ function transform_modes(input,symmetry,qpoint_from,qpoint_to) result(output)
   type(QpointData),       intent(in)    :: qpoint_to
   type(DynamicalMatrix)                 :: output
   
-  output = DynamicalMatrix(                                            &
-     & matrices      = transform_dynamical_matrix( input%matrices(),   &
-     &                                             symmetry,           &
-     &                                             qpoint_from,        &
-     &                                             qpoint_to         ) )
+  output = DynamicalMatrix(                                       &
+     & elements = transform_dynamical_matrix( input%elements(),   &
+     &                                        symmetry,           &
+     &                                        qpoint_from,        &
+     &                                        qpoint_to         ) )
 end function
 
 function transform_dynamical_matrix(input,symmetry,qpoint_from,qpoint_to) &

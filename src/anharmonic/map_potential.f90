@@ -200,6 +200,8 @@ subroutine map_potential_subroutine(arguments)
      & no_nodes            = no_nodes,         &
      & run_script_data     = run_script_data,  &
      & calculation_type    = calculation_type, &
+     & use_forces          = .true.,           &
+     & use_hessians        = .false.,          &
      & calculate_stress    = .false.,          &
      & exit_on_error       = .true.,           &
      & repeat_calculations = .true.            )
@@ -303,7 +305,7 @@ subroutine map_potential_subroutine(arguments)
             electronic_structure = calculation_reader%read_calculation( &
                                                      & displacement_dir )
             
-            sampled_energy(l,k) = electronic_structure%energy &
+            sampled_energy(l,k) = electronic_structure%energy() &
                               & / supercell%sc_size
           endif
         enddo

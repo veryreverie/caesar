@@ -29,7 +29,7 @@ module quip_module
   type :: QuipElectronicStructure
     real(dp)              :: energy
     real(dp), allocatable :: forces(:,:)
-    real(dp)              :: stress(3,3)
+    real(dp), allocatable :: stress(:,:)
   end type
   
   interface assignment(=)
@@ -111,11 +111,15 @@ subroutine write_input_file_xyz(structure,input_filename,output_filename)
   !endif
 end subroutine
 
-function run_quip_on_structure(structure,seedname) result(output)
+function run_quip_on_structure(structure,seedname,use_forces,use_hessians, &
+   & calculate_stress) result(output)
   implicit none
   
   type(BasicStructure), intent(in) :: structure
   type(String),         intent(in) :: seedname
+  logical,              intent(in) :: use_forces
+  logical,              intent(in) :: use_hessians
+  logical,              intent(in) :: calculate_stress
   type(ElectronicStructure)        :: output
   
   type(String) :: quip_filename
@@ -125,9 +129,15 @@ function run_quip_on_structure(structure,seedname) result(output)
   
   integer :: ialloc
   
+  if (use_hessians) then
+    call print_line(ERROR//': Reading Hessians from Quip is not implemented.')
+    call quit()
+  endif
+  
   quip_filename = format_path(seedname//'_MEAM.xml')
   quip_structure = structure
   allocate( quip_electronic_structure%forces(3,size(structure%atoms)), &
+          & quip_electronic_structure%stress(3,3),                     &
           & stat=ialloc); call err(ialloc)
   
   call quip_unified_wrapper(                                   &
@@ -141,15 +151,26 @@ function run_quip_on_structure(structure,seedname) result(output)
      & force               = quip_electronic_structure%forces, &
      & virial              = quip_electronic_structure%stress, &
      & do_energy           = .true.,                           &
-     & do_force            = .true.,                           &
-     & do_virial           = .true.,                           &
+     & do_force            = use_forces,                       &
+     & do_virial           = calculate_stress,                 &
      & quip_param_file     = char(quip_filename),              &
      & quip_param_file_len = len(quip_filename),               &
      & calc_args_str       = '',                               &
-     & calc_args_str_len   = 0 )
+     & calc_args_str_len   = 0                                 )
   
-  quip_electronic_structure%stress = quip_electronic_structure%stress &
-                                 & / structure%volume()
+  if (.not. use_forces) then
+    deallocate(quip_electronic_structure%forces, stat=ialloc); call err(ialloc)
+  endif
+  
+  if (.not. calculate_stress) then
+    deallocate(quip_electronic_structure%stress, stat=ialloc); call err(ialloc)
+  endif
+  
+  ! Quip calculates stress*volume rather than stress.
+  if (calculate_stress) then
+    quip_electronic_structure%stress = quip_electronic_structure%stress &
+                                   & / structure%volume()
+  endif
   
   output = quip_electronic_structure
 end function
@@ -217,17 +238,25 @@ subroutine assign_ElectronicStructure_QuipElectronicStructure(output,input)
   type(ElectronicStructure),     intent(out) :: output
   type(QuipElectronicStructure), intent(in)  :: input
   
-  type(RealVector), allocatable :: forces(:)
+  real(dp)                          :: energy
+  type(CartesianForce), allocatable :: forces
+  type(RealMatrix),     allocatable :: stress
   
   integer :: i,ialloc
   
-  allocate(forces(size(input%forces,2)), stat=ialloc); call err(ialloc)
-  do i=1,size(forces)
-    forces(i) = input%forces(:,i) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
-  enddo
+  energy = input%energy / EV_PER_HARTREE
   
-  output = ElectronicStructure( input%energy / EV_PER_HARTREE,     &
-                              & CartesianForce(forces),            &
-                              & mat(input%stress) / EV_PER_HARTREE )
+  if (allocated(input%forces)) then
+    forces = CartesianForce([(                                    &
+       & vec(input%forces(:,i))*ANGSTROM_PER_BOHR/EV_PER_HARTREE, &
+       & i=1,                                                     &
+       & size(input%forces,2)                                     )])
+  endif
+  
+  if (allocated(input%stress)) then
+    stress = mat(input%stress)/EV_PER_HARTREE
+  endif
+  
+  output = ElectronicStructure(energy=energy, forces=forces, stress=stress)
 end subroutine
 end module

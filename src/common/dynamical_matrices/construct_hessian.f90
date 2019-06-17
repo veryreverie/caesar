@@ -1,10 +1,11 @@
 ! ======================================================================
 ! Reads harmonic forces, and generates the cartesian Hessian matrix.
 ! ======================================================================
-module cartesian_hessian_module
+module construct_hessian_module
   use utils_module
   
   use structure_module
+  use normal_mode_module
   use electronic_structure_module
   
   use unique_directions_module
@@ -14,19 +15,8 @@ module cartesian_hessian_module
   
   public :: CartesianHessian
   
-  ! The Hessian is the matrix of force constants, F, such that F.x=f,
-  !    where x and f are the cartesian displacement and cartesian force
-  !    respectively.
-  type, extends(NoDefaultConstructor) :: CartesianHessian
-    type(RealMatrix), allocatable, private :: elements_(:,:)
-  contains
-    procedure, public :: elements
-    procedure, public :: check
-  end type
-  
   interface CartesianHessian
     module procedure new_CartesianHessian_forces
-    module procedure new_CartesianHessian_elements
   end interface
 contains
 
@@ -93,94 +83,11 @@ function new_CartesianHessian_forces(supercell,unique_directions, &
   output = construct_f(xx,fx,supercell,logfile)
   
   ! Check output.
-  call output%check( forces,            &
-                   & supercell,         &
-                   & unique_directions, &
-                   & logfile)
-end function
-
-! ----------------------------------------------------------------------
-! Constructs and checks Hessian from given matrices.
-! ----------------------------------------------------------------------
-function new_CartesianHessian_elements(structure,elements,logfile) &
-   & result(this)
-  implicit none
-  
-  type(StructureData), intent(in)              :: structure
-  type(RealMatrix),    intent(in)              :: elements(:,:)
-  type(OFile),         intent(inout), optional :: logfile
-  type(CartesianHessian)                       :: this
-  
-  ! Variables for checking Hessian.
-  type(AtomData)   :: atom_i
-  type(AtomData)   :: atom_j
-  type(AtomData)   :: atom_k
-  integer          :: rvec_i
-  integer          :: rvec_j
-  integer          :: rvec_k
-  integer          :: rvec_ij
-  type(RealMatrix) :: matrix
-  type(RealMatrix) :: copy
-  real(dp)         :: average
-  real(dp)         :: difference
-  
-  integer :: i,j,k
-  
-  ! Copy elements into CartesianHessian.
-  this%elements_ = elements
-  
-  ! Check that the force constants between atom i and atom j are the same as
-  !    those between atom i + R and atom j + R.
-  average = 0.0_dp
-  difference = 0.0_dp
-  do i=1,structure%no_atoms
-    atom_i = structure%atoms(i)
-    rvec_i = atom_i%rvec_id()
-    do j=1,structure%no_atoms
-      atom_j = structure%atoms(j)
-      rvec_j = atom_j%rvec_id()
-      rvec_ij = structure%paired_rvector_group(rvec_i) * rvec_j
-      
-      do k=1,structure%no_atoms
-        atom_k = structure%atoms(k)
-        rvec_k = atom_k%rvec_id()
-        if (atom_k%prim_id()/=atom_j%prim_id()) then
-          cycle
-        elseif (rvec_k/=rvec_ij) then
-          cycle
-        endif
-        matrix = this%elements_(atom_i%id(),atom_j%id())
-        copy = this%elements_(atom_i%prim_id(),atom_k%id())
-        average = average + sum_squares((matrix+copy)/2)
-        difference = difference + sum_squares(matrix-copy)
-      enddo
-    enddo
-  enddo
-  
-  if (present(logfile)) then
-    call logfile%print_line('Fractional L2 difference in force constants at &
-       &different R-vectors: '//sqrt(difference/average))
-  endif
-  
-  if (sqrt(difference/average)>1.0e-10_dp) then
-    call print_line(WARNING//': Hessian does not obey R-vector symmetries. &
-       & Please check log files.')
-    call err()
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! Return the force constants between two atoms.
-! ----------------------------------------------------------------------
-function elements(this,a,b) result(output)
-  implicit none
-  
-  class(CartesianHessian), intent(in) :: this
-  type(AtomData),          intent(in) :: a
-  type(AtomData),          intent(in) :: b
-  type(RealMatrix)                    :: output
-  
-  output = this%elements_(a%id(),b%id())
+  call check_hessian( output,            &
+                    & forces,            &
+                    & supercell,         &
+                    & unique_directions, &
+                    & logfile            )
 end function
   
 ! ----------------------------------------------------------------------
@@ -198,6 +105,8 @@ function parse_forces(supercell,unique_directions,electronic_structure, &
   logical,                   intent(in) :: acoustic_sum_rule_forces
   type(RealVector), allocatable         :: output(:,:)
   
+  type(CartesianForce), allocatable :: forces
+  
   type(RealVector) :: sum_forces
   
   type(AtomData) :: atom_i
@@ -207,7 +116,8 @@ function parse_forces(supercell,unique_directions,electronic_structure, &
   allocate( output(supercell%no_atoms, size(unique_directions)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(unique_directions)
-    output(:,i) = electronic_structure(i)%forces%vectors
+    forces = electronic_structure(i)%forces()
+    output(:,i) = forces%vectors
     
     ! Enforce continuous translational symmetry,
     !    i.e. ensure sum(output,1)=0.
@@ -410,7 +320,8 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   type(OFile),         intent(inout) :: logfile
   type(CartesianHessian)             :: output
   
-  type(RealMatrix) :: xx_inverse
+  type(RealMatrix), allocatable :: elements(:,:)
+  type(RealMatrix)              :: xx_inverse
   
   ! Variables for checking the output.
   type(AtomData)   :: atom_1
@@ -425,74 +336,25 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   integer :: i,j,k,ialloc
   
   ! Construct F(i1,i2).
-  allocate(output%elements_(supercell%no_atoms,supercell%no_atoms), &
+  allocate(elements(supercell%no_atoms,supercell%no_atoms), &
      & stat=ialloc); call err(ialloc)
   do i=1,supercell%no_atoms
     xx_inverse = invert(xx(i))
     do j=1,supercell%no_atoms
-      output%elements_(j,i) = fx(j,i) * xx_inverse * supercell%sc_size
+      elements(j,i) = fx(j,i) * xx_inverse * supercell%sc_size
     enddo
   enddo
   
   ! Symmetrise F(i1,i2) under exchange of co-ordinates.
   do i=1,supercell%no_atoms
     do j=1,i
-      output%elements_(j,i) = ( output%elements_(j,i)              &
-                          &   + transpose(output%elements_(i,j)) ) &
-                          & / 2.0_dp
-      output%elements_(i,j) = transpose(output%elements_(j,i))
+      elements(j,i) = (elements(j,i) + transpose(elements(i,j))) / 2.0_dp
+      elements(i,j) = transpose(elements(j,i))
     enddo
   enddo
   
-  ! Check F(i1,i2) transforms correctly under symmetry operators.
-  average = 0
-  difference = 0
-  do i=1,size(supercell%symmetries)
-    do j=1,supercell%no_atoms_prim
-      atom_1 = supercell%atoms(j)
-      atom_1p = supercell%atoms( supercell%symmetries(i)%atom_group &
-                             & * atom_1%id())
-      do k=1,supercell%no_atoms
-        atom_2 = supercell%atoms(k)
-        atom_2p = supercell%atoms( supercell%symmetries(i)%atom_group &
-                               & * atom_2%id())
-        matrix = output%elements(atom_1p,atom_2p)
-        symmetric = supercell%symmetries(i)%cartesian_tensor &
-                & * output%elements(atom_1,atom_2)           &
-                & * transpose(supercell%symmetries(i)%cartesian_tensor)
-        average = average + sum_squares((matrix+symmetric)/2)
-        difference = difference + sum_squares(matrix-symmetric)
-      enddo
-    enddo
-  enddo
-  call logfile%print_line(                                  &
-     & 'Fractional L2 error in symmetry of F(i1,i2)   : '// &
-     & sqrt(difference/average))
-  if (sqrt(difference/average) > 1e-10_dp) then
-    call print_line(WARNING//': F(i1,i2) is not as symmetric as expected. &
-       &Please check log files.')
-    call print_line('Fractional L2 error: '//sqrt(difference/average))
-  endif
-  
-  ! Check F(i1,i2)=F(i2,i1).
-  average = 0
-  difference = 0
-  do i=1,supercell%no_atoms
-    atom_1 = supercell%atoms(i)
-    do j=1,supercell%no_atoms
-      atom_2 = supercell%atoms(j)
-      matrix = output%elements(atom_2,atom_1)
-      symmetric = transpose(output%elements(atom_1,atom_2))
-      average = average + sum_squares((matrix+symmetric)/2)
-      difference = difference + sum_squares(matrix-symmetric)
-    enddo
-  enddo
-  call logfile%print_line(                                  &
-     & 'Fractional L2 error in F(i1,i2)=F(i2,i1)      : '// &
-     & sqrt(difference/average))
-  if (sqrt(difference/average) > 1e-10_dp) then
-    call print_line(WARNING//': F(i1,i2)/=F(i2,i1). Please check log files.')
-  endif
+  ! Construct output.
+  output = CartesianHessian(supercell,elements,logfile)
 end function
 
 ! ----------------------------------------------------------------------
@@ -501,14 +363,14 @@ end function
 ! Checks that the elements corresponding to calculated forces have not been
 !    changed too much by symmetrisation.
 ! Checks that the Hessian has the correct symmetry properties.
-subroutine check(this,forces,supercell,unique_directions,logfile)
+subroutine check_hessian(hessian,forces,supercell,unique_directions,logfile)
   implicit none
   
-  class(CartesianHessian), intent(in)    :: this
-  type(RealVector),        intent(in)    :: forces(:,:)
-  type(StructureData),     intent(in)    :: supercell
-  type(UniqueDirection),   intent(in)    :: unique_directions(:)
-  type(OFile),             intent(inout) :: logfile
+  type(CartesianHessian), intent(in)    :: hessian
+  type(RealVector),       intent(in)    :: forces(:,:)
+  type(StructureData),    intent(in)    :: supercell
+  type(UniqueDirection),  intent(in)    :: unique_directions(:)
+  type(OFile),            intent(inout) :: logfile
   
   ! Atoms.
   type(AtomData) :: atom_1
@@ -532,7 +394,7 @@ subroutine check(this,forces,supercell,unique_directions,logfile)
       atom_2 = supercell%atoms(j)
       
       calculated = forces(j,i)
-      fitted = this%elements(atom_2,atom_1)             &
+      fitted = hessian%elements(atom_2,atom_1)          &
            & * unique_directions(i)%atomic_displacement &
            & / supercell%sc_size
       

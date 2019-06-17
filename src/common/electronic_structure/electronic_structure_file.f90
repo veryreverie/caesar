@@ -127,16 +127,18 @@ subroutine StructureData_to_input_file(file_type,structure,input_filename, &
   endif
 end subroutine
 
-function read_output_file(file_type,filename,structure,dir,seedname, &
-   & calculation_type) result(output)
+function read_output_file(file_type,structure,directory,seedname, &
+   & calculation_type,use_forces,use_hessians,calculate_stress) result(output)
   implicit none
   
   type(String),        intent(in) :: file_type
-  type(String),        intent(in) :: filename
   type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: dir
+  type(String),        intent(in) :: directory
   type(String),        intent(in) :: seedname
   type(String),        intent(in) :: calculation_type
+  logical,             intent(in) :: use_forces
+  logical,             intent(in) :: use_hessians
+  logical,             intent(in) :: calculate_stress
   type(ElectronicStructure)       :: output
   
   type(IFile)         :: displaced_structure_file
@@ -144,20 +146,38 @@ function read_output_file(file_type,filename,structure,dir,seedname, &
   
   if (calculation_type=='none') then
     if (file_type=='castep') then
-      output = read_output_file_castep(filename,structure)
+      output = read_output_file_castep( directory,       &
+                                      & seedname,        &
+                                      & structure,       &
+                                      & use_forces,      &
+                                      & use_hessians,    &
+                                      & calculate_stress )
     elseif (file_type=='quantum_espresso') then
-      output = read_output_file_qe(filename,structure)
+      output = read_output_file_qe( directory,       &
+                                  & seedname,        &
+                                  & structure,       &
+                                  & use_forces,      &
+                                  & use_hessians,    &
+                                  & calculate_stress )
     elseif (file_type=='vasp') then
-      output = read_output_file_vasp(filename,structure)
+      output = read_output_file_vasp( directory,       &
+                                    & seedname,        &
+                                    & structure,       &
+                                    & use_forces,      &
+                                    & use_hessians,    &
+                                    & calculate_stress )
     else
       call print_line(ERROR//': Unrecognised output file type: '//file_type)
       call err()
     endif
   elseif (calculation_type=='quip') then
-    displaced_structure_file = IFile(dir//'/structure.dat')
+    displaced_structure_file = IFile(directory//'/structure.dat')
     displaced_structure = StructureData(displaced_structure_file%lines())
     output = run_quip_on_structure( BasicStructure(displaced_structure), &
-                                  & seedname                             )
+                                  & seedname,                            &
+                                  & use_forces,                          &
+                                  & use_hessians,                        &
+                                  & calculate_stress                     )
   else
     call print_line(ERROR//': calculation_type must be either "script" or &
        & "quip".')

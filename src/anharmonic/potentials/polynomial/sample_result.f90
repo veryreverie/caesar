@@ -87,13 +87,13 @@ function new_SampleResult_calculation(calculation,supercell,real_modes, &
   type(RealMatrix)    :: stress
   
   ! Normalise the energy by the number of unit cells in the supercell.
-  energy = calculation%energy / supercell%sc_size
+  energy = calculation%energy() / supercell%sc_size
   
   ! Transform the forces into normal mode co-ordinates.
-  force = RealModeForce( calculation%forces, &
-                       & supercell,          &
-                       & real_modes,         &
-                       & qpoints)
+  force = RealModeForce( calculation%forces(), &
+                       & supercell,            &
+                       & real_modes,           &
+                       & qpoints               )
   
   ! Construct output.
   if (calculation%has_stress()) then

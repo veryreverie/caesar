@@ -468,14 +468,20 @@ function parse_castep_input_file(filename) result(output)
                           & remainder       = remainder        )
 end function
 
-function read_output_file_castep(filename,structure) result(output)
+function read_output_file_castep(directory,seedname,structure,use_forces, &
+   & use_hessians,calculate_stress) result(output)
   implicit none
   
-  type(String),        intent(in) :: filename
+  type(String),        intent(in) :: directory
+  type(String),        intent(in) :: seedname
   type(StructureData), intent(in) :: structure
+  logical,             intent(in) :: use_forces
+  logical,             intent(in) :: use_hessians
+  logical,             intent(in) :: calculate_stress
   type(ElectronicStructure)       :: output
   
   ! File contents.
+  type(String)              :: filename
   type(IFile)               :: castep_file
   type(String), allocatable :: line(:)
   logical,      allocatable :: atom_found(:)
@@ -490,12 +496,15 @@ function read_output_file_castep(filename,structure) result(output)
   integer :: born_charges_line
   
   ! Output variables.
-  real(dp)                      :: energy
-  type(RealVector), allocatable :: forces(:)
-  real(dp)                      :: stress(3,3)
-  real(dp)                      :: permittivity(3,3)
-  real(dp)                      :: born_charge(3,3)
-  type(RealMatrix), allocatable :: born_charges(:)
+  real(dp)                          :: energy
+  type(RealVector),     allocatable :: forces_elements(:)
+  type(CartesianForce), allocatable :: forces
+  real(dp)                          :: stress_elements(3,3)
+  type(RealMatrix),     allocatable :: stress
+  real(dp)                          :: permittivity(3,3)
+  real(dp)                          :: born_charge(3,3)
+  type(RealMatrix),     allocatable :: born_charges(:)
+  type(LinearResponse), allocatable :: linear_response
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -506,6 +515,7 @@ function read_output_file_castep(filename,structure) result(output)
     call quit()
   endif
   
+  filename = directory//'/'//make_output_filename_castep(seedname)
   castep_file = IFile(filename)
   
   ! Work out line numbers.
@@ -588,52 +598,38 @@ function read_output_file_castep(filename,structure) result(output)
   if (energy_line==0) then
     call print_line('Error: Energy not found in '//char(filename))
     call quit()
-  elseif (forces_start_line==0) then
-    call print_line('Error: Start of forces not found in '//char(filename))
-    call quit()
-  elseif (forces_end_line==0) then
-    call print_line('Error: End of forces not found in '//char(filename))
-    call quit()
-  elseif (forces_end_line-forces_start_line-7/=structure%no_atoms) then
-    call print_line(forces_start_line)
-    call print_line(forces_end_line)
-    call print_line(forces_end_line-forces_start_line-7//' '//structure%no_atoms)
-    call print_line(ERROR//': The number of atoms in the Castep output file &
-       &does not match that in the input file.')
-    call err()
   elseif (permittivity_line==0 .neqv. born_charges_line==0) then
     call print_line(ERROR//': DFPT linear response is only partially present &
        &in Castep output file.')
     call err()
   endif
   
-  ! Read data.
+  ! Read energy.
   line = split_line(castep_file%line(energy_line))
   energy = dble(line(5)) / EV_PER_HARTREE
   
-  if (stress_line/=0) then
-    do i=1,3
-      line = split_line(castep_file%line(stress_line+5+i))
-      ! Stress is in GPa = 10^9 * J.m^-3 = 10^-21 * J.A^-3
-      ! The a.u. unit is Ha.bohr^-3
-      stress(i,:) = dble(line(3:5)) &
-                & * 1e-21_dp*ANGSTROM_PER_BOHR**3/JOULES_PER_HARTREE
-    enddo
+  ! Read forces and Born effective charges.
+  if (use_forces) then
+    if (forces_start_line==0) then
+      call print_line('Error: Start of forces not found in '//char(filename))
+      call quit()
+    elseif (forces_end_line==0) then
+      call print_line('Error: End of forces not found in '//char(filename))
+      call quit()
+    elseif (forces_end_line-forces_start_line-7/=structure%no_atoms) then
+      call print_line(forces_start_line)
+      call print_line(forces_end_line)
+      call print_line(forces_end_line-forces_start_line-7//' '// &
+                     &structure%no_atoms)
+      call print_line(ERROR//': The number of atoms in the Castep output file &
+         &does not match that in the input file.')
+      call err()
+    endif
   endif
-  
-  if (permittivity_line/=0) then
-    do i=1,3
-      line = split_line(castep_file%line(permittivity_line+1+i))
-      permittivity(i,:) = dble(line(1:3))
-    enddo
-  endif
-  
-  allocate( forces(structure%no_atoms),     &
-          & atom_found(structure%no_atoms), &
+  allocate( forces_elements(structure%no_atoms), &
+          & born_charges(structure%no_atoms),    &
+          & atom_found(structure%no_atoms),      &
           & stat=ialloc); call err(ialloc)
-  if (born_charges_line/=0) then
-    allocate(born_charges(structure%no_atoms), stat=ialloc); call err(ialloc)
-  endif
   atom_found = .false.
   do i=1,structure%no_atoms
     line = split_line(castep_file%line(forces_start_line+5+i))
@@ -647,7 +643,10 @@ function read_output_file_castep(filename,structure) result(output)
       call err()
     endif
     atom_found(j) = .true.
-    forces(j) = dble(line(4:6)) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
+    
+    if (use_forces) then
+      forces_elements(j) = dble(line(4:6)) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
+    endif
     
     if (born_charges_line/=0) then
       do k=1,3
@@ -673,23 +672,45 @@ function read_output_file_castep(filename,structure) result(output)
     call err()
   endif
   
-  ! Construct output.
-  if (stress_line==0 .and. permittivity_line==0) then
-    output = ElectronicStructure(energy, CartesianForce(forces))
-  elseif (permittivity_line==0) then
-    output = ElectronicStructure(energy, CartesianForce(forces), mat(stress))
-  elseif (stress_line==0) then
-    output = ElectronicStructure(                               &
-       & energy,                                                &
-       & CartesianForce(forces),                                &
-       & linear_response = LinearResponse( mat(permittivity),   &
-       &                                   born_charges       ) )
-  else
-    output = ElectronicStructure( energy,                              &
-                                & CartesianForce(forces),              &
-                                & mat(stress),                         &
-                                & LinearResponse( mat(permittivity),   &
-                                &                 born_charges       ) )
+  if (use_forces) then
+    forces = CartesianForce(forces_elements)
   endif
+  
+  ! Read stress.
+  if (calculate_stress) then
+    if (stress_line==0) then
+      call print_line(ERROR//': No stress found in Castep output file.')
+      call err()
+    endif
+    
+    do i=1,3
+      line = split_line(castep_file%line(stress_line+5+i))
+      ! Stress is in GPa = 10^9 * J.m^-3 = 10^-21 * J.A^-3
+      ! The a.u. unit is Ha.bohr^-3
+      stress_elements (i,:) = dble(line(3:5)) &
+                          & * 1e-21_dp*ANGSTROM_PER_BOHR**3/JOULES_PER_HARTREE
+    enddo
+    
+    stress = mat(stress_elements)
+  endif
+  
+  ! Read permittivity.
+  if (permittivity_line/=0) then
+    do i=1,3
+      line = split_line(castep_file%line(permittivity_line+1+i))
+      permittivity(i,:) = dble(line(1:3))
+    enddo
+    
+    linear_response = LinearResponse(mat(permittivity), born_charges)
+  endif
+  
+  ! Read Hessian.
+  ! TODO
+  
+  ! Construct output.
+  output = ElectronicStructure( energy          = energy,         &
+                              & forces          = forces,         &
+                              & stress          = stress,         &
+                              & linear_response = linear_response )
 end function
 end module

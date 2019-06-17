@@ -186,6 +186,8 @@ subroutine map_anharmonic_modes_subroutine(arguments)
      & no_nodes            = no_nodes,         &
      & run_script_data     = run_script_data,  &
      & calculation_type    = calculation_type, &
+     & use_forces          = .true.,           &
+     & use_hessians        = .false.,          &
      & calculate_stress    = .false.,          &
      & exit_on_error       = .true.,           &
      & repeat_calculations = .true.            )
@@ -269,12 +271,12 @@ subroutine map_anharmonic_modes_subroutine(arguments)
           electronic_structure = calculation_reader%read_calculation( &
                                                    & displacement_dir )
           
-          sampled_energies(k) = electronic_structure%energy &
+          sampled_energies(k) = electronic_structure%energy() &
                             & / supercell%sc_size
-          sampled_force = RealModeForce( electronic_structure%forces, &
-                                       & supercell,                   &
-                                       & real_modes,                  &
-                                       & qpoints                      )
+          sampled_force = RealModeForce( electronic_structure%forces(), &
+                                       & supercell,                     &
+                                       & real_modes,                    &
+                                       & qpoints                        )
           sampled_forces(k) = sampled_force%force(mode)
         enddo
         sampled_energies = sampled_energies - potential%undisplaced_energy()

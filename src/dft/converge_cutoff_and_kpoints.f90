@@ -222,6 +222,8 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
      & no_nodes            = no_nodes,        &
      & run_script_data     = run_script_data, &
      & calculation_type    = str('none'),     &
+     & use_forces          = .true.,          &
+     & use_hessians        = .false.,         &
      & calculate_stress    = .false.,         &
      & exit_on_error       = .true.,          &
      & repeat_calculations = .true.           )
@@ -526,9 +528,6 @@ function run_castep(cutoff,kpoint_spacing,wd,dir,seedname,run_script, &
   call print_line('Result code: '//result_code)
   
   ! Read CASTEP file.
-  output = read_castep_output_file( dir//'/'//seedname//'.castep', &
-                                  & structure,                     &
-                                  & wd,                            &
-                                  & seedname                       )
+  output = read_castep_output_file(structure, wd, seedname)
 end function
 end module

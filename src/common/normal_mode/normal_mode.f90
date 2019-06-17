@@ -10,6 +10,7 @@
 module normal_mode_module
   use cartesian_displacement_module
   use cartesian_force_module
+  use cartesian_hessian_module
   use mass_weighted_displacement_module
   use mass_weighted_force_module
   use real_mode_module

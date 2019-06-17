@@ -161,8 +161,8 @@ function calculate_loto_correction(electronic_structure,loto_correction) &
   real(dp)             :: energy
   type(CartesianForce) :: forces
   
-  energy = electronic_structure%energy + loto_correction%energy
-  forces = electronic_structure%forces + loto_correction%forces
+  energy = electronic_structure%energy() + loto_correction%energy
+  forces = electronic_structure%forces() + loto_correction%forces
   
   output = ElectronicStructure(energy, forces)
 end function

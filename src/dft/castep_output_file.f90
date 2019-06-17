@@ -2,38 +2,43 @@ module castep_output_file_module
   use common_module
   implicit none
   
-  type, extends(ElectronicStructure) :: CastepOutputFile
-    integer :: no_kpoints
-    integer :: kpoints_mp_grid(3)
+  type, extends(NoDefaultConstructor) :: CastepOutputFile
+    real(dp)             :: energy
+    type(CartesianForce) :: forces
+    integer              :: no_kpoints
+    integer              :: kpoints_mp_grid(3)
   end type
 contains
 
-function read_castep_output_file(filename,structure,dir,seedname) &
-   & result(output)
+function read_castep_output_file(structure,directory,seedname) result(output)
   implicit none
   
-  type(String),        intent(in) :: filename
   type(StructureData), intent(in) :: structure
-  type(String),        intent(in) :: dir
+  type(String),        intent(in) :: directory
   type(String),        intent(in) :: seedname
   type(CastepOutputFile)          :: output
   
+  type(String)              :: filename
   type(ElectronicStructure) :: output_file
   type(IFile)               :: castep_output_file
   
   type(String), allocatable :: line(:)
   integer                   :: i
   
-  output_file = read_output_file( str('castep'),      &
-                                & filename,           &
-                                & structure,          &
-                                & dir,                &
-                                & seedname,           &
-                                & str('script'))
+  output_file = read_output_file( file_type        = str('castep'), &
+                                & structure        = structure,     &
+                                & directory        = directory,     &
+                                & seedname         = seedname,      &
+                                & calculation_type = str('script'), &
+                                & use_forces       = .true.,        &
+                                & use_hessians     = .false.,       &
+                                & calculate_stress = .false.        )
   
-  output%energy = output_file%energy
-  output%forces = output_file%forces
+  output%energy = output_file%energy()
+  output%forces = output_file%forces()
   
+  filename = directory//'/'//make_output_filename( file_type = str('castep'), &
+                                                 & seedname  = seedname       )
   castep_output_file = IFile(filename)
   do i=1,size(castep_output_file)
     line = split_line(lower_case(castep_output_file%line(i)))

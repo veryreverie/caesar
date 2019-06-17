@@ -100,11 +100,15 @@ end function
 ! Overloads of PotentialData's methods.
 ! --------------------------------------------------
 subroutine generate_sampling_points_PotentialDataExample(this, &
-   & anharmonic_data,sampling_points_dir,calculation_writer,logfile)
+   & anharmonic_data,use_forces,use_hessians,calculate_stress, &
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: anharmonic_data
+  logical,                     intent(in)    :: use_forces
+  logical,                     intent(in)    :: use_hessians
+  logical,                     intent(in)    :: calculate_stress
   type(String),                intent(in)    :: sampling_points_dir
   type(CalculationWriter),     intent(inout) :: calculation_writer
   type(OFile),                 intent(inout) :: logfile
@@ -370,6 +374,9 @@ subroutine potential_example_subroutine()
   
   ! Variables for generate_sampling points.
   type(AnharmonicData)    :: anharmonic_data
+  logical                 :: use_forces
+  logical                 :: use_hessian
+  logical                 :: calculate_stress
   type(String)            :: sampling_points_dir
   type(CalculationWriter) :: calculation_writer
   type(OFile)             :: logfile
@@ -407,6 +414,9 @@ subroutine potential_example_subroutine()
   
   ! Generates sampling points, in a manner specific to the representation.
   call potential%generate_sampling_points( anharmonic_data,     &
+                                         & use_forces,          &
+                                         & use_hessian,         &
+                                         & calculate_stress,    &
                                          & sampling_points_dir, &
                                          & calculation_writer,  &
                                          & logfile              )

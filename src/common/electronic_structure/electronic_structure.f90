@@ -6,6 +6,8 @@
 module electronic_structure_module
   use electronic_structure_data_module
   use quip_module
+  use phonon_file_module
+  use force_constants_file_module
   
   use structure_file_module
   use electronic_structure_file_module

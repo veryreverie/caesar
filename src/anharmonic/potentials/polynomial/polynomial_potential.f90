@@ -137,12 +137,17 @@ impure elemental function representation_PolynomialPotential() result(output)
 end function
 
 ! Generate sampling points.
-subroutine generate_sampling_points_PolynomialPotential(this, &
-   & anharmonic_data,sampling_points_dir,calculation_writer,logfile)
+! N.B. does not look at use_forces, use_hessians or calculate stress.
+subroutine generate_sampling_points_PolynomialPotential(this,  &
+   & anharmonic_data,use_forces,use_hessians,calculate_stress, &
+   & sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: anharmonic_data
+  logical,                    intent(in)    :: use_forces
+  logical,                    intent(in)    :: use_hessians
+  logical,                    intent(in)    :: calculate_stress
   type(String),               intent(in)    :: sampling_points_dir
   type(CalculationWriter),    intent(inout) :: calculation_writer
   type(OFile),                intent(inout) :: logfile

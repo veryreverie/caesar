@@ -550,7 +550,8 @@ module abstract_classes_module
     end function
     
     subroutine generate_sampling_points_PotentialData(this,anharmonic_data, &
-       & sampling_points_dir,calculation_writer,logfile)
+       & use_forces,use_hessians,calculate_stress,sampling_points_dir,      &
+       & calculation_writer,logfile)
       import PotentialData
       import AnharmonicData
       import String
@@ -560,6 +561,9 @@ module abstract_classes_module
       
       class(PotentialData),    intent(inout) :: this
       type(AnharmonicData),    intent(in)    :: anharmonic_data
+      logical,                 intent(in)    :: use_forces
+      logical,                 intent(in)    :: use_hessians
+      logical,                 intent(in)    :: calculate_stress
       type(String),            intent(in)    :: sampling_points_dir
       type(CalculationWriter), intent(inout) :: calculation_writer
       type(OFile),             intent(inout) :: logfile
@@ -1324,11 +1328,15 @@ end function
 
 ! Wrappers for all of PotentialData's methods.
 subroutine generate_sampling_points_PotentialPointer(this,anharmonic_data, &
-   & sampling_points_dir,calculation_writer,logfile)
+   & use_forces,use_hessians,calculate_stress,sampling_points_dir,         &
+   & calculation_writer,logfile)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   type(AnharmonicData),    intent(in)    :: anharmonic_data
+  logical,                 intent(in)    :: use_forces
+  logical,                 intent(in)    :: use_hessians
+  logical,                 intent(in)    :: calculate_stress
   type(String),            intent(in)    :: sampling_points_dir
   type(CalculationWriter), intent(inout) :: calculation_writer
   type(OFile),             intent(inout) :: logfile
@@ -1336,6 +1344,9 @@ subroutine generate_sampling_points_PotentialPointer(this,anharmonic_data, &
   call this%check()
   
   call this%potential_%generate_sampling_points( anharmonic_data,     &
+                                               & use_forces,          &
+                                               & use_hessians,        &
+                                               & calculate_stress,    &
                                                & sampling_points_dir, &
                                                & calculation_writer,  &
                                                & logfile              )

@@ -23,10 +23,11 @@ module calculation_runner_module
     integer,      private              :: no_nodes_
     type(String), private              :: run_script_data_
     type(String), private              :: calculation_type_
+    logical,      private              :: use_forces_
+    logical,      private              :: use_hessians_
     logical,      private              :: calculate_stress_
     logical,      private              :: exit_on_error_
     logical,      private              :: repeat_calculations_
-    type(String), private              :: filename_
     type(String), private, allocatable :: directories_(:)
   contains
     procedure, public :: directories_run
@@ -40,9 +41,9 @@ module calculation_runner_module
 contains
 
 ! Constructor.
-function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
-   & no_nodes,run_script_data,calculation_type,calculate_stress,       &
-   & exit_on_error,repeat_calculations) result(this)
+function new_CalculationRunner(file_type,seedname,run_script,no_cores,      &
+   & no_nodes,run_script_data,calculation_type,calculate_stress,use_forces, &
+   & use_hessians,exit_on_error,repeat_calculations) result(this)
   implicit none
   
   type(String), intent(in) :: file_type
@@ -52,6 +53,8 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
   integer,      intent(in) :: no_nodes
   type(String), intent(in) :: run_script_data
   type(String), intent(in) :: calculation_type
+  logical,      intent(in) :: use_forces
+  logical,      intent(in) :: use_hessians
   logical,      intent(in) :: calculate_stress
   logical,      intent(in) :: exit_on_error
   logical,      intent(in) :: repeat_calculations
@@ -64,25 +67,12 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores, &
   this%no_nodes_            = no_nodes
   this%run_script_data_     = run_script_data
   this%calculation_type_    = calculation_type
+  this%use_forces_          = use_forces
+  this%use_hessians_        = use_hessians
   this%calculate_stress_    = calculate_stress
   this%exit_on_error_       = exit_on_error
   this%repeat_calculations_ = repeat_calculations
-  
-  ! If the calculation type is 'none' then the electronic structure
-  !    calculation has already been run, so the output file should be read
-  ! If the calculation type is 'quip' then the calculation is still to be run,
-  !    so the input file should be read.
-  if (calculation_type=='none') then
-    this%filename_ = make_output_filename(file_type,seedname)
-  elseif (calculation_type=='quip') then
-    this%filename_ = make_input_filename(file_type,seedname)
-  else
-    call print_line(ERROR//': calculation_type must be either "none" or &
-       & "quip.')
-    call err()
-  endif
-  
-  this%directories_ = [String::]
+  this%directories_         = [String::]
 end function
 
 ! Return a list of the directories in which calculations have been run.
@@ -157,16 +147,32 @@ subroutine run_calculation(this,directory)
   ! Convert the electronic structure result into an ElectronicStructure.
   structure_file = IFile(directory//'/structure.dat')
   structure = StructureData(structure_file%lines())
-  electronic_structure = read_output_file( &
-         & this%file_type_,                &
-         & directory//'/'//this%filename_, &
-         & structure,                      &
-         & directory,                      &
-         & this%seedname_,                 &
-         & this%calculation_type_          )
+  electronic_structure = read_output_file( this%file_type_,        &
+                                         & structure,              &
+                                         & directory,              &
+                                         & this%seedname_,         &
+                                         & this%calculation_type_, &
+                                         & this%use_forces_,       &
+                                         & this%use_hessians_,     &
+                                         & this%calculate_stress_  )
   
-  ! If calculate_stress is .true., check that a stress tensor has been
-  !    calculated.
+  ! Check that the objects calculated correspond to those requested.
+  if (this%use_forces_) then
+    if (.not. electronic_structure%has_forces()) then
+      call print_line(ERROR//': Use of forces has been requested, but no &
+         &forces are present in electronic structure.')
+      call err()
+    endif
+  endif
+  
+  if (this%use_hessians_) then
+    if (.not. electronic_structure%has_hessian()) then
+      call print_line(ERROR//': Use of forces has been requested, but no &
+         &forces are present in electronic structure.')
+      call err()
+    endif
+  endif
+  
   if (this%calculate_stress_) then
     if (.not. electronic_structure%has_stress()) then
       call print_line(ERROR//': Stress calculation has been requested, but no &

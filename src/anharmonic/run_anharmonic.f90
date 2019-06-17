@@ -95,6 +95,8 @@ subroutine run_anharmonic_subroutine(arguments)
   type(String)     :: seedname
   
   type(Dictionary) :: setup_anharmonic_arguments
+  logical          :: use_forces
+  logical          :: use_hessians
   logical          :: calculate_stress
   
   ! Calculation directories information.
@@ -127,6 +129,8 @@ subroutine run_anharmonic_subroutine(arguments)
   ! Read in setup_anharmonic settings.
   setup_anharmonic_arguments = Dictionary(CaesarMode('setup_anharmonic'))
   call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
+  use_forces = lgcl(setup_anharmonic_arguments%value('use_forces'))
+  use_hessians = lgcl(setup_anharmonic_arguments%value('use_hessians'))
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! Read in calculation directories.
@@ -155,8 +159,8 @@ subroutine run_anharmonic_subroutine(arguments)
       call quit()
     endif
     
-    calculation_directories = calculation_directories(calculations_to_run(1): &
-                                                     &calculations_to_run(2))
+    calculation_directories = calculation_directories( &
+       & calculations_to_run(1):calculations_to_run(2) )
   endif
   
   ! Initialise calculation runner.
@@ -168,6 +172,8 @@ subroutine run_anharmonic_subroutine(arguments)
      & no_nodes            = no_nodes,           &
      & run_script_data     = run_script_data,    &
      & calculation_type    = calculation_type,   &
+     & use_forces          = use_forces,         &
+     & use_hessians        = use_hessians,       &
      & calculate_stress    = calculate_stress,   &
      & exit_on_error       = exit_on_error,      &
      & repeat_calculations = repeat_calculations )

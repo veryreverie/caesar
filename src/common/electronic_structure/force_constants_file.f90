@@ -5,8 +5,6 @@ module force_constants_file_module
   use utils_module
   use structure_module
   use normal_mode_module
-  
-  use cartesian_hessian_module
   implicit none
   
   private
