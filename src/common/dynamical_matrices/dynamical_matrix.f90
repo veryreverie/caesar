@@ -8,7 +8,6 @@ module dynamical_matrix_module
   use normal_mode_module
   
   use min_images_module
-  use construct_hessian_module
   implicit none
   
   private
@@ -141,65 +140,6 @@ function new_DynamicalMatrix_interpolated(q,supercell,hessian,min_images) &
   
   ! Construct output.
   this = DynamicalMatrix(elements)
-end function
-
-function calculate_dynamical_matrix(q,supercell,hessian,min_images) &
-   & result(output)
-  implicit none
-  
-  type(RealVector),       intent(in)           :: q
-  type(StructureData),    intent(in)           :: supercell
-  type(CartesianHessian), intent(in)           :: hessian
-  type(MinImages),        intent(in), optional :: min_images(:,:)
-  type(ComplexMatrix), allocatable             :: output(:,:)
-  
-  type(AtomData)               :: atom_1
-  type(AtomData)               :: atom_2
-  type(IntVector)              :: rvector
-  type(IntVector), allocatable :: rvectors(:)
-  
-  integer :: i,j,k,ialloc
-  
-  ! Allocate and zero output.
-  allocate( output( supercell%no_atoms_prim,  &
-          &         supercell%no_atoms_prim), &
-          & stat=ialloc); call err(ialloc)
-  output = cmplxmat(zeroes(3,3))
-  
-  ! Add up contributions to the dynamical matrix from
-  !    the force constants between each pair of atoms.
-  do i=1,supercell%no_atoms
-    atom_1 = supercell%atoms(i)
-    
-    ! Atom 2 will always be at R=0, so the R-vector from atom 2 to atom 1
-    !    is simply that of atom 1.
-    rvector = supercell%rvectors(atom_1%rvec_id())
-    do j=1,supercell%no_atoms_prim
-      atom_2 = supercell%atoms(j)
-      
-      if (present(min_images)) then
-        rvectors = min_images(atom_2%id(),atom_1%id())%image_rvectors
-        ! Check that all min image R-vectors actually point from atom 2 to
-        !    a copy of atom 1.
-        do k=1,size(rvectors)
-          if (.not. is_int( supercell%recip_supercell &
-                        & * (rvectors(k)-rvector))) then
-            call print_line(CODE_ERROR// &
-               & ': Problem with minimum image R-vectors.')
-            call err()
-          endif
-        enddo
-      else
-        rvectors = [rvector]
-      endif
-      
-      output(atom_2%prim_id(),atom_1%prim_id()) =    &
-         & output(atom_2%prim_id(),atom_1%prim_id()) &
-         & + hessian%elements(atom_2,atom_1)         &
-         & * sum(exp_2pii(q*rvectors))               &
-         & / (supercell%sc_size*size(rvectors))
-    enddo
-  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -440,8 +380,8 @@ function reconstruct_hessian(large_supercell,qpoints,dynamical_matrices, &
   
   integer :: i,j,k,ialloc
   
-  allocate( hessian( large_supercell%no_atoms,  &
-          &          large_supercell%no_atoms), &
+  allocate( hessian( large_supercell%no_atoms_prim, &
+          &          large_supercell%no_atoms),     &
           & stat=ialloc); call err(ialloc)
   hessian = dblemat(zeroes(3,3))
   
@@ -449,13 +389,12 @@ function reconstruct_hessian(large_supercell,qpoints,dynamical_matrices, &
   !    the dynamical matrix at each.
   do i=1,large_supercell%sc_size
     q = dblevec(qpoints(i)%qpoint)
-    do j=1,large_supercell%no_atoms
+    do j=1,large_supercell%no_atoms_prim
       atom_1 = large_supercell%atoms(j)
       do k=1,large_supercell%no_atoms
         atom_2 = large_supercell%atoms(k)
         
-        r = large_supercell%rvectors(atom_2%rvec_id()) &
-        & - large_supercell%rvectors(atom_1%rvec_id())
+        r = large_supercell%rvectors(atom_2%rvec_id())
         
         ! Add in the contribution to the Hessian.
         hessian(atom_1%id(),atom_2%id()) =                               &

@@ -29,6 +29,27 @@ subroutine startup_calculate_harmonic_observables()
      &and the energy, free energy and entropy per unit cell. Should be run &
      &after calculate_normal_modes.'
   mode%keywords = [                                                           &
+     & KeywordData( 'min_frequency',                                          &
+     &              'min_frequency is the frequency below which modes will be &
+     &ignored when calculating thermodynamic quantities. min_frequency should &
+     &be given in Hartree.',                                                  &
+     &              default_value='1e-8'),                                    &
+     & KeywordData( 'calculate_dispersion',                                   &
+     &              'calculate_dispersion specifies whether or not to &
+     &calculate the phonon dispersion curve.',                                &
+     &              default_value='true'),                                    &
+     & KeywordData( 'path',                                                   &
+     &              'path is the path through fractional reciprocal space &
+     &which will be mapped by the phonon dispersion curve. The path should be &
+     &specified as labels and q-points, separated by commas. The Gamma-point &
+     &should be labelled G.',                                                 &
+     &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, &
+     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                          &
+     & KeywordData( 'calculate_dos_and_thermodynamics',                       &
+     &              'calculate_dos_and_thermodynamics specifies whether or &
+     &not to calculate the phonon density of states and thermodynamic &
+     &variables such as the free energy and entropy.',                        &
+     &              default_value='true'),                                    &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -41,18 +62,6 @@ subroutine startup_calculate_harmonic_observables()
      &              'no_temperature_steps is the number of temperatures at &
      &which thermodynamic quantities are calculated.',                        &
      &              default_value='0'),                                       &
-     & KeywordData( 'min_frequency',                                          &
-     &              'min_frequency is the frequency below which modes will be &
-     &ignored when calculating thermodynamic quantities. min_frequency should &
-     &be given in Hartree.',                                                  &
-     &              default_value='1e-8'),                                    &
-     & KeywordData( 'path',                                                   &
-     &              'path is the path through fractional reciprocal space &
-     &which will be mapped by the phonon dispersion curve. The path should be &
-     &specified as labels and q-points, separated by commas. The Gamma-point &
-     &should be labelled G.',                                                 &
-     &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, &
-     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                          &
      & KeywordData( 'no_dos_samples',                                         &
      &              'no_dos_samples is the number of points in reciprocal &
      &space at which the normal modes are calculated when calculating the &
@@ -78,9 +87,11 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   integer                       :: no_temperature_steps
   real(dp)                      :: min_frequency
   real(dp),         allocatable :: thermal_energies(:)
+  logical                       :: calculate_dispersion
   type(String),     allocatable :: path_string(:)
   type(String),     allocatable :: path_labels(:)
   type(RealVector), allocatable :: path_qpoints(:)
+  logical                       :: calculate_dos_and_thermodynamics
   integer                       :: no_dos_samples
   
   ! Previous inputs.
@@ -131,43 +142,38 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
   min_frequency = dble(arguments%value('min_frequency'))
-  path_string = split_line(arguments%value('path'), ',')
-  no_dos_samples = int(arguments%value('no_dos_samples'))
-  
-  ! Check inputs.
-  if (min_temperature<0) then
-    call print_line(ERROR//': min_temperature must not be less than 0K.')
-    call quit()
-  elseif (max_temperature<min_temperature) then
-    call print_line(ERROR//': max_temperature must not be less than &
-       &min_temperature.')
-    call quit()
-  elseif (min_frequency<0) then
-    call print_line(ERROR//': min_frequency must not be less than 0 Hartree.')
-    call quit()
+  calculate_dispersion = lgcl(arguments%value('calculate_dispersion'))
+  if (calculate_dispersion) then
+    path_string = split_line(arguments%value('path'), ',')
+  endif
+  calculate_dos_and_thermodynamics = &
+     & lgcl(arguments%value('calculate_dos_and_thermodynamics'))
+  if (calculate_dos_and_thermodynamics) then
+    no_dos_samples = int(arguments%value('no_dos_samples'))
   endif
   
-  ! Generate thermal energies.
-  ! thermal_energies(1)                    = min_temperature * kB.
-  ! thermal_energies(no_temperature_steps) = max_temperature * kB.
-  allocate( thermal_energies(no_temperature_steps), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,no_temperature_steps
-    thermal_energies(i) = KB_IN_AU                                   &
-                      & * ( min_temperature*(no_temperature_steps-i) &
-                      &   + max_temperature*(i-1) )                  &
-                      & / (no_temperature_steps-1)
-  enddo
+  ! Check inputs.
+  if ( (.not. calculate_dispersion) .and.       &
+     & (.not. calculate_dos_and_thermodynamics) ) then
+    call print_line(ERROR//': calculate_dispersion and &
+       &calculate_dos_and_thermodynamics are both false. Nothing will be &
+       &calculated.')
+  endif
   
-  ! Generate path for dispersion calculation.
-  allocate( path_qpoints(size(path_string)), &
-          & path_labels(size(path_string)),  &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(path_string)
-    path_point = split_line(path_string(i))
-    path_labels(i) = path_point(1)
-    path_qpoints(i) = dble(path_point(2:4))
-  enddo
+  if (calculate_dos_and_thermodynamics) then
+    if (min_temperature<0) then
+      call print_line(ERROR//': min_temperature must not be less than 0K.')
+      call quit()
+    elseif (max_temperature<min_temperature) then
+      call print_line(ERROR//': max_temperature must not be less than &
+         &min_temperature.')
+      call quit()
+    elseif (min_frequency<0) then
+      call print_line(ERROR//': min_frequency must not be less than 0 &
+         &Hartree.')
+      call quit()
+    endif
+  endif
   
   ! --------------------------------------------------
   ! Read in previous arguments.
@@ -217,48 +223,76 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   ! Calculate minimum image distances.
   min_images = calculate_min_images(large_supercell)
   
-  ! Generate harmonic phonon dispersion curve by interpolating between
-  !    calculated q-points using Fourier interpolation.
-  phonon_dispersion = PhononDispersion( large_supercell, &
-                                      & min_images,      &
-                                      & hessian,         &
-                                      & path_labels,     &
-                                      & path_qpoints,    &
-                                      & logfile          )
+  ! Calculate phonon dispersion curve.
+  if (calculate_dispersion) then
+    ! Generate path for dispersion calculation.
+    allocate( path_qpoints(size(path_string)), &
+            & path_labels(size(path_string)),  &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(path_string)
+      path_point = split_line(path_string(i))
+      path_labels(i) = path_point(1)
+      path_qpoints(i) = dble(path_point(2:4))
+    enddo
+    
+    ! Generate harmonic phonon dispersion curve by interpolating between
+    !    calculated q-points using Fourier interpolation.
+    phonon_dispersion = PhononDispersion( large_supercell, &
+                                        & min_images,      &
+                                        & hessian,         &
+                                        & path_labels,     &
+                                        & path_qpoints,    &
+                                        & logfile          )
+    
+    symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')
+    call symmetry_points_file%print_lines(phonon_dispersion%path())
+    
+    dispersion_file = OFile(output_dir//'/phonon_dispersion_curve.dat')
+    call dispersion_file%print_lines(phonon_dispersion%frequencies())
+    
+    json_file = OFile(output_dir//'/'//seedname//'.json')
+    call json_file%print_lines(phonon_dispersion%json(seedname,structure))
+  endif
   
-  symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')
-  call symmetry_points_file%print_lines(phonon_dispersion%path())
-  
-  dispersion_file = OFile(output_dir//'/phonon_dispersion_curve.dat')
-  call dispersion_file%print_lines(phonon_dispersion%frequencies())
-  
-  json_file = OFile(output_dir//'/'//seedname//'.json')
-  call json_file%print_lines(phonon_dispersion%json(seedname,structure))
-  
-  ! Generate harmonic phonon density of states, interpolating as above.
-  phonon_dos = PhononDos( large_supercell,  &
-                        & min_images,       &
-                        & hessian,          &
-                        & thermal_energies, &
-                        & min_frequency,    &
-                        & no_dos_samples,   &
-                        & logfile,          &
-                        & random_generator  )
-  
-  sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
-  call sampled_qpoints_file%print_line('q-point (x,y,z) | &
-                                       &number of frequencies ignored')
-  call sampled_qpoints_file%print_lines(phonon_dos%qpoints)
-  
-  pdos_file = OFile(output_dir//'/phonon_density_of_states.dat')
-  call pdos_file%print_lines(phonon_dos%pdos)
-  
-  thermodynamic_file = OFile(output_dir//'/thermodynamic_variables.dat')
-  call thermodynamic_file%print_line( &
-     &'kB * temperature (Hartree per cell) | &
-     &Vibrational Energy per cell, U=<E>, (Hartree) | &
-     &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
-     &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
-  call thermodynamic_file%print_lines(phonon_dos%thermodynamic_data)
+  ! Calculate phonon density of states and thermodynamic variables.
+  if (calculate_dos_and_thermodynamics) then
+    ! Generate thermal energies.
+    ! thermal_energies(1)                    = min_temperature * kB.
+    ! thermal_energies(no_temperature_steps) = max_temperature * kB.
+    allocate( thermal_energies(no_temperature_steps), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,no_temperature_steps
+      thermal_energies(i) = KB_IN_AU                                   &
+                        & * ( min_temperature*(no_temperature_steps-i) &
+                        &   + max_temperature*(i-1) )                  &
+                        & / (no_temperature_steps-1)
+    enddo
+    
+    ! Generate harmonic phonon density of states, interpolating as above.
+    phonon_dos = PhononDos( large_supercell,  &
+                          & min_images,       &
+                          & hessian,          &
+                          & thermal_energies, &
+                          & min_frequency,    &
+                          & no_dos_samples,   &
+                          & logfile,          &
+                          & random_generator  )
+    
+    sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
+    call sampled_qpoints_file%print_line('q-point (x,y,z) | &
+                                         &number of frequencies ignored')
+    call sampled_qpoints_file%print_lines(phonon_dos%qpoints)
+    
+    pdos_file = OFile(output_dir//'/phonon_density_of_states.dat')
+    call pdos_file%print_lines(phonon_dos%pdos)
+    
+    thermodynamic_file = OFile(output_dir//'/thermodynamic_variables.dat')
+    call thermodynamic_file%print_line( &
+       &'kB * temperature (Hartree per cell) | &
+       &Vibrational Energy per cell, U=<E>, (Hartree) | &
+       &Vibrational Free Energy per cell, F=U-TS, (Hartree) | &
+       &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
+    call thermodynamic_file%print_lines(phonon_dos%thermodynamic_data)
+  endif
 end subroutine
 end module

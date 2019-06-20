@@ -97,6 +97,10 @@ subroutine read_normal_modes_subroutine(arguments)
   logical              :: acoustic_sum_rule_forces
   logical              :: acoustic_sum_rule_matrices
   
+  ! Dictionary for reproducing settings from setup_harmonic,
+  !    for use by later modes.
+  type(Dictionary) :: setup_harmonic_arguments
+  
   ! Variables normally calculated by setup_harmonic.
   type(HarmonicData)            :: harmonic_data
   type(StructureData)           :: structure
@@ -116,6 +120,8 @@ subroutine read_normal_modes_subroutine(arguments)
   type(String) :: qpoint_dir
   type(OFile)  :: dynamical_matrix_file
   type(OFile)  :: complex_modes_file
+  
+  type(OFile) :: fc_file
   
   ! Temporary variables.
   integer :: i
@@ -173,6 +179,7 @@ subroutine read_normal_modes_subroutine(arguments)
   ! These are converted to dynamical matrices, and then the large Hessian and
   !    normal modes are re-calculated to ensure symmetry properties are
   !    correct.
+  call print_line('Reading in Hessian / dynamical matrices from file.')
   if (file_type=='castep') then
     dynamical_matrices = read_dynamical_matrices_castep( seedname,  &
                                                        & structure, &
@@ -189,11 +196,13 @@ subroutine read_normal_modes_subroutine(arguments)
   endif
   
   ! Calculate normal modes.
+  call print_line('Calculating normal modes')
   complex_modes = calculate_normal_modes( structure,         &
                                         & qpoints,           &
                                         & dynamical_matrices )
   
   ! Calculate the Hessian for the full supercell.
+  call print_line('Calculating full Hessian.')
   hessian_logfile = OFile('hessian_log.dat')
   full_hessian = reconstruct_hessian( large_supercell,    &
                                     & qpoints,            &
@@ -203,6 +212,10 @@ subroutine read_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Write everything to file.
   ! --------------------------------------------------
+  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  call setup_harmonic_arguments%set(arguments)
+  call setup_harmonic_arguments%write_file('setup_harmonic.used_settings')
+  
   structure_file = OFile('structure.dat')
   call structure_file%print_lines(structure)
   
@@ -225,6 +238,12 @@ subroutine read_normal_modes_subroutine(arguments)
     call complex_modes_file%print_lines( complex_modes(:,i), &
                                        & separating_line=''  )
   enddo
+  
+  fc_file = OFile('tmp.fc')
+  call write_qe_force_constants_file( fc_file,        &
+                                    & full_hessian,   &
+                                    & structure,      &
+                                    & large_supercell )
 end subroutine
 
 function read_dynamical_matrices_castep(seedname,structure,qpoints) &
@@ -261,15 +280,12 @@ function read_dynamical_matrices_qe(seedname,structure,large_supercell, &
   
   type(CartesianHessian) :: hessian
   
-  type(IFile) :: force_constants_file
-  
   integer :: i
   
-  force_constants_file = IFile(make_qe_force_constants_filename(seedname))
-  
-  hessian = read_qe_force_constants_file( force_constants_file, &
-                                        & structure,            &
-                                        & large_supercell       )
+  hessian = read_qe_force_constants_file( directory = str('.'),       &
+                                        & seedname  = seedname,       &
+                                        & structure = structure,      &
+                                        & supercell = large_supercell )
   
   output = [( DynamicalMatrix( dblevec(qpoints(i)%qpoint),    &
             &                  large_supercell,               &

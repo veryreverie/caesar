@@ -676,6 +676,14 @@ function read_output_file_castep(directory,seedname,structure,use_forces, &
     forces = CartesianForce(forces_elements)
   endif
   
+  ! Read Hessian.
+  if (use_hessians) then
+    ! TODO
+    call print_line(ERROR//': Reading Hessians from Castep not yet &
+       &implemented.')
+    call err()
+  endif
+  
   ! Read stress.
   if (calculate_stress) then
     if (stress_line==0) then
@@ -703,9 +711,6 @@ function read_output_file_castep(directory,seedname,structure,use_forces, &
     
     linear_response = LinearResponse(mat(permittivity), born_charges)
   endif
-  
-  ! Read Hessian.
-  ! TODO
   
   ! Construct output.
   output = ElectronicStructure( energy          = energy,         &

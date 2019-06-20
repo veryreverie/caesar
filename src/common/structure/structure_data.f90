@@ -87,7 +87,8 @@ module structure_data_module
     procedure, public :: calculate_symmetry
     
     ! Return inverse symmetries or paired R-vectors / G-vectors.
-    procedure, public :: paired_rvectors
+    procedure, public :: paired_rvector_id
+    procedure, public :: paired_rvector
     procedure, public :: paired_gvectors
     
     ! Return groups corresponding to paired vectors.
@@ -123,7 +124,17 @@ contains
 ! ----------------------------------------------------------------------
 ! Returns the pair of an R-vector.
 ! i.e. paired_rvectors(i) + rvectors(i) = 0, modulo supercell R-vectors.
-function paired_rvectors(this,rvector_id) result(output)
+function paired_rvector_id(this,rvector_id) result(output)
+  implicit none
+  
+  class(StructureData), intent(in) :: this
+  integer,              intent(in) :: rvector_id
+  integer                          :: output
+  
+  output = this%rvector_paired_ids_(rvector_id)
+end function
+
+function paired_rvector(this,rvector_id) result(output)
   implicit none
   
   class(StructureData), intent(in) :: this

@@ -1,27 +1,18 @@
 ! ======================================================================
 ! Reads harmonic forces, and generates the cartesian Hessian matrix.
 ! ======================================================================
-module construct_hessian_module
-  use utils_module
-  
-  use structure_module
-  use normal_mode_module
-  use electronic_structure_module
-  
-  use unique_directions_module
+module construct_supercell_hessian_module
+  use common_module
   implicit none
   
   private
   
-  public :: CartesianHessian
-  
-  interface CartesianHessian
-    module procedure new_CartesianHessian_forces
-  end interface
+  public :: construct_supercell_hessian
 contains
 
 ! ----------------------------------------------------------------------
-! Uses symmetry operations to construct Hessian.
+! Read in the calculated forces, and use them with symmetry operations
+!    to construct the Hessian.
 ! ----------------------------------------------------------------------
 ! x is the collective vector of displacements, {xi}.
 ! f is the collective vector of forces, {fi}.
@@ -47,16 +38,24 @@ contains
 ! => F = sum(x,s)[f'^x'] . inverse( sum(x,s)[x'^x'] )
 !
 ! sum(x,s)[x'^x'] is block diagonal, so can be inverted in 3x3 blocks.
-function new_CartesianHessian_forces(supercell,unique_directions, &
-   & electronic_structure,acoustic_sum_rule_forces,logfile) result(output)
+impure elemental function construct_supercell_hessian(supercell,directory, &
+   & calculation_reader,acoustic_sum_rule_forces,logfile) result(output)
   implicit none
   
-  type(StructureData),       intent(in)    :: supercell
-  type(UniqueDirection),     intent(in)    :: unique_directions(:)
-  type(ElectronicStructure), intent(in)    :: electronic_structure(:)
-  logical,                   intent(in)    :: acoustic_sum_rule_forces
-  type(OFile),               intent(inout) :: logfile
-  type(CartesianHessian)                   :: output
+  type(StructureData),     intent(in)    :: supercell
+  type(String),            intent(in)    :: directory
+  type(CalculationReader), intent(inout) :: calculation_reader
+  logical,                 intent(in)    :: acoustic_sum_rule_forces
+  type(OFile),             intent(inout) :: logfile
+  type(CartesianHessian)                 :: output
+  
+  ! Electronic structure information.
+  type(UniqueDirection),     allocatable :: unique_directions(:)
+  type(ElectronicStructure), allocatable :: electronic_structure(:)
+  
+  ! Files and directories.
+  type(IFile)  :: unique_directions_file
+  type(String) :: calculation_directory
   
   ! Forces (mass reduced).
   type(RealVector), allocatable :: forces(:,:)
@@ -66,6 +65,34 @@ function new_CartesianHessian_forces(supercell,unique_directions, &
   
   ! sum(s)[ x'^x' ] (diagonal blocks only).
   type(RealMatrix), allocatable :: xx(:)
+  
+  ! Temporary variables.
+  integer :: i,ialloc
+  
+  ! Read in symmetry group and unique atoms.
+  unique_directions_file = IFile(directory//'/unique_directions.dat')
+  unique_directions = UniqueDirection(unique_directions_file%sections())
+  
+  ! Read in electronic structure.
+  allocate( electronic_structure(size(unique_directions)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(unique_directions)
+    calculation_directory =                                    &
+       & directory//'/atom.'                                // &
+       & left_pad( unique_directions(i)%atom_id,               &
+       &           str(maxval(unique_directions%atom_id)) ) // &
+       & '.'//unique_directions(i)%direction
+    
+    electronic_structure(i) = calculation_reader%read_calculation( &
+           & calculation_directory,                                &
+           & CartesianDisplacement(unique_directions(i),supercell) )
+    
+    if (size(electronic_structure(i)%forces()) /= supercell%no_atoms) then
+      call print_line( ERROR//': Wrong number of forces in '//            &
+                     & calculation_directory//'/electronic_structure.dat' )
+      call err()
+    endif
+  enddo
   
   ! Parse forces from electronic structure data.
   forces = parse_forces( supercell,               &
@@ -89,7 +116,7 @@ function new_CartesianHessian_forces(supercell,unique_directions, &
                     & unique_directions, &
                     & logfile            )
 end function
-  
+
 ! ----------------------------------------------------------------------
 ! Parse forces from electronic structure data,
 !    enforce acoustic sum rules if requires,
@@ -333,23 +360,33 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   real(dp)         :: average
   real(dp)         :: difference
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,k,k2,ialloc
   
   ! Construct F(i1,i2).
-  allocate(elements(supercell%no_atoms,supercell%no_atoms), &
+  allocate(elements(supercell%no_atoms_prim,supercell%no_atoms), &
      & stat=ialloc); call err(ialloc)
   do i=1,supercell%no_atoms
     xx_inverse = invert(xx(i))
-    do j=1,supercell%no_atoms
+    do j=1,supercell%no_atoms_prim
       elements(j,i) = fx(j,i) * xx_inverse * supercell%sc_size
     enddo
   enddo
   
   ! Symmetrise F(i1,i2) under exchange of co-ordinates.
-  do i=1,supercell%no_atoms
+  do i=1,supercell%no_atoms_prim
     do j=1,i
-      elements(j,i) = (elements(j,i) + transpose(elements(i,j))) / 2.0_dp
-      elements(i,j) = transpose(elements(j,i))
+      do k=1,supercell%sc_size
+        k2 = supercell%paired_rvector_id(k)
+        atom_1 = supercell%atoms(i+(k-1)*supercell%no_atoms_prim)
+        atom_2 = supercell%atoms(j+(k2-1)*supercell%no_atoms_prim)
+        ! F(i,j+R) = F(j,i-R)^T
+        elements(atom_1%prim_id(),atom_2%id()) =                   &
+           & ( elements(atom_1%prim_id(),atom_2%id())              &
+           & + transpose(elements(atom_2%prim_id(),atom_1%id())) ) &
+           & / 2
+        elements(atom_2%prim_id(),atom_1%id()) = &
+           & transpose(elements(atom_1%prim_id(),atom_2%id()))
+      enddo
     enddo
   enddo
   
@@ -394,8 +431,8 @@ subroutine check_hessian(hessian,forces,supercell,unique_directions,logfile)
       atom_2 = supercell%atoms(j)
       
       calculated = forces(j,i)
-      fitted = hessian%elements(atom_2,atom_1)          &
-           & * unique_directions(i)%atomic_displacement &
+      fitted = transpose(hessian%elements(atom_1,atom_2)) &
+           & * unique_directions(i)%atomic_displacement   &
            & / supercell%sc_size
       
       average = average + sum_squares((calculated+fitted)/2)

@@ -39,18 +39,16 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
   
   integer :: grid(3)
   
-  integer :: rvector(3)
-  
   real(dp) :: matrix(3,3)
   real(dp) :: none_mass_reduced_force
   
-  integer, allocatable :: ids(:,:,:,:,:,:)
+  integer, allocatable :: ids(:,:,:,:)
   
   ! Cartesian directions.
   integer :: i1,i2
   
   ! Atom labels and atoms.
-  integer        :: a1,a2
+  integer        :: id
   type(AtomData) :: atom1,atom2
   
   ! Primitive atom labels.
@@ -68,7 +66,7 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
   !    - r1,r2 and r3 are R-vector labels,
   !    - p1 and p2 are primitive cell atom labels,
   !    - a1 and a2 are supercell atom labels.
-  ids = construct_ids(supercell)
+  ids = construct_atom_ids(supercell)
   
   ! Calculate 'alat', the length of the 'a' lattice vector.
   alat = l2_norm(vec([1,0,0])*structure%lattice)
@@ -114,22 +112,22 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
     do i2=1,3
       do p1=1,supercell%no_atoms_prim
         do p2=1,supercell%no_atoms_prim
+          call fc_file%print_line(i1//' '//i2//' '//p1//' '//p2)
           do r3=1,grid(3)
             do r2=1,grid(2)
-              call fc_file%print_line(i1//' '//i2//' '//p1//' '//p2)
               do r1=1,grid(1)
-                a1 = ids(1,r1,r2,r3,p1,p2)
-                a2 = ids(2,r1,r2,r3,p1,p2)
-                matrix = dble(hessian%elements( supercell%atoms(a1), &
-                                              & supercell%atoms(a2)  ))
+                id = ids(r1,r2,r3,p2)
+                matrix = dble(hessian%elements( supercell%atoms(p1),    &
+                     &                          supercell%atoms(id)  )) &
+                     & / supercell%sc_size
                 none_mass_reduced_force = -matrix(i1,i2)                   &
                                       & * sqrt( structure%atoms(p1)%mass() &
                                       &       * structure%atoms(p2)%mass() )
-                call fc_file%print_line(                            &
-                   & r1                                     //' '// &
-                   & r2                                     //' '// &
-                   & r3                                     //' '// &
-                   &  none_mass_reduced_force * RYDBERG_PER_HARTREE )
+                call fc_file%print_line(                           &
+                   & r1                                    //' '// &
+                   & r2                                    //' '// &
+                   & r3                                    //' '// &
+                   & none_mass_reduced_force * RYDBERG_PER_HARTREE )
               enddo
             enddo
           enddo
@@ -139,18 +137,21 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
   enddo
 end subroutine
 
-function read_qe_force_constants_file(fc_file,structure,supercell) &
+function read_qe_force_constants_file(directory,seedname,structure,supercell) &
    & result(output)
   implicit none
   
-  type(IFile),         intent(in) :: fc_file
+  type(String),        intent(in) :: directory
+  type(String),        intent(in) :: seedname
   type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: supercell
   type(CartesianHessian)          :: output
   
+  type(IFile) :: fc_file
+  
   integer :: grid(3)
   
-  integer, allocatable :: ids(:,:,:,:,:,:)
+  integer, allocatable :: ids(:,:,:,:)
   
   type(String), allocatable :: lines(:)
   
@@ -162,7 +163,7 @@ function read_qe_force_constants_file(fc_file,structure,supercell) &
   type(RealMatrix), allocatable :: matrix_elements(:,:)
   
   ! Atom labels and atoms.
-  integer        :: a1,a2
+  integer        :: id1,id2
   type(AtomData) :: atom1,atom2
   
   ! Cartesian component labels.
@@ -176,6 +177,10 @@ function read_qe_force_constants_file(fc_file,structure,supercell) &
   
   integer :: i,ialloc
   
+  ! Open file.
+  fc_file = IFile(directory//'/'//make_qe_force_constants_filename(seedname))
+  lines = lower_case(fc_file%lines())
+  
   ! Construct supercell grid.
   grid = [(supercell%supercell%element(i,i), i=1, 3)]
   
@@ -183,9 +188,7 @@ function read_qe_force_constants_file(fc_file,structure,supercell) &
   !    - r1,r2 and r3 are R-vector labels,
   !    - p1 and p2 are primitive cell atom labels,
   !    - a1 and a2 are supercell atom labels.
-  ids = construct_ids(supercell)
-  
-  lines = lower_case(fc_file%lines())
+  ids = construct_atom_ids(supercell)
   
   ! Check no. atoms and grid.
   if (int(token(lines(1),2))/=structure%no_atoms) then
@@ -201,24 +204,24 @@ function read_qe_force_constants_file(fc_file,structure,supercell) &
   endif
   
   ! Read force constants.
-  allocate( elements(3,3,supercell%no_atoms,supercell%no_atoms), &
+  allocate( elements(3,3,supercell%no_atoms_prim,supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
   line_no = header_length
   do i1=1,3
     do i2=1,3
       do p1=1,supercell%no_atoms_prim
         do p2=1,supercell%no_atoms_prim
+          line_no = line_no+1
           do r3=1,grid(3)
             do r2=1,grid(2)
-              line_no = line_no+1
               do r1=1,grid(1)
                 line_no = line_no + 1
-                a1 = ids(1,r1,r2,r3,p1,p2)
-                a2 = ids(2,r1,r2,r3,p1,p2)
-                elements(i1,i2,a1,a2) = -dble(token(lines(line_no),4))     &
-                                    & / sqrt( structure%atoms(p1)%mass()   &
-                                    &       * structure%atoms(p2)%mass() ) &
-                                    & / RYDBERG_PER_HARTREE
+                id2 = ids(r1,r2,r3,p2)
+                elements(i1,i2,p1,id2) = -dble(token(lines(line_no),4))     &
+                                     & / sqrt( structure%atoms(p1)%mass()   &
+                                     &       * structure%atoms(p2)%mass() ) &
+                                     & / RYDBERG_PER_HARTREE                &
+                                     & * supercell%sc_size
               enddo
             enddo
           enddo
@@ -227,67 +230,46 @@ function read_qe_force_constants_file(fc_file,structure,supercell) &
     enddo
   enddo
   
-  allocate( matrix_elements(supercell%no_atoms,supercell%no_atoms), &
+  allocate( matrix_elements(supercell%no_atoms_prim,supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
-  do a1=1,supercell%no_atoms
-    do a2=1,supercell%no_atoms
-      matrix_elements(a1,a2) = mat(elements(:,:,a1,a2))
+  do id1=1,supercell%no_atoms_prim
+    do id2=1,supercell%no_atoms
+      matrix_elements(id1,id2) = mat(elements(:,:,id1,id2))
     enddo
   enddo
   
-  output = CartesianHessian(structure,matrix_elements)
+  output = CartesianHessian(supercell, matrix_elements)
 end function
 
-! Construct mapping from r1,r2,r3,p1,p2 to a1,a2, where:
-!    - r1,r2 and r3 are R-vector labels,
-!    - p1 and p2 are primitive cell atom labels,
-!    - a1 and a2 are supercell atom labels.
-function construct_ids(supercell) result(output)
+! Construct mapping from R-vector and primitive id to atom id.
+function construct_atom_ids(supercell) result(output)
   implicit none
   
   type(StructureData), intent(in) :: supercell
-  integer, allocatable            :: output(:,:,:,:,:,:)
+  integer, allocatable            :: output(:,:,:,:)
   
   integer :: grid(3)
   
-  type(AtomData) :: atom1,atom2
+  type(AtomData) :: atom
   
   integer :: rvector(3)
   
-  integer :: a1,a2,i,ialloc
+  integer :: id,i,ialloc
   
   grid = [(supercell%supercell%element(i,i), i=1, 3)]
   
-  allocate( output( 2,                          &
-          &         grid(1),                    &
-          &         grid(2),                    &
-          &         grid(3),                    &
-          &         supercell%no_atoms_prim,    &
-          &         supercell%no_atoms_prim  ), &
+  allocate( output(grid(1), grid(2), grid(3), supercell%no_atoms_prim), &
           & stat=ialloc); call err(ialloc)
-  do a1=1,size(supercell%atoms)
-    atom1 = supercell%atoms(a1)
-    if (atom1%prim_id()/=atom1%id()) then
-      cycle
-    endif
+  do id=1,size(supercell%atoms)
+    atom = supercell%atoms(id)
     
-    do a2=1,size(supercell%atoms)
-      atom2 = supercell%atoms(a2)
-      rvector = modulo(int(supercell%rvectors(atom2%rvec_id()))-1, grid) + 1
-      
-      output( 1,               &
-            & rvector(1),      &
-            & rvector(2),      &
-            & rvector(3),      &
-            & atom1%prim_id(), &
-            & atom2%prim_id()  ) = a1
-      output( 2,               &
-            & rvector(1),      &
-            & rvector(2),      &
-            & rvector(3),      &
-            & atom1%prim_id(), &
-            & atom2%prim_id()  ) = a2
-    enddo
+    ! Quantum Espresso 1-indexes R-vector components, so the primitive cell is
+    !    at (1,1,1).
+    ! If the supercell grid is (A,B,C), then the R-vector at (a,b,c)
+    !    with a in [0,A), b in [0,B) and c in [0,C) is stored as (a+1,b+1,c+1).
+    rvector = modulo(int(supercell%rvectors(atom%rvec_id())), grid) + 1
+    
+    output(rvector(1), rvector(2), rvector(3), atom%prim_id()) = id
   enddo
 end function
 end module

@@ -187,8 +187,6 @@ def main():
   axes['ev'].set_ylim(ymin*hartree_to_mev, ymax*hartree_to_mev)
   axes['ev'].set_ylabel('Energy, meV')
   
-  
-  
   axes['dos'] = ax_grid[1]
   max_dos = 0
   for i,datum in reversed(list(enumerate(data))):

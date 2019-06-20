@@ -316,11 +316,12 @@ function read_output_file_qe(directory,seedname,structure,use_forces, &
   logical,      allocatable :: forces_found(:)
   
   ! Output variables.
-  real(dp)                          :: energy
-  type(RealVector),     allocatable :: forces_elements(:)
-  type(CartesianForce), allocatable :: forces
-  real(dp)                          :: stress_elements(3,3)
-  type(RealMatrix),     allocatable :: stress
+  real(dp)                            :: energy
+  type(RealVector),       allocatable :: forces_elements(:)
+  type(CartesianForce),   allocatable :: forces
+  real(dp)                            :: stress_elements(3,3)
+  type(RealMatrix),       allocatable :: stress
+  type(CartesianHessian), allocatable :: hessian
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -427,6 +428,16 @@ function read_output_file_qe(directory,seedname,structure,use_forces, &
     forces = CartesianForce(forces_elements)
   endif
   
+  ! Read Hessian.
+  if (use_hessians) then
+    ! N.B. only the Hessian for the primitive cell is needed,
+    !    so the supercell is just structure.
+    hessian = read_qe_force_constants_file( directory = directory, &
+                                          & seedname  = seedname,  &
+                                          & structure = structure, &
+                                          & supercell = structure  )
+  endif
+  
   ! Read stress.
   if (calculate_stress) then
     do i=1,3
@@ -437,13 +448,11 @@ function read_output_file_qe(directory,seedname,structure,use_forces, &
     stress = mat(stress_elements)
   endif
   
-  ! Read Hessian.
-  ! TODO
-  
   ! Construct output.
-  output = ElectronicStructure( energy = energy, &
-                              & forces = forces, &
-                              & stress = stress  )
+  output = ElectronicStructure( energy  = energy,  &
+                              & forces  = forces,  &
+                              & hessian = hessian, &
+                              & stress  = stress   )
 end function
 
 ! ----------------------------------------------------------------------
@@ -531,6 +540,9 @@ subroutine read_QeInputFile(this,input)
     
     do i=namelists_end_line+1,size(input)
       line = split_line(lower_case(input(i)))
+      if (size(line)==0) then
+        cycle
+      endif
       
       if (line(1)=='atomic_species') then
         if (atomic_species_line/=0) then

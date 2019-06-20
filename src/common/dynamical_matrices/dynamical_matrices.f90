@@ -9,7 +9,6 @@
 module dynamical_matrices_module
   use unique_directions_module
   use min_images_module
-  use construct_hessian_module
   use dynamical_matrix_module
   implicit none
 end module
