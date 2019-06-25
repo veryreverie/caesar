@@ -10,6 +10,7 @@ module harmonic_properties_module
   use dynamical_matrices_module
   
   use thermodynamic_data_module
+  use qpoint_path_module
   implicit none
   
   private
@@ -17,26 +18,9 @@ module harmonic_properties_module
   public :: PhononDispersion
   public :: PhononDos
   
-  public :: QpointPath
   public :: PathFrequencies
   public :: SampledQpoint
   public :: PdosBin
-  
-  ! The major points along the q-point path.
-  type, extends(Stringsable) :: QpointPath
-    type(String)     :: label
-    type(RealVector) :: qpoint
-    real(dp)         :: path_fraction
-  contains
-    procedure, public :: read  => read_QpointPath
-    procedure, public :: write => write_QpointPath
-  end type
-  
-  interface QpointPath
-    module procedure new_QpointPath
-    module procedure new_QpointPath_Strings
-    module procedure new_QpointPath_StringArray
-  end interface
   
   ! The minor points along the q-point path.
   type, extends(StringsWriteable) :: PathFrequencies
@@ -83,7 +67,7 @@ module harmonic_properties_module
   
   ! Return types.
   type, extends(NoDefaultConstructor) :: PhononDispersion
-    type(QpointPath),      allocatable, private :: path_(:)
+    type(QpointPath),                   private :: path_
     type(PathFrequencies), allocatable, private :: frequencies_(:)
   contains
     procedure, public :: path => path_PhononDispersion
@@ -109,20 +93,6 @@ module harmonic_properties_module
 contains
 
 ! Constructors.
-impure elemental function new_QpointPath(label,qpoint,path_fraction) &
-   & result(this)
-  implicit none
-  
-  type(String),     intent(in) :: label
-  type(RealVector), intent(in) :: qpoint
-  real(dp),         intent(in) :: path_fraction
-  type(QpointPath)             :: this
-  
-  this%label = label
-  this%qpoint = qpoint
-  this%path_fraction = path_fraction
-end function
-
 function new_PathFrequencies(path_fraction,qpoint,frequencies, &
    & dynamical_matrix) result(this)
   implicit none
@@ -168,7 +138,7 @@ end function
 function new_PhononDispersion(path,frequencies) result(this)
   implicit none
   
-  type(QpointPath),      intent(in) :: path(:)
+  type(QpointPath),      intent(in) :: path
   type(PathFrequencies), intent(in) :: frequencies(:)
   type(PhononDispersion)            :: this
   
@@ -191,109 +161,57 @@ end function
 ! Generates the phonon dispersion curve.
 ! ----------------------------------------------------------------------
 function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
-   & hessian,path_labels,path_qpoints,logfile) result(this)
+   & hessian,path_string,no_path_points,logfile) result(this)
   implicit none
   
   type(StructureData),    intent(in)    :: large_supercell
   type(MinImages),        intent(in)    :: min_images(:,:)
   type(CartesianHessian), intent(in)    :: hessian
-  type(String),           intent(in)    :: path_labels(:)
-  type(RealVector),       intent(in)    :: path_qpoints(:)
+  type(String),           intent(in)    :: path_string
+  integer,                intent(in)    :: no_path_points
   type(OFile),            intent(inout) :: logfile
   type(PhononDispersion)                :: this
   
-  ! Path variables.
-  integer,  parameter :: total_no_points = 1000
-  real(dp), parameter :: fractional_separation = 1.0_dp/total_no_points
-  
-  integer               :: no_segments
-  integer               :: no_vertices
-  real(dp), allocatable :: fractional_lengths(:)
-  real(dp), allocatable :: fractional_distances(:)
-  integer,  allocatable :: points_per_segment(:)
-  
   ! q-point and dynamical matrix variables.
-  type(RealVector)               :: qpoint
-  type(DynamicalMatrix)          :: dynamical_matrix
-  type(ComplexMode), allocatable :: complex_modes(:)
+  type(QpointPath),            allocatable :: path
+  type(PathQpointAndFraction), allocatable :: path_qpoints(:)
+  type(RealVector)                         :: qpoint
+  type(DynamicalMatrix)                    :: dynamical_matrix
+  type(ComplexMode),           allocatable :: complex_modes(:)
   
   ! Output variables.
-  type(QpointPath),      allocatable :: path(:)
   type(PathFrequencies), allocatable :: frequencies(:)
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: print_every
+  integer :: i,ialloc
   
-  no_vertices = size(path_labels)
-  no_segments = size(path_labels)-1
-  if (size(path_qpoints) /= no_vertices) then
-    call print_line(CODE_ERROR//': The number of q-points does not match the &
-       &number of q-point labels.')
-    call err()
-  endif
-  
-  ! Work out distances in terms of fractions of the path.
-  allocate( fractional_lengths(no_segments),   &
-          & fractional_distances(no_vertices), &
-          & points_per_segment(no_segments),   &
-          & stat=ialloc); call err(ialloc)
-  
-  do i=1,no_segments
-    fractional_lengths(i) = l2_norm(path_qpoints(i+1)-path_qpoints(i))
-  enddo
-  fractional_lengths = fractional_lengths / sum(fractional_lengths)
-  
-  fractional_distances(1) = 0.0_dp
-  do i=1,no_segments
-    fractional_distances(i+1) = fractional_distances(i) &
-                            & + fractional_lengths(i)
-  enddo
-  
-  ! Space sampling points along the path, in proportion with path length.
-  do i=1,no_segments
-    points_per_segment(i) = nint(total_no_points*fractional_lengths(i))
-  enddo
-  
-  ! Store q-point path.
-  path = QpointPath(path_labels, path_qpoints, fractional_distances)
+  ! Generate q-point path.
+  path = QpointPath(path_string, no_path_points)
   
   ! Travel along q-space paths, calculating frequencies at each point.
-  frequencies = [PathFrequencies::]
-  do i=1,no_segments
-    do j=0,points_per_segment(i)-1
-      qpoint = ( (points_per_segment(i)-j)*path_qpoints(i)     &
-           &   + j                        *path_qpoints(i+1) ) &
-           & / points_per_segment(i)
-      dynamical_matrix = DynamicalMatrix( qpoint,          &
-                                        & large_supercell, &
-                                        & hessian,         &
-                                        & min_images       )
-      call dynamical_matrix%check(large_supercell, logfile)
-      complex_modes = ComplexMode(dynamical_matrix, large_supercell)
-      frequencies = [ frequencies,                                   &
-                    & PathFrequencies(                               &
-                    &    path_fraction    = fractional_distances(i)  &
-                    &                     + j*fractional_separation, &
-                    &    qpoint           = qpoint,                  &
-                    &    frequencies      = complex_modes%frequency, &
-                    &    dynamical_matrix = dynamical_matrix         )]
-    enddo
+  path_qpoints = path%path_qpoints()
+  print_every = size(path_qpoints)/10
+  allocate(frequencies(size(path_qpoints)), stat=ialloc); call err(ialloc)
+  do i=1,size(path_qpoints)
+    qpoint = path_qpoints(i)%qpoint
+    dynamical_matrix = DynamicalMatrix( qpoint,          &
+                                      & large_supercell, &
+                                      & hessian,         &
+                                      & min_images       )
+    call dynamical_matrix%check(large_supercell, logfile)
+    complex_modes = ComplexMode(dynamical_matrix, large_supercell)
+    frequencies(i) = PathFrequencies(                       &
+       &  path_fraction    = path_qpoints(i)%path_fraction, &
+       &  qpoint           = qpoint,                        &
+       &  frequencies      = complex_modes%frequency,       &
+       &  dynamical_matrix = dynamical_matrix               )
+    
+    if (modulo(i,print_every)==0) then
+      call print_line('Dispersion curve: '//i//' of '//size(path_qpoints)// &
+         & ' q-points sampled.')
+    endif
   enddo
-  
-  ! Calculate frequencies at final k-space point.
-  qpoint = path_qpoints(no_vertices)
-  dynamical_matrix = DynamicalMatrix( qpoint,          &
-                                    & large_supercell, &
-                                    & hessian,         &
-                                    & min_images       )
-  call dynamical_matrix%check(large_supercell, logfile)
-  complex_modes = ComplexMode(dynamical_matrix, large_supercell)
-  frequencies = [ frequencies,                                   &
-                & PathFrequencies(                               &
-                &    path_fraction    =1.0_dp,                   &
-                &    qpoint           = qpoint,                  &
-                &    frequencies      = complex_modes%frequency, &
-                &    dynamical_matrix = dynamical_matrix         )]
   
   ! Write outputs to file.
   this = PhononDispersion(path, frequencies)
@@ -308,7 +226,7 @@ function path_PhononDispersion(this) result(output)
   class(PhononDispersion), intent(in) :: this
   type(String), allocatable           :: output(:)
   
-  output = str(this%path_, separating_line='')
+  output = str(this%path_%vertices, separating_line='')
 end function
 
 function frequencies_PhononDispersion(this) result(output)
@@ -418,15 +336,15 @@ function json_PhononDispersion(this,seedname,structure) result(output)
   enddo
   
   ! Construct highsym_qpts.
-  allocate(highsym_qpts(size(this%path_)), stat=ialloc); call err(ialloc)
-  do i=1,size(this%path_)
-    highsym_qpts(i) =                                                     &
-       & '    ['                                                       // &
-       & nint(this%path_(i)%path_fraction*(size(this%frequencies_)-1)) // &
-       & ',"'                                                          // &
-       & this%path_(i)%label                                           // &
-       & '"]'
-    if (i/=size(this%path_)) then
+  allocate( highsym_qpts(size(this%path_%vertices)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%path_%vertices)
+    highsym_qpts(i) = '    ['                            // &
+                    & this%path_%vertices(i)%point_index // &
+                    & ',"'                               // &
+                    & this%path_%vertices(i)%label       // &
+                    & '"]'
+    if (i/=size(this%path_%vertices)) then
       highsym_qpts(i) = highsym_qpts(i)//','
     endif
   enddo
@@ -694,8 +612,8 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
     qpoints(i) = SampledQpoint(qpoint, no_frequencies_ignored(i))
     
     if (modulo(i,print_every)==0) then
-      call print_line('Sampling q-points: '//i//' of '//no_dos_samples// &
-         & ' samples complete.')
+      call print_line('Density of states: '//i//' of '//no_dos_samples// &
+         & ' q-points sampled.')
     endif
   enddo
   
@@ -734,64 +652,6 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine read_QpointPath(this,input)
-  implicit none
-  
-  class(QpointPath), intent(out) :: this
-  type(String),      intent(in)  :: input(:)
-  
-  type(String)     :: label
-  type(RealVector) :: qpoint
-  real(dp)         :: path_fraction
-  
-  type(String), allocatable :: line(:)
-  
-  select type(this); type is(QpointPath)
-    line = split_line(input(1))
-    label = line(2)
-    qpoint = vec(dble(line(3:)))
-    
-    line = split_line(input(2))
-    path_fraction = dble(line(4))
-    
-    this = QpointPath(label,qpoint,path_fraction)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_QpointPath(this) result(output)
-  implicit none
-  
-  class(QpointPath), intent(in) :: this
-  type(String), allocatable        :: output(:)
-  
-  select type(this); type is(QpointPath)
-    output = [ 'q-point: '//this%label//' '//this%qpoint,  &
-             & 'Fraction along path: '//this%path_fraction ]
-  class default
-    call err()
-  end select
-end function
-
-function new_QpointPath_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(QpointPath)         :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_QpointPath_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(QpointPath)              :: this
-  
-  this = QpointPath(str(input))
-end function
-
 function write_PathFrequencies(this) result(output)
   implicit none
   

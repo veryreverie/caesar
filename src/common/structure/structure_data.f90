@@ -65,13 +65,6 @@ module structure_data_module
     type(IntVector), allocatable :: gvectors(:)
     
     ! --------------------------------------------------
-    ! Groups describing addition of vectors.
-    ! --------------------------------------------------
-    ! The group describing R-vector operations.
-    ! e.g. if rvector(i)+rvector(j)=rvector(k) then rvector_group(i)*j=k.
-    type(Group), allocatable :: rvector_group(:)
-    
-    ! --------------------------------------------------
     ! The IDs of paired R-vectors and G-vectors.
     ! Used to provide inverse and pair functions.
     ! --------------------------------------------------
@@ -90,12 +83,6 @@ module structure_data_module
     procedure, public :: paired_rvector_id
     procedure, public :: paired_rvector
     procedure, public :: paired_gvectors
-    
-    ! Return groups corresponding to paired vectors.
-    procedure, public :: paired_rvector_group
-    
-    ! Procedures involved in constructing a StructureData.
-    procedure, private :: calculate_rvector_group
     
     ! Primitive lattice procedures.
     procedure, public :: prim_lattice
@@ -154,17 +141,6 @@ function paired_gvectors(this,gvector_id) result(output)
   type(IntVector)                  :: output
   
   output = this%gvectors(this%gvector_paired_ids_(gvector_id))
-end function
-
-! Return the group describing the subtraction of R-vector i.
-function paired_rvector_group(this,rvector_id) result(output)
-  implicit none
-  
-  class(StructureData), intent(in) :: this
-  integer,              intent(in) :: rvector_id
-  type(Group)                      :: output
-  
-  output = this%rvector_group(this%rvector_paired_ids_(rvector_id))
 end function
 
 ! ----------------------------------------------------------------------
@@ -286,8 +262,6 @@ function new_StructureData(basic_structure,basic_supercell, &
     call print_line(ERROR//': not all paired G-vectors found.')
     call err()
   endif
-  
-  call this%calculate_rvector_group()
   
   ! Fill out atom data: atomic species, masses and positions.
   allocate( this%atoms(this%no_atoms), &
@@ -412,46 +386,6 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
 end subroutine
 
 ! ----------------------------------------------------------------------
-! Calculate the relationships between R-vectors, modulo the supercell.
-!    so if rvec(:,i)+rvec(:,j)=rvec(:,k) then output(i)*j=k
-! ----------------------------------------------------------------------
-subroutine calculate_rvector_group(this)
-  implicit none
-  
-  class(StructureData), intent(inout) :: this
-  
-  integer, allocatable :: operations(:,:)
-  
-  type(IntVector) :: rvector_k
-  
-  integer :: i,j,k,ialloc
-  
-  allocate( operations(this%sc_size,this%sc_size), &
-          & this%rvector_group(this%sc_size),      &
-          & stat=ialloc); call err(ialloc)
-  operations = 0
-  do i=1,this%sc_size
-    do j=1,i
-      rvector_k = this%rvectors(i)+this%rvectors(j)
-      do k=1,this%sc_size
-        if (is_int(this%recip_supercell*(rvector_k-this%rvectors(k)))) then
-          operations(i,j) = k
-          operations(j,i) = k
-          exit
-        endif
-      enddo
-    enddo
-  enddo
-  
-  if (any(operations==0)) then
-    call print_line('Error: R-vector group incomplete.')
-    call err()
-  endif
-  
-  this%rvector_group = [(Group(operations(i,:)), i=1, this%sc_size)]
-end subroutine
-
-! ----------------------------------------------------------------------
 ! Calculate properties of the primitive lattice.
 ! ----------------------------------------------------------------------
 function prim_lattice(this) result(output)
@@ -509,14 +443,14 @@ subroutine read_StructureData(this,input)
   integer     :: no_atoms_prim
   
   ! Lattice.
-  type(RealMatrix) :: lattice_matrix
-  type(RealMatrix) :: recip_lattice_matrix
+  type(RealMatrix)              :: lattice_matrix
+  type(RealMatrix), allocatable :: recip_lattice_matrix
   
   ! Supercell, R-vectors and G-vectors.
-  type(IntMatrix)              :: supercell_matrix
-  type(FractionMatrix)         :: recip_supercell_matrix
-  type(IntVector), allocatable :: rvectors(:)
-  type(IntVector), allocatable :: gvectors(:)
+  type(IntMatrix)                   :: supercell_matrix
+  type(FractionMatrix), allocatable :: recip_supercell_matrix
+  type(IntVector),      allocatable :: rvectors(:)
+  type(IntVector),      allocatable :: gvectors(:)
   
   ! Atom species, masses and cartesian positions.
   type(String),     allocatable :: species(:)
@@ -755,22 +689,10 @@ subroutine read_StructureData(this,input)
                                       gvectors,         &
                                       atom_rvector_ids, &
                                       atom_prim_ids     )
-    if (recip_lattice_line==0 .and. recip_supercell_line==0) then
-      this = StructureData(basic_structure, basic_supercell)
-    elseif (recip_lattice_line==0) then
-      this = StructureData( basic_structure,                                &
-                          & basic_supercell,                                &
-                          & recip_supercell_matrix = recip_supercell_matrix )
-    elseif (recip_supercell_line==0) then
-      this = StructureData( basic_structure,                            &
-                          & basic_supercell,                            &
-                          & recip_lattice_matrix = recip_lattice_matrix )
-    else
-      this = StructureData( basic_structure,                                &
-                          & basic_supercell,                                &
-                          & recip_lattice_matrix = recip_lattice_matrix,    &
-                          & recip_supercell_matrix = recip_supercell_matrix )
-    endif
+    this = StructureData( basic_structure        = basic_structure,       &
+                        & basic_supercell        = basic_supercell,       &
+                        & recip_lattice_matrix   = recip_lattice_matrix,  &
+                        & recip_supercell_matrix = recip_supercell_matrix )
     
     ! ------------------------------
     ! Read in symmetries if present, and add symmetry to output.

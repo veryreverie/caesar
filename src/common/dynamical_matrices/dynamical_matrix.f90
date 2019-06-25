@@ -406,7 +406,10 @@ function reconstruct_hessian(large_supercell,qpoints,dynamical_matrices, &
     enddo
   enddo
   
-  output = CartesianHessian(large_supercell, hessian, logfile)
+  output = CartesianHessian( supercell      = large_supercell, &
+                           & elements       = hessian,         &
+                           & check_symmetry = .true.,          &
+                           & logfile        = logfile          )
 end function
 
 ! ----------------------------------------------------------------------

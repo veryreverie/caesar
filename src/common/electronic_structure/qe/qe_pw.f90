@@ -1,18 +1,16 @@
 ! ======================================================================
-! Reads and writes Quantum Espresso .in files.
+! Reads and writes Quantum Espresso PWscf input and output files.
 ! ======================================================================
-
-! N.B. This module has never been tested.
-
-module qe_wrapper_module
+module qe_pw_module
   use utils_module
   
   use structure_module
   use normal_mode_module
   
   use electronic_structure_data_module
-  use kpoint_grid_module
-  use force_constants_file_module
+  use electronic_structure_common_module
+  
+  use qe_fc_module
   implicit none
   
   private
@@ -434,7 +432,6 @@ function read_output_file_qe(directory,seedname,structure,use_forces, &
     !    so the supercell is just structure.
     hessian = read_qe_force_constants_file( directory = directory, &
                                           & seedname  = seedname,  &
-                                          & structure = structure, &
                                           & supercell = structure  )
   endif
   

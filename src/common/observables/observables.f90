@@ -6,6 +6,7 @@
 ! This module is simply an interface for the various observables modules.
 module observables_module
   use thermodynamic_data_module
+  use qpoint_path_module
   use harmonic_properties_module
   implicit none
 end module

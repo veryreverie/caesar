@@ -1,7 +1,7 @@
 ! ======================================================================
-! Writes a Quantum Espresso .fc file.
+! Reads and Writes Quantum Espresso .fc files.
 ! ======================================================================
-module force_constants_file_module
+module qe_fc_module
   use utils_module
   use structure_module
   use normal_mode_module
@@ -137,13 +137,12 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
   enddo
 end subroutine
 
-function read_qe_force_constants_file(directory,seedname,structure,supercell) &
+function read_qe_force_constants_file(directory,seedname,supercell) &
    & result(output)
   implicit none
   
   type(String),        intent(in) :: directory
   type(String),        intent(in) :: seedname
-  type(StructureData), intent(in) :: structure
   type(StructureData), intent(in) :: supercell
   type(CartesianHessian)          :: output
   
@@ -191,13 +190,13 @@ function read_qe_force_constants_file(directory,seedname,structure,supercell) &
   ids = construct_atom_ids(supercell)
   
   ! Check no. atoms and grid.
-  if (int(token(lines(1),2))/=structure%no_atoms) then
+  if (int(token(lines(1),2))/=supercell%no_atoms_prim) then
     call print_line(ERROR//': .fc file contains the wrong number of atoms.')
     call err()
   endif
   
   no_species = int(token(lines(1),1))
-  header_length = 6 + no_species + structure%no_atoms
+  header_length = 6 + no_species + supercell%no_atoms_prim
   
   if (any(int(tokens(lines(header_length),1,3))/=grid)) then
     call print_line(ERROR//': .fc file contains unexpected q-point grid.')
@@ -218,8 +217,8 @@ function read_qe_force_constants_file(directory,seedname,structure,supercell) &
                 line_no = line_no + 1
                 id2 = ids(r1,r2,r3,p2)
                 elements(i1,i2,p1,id2) = -dble(token(lines(line_no),4))     &
-                                     & / sqrt( structure%atoms(p1)%mass()   &
-                                     &       * structure%atoms(p2)%mass() ) &
+                                     & / sqrt( supercell%atoms(p1)%mass()   &
+                                     &       * supercell%atoms(p2)%mass() ) &
                                      & / RYDBERG_PER_HARTREE                &
                                      & * supercell%sc_size
               enddo
@@ -238,7 +237,9 @@ function read_qe_force_constants_file(directory,seedname,structure,supercell) &
     enddo
   enddo
   
-  output = CartesianHessian(supercell, matrix_elements)
+  output = CartesianHessian( supercell      = supercell,       &
+                           & elements       = matrix_elements, &
+                           & check_symmetry = .false.          )
 end function
 
 ! Construct mapping from R-vector and primitive id to atom id.
@@ -265,9 +266,12 @@ function construct_atom_ids(supercell) result(output)
     
     ! Quantum Espresso 1-indexes R-vector components, so the primitive cell is
     !    at (1,1,1).
+    ! Quantum Espresso also adopts the opposite convention to Caesar for
+    !    the sign of the R-vector.
     ! If the supercell grid is (A,B,C), then the R-vector at (a,b,c)
-    !    with a in [0,A), b in [0,B) and c in [0,C) is stored as (a+1,b+1,c+1).
-    rvector = modulo(int(supercell%rvectors(atom%rvec_id())), grid) + 1
+    !    with a in [0,A), b in [0,B) and c in [0,C) is stored in the .fc file
+    !    as (A-a+1,B-b+1,C-c+1).
+    rvector = modulo(grid-int(supercell%rvectors(atom%rvec_id())), grid) + 1
     
     output(rvector(1), rvector(2), rvector(3), atom%prim_id()) = id
   enddo

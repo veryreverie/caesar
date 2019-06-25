@@ -34,12 +34,15 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructs and checks Hessian from given matrices.
 ! ----------------------------------------------------------------------
-function new_CartesianHessian_elements(supercell,elements,logfile) &
-   & result(this)
+! If check_symmetry is true, then it will be assumed that the Hessian is taken
+!    at the un-displaced co-ordinates.
+function new_CartesianHessian_elements(supercell,elements,check_symmetry, &
+   & logfile) result(this)
   implicit none
   
   type(StructureData), intent(in)              :: supercell
   type(RealMatrix),    intent(in)              :: elements(:,:)
+  logical,             intent(in)              :: check_symmetry
   type(OFile),         intent(inout), optional :: logfile
   type(CartesianHessian)                       :: this
   
@@ -95,39 +98,41 @@ function new_CartesianHessian_elements(supercell,elements,logfile) &
   endif
   
   ! Check F(i1,i2) transforms correctly under symmetry operators.
-  average = 0
-  difference = 0
-  do i=1,size(supercell%symmetries)
-    do j=1,supercell%no_atoms_prim
-      atom_i = supercell%atoms(j)
-      atom_i2 = supercell%atoms( supercell%symmetries(i)%atom_group &
-                             & * atom_i%id())
-      if (atom_i2%id()/=atom_i2%prim_id()) then
-        cycle
-      endif
-      do k=1,supercell%no_atoms
-        atom_j = supercell%atoms(k)
-        atom_j2 = supercell%atoms( supercell%symmetries(i)%atom_group &
-                               & * atom_j%id())
-        matrix = this%elements(atom_i2,atom_j2)
-        symmetric = supercell%symmetries(i)%cartesian_tensor &
-                & * this%elements(atom_i,atom_j)             &
-                & * transpose(supercell%symmetries(i)%cartesian_tensor)
-        average = average + sum_squares((matrix+symmetric)/2)
-        difference = difference + sum_squares(matrix-symmetric)
+  if (check_symmetry) then
+    average = 0
+    difference = 0
+    do i=1,size(supercell%symmetries)
+      do j=1,supercell%no_atoms_prim
+        atom_i = supercell%atoms(j)
+        atom_i2 = supercell%atoms( supercell%symmetries(i)%atom_group &
+                               & * atom_i%id())
+        if (atom_i2%id()/=atom_i2%prim_id()) then
+          cycle
+        endif
+        do k=1,supercell%no_atoms
+          atom_j = supercell%atoms(k)
+          atom_j2 = supercell%atoms( supercell%symmetries(i)%atom_group &
+                                 & * atom_j%id())
+          matrix = this%elements(atom_i2,atom_j2)
+          symmetric = supercell%symmetries(i)%cartesian_tensor &
+                  & * this%elements(atom_i,atom_j)             &
+                  & * transpose(supercell%symmetries(i)%cartesian_tensor)
+          average = average + sum_squares((matrix+symmetric)/2)
+          difference = difference + sum_squares(matrix-symmetric)
+        enddo
       enddo
     enddo
-  enddo
-  if (present(logfile)) then
-    call logfile%print_line(                                  &
-       & 'Fractional L2 error in symmetry of F(i1,i2)   : '// &
-       & sqrt(difference/average))
-  endif
-  if (sqrt(difference/average) > 1e-10_dp) then
-    call print_line(WARNING//': F(i1,i2) is not as symmetric as expected. &
-       &Please check log files.')
-    call print_line('Fractional L2 error in symmetry: '//&
-       &sqrt(difference/average))
+    if (present(logfile)) then
+      call logfile%print_line(                                  &
+         & 'Fractional L2 error in symmetry of F(i1,i2)   : '// &
+         & sqrt(difference/average))
+    endif
+    if (sqrt(difference/average) > 1e-10_dp) then
+      call print_line(WARNING//': F(i1,i2) is not as symmetric as expected. &
+         &Please check log files.')
+      call print_line('Fractional L2 error in symmetry: '//&
+         &sqrt(difference/average))
+    endif
   endif
 end function
 

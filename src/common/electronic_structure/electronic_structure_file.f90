@@ -7,13 +7,11 @@ module electronic_structure_file_module
   use structure_module
   
   use electronic_structure_data_module
-  
+  use electronic_structure_common_module
   use quip_module
-  
-  use structure_file_module
-  use castep_wrapper_module
-  use qe_wrapper_module
-  use vasp_wrapper_module
+  use castep_module
+  use qe_module
+  use vasp_module
   implicit none
   
   private

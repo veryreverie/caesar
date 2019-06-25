@@ -7,10 +7,10 @@ module calculation_reader_module
   use structure_module
   use normal_mode_module
   
-  use structure_file_module
   use electronic_structure_data_module
+  use electronic_structure_common_module
+  
   use electronic_structure_file_module
-  use loto_splitting_module
   implicit none
   
   private

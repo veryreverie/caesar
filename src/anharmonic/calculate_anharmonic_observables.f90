@@ -96,10 +96,16 @@ subroutine startup_calculate_anharmonic_observables()
      & KeywordData( 'path',                                                   &
      &              'path is the path through fractional reciprocal space &
      &which will be mapped by the phonon dispersion curve. The path should be &
-     &specified as labels and q-points, separated by commas. The Gamma-point &
-     &should be labelled G.',                                                 &
+     &specified as labels and q-points, separated by commas. Breaks in the &
+     &path should be marked with pipes, "|". The Gamma-point should be &
+     &labelled G.',                                                           &
      &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, &
-     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                          &
+     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5 | R 0.5 0.5 0.5, &
+     &X 0.0 0.0 0.5, M 0.0 0.5 0.5'),                                         &
+     & KeywordData( 'no_path_points',                                         &
+     &              'no_path_points is the number of q-points sampled along &
+     &the entire dispersion curve path.',                                     &
+     &              default_value='1000'),                                    &
      & KeywordData( 'no_dos_samples',                                         &
      &              'no_dos_samples is the number of points in reciprocal &
      &space at which the normal modes are calculated when calculating the &
@@ -135,9 +141,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer                       :: no_vscf_basis_states
   real(dp)                      :: min_frequency
   real(dp),         allocatable :: thermal_energies(:)
-  type(String),     allocatable :: path_string(:)
-  type(String),     allocatable :: path_labels(:)
-  type(RealVector), allocatable :: path_qpoints(:)
+  type(String)                  :: path
+  integer                       :: no_path_points
   integer                       :: no_dos_samples
   
   ! Previous inputs.
@@ -228,8 +233,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(OFile)  :: pdos_file
   
   ! Temporary variables.
-  type(String), allocatable :: path_point(:)
-  
   integer :: i,j,k,ialloc
   
   ! --------------------------------------------------
@@ -255,7 +258,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
   frequency_convergence = dble(arguments%value('frequency_convergence'))
   min_frequency = dble(arguments%value('min_frequency'))
-  path_string = split_line(arguments%value('path'), ',')
+  path = arguments%value('path')
+  no_path_points = int(arguments%value('no_path_points'))
   no_dos_samples = int(arguments%value('no_dos_samples'))
   no_vscf_basis_states = int(arguments%value('no_vscf_basis_states'))
   
@@ -320,7 +324,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Generate objects which don't depend on the potential:
   !    - thermal energies from temperature range.
-  !    - dispersion path.
   !    - minimum image data.
   !    - stress prefactors.
   ! --------------------------------------------------
@@ -340,16 +343,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                         & / (no_temperature_steps-1.0_dp)
     enddo
   endif
-  
-  ! Generate path for dispersion calculation.
-  allocate( path_qpoints(size(path_string)), &
-          & path_labels(size(path_string)),  &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(path_string)
-    path_point = split_line(path_string(i))
-    path_labels(i) = path_point(1)
-    path_qpoints(i) = dble(path_point(2:4))
-  enddo
   
   ! Make output directory, write out temperatures, and open logfile.
   output_dir = 'anharmonic_observables'
@@ -580,12 +573,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     
     ! Generate self-consistent phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
-    phonon_dispersion = PhononDispersion( supercell,    &
-                                        & min_images,   &
-                                        & hessian,      &
-                                        & path_labels,  &
-                                        & path_qpoints, &
-                                        & logfile       )
+    phonon_dispersion = PhononDispersion( supercell,      &
+                                        & min_images,     &
+                                        & hessian,        &
+                                        & path,           &
+                                        & no_path_points, &
+                                        & logfile         )
     
     symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
     call symmetry_points_file%print_lines(phonon_dispersion%path())

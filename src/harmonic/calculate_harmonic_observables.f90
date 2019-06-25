@@ -41,10 +41,16 @@ subroutine startup_calculate_harmonic_observables()
      & KeywordData( 'path',                                                   &
      &              'path is the path through fractional reciprocal space &
      &which will be mapped by the phonon dispersion curve. The path should be &
-     &specified as labels and q-points, separated by commas. The Gamma-point &
-     &should be labelled G.',                                                 &
+     &specified as labels and q-points, separated by commas. Breaks in the &
+     &path should be marked with pipes, "|". The Gamma-point should be &
+     &labelled G.',                                                           &
      &              default_value='G 0.0 0.0 0.0, R 0.5 0.5 0.5, &
-     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5'),                          &
+     &M 0.0 0.5 0.5, G 0.0 0.0 0.0, X 0.0 0.0 0.5 | R 0.5 0.5 0.5, &
+     &X 0.0 0.0 0.5, M 0.0 0.5 0.5'),                                         &
+     & KeywordData( 'no_path_points',                                         &
+     &              'no_path_points is the number of q-points sampled along &
+     &the entire dispersion curve path.',                                     &
+     &              default_value='1000'),                                    &
      & KeywordData( 'calculate_dos_and_thermodynamics',                       &
      &              'calculate_dos_and_thermodynamics specifies whether or &
      &not to calculate the phonon density of states and thermodynamic &
@@ -81,18 +87,17 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! Inputs.
-  type(RandomReal)              :: random_generator
-  real(dp)                      :: min_temperature
-  real(dp)                      :: max_temperature
-  integer                       :: no_temperature_steps
-  real(dp)                      :: min_frequency
-  real(dp),         allocatable :: thermal_energies(:)
-  logical                       :: calculate_dispersion
-  type(String),     allocatable :: path_string(:)
-  type(String),     allocatable :: path_labels(:)
-  type(RealVector), allocatable :: path_qpoints(:)
-  logical                       :: calculate_dos_and_thermodynamics
-  integer                       :: no_dos_samples
+  type(RandomReal)      :: random_generator
+  real(dp)              :: min_temperature
+  real(dp)              :: max_temperature
+  integer               :: no_temperature_steps
+  real(dp)              :: min_frequency
+  real(dp), allocatable :: thermal_energies(:)
+  logical               :: calculate_dispersion
+  type(String)          :: path
+  integer               :: no_path_points
+  logical               :: calculate_dos_and_thermodynamics
+  integer               :: no_dos_samples
   
   ! Previous inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -127,8 +132,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(OFile)  :: logfile
   
   ! Temporary variables.
-  type(String), allocatable :: path_point(:)
-  integer                   :: i,ialloc
+  integer :: i,ialloc
   
   ! --------------------------------------------------
   ! Read in arguments from user.
@@ -144,7 +148,8 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   min_frequency = dble(arguments%value('min_frequency'))
   calculate_dispersion = lgcl(arguments%value('calculate_dispersion'))
   if (calculate_dispersion) then
-    path_string = split_line(arguments%value('path'), ',')
+    path = arguments%value('path')
+    no_path_points = int(arguments%value('no_path_points'))
   endif
   calculate_dos_and_thermodynamics = &
      & lgcl(arguments%value('calculate_dos_and_thermodynamics'))
@@ -225,23 +230,13 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   
   ! Calculate phonon dispersion curve.
   if (calculate_dispersion) then
-    ! Generate path for dispersion calculation.
-    allocate( path_qpoints(size(path_string)), &
-            & path_labels(size(path_string)),  &
-            & stat=ialloc); call err(ialloc)
-    do i=1,size(path_string)
-      path_point = split_line(path_string(i))
-      path_labels(i) = path_point(1)
-      path_qpoints(i) = dble(path_point(2:4))
-    enddo
-    
     ! Generate harmonic phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
     phonon_dispersion = PhononDispersion( large_supercell, &
                                         & min_images,      &
                                         & hessian,         &
-                                        & path_labels,     &
-                                        & path_qpoints,    &
+                                        & path,            &
+                                        & no_path_points,  &
                                         & logfile          )
     
     symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')

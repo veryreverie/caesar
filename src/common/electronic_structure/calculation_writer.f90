@@ -7,7 +7,8 @@ module calculation_writer_module
   
   use structure_module
   
-  use structure_file_module
+  use electronic_structure_common_module
+  
   use electronic_structure_file_module
   implicit none
   

@@ -3,7 +3,7 @@ include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(observables)
 
 # Normal mode modules.
-add_library(observables thermodynamic_data.f90 harmonic_properties.f90 observables.f90)
+add_library(observables thermodynamic_data.f90 qpoint_path.f90 harmonic_properties.f90 observables.f90)
 
 # Link against required module.
 target_link_libraries(observables utils)

@@ -284,7 +284,6 @@ function read_dynamical_matrices_qe(seedname,structure,large_supercell, &
   
   hessian = read_qe_force_constants_file( directory = str('.'),       &
                                         & seedname  = seedname,       &
-                                        & structure = structure,      &
                                         & supercell = large_supercell )
   
   output = [( DynamicalMatrix( dblevec(qpoints(i)%qpoint),    &

@@ -391,7 +391,10 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   enddo
   
   ! Construct output.
-  output = CartesianHessian(supercell,elements,logfile)
+  output = CartesianHessian( supercell      = supercell, &
+                           & elements       = elements,  &
+                           & check_symmetry = .true.,    &
+                           & logfile        = logfile    )
 end function
 
 ! ----------------------------------------------------------------------

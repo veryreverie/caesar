@@ -46,9 +46,7 @@ function calculate_min_images(supercell) result(output)
   
   type(AtomData) :: atom_i
   type(AtomData) :: atom_j
-  integer        :: rvec_i
-  integer        :: rvec_j
-  integer        :: rvec_ji
+  integer        :: rvec
   
   type(MinImages), allocatable :: min_images(:,:,:)
   
@@ -69,18 +67,16 @@ function calculate_min_images(supercell) result(output)
   enddo
   
   ! Copy across minimum images to pairs of atoms related by R-vectors.
-  allocate( output(supercell%no_atoms, supercell%no_atoms), &
+  allocate( output(supercell%no_atoms_prim, supercell%no_atoms), &
           & stat=ialloc); call err(ialloc)
   do i=1,supercell%no_atoms
     atom_i = supercell%atoms(i)
-    rvec_i = atom_i%rvec_id()
-    do j=1,supercell%no_atoms
+    rvec   = atom_i%rvec_id()
+    do j=1,supercell%no_atoms_prim
       atom_j = supercell%atoms(j)
-      rvec_j = atom_j%rvec_id()
-      rvec_ji = supercell%paired_rvector_group(rvec_j) * rvec_i
-      output(atom_j%id(),atom_i%id()) = min_images( rvec_ji,          &
+      output(atom_j%id(),atom_i%id()) = min_images( rvec,             &
                                                   & atom_j%prim_id(), &
-                                                  & atom_i%prim_id())
+                                                  & atom_i%prim_id()  )
     enddo
   enddo
 end function

@@ -48,20 +48,38 @@ def main():
     # Read in high symmetry points.
     file_name = directory + '/high_symmetry_points.dat'
     points_file = [line.rstrip('\n').split() for line in open(file_name)]
-    points = {'labels':[], 'q-points':[], 'path_lengths':[]}
+    points = {'labels':[], 'q-points':[], 'path_lengths':[], 'indices':[]}
     for line in points_file:
-      if len(line)>0 and line[0]=='q-point:':
+      
+      # Old file layout.
+      if len(line)==5 and line[0]=='q-point:':
         points['labels'].append(line[1])
-        points['q-points'].append([])
-        for coord in line[2:]:
-          points['q-points'][-1].append(float(coord))
-      elif len(line)>0 and line[0]=='Fraction':
+        points['q-points'].append([float(x) for x in line[2:]])
+      elif len(line)==4 and line[:3]==['Fraction','along','path:']:
         points['path_lengths'].append(float(line[3]))
+      
+      # New file layout.
+      if len(line)==4 and line[:2]==['q-point','label']:
+        points['labels'].append(line[3])
+      elif len(line)==5 and line[0]=='q-point':
+        points['q-points'].append([float(x) for x in line[2:]])
+      elif len(line)==5 and line[:3]==['Fraction','along','path']:
+        points['path_lengths'].append(float(line[4]))
+      elif len(line)==5 and line[:3]==['Index','along','path']:
+        points['indices'].append(int(line[4]))
     
     # Replace the label 'G' with Gamma
     for i,label in enumerate(points['labels']):
       if label=='G':
         points['labels'][i] = r'\Gamma'
+    
+    # Identify segment breaks.
+    points['lines'] = ['dashed' for _ in points['labels']]
+    for i in range(len(points['indices'])-1):
+      if points['indices'][i+1] == points['indices'][i]+1:
+        points['lines'][i:i+2] = ['solid','solid']
+        points['labels'][i] = points['labels'][i]+' '+points['labels'][i+1]
+        points['labels'][i+1] = ''
     
     # Read in phonon dispersion.
     file_name = directory + '/phonon_dispersion_curve.dat'
@@ -164,23 +182,24 @@ def main():
         
         for segment in negative_segments:
           axes['dispersion'].plot(segment['x'],segment['y'],
-                                  color=colours['orange'], lw=2)
+                                  color=colours['orange'], lw=2, zorder=2)
         
         for segment in positive_segments:
           axes['dispersion'].plot(segment['x'],segment['y'],
-                                  color=colours['turquoise'], lw=2)
+                                  color=colours['turquoise'], lw=2, zorder=2)
       else:
-        axes['dispersion'].plot(xs,ys,color=temp_colours[i], lw=2)
+        axes['dispersion'].plot(xs,ys,color=temp_colours[i], lw=2, zorder=2)
         
   
-  axes['dispersion'].vlines(data[0]['points']['path_lengths'],
-                            ymin,
-                            ymax,
-                            linestyle=':')
+  dashed_lines = [y for x,y in zip(data[0]['points']['lines'],data[0]['points']['path_lengths']) if x=='dashed']
+  solid_lines = [y for x,y in zip(data[0]['points']['lines'],data[0]['points']['path_lengths']) if x=='solid']
+  axes['dispersion'].vlines(dashed_lines, ymin, ymax, linestyle=':')
+  axes['dispersion'].vlines(solid_lines, ymin, ymax, zorder=3, lw=2)
   axes['dispersion'].set_xticks(data[0]['points']['path_lengths'])
   axes['dispersion'].set_xticklabels(data[0]['points']['labels'])
   axes['dispersion'].minorticks_off()
   axes['dispersion'].set_ylabel('Energy, Hartrees')
+  axes['dispersion'].tick_params(bottom=False)
   
   hartree_to_mev = 2.721138602e4
   axes['ev'] = axes['dispersion'].twinx()
