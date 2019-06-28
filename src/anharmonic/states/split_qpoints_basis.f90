@@ -793,6 +793,8 @@ impure elemental function spectra_WavevectorStates(this,states,subspace,   &
   integer :: i,ialloc
   
   if (present(subspace_stress) .neqv. present(stress_prefactors)) then
+    call print_line(CODE_ERROR//': Only one of subspace_stress and &
+       &stress_prefactors passed.')
     call err()
   endif
   

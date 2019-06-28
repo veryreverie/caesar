@@ -325,7 +325,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Generate objects which don't depend on the potential:
   !    - thermal energies from temperature range.
   !    - minimum image data.
-  !    - stress prefactors.
   ! --------------------------------------------------
   
   ! Generate thermal energies.
@@ -356,11 +355,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   
   ! Construct minimum image data.
   min_images = calculate_min_images(supercell)
-  
-  ! Calculate stress prefactors.
-  stress_prefactors = [( StressPrefactors(subspaces(i),modes), &
-                       & i=1,                                  &
-                       & size(subspaces)                       )]
   
   ! --------------------------------------------------
   ! Run VSCF on potential to generate single-subspace potentials.
@@ -442,11 +436,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Generate energy spectra and wavefunctions from states.
   call print_line('Generating single-subspace spectra.')
   if (calculate_stress) then
+    stress_prefactors = [( StressPrefactors(subspaces(i),modes), &
+                         & i=1,                                  &
+                         & size(subspaces)                       )]
+    
     subspace_spectra = basis%spectra(              &
        & states             = subspace_states,     &
        & subspace           = subspaces,           &
        & subspace_potential = subspace_potentials, &
        & subspace_stress    = subspace_stresses,   &
+       & stress_prefactors  = stress_prefactors,   &
        & anharmonic_data    = anharmonic_data      )
   else
     subspace_spectra = basis%spectra(              &
@@ -475,15 +474,15 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
      & /(-log(0.05_dp)*KB_IN_AU)//' (K).')
   call print_line('')
   
-  ! Print VSCF spectra and wavefunction information.
-  do i=1,size(subspaces)
-    subspace_dir = output_dir//'/subspace_'// &
-       & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))
-    call mkdir(subspace_dir)
-    
-    wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
-    call wavefunctions_file%print_lines(subspace_wavefunctions(i))
-  enddo
+  !! Print VSCF spectra and wavefunction information.
+  !do i=1,size(subspaces)
+  !  subspace_dir = output_dir//'/subspace_'// &
+  !     & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))
+  !  call mkdir(subspace_dir)
+  !  
+  !  wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
+  !  call wavefunctions_file%print_lines(subspace_wavefunctions(i))
+  !enddo
   
   ! --------------------------------------------------
   ! Generate observables under the VSCHA approximation.
