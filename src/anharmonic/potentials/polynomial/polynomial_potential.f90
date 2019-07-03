@@ -62,6 +62,11 @@ module polynomial_potential_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PolynomialPotential
     
+    procedure, public :: coefficients => &
+                       & coefficients_PolynomialPotential
+    procedure, public :: set_coefficients => &
+                       & set_coefficients_PolynomialPotential
+    
     procedure, public :: iterate_damped => iterate_damped_PolynomialPotential
     procedure, public :: iterate_pulay => iterate_pulay_PolynomialPotential
     
@@ -1013,6 +1018,38 @@ function iterate_pulay_PolynomialPotential(this,input_potentials, &
   
   output = PotentialPointer(potential)
 end function
+
+function coefficients_PolynomialPotential(this) result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  real(dp), allocatable                  :: output(:)
+  
+  integer :: i
+  
+  output = [ this%reference_energy,                         &
+           & [( this%basis_functions_(i)%coefficients(),    &
+           &    i=1,                                        &
+           &    size(this%basis_functions_)              )] ]
+end function
+
+subroutine set_coefficients_PolynomialPotential(this,coefficients)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  real(dp),                   intent(in)    :: coefficients(:)
+  
+  integer :: i,j
+  
+  this%reference_energy = coefficients(1)
+  
+  j = 1
+  do i=1,size(this%basis_functions_)
+    call this%basis_functions_(i)%set_coefficients(         &
+       & coefficients(j+1:j+size(this%basis_functions_(i))) )
+    j = j+size(this%basis_functions_(i))
+  enddo
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! I/O.

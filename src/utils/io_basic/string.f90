@@ -267,10 +267,12 @@ function split_line_character(input,delimiter) result(output)
   integer :: next_space
   integer :: next_tab
   
+  ! Temporary variables.
+  integer :: ialloc
   
   first = 0
   second = 0
-  output = [String::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do
     ! Search after previously found delimiter.
     first = second

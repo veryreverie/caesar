@@ -19,10 +19,7 @@ module vscf_module
   public :: run_vscf
   
   type, extends(NoDefaultConstructor) :: VscfStep
-    type(PotentialPointer),   allocatable :: input_potentials(:)
-    type(BasisStatesPointer), allocatable :: states(:)
-    type(EnergySpectra),      allocatable :: spectra(:)
-    type(PotentialPointer),   allocatable :: output_potentials(:)
+    type(EnergySpectra), allocatable :: spectra(:)
   end type
   
   interface VscfStep
@@ -40,32 +37,13 @@ module vscf_module
 contains
 
 ! Constructors.
-function new_VscfStep(input_potentials,states,spectra,output_potentials) &
-   & result(this)
+function new_VscfStep(spectra) result(this)
   implicit none
   
-  class(PotentialData),  intent(in) :: input_potentials(:)
-  class(BasisStates),    intent(in) :: states(:)
-  type(EnergySpectra),   intent(in) :: spectra(:)
-  class(PotentialData),  intent(in) :: output_potentials(:)
-  type(VscfStep)                    :: this
+  type(EnergySpectra), intent(in) :: spectra(:)
+  type(VscfStep)                  :: this
   
-  if (size(input_potentials)/=size(states)) then
-    call print_line(CODE_ERROR//': Input potentials and states do not match.')
-    call err()
-  elseif (size(input_potentials)/=size(spectra)) then
-    call print_line(CODE_ERROR//': Input potentials and spectra do not match.')
-    call err()
-  elseif (size(input_potentials)/=size(output_potentials)) then
-    call print_line(CODE_ERROR//': Input potentials and output potentials do &
-       &not match.')
-    call err()
-  endif
-  
-  this%input_potentials = PotentialPointer(input_potentials)
-  this%states = BasisStatesPointer(states)
   this%spectra = spectra
-  this%output_potentials = PotentialPointer(output_potentials)
 end function
 
 impure elemental function new_VscfOutput(potential,states) result(this)
@@ -82,7 +60,6 @@ end function
 ! ----------------------------------------------------------------------
 ! Main functions.
 ! ----------------------------------------------------------------------
-
 function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
    & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
    & pre_pulay_damping,anharmonic_data) result(output)
@@ -98,6 +75,8 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
   real(dp),                 intent(in) :: pre_pulay_damping
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(VscfOutput), allocatable        :: output(:)
+  
+  type(PulaySolver), allocatable :: solvers(:)
   
   type(PotentialPointer),   allocatable :: input_potentials(:)
   type(BasisStatesPointer), allocatable :: subspace_states(:)
@@ -126,10 +105,22 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
                                                  & subspace_bases,  &
                                                  & subspace_states, &
                                                  & anharmonic_data  )
+  ! Initialise Pulay solvers.
+  solvers = [(                                                            &
+     & PulaySolver( pre_pulay_iterations,                                 &
+     &              pre_pulay_damping,                                    &
+     &              max_pulay_iterations,                                 &
+     &              initial_input = input_potentials(i)%coefficients() ), &
+     & i=1,                                                               &
+     & size(input_potentials)                                             )]
   
+  ! Run Pulay scheme.
   i = 1
   do
     call print_line('Beginning VSCF self-consistency step '//i//'.')
+    do j=1,size(input_potentials)
+      call input_potentials(i)%set_coefficients(solvers(i)%get_input())
+    enddo
     
     ! Use the single-subspace potentials to calculate the new states.
     call print_line('Generating single-subspace ground states.')
@@ -161,13 +152,9 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
                                                     & subspace_states, &
                                                     & anharmonic_data  )
     
-    ! Store the input and output potentials, states and spectra as the next
+    ! Store the input and output potentials and spectra as the next
     !    VSCF step.
-    vscf_steps = [ vscf_steps,                   &
-                 & VscfStep( input_potentials,   &
-                 &           subspace_states,    &
-                 &           subspace_spectra,   &
-                 &           output_potentials ) ]
+    vscf_steps = [vscf_steps, VscfStep(subspace_spectra)]
     
     ! Check whether the energies have converged by the normal convergence
     !    condition.
@@ -196,26 +183,9 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     
     ! If the energies have not converged, generate the next input potentials
     !    using either a damped iterative scheme or a Pulay scheme.
-    if (i<=pre_pulay_iterations) then
-      input_potentials = PotentialPointer(                       &
-         & input_potentials%iterate_damped( output_potentials,   &
-         &                                  pre_pulay_damping,   &
-         &                                  anharmonic_data    ) )
-    else
-      first_pulay_step = max(1, i-max_pulay_iterations+1)
-      do j=1,size(subspaces)
-        in_potentials = [( vscf_steps(k)%input_potentials(j), &
-                        &  k=first_pulay_step,                &
-                        &  i                                  )]
-        out_potentials = [( vscf_steps(k)%output_potentials(j), &
-                         &  k=first_pulay_step,                 &
-                         &  i                                   )]
-        input_potentials(j) = PotentialPointer(                   &
-           & input_potentials(j)%iterate_pulay( in_potentials,    &
-           &                                    out_potentials,   &
-           &                                    anharmonic_data ) )
-      enddo
-    endif
+    do j=1,size(output_potentials)
+      call solvers(j)%set_output(output_potentials(j)%coefficients())
+    enddo
     
     ! Increment the loop counter.
     i = i+1

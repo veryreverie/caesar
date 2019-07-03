@@ -283,9 +283,9 @@ function str_logicals_character(input,separating_line,settings) result(output)
   type(PrintSettings), intent(in), optional :: settings
   type(String), allocatable                 :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = [String::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     output = [output, str(input(i))]
     if (i<size(input) .and. present(separating_line)) then
@@ -313,9 +313,9 @@ function str_integers_character(input,separating_line,settings) result(output)
   type(PrintSettings), intent(in), optional :: settings
   type(String), allocatable                 :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = [String::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     output = [output, str(input(i))]
     if (i<size(input) .and. present(separating_line)) then
@@ -343,9 +343,9 @@ function str_reals_character(input,separating_line,settings) result(output)
   type(PrintSettings), intent(in), optional :: settings
   type(String), allocatable                 :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = [String::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     output = [output, str(input(i))]
     if (i<size(input) .and. present(separating_line)) then
@@ -373,9 +373,9 @@ function str_complexes_character(input,separating_line,settings) result(output)
   type(PrintSettings), intent(in), optional :: settings
   type(String), allocatable                 :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = [String::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     output = [output, str(input(i))]
     if (i<size(input) .and. present(separating_line)) then

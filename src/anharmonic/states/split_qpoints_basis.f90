@@ -397,93 +397,88 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(WavevectorStates)               :: output
   
-  type(WavevectorStates) :: initial_states
-  type(WavevectorState)  :: initial_state
-  type(PotentialPointer) :: initial_potential
+  type(PulaySolver) :: solver
   
-  type(PotentialPointer), allocatable :: input_potentials(:)
-  type(WavevectorStates), allocatable :: states(:)
-  type(WavevectorState)               :: state
-  type(PotentialPointer), allocatable :: output_potentials(:)
+  type(PotentialPointer)        :: input_potential
+  type(WavevectorStates)        :: states
+  type(RealVector), allocatable :: energies(:)
+  type(WavevectorState)         :: state
+  type(PotentialPointer)        :: output_potential
   
   integer :: first_pulay_step
   
   integer :: i,j
   
+  ! Generate initial states,
+  !    and use these states to generate initial potential.
   call print_line( 'Running inter-subspace VSCF in subspace '// &
                  & subspace%id//'.')
-  initial_states = WavevectorStates(basis%initial_states( subspace,       &
-                                                        & anharmonic_data ))
-  initial_state = initial_states%states(minloc(initial_states%energies,1) )
-  initial_potential = PotentialPointer(potential)
+  states = WavevectorStates(basis%initial_states( subspace,       &
+                                                & anharmonic_data ))
+  state = states%states(minloc(states%energies,1))
+  input_potential = PotentialPointer(potential)
   do i=2,size(basis%qpoint_modes)
-    call initial_potential%braket( initial_state,                          &
-                                 & subspace        = subspace,             &
-                                 & subspace_basis  = pick_qpoint(basis,i), &
-                                 & anharmonic_data = anharmonic_data       )
+    call input_potential%braket( state,                                  &
+                               & subspace        = subspace,             &
+                               & subspace_basis  = pick_qpoint(basis,i), &
+                               & anharmonic_data = anharmonic_data       )
   enddo
-  call initial_potential%zero_energy()
+  call input_potential%zero_energy()
   
-  input_potentials = [initial_potential]
-  states = [WavevectorStates::]
-  output_potentials = [PotentialPointer::]
+  ! Initialise Pulay solver.
+  solver = PulaySolver( pre_pulay_iterations,                          &
+                      & pre_pulay_damping,                             &
+                      & max_pulay_iterations,                          &
+                      & initial_input = input_potential%coefficients() )
+  
+  ! Run Pulay scheme.
+  energies = [RealVector::]
   i = 1
   do
+    call input_potential%set_coefficients(solver%get_input())
+    
     ! Calculate new states.
-    states = [ states,                                              &
-             & basis%calculate_split_states( subspace,              &
-             &                               input_potentials(i),   &
-             &                               anharmonic_data      ) ]
-    state = states(i)%states(minloc(states(i)%energies,1))
+    states = basis%calculate_split_states( subspace,        &
+                                         & input_potential, &
+                                         & anharmonic_data  )
+    energies = [energies, vec(states%energies)]
+    state = states%states(minloc(states%energies,1))
     
     ! Use states to calculate new potential.
-    output_potentials = [output_potentials, PotentialPointer(potential)]
+    output_potential = PotentialPointer(potential)
     do j=2,size(basis%qpoint_modes)
-      call output_potentials(i)%braket(            &
+      call output_potential%braket(                &
          & state,                                  &
          & subspace        = subspace,             &
          & subspace_basis  = pick_qpoint(basis,j), &
          & anharmonic_data = anharmonic_data       )
     enddo
-    call output_potentials(i)%zero_energy()
+    call output_potential%zero_energy()
     
     ! Check for convergence.
     if (i>no_converged_calculations) then
-      if (all(steps_converged(                      &
-         & states(i),                               &
-         & states(i-no_converged_calculations:i-1), &
-         & energy_convergence                       ))) then
+      if (all(steps_converged(                        &
+         & energies(i),                               &
+         & energies(i-no_converged_calculations:i-1), &
+         & energy_convergence                         ))) then
       endif
-      output = states(i)
+      output = states
       exit
     endif
     
     ! Check for over-convergence.
     ! This is needed to avoid numerical problems with the Pulay scheme.
     if (i>1) then
-      if (steps_converged(states(i),states(i-1),energy_convergence/100)) then
-        output = states(i)
+      if (steps_converged( energies(i),           &
+                         & energies(i-1),         &
+                         & energy_convergence/100 )) then
+        output = states
         exit
       endif
     endif
     
     ! If convergence has not been reached, generate the next input potential.
-    if (i<=pre_pulay_iterations) then
-      input_potentials = [                                         &
-         & input_potentials,                                       &
-         & PotentialPointer(input_potentials(i)%iterate_damped(    &
-         &                                output_potentials(i),    &
-         &                                pre_pulay_damping,       &
-         &                                anharmonic_data       )) ]
-    else
-      first_pulay_step = max(1,i-max_pulay_iterations+1)
-      input_potentials = [                                        &
-         & input_potentials,                                      &
-         & PotentialPointer(input_potentials(i)%iterate_pulay(    &
-         &              input_potentials(first_pulay_step:i),     &
-         &              output_potentials(first_pulay_step:i),    &
-         &              anharmonic_data                        )) ]
-    endif
+    call solver%set_output(output_potential%coefficients())
     
     ! Increment the loop counter.
     i = i+1
@@ -525,12 +520,12 @@ impure elemental function steps_converged(this,that,energy_convergence) &
    & result(output)
   implicit none
   
-  type(WavevectorStates), intent(in) :: this
-  type(WavevectorStates), intent(in) :: that
-  real(dp),               intent(in) :: energy_convergence
-  logical                            :: output
+  type(RealVector), intent(in) :: this
+  type(RealVector), intent(in) :: that
+  real(dp),         intent(in) :: energy_convergence
+  logical                      :: output
   
-  output = all(abs(this%energies-that%energies) < energy_convergence)
+  output = all(abs(dble(this-that)) < energy_convergence)
 end function
 
 impure elemental function wavefunction_WavevectorState(this,state, &

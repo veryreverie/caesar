@@ -168,7 +168,7 @@ function new_QpointPath_string(path,total_path_points) result(this)
   no_vertices = 0
   edge_start_vertices = [integer::]
   edge_end_vertices = [integer::]
-  vertex_labels = [integer::]
+  vertex_labels = [String::]
   vertex_qpoints = [RealVector::]
   do i=1,size(segments)
     segment_vertices = tokens(segments(i), delimiter=',')

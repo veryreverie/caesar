@@ -289,9 +289,9 @@ function join_StringArrays_String(input,separating_line) result(output)
   
   type(String), allocatable :: strings(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  strings = [String::]
+  allocate(strings(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     strings = [strings, input(i)%strings]
     if (i/=size(input) .and. present(separating_line)) then

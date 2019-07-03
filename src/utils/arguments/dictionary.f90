@@ -591,9 +591,9 @@ function python_arguments(this) result(output)
   class(Dictionary), intent(in) :: this
   type(String), allocatable     :: output(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = [String::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(this%keywords_)
     if ( this%keywords_(i)%is_set() .and.   &
        & this%keywords_(i)%pass_to_python() ) then

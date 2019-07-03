@@ -371,6 +371,8 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
   type(String), intent(in), optional :: exclusive_with(:)
   type(KeywordData)                  :: this
   
+  integer :: ialloc
+  
   ! Check for incompatible arguments.
   if (present(is_optional)) then
     if ( present(default_value)   .or. &
@@ -440,7 +442,7 @@ function new_KeywordData(keyword,helptext,default_value,default_keyword, &
     endif
     this%exclusive_with_ = exclusive_with
   else
-    this%exclusive_with_ = [String::]
+    allocate(this%exclusive_with_(0), stat=ialloc); call err(ialloc)
   endif
   
   ! Set default behaviour.

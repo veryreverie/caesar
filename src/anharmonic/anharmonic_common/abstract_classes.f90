@@ -202,6 +202,13 @@ module abstract_classes_module
     procedure(harmonic_expectation_PotentialData), public, deferred :: &
        & harmonic_expectation
     
+    ! Convert the potential to and from a set of real coefficients.
+    ! Required for Pulay scheme.
+    procedure(coefficients_PotentialData), public, deferred :: &
+       & coefficients
+    procedure(set_coefficients_PotentialData), public, deferred :: &
+       & set_coefficients
+    
     ! Update the potential from previous iterations, either using damped
     !    iteration or a Pulay scheme.
     procedure(iterate_damped_PotentialData), public, deferred :: &
@@ -248,6 +255,11 @@ module abstract_classes_module
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PotentialPointer
+    
+    procedure, public :: coefficients => &
+                       & coefficients_PotentialPointer
+    procedure, public :: set_coefficients => &
+                       & set_coefficients_PotentialPointer
     
     procedure, public :: iterate_damped => &
                        & iterate_damped_PotentialPointer
@@ -730,6 +742,24 @@ module abstract_classes_module
       type(AnharmonicData),     intent(in) :: anharmonic_data
       real(dp)                             :: output
     end function
+    
+    function coefficients_PotentialData(this) result(output)
+      import PotentialData
+      import dp
+      implicit none
+      
+      class(potentialData), intent(in) :: this
+      real(dp), allocatable            :: output(:)
+    end function
+    
+    subroutine set_coefficients_PotentialData(this,coefficients)
+      import PotentialData
+      import dp
+      implicit none
+      
+      class(PotentialData), intent(inout) :: this
+      real(dp),             intent(in)    :: coefficients(:)
+    end subroutine
     
     impure elemental function iterate_damped_PotentialData(this, &
        & new_potential,damping,anharmonic_data) result(output)
@@ -1531,6 +1561,29 @@ function harmonic_expectation_PotentialPointer(this,frequency, &
                                                & subspace,       &
                                                & anharmonic_data )
 end function
+
+! Gets or sets the potential from a set of real coefficients.
+function coefficients_PotentialPointer(this) result(output)
+  implicit none
+  
+  class(PotentialPointer), intent(in) :: this
+  real(dp), allocatable               :: output(:)
+  
+  call this%check()
+  
+  output = this%potential_%coefficients()
+end function
+
+subroutine set_coefficients_PotentialPointer(this,coefficients)
+  implicit none
+  
+  class(PotentialPointer), intent(inout) :: this
+  real(dp),                intent(in)    :: coefficients(:)
+  
+  call this%check()
+  
+  call this%potential_%set_coefficients(coefficients)
+end subroutine
 
 ! Generates the next iteration of the potential, either following a damped
 !    iterative scheme or a pulay scheme.

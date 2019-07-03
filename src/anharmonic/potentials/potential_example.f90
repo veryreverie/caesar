@@ -49,6 +49,11 @@ module potential_example_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PotentialDataExample
     
+    procedure, public :: coefficients => &
+                       & coefficients_PotentialDataExample
+    procedure, public :: set_coefficients => &
+                       & set_coefficients_PotentialDataExample
+    
     procedure, public :: iterate_damped => &
                        & iterate_damped_PotentialDataExample
     procedure, public :: iterate_pulay => &
@@ -289,6 +294,24 @@ function harmonic_expectation_PotentialDataExample(this,frequency, &
   
   ! Code to calculate thermal harmonic expectation goes here.
 end function
+
+function coefficients_PotentialDataExample(this) result(output)
+  implicit none
+  
+  class(PotentialDataExample), intent(in) :: this
+  real(dp), allocatable                   :: output(:)
+  
+  ! Code to convert the potential to an array of real coefficients goes here.
+end function
+
+subroutine set_coefficients_PotentialDataExample(this,coefficients)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  real(dp),                    intent(in)    :: coefficients(:)
+  
+  ! Code to convert the coefficients into the potential goes here.
+end subroutine
 
 impure elemental function iterate_damped_PotentialDataExample(this, &
    & new_potential,damping,anharmonic_data) result(output)

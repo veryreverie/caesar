@@ -141,7 +141,7 @@ subroutine print_line_character(line,settings)
     ! Identify lines.
     current_terminal_width = TERMINAL_WIDTH - print_settings%indent
     line_start = 1
-    lines = [String::]
+    allocate(lines(0), stat=ialloc); call err(ialloc)
     do
       ! Find the last space which fits onto one terminal line,
       !    and the first none-space character which does not fit.

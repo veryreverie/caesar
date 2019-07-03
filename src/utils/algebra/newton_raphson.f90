@@ -355,6 +355,7 @@ impure elemental function example_potential(input) result(output)
   output = 1e4 + (input-2)**2 * (input**2+4)
 end function
 
+! Finds x such that example_potential(x) is minimised.
 subroutine newton_raphson_example()
   implicit none
   
