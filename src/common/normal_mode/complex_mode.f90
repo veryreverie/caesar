@@ -173,7 +173,7 @@ impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
   allocate( unit_vector(structure%no_atoms_prim), &
           & stat=ialloc); call err(ialloc)
   do i=1,structure%no_atoms_prim
-    unit_vector(i) = eigenstuff%evec(3*i-2:3*i)
+    unit_vector(i) = vec(eigenstuff%evec(3*i-2:3*i))
   enddo
   
   ! Call private constructor.

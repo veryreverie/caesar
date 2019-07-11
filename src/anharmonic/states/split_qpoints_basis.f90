@@ -370,33 +370,6 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  output = BasisStatesPointer(split_vscf( subspace_potential,        &
-                                        & subspace,                  &
-                                        & this,                      &
-                                        & energy_convergence,        &
-                                        & no_converged_calculations, &
-                                        & max_pulay_iterations,      &
-                                        & pre_pulay_iterations,      &
-                                        & pre_pulay_damping,         &
-                                        & anharmonic_data            ))
-end function
-
-function split_vscf(potential,subspace,basis,energy_convergence,          &
-   & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
-   & pre_pulay_damping,anharmonic_data) result(output)
-  implicit none
-  
-  class(PotentialData),     intent(in) :: potential
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(SplitQpointsBasis),  intent(in) :: basis
-  real(dp),                 intent(in) :: energy_convergence
-  integer,                  intent(in) :: no_converged_calculations
-  integer,                  intent(in) :: max_pulay_iterations
-  integer,                  intent(in) :: pre_pulay_iterations
-  real(dp),                 intent(in) :: pre_pulay_damping
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(WavevectorStates)               :: output
-  
   type(PulaySolver) :: solver
   
   type(PotentialPointer)        :: input_potential
@@ -413,15 +386,15 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
   !    and use these states to generate initial potential.
   call print_line( 'Running inter-subspace VSCF in subspace '// &
                  & subspace%id//'.')
-  states = WavevectorStates(basis%initial_states( subspace,       &
-                                                & anharmonic_data ))
+  states = WavevectorStates(this%initial_states( subspace,       &
+                                               & anharmonic_data ))
   state = states%states(minloc(states%energies,1))
-  input_potential = PotentialPointer(potential)
-  do i=2,size(basis%qpoint_modes)
-    call input_potential%braket( state,                                  &
-                               & subspace        = subspace,             &
-                               & subspace_basis  = pick_qpoint(basis,i), &
-                               & anharmonic_data = anharmonic_data       )
+  input_potential = PotentialPointer(subspace_potential)
+  do i=2,size(this%qpoint_modes)
+    call input_potential%braket( state,                                 &
+                               & subspace        = subspace,            &
+                               & subspace_basis  = pick_qpoint(this,i), &
+                               & anharmonic_data = anharmonic_data      )
   enddo
   call input_potential%zero_energy()
   
@@ -438,20 +411,21 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
     call input_potential%set_coefficients(solver%get_input())
     
     ! Calculate new states.
-    states = basis%calculate_split_states( subspace,        &
-                                         & input_potential, &
-                                         & anharmonic_data  )
+    states = this%calculate_split_states( subspace,        &
+                                        & input_potential, &
+                                        & anharmonic_data  )
+    
     energies = [energies, vec(states%energies)]
     state = states%states(minloc(states%energies,1))
     
     ! Use states to calculate new potential.
-    output_potential = PotentialPointer(potential)
-    do j=2,size(basis%qpoint_modes)
-      call output_potential%braket(                &
-         & state,                                  &
-         & subspace        = subspace,             &
-         & subspace_basis  = pick_qpoint(basis,j), &
-         & anharmonic_data = anharmonic_data       )
+    output_potential = PotentialPointer(subspace_potential)
+    do j=2,size(this%qpoint_modes)
+      call output_potential%braket(               &
+         & state,                                 &
+         & subspace        = subspace,            &
+         & subspace_basis  = pick_qpoint(this,j), &
+         & anharmonic_data = anharmonic_data      )
     enddo
     call output_potential%zero_energy()
     
@@ -462,7 +436,7 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
          & energies(i-no_converged_calculations:i-1), &
          & energy_convergence                         ))) then
       endif
-      output = states
+      output = BasisStatesPointer(states)
       exit
     endif
     
@@ -472,7 +446,7 @@ function split_vscf(potential,subspace,basis,energy_convergence,          &
       if (steps_converged( energies(i),           &
                          & energies(i-1),         &
                          & energy_convergence/100 )) then
-        output = states
+        output = BasisStatesPointer(states)
         exit
       endif
     endif

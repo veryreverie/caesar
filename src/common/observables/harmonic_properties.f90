@@ -528,7 +528,7 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   max_freq = 0.0_dp
   min_freq = 0.0_dp
   do i=1,no_prelims
-    qpoint = random_generator%random_numbers(3)
+    qpoint = vec(random_generator%random_numbers(3))
     dynamical_matrix = DynamicalMatrix( qpoint,    &
                                       & supercell, &
                                       & hessian,   &
@@ -566,7 +566,7 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   no_frequencies_ignored = 0
   allocate(qpoints(no_dos_samples), stat=ialloc); call err(ialloc)
   do i=1,no_dos_samples
-    qpoint = random_generator%random_numbers(3)
+    qpoint = vec(random_generator%random_numbers(3))
     dynamical_matrix = DynamicalMatrix( qpoint,    &
                                       & supercell, &
                                       & hessian,   &

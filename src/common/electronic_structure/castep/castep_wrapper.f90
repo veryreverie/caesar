@@ -172,7 +172,7 @@ function read_input_file_castep(filename) result(output)
       j = j+1
       line = split_line(cell_file%positions_block(i)) ! N.B. no lower_case
       species(j) = line(1)
-      positions(j) = dble(line(2:4))
+      positions(j) = vec(dble(line(2:4)))
     endif
   enddo
   
@@ -266,7 +266,7 @@ subroutine write_input_file_castep(structure,old_cell_filename, &
     !    co-ordinates into fractional supercell co-ordinates.
     do i=2,size(old_cell_file%kpoints_block)-1
       line = split_line(old_cell_file%kpoints_block(i))
-      kpoint = dble(line(1:3))
+      kpoint = vec(dble(line(1:3)))
       kpoint = transpose(dblemat(structure%recip_supercell)) * kpoint
       old_cell_file%kpoints_block(i) = kpoint//' '//join(line(4:))
     enddo
@@ -509,13 +509,12 @@ function read_output_file_castep(directory,seedname,structure,use_forces, &
   ! Temporary variables.
   integer :: i,j,k,ialloc
     
+  filename = directory//'/'//make_output_filename_castep(seedname)
   if (.not. file_exists(filename)) then
     call print_line(ERROR//': '//filename//' does not exist. Please ensure &
        &that the provided run script produces a .castep file.')
     call quit()
   endif
-  
-  filename = directory//'/'//make_output_filename_castep(seedname)
   castep_file = IFile(filename)
   
   ! Work out line numbers.
@@ -645,7 +644,9 @@ function read_output_file_castep(directory,seedname,structure,use_forces, &
     atom_found(j) = .true.
     
     if (use_forces) then
-      forces_elements(j) = dble(line(4:6)) * ANGSTROM_PER_BOHR / EV_PER_HARTREE
+      forces_elements(j) = vec( dble(line(4:6))   &
+                            & * ANGSTROM_PER_BOHR &
+                            & / EV_PER_HARTREE    )
     endif
     
     if (born_charges_line/=0) then

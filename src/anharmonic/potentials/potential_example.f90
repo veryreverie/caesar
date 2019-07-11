@@ -54,11 +54,6 @@ module potential_example_module
     procedure, public :: set_coefficients => &
                        & set_coefficients_PotentialDataExample
     
-    procedure, public :: iterate_damped => &
-                       & iterate_damped_PotentialDataExample
-    procedure, public :: iterate_pulay => &
-                       & iterate_pulay_PotentialDataExample
-    
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
   end type
@@ -312,35 +307,6 @@ subroutine set_coefficients_PotentialDataExample(this,coefficients)
   
   ! Code to convert the coefficients into the potential goes here.
 end subroutine
-
-impure elemental function iterate_damped_PotentialDataExample(this, &
-   & new_potential,damping,anharmonic_data) result(output)
-  implicit none
-  
-  class(PotentialDataExample), intent(in) :: this
-  class(PotentialData),        intent(in) :: new_potential
-  real(dp),                    intent(in) :: damping
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(PotentialPointer)                  :: output
-  
-  ! Code to generate the potential which is equal to:
-  !    (1-damping)*this + damping*new_potential
-  ! goes here.
-end function
-
-function iterate_pulay_PotentialDataExample(this,input_potentials, &
-   & output_potentials,anharmonic_data) result(output)
-  implicit none
-  
-  class(PotentialDataExample), intent(in) :: this
-  type(PotentialPointer),      intent(in) :: input_potentials(:)
-  type(PotentialPointer),      intent(in) :: output_potentials(:)
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(PotentialPointer)                  :: output
-  
-  ! Code to generate a new potential using a Pulay scheme goes here.
-  ! See the PolynomialPotential Pulay scheme for an example.
-end function
 
 ! --------------------------------------------------
 ! I/O.

@@ -187,11 +187,14 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Calculate the Hessian matrix corresponding to each non-diagonal supercell.
   hessian_logfile = OFile('hessian_log.dat')
-  supercell_hessians = construct_supercell_hessian( supercells,               &
-                                                  & supercell_directories,    &
-                                                  & calculation_reader,       &
-                                                  & acoustic_sum_rule_forces, &
-                                                  & hessian_logfile           )
+  supercell_hessians = [(                                        &
+     & construct_supercell_hessian( supercells(i),               &
+     &                              supercell_directories(i),    &
+     &                              calculation_reader,          &
+     &                              acoustic_sum_rule_forces,    &
+     &                              hessian_logfile           ), &
+     & i=1,                                                      &
+     & size(supercells)                                          )]
   
   ! Calculate the dynamical matrix and normal modes at each q-point.
   dynamical_matrix_logfile = OFile('dynamical_matrix_log.dat')

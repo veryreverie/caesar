@@ -89,7 +89,7 @@ function orthonormal_basis_RealVectors(input,shortest_valid, &
   ! Transfer basis vectors to output.
   allocate(output(size(eigenstuff)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
-    output(i) = eigenstuff(i)%evec
+    output(i) = vec(eigenstuff(i)%evec)
   enddo
 end function
 
@@ -147,7 +147,7 @@ function orthonormal_basis_ComplexVectors(input,shortest_valid, &
   ! Transfer basis vectors to output.
   allocate(output(size(eigenstuff)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
-    output(i) = eigenstuff(i)%evec
+    output(i) = vec(eigenstuff(i)%evec)
   enddo
 end function
 
@@ -229,10 +229,10 @@ function intersection_basis_ComplexVectors(a,b) result(output)
           & right_projections(size(a)+size(b)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(a)+size(b)
-    left_vectors(i) = qr%r(i,:vector_length)
+    left_vectors(i) = vec(qr%r(i,:vector_length))
     left_projections(i) = l2_norm(left_vectors(i))
     
-    right_vectors(i) = qr%r(i,vector_length+1:)
+    right_vectors(i) = vec(qr%r(i,vector_length+1:))
     right_projections(i) = l2_norm(right_vectors(i))
   enddo
   

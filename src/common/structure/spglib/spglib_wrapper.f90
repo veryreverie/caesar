@@ -364,10 +364,12 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
      & [(transpose(new_lattice)*new_frac_positions(i),i=1,size(atoms))] )
   
   ! Calculate changes.
-  max_lattice_change = maxval([(                             &
-     & l2_norm(lattice%row(i)-output%lattice_matrix%row(i)), &
-     & i=1,                                                  &
-     & 3                                                     )])
+  max_lattice_change = 0
+  do i=1,3
+    max_lattice_change = max(                                 &
+       & max_lattice_change,                                  &
+       & l2_norm(lattice%row(i)-output%lattice_matrix%row(i)) )
+  enddo
   max_atom_change =                                    &
      & maxval(l2_norm( atoms%cartesian_position()      &
      &               - output%atoms%cartesian_position ))

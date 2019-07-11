@@ -99,7 +99,7 @@ function reduce(input,structure) result(output)
   ! Construct the three supercell lattice vectors in fractional co-ordinates.
   matrix = int(input)
   do i=1,3
-    vectors(i) = matrix(i,:)
+    vectors(i) = vec(matrix(i,:))
   enddo
   
   ! Reduce the three vectors.
@@ -128,7 +128,7 @@ function reduce(input,structure) result(output)
   do i=1,3
     matrix(i,:) = int(vectors(i))
   enddo
-  output = matrix
+  output = mat(matrix)
 end function
 
 ! ----------------------------------------------------------------------
@@ -209,7 +209,7 @@ function find_hnf_supercell_matrix(qpoints) result(output)
   endif
   
   ! Transfer output_matrix to output.
-  output = output_matrix
+  output = mat(output_matrix)
   
   ! Check that S correctly transforms all q-points to integer vectors.
   do i=1,size(qpoints)
@@ -375,9 +375,9 @@ function calculate_unique_vectors(supercell,centre_on_origin) result(output)
         ! Construct vectors in scaled fractional primitive co-ordinates.
         ! (scaled by supercell_size, to preserve integer representation).
         if (centre_on_origin) then
-          frac_vec = [i,j,k] - supercell_size/2
+          frac_vec = vec([i,j,k] - supercell_size/2)
         else
-          frac_vec = [i,j,k]
+          frac_vec = vec([i,j,k])
         endif
         
         ! Transform to scaled fractional supercell co-ordinates.

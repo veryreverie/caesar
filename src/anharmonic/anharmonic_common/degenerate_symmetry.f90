@@ -231,7 +231,7 @@ function calculate_symmetry(this,input,modes,include_coefficients) &
     enddo
   enddo
   
-  output = symmetry
+  output = mat(symmetry)
 end function
 
 function transform_monomial(this,input,modes) result(output)

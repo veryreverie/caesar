@@ -67,9 +67,6 @@ module polynomial_potential_module
     procedure, public :: set_coefficients => &
                        & set_coefficients_PolynomialPotential
     
-    procedure, public :: iterate_damped => iterate_damped_PolynomialPotential
-    procedure, public :: iterate_pulay => iterate_pulay_PolynomialPotential
-    
     ! I/O.
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
@@ -915,108 +912,6 @@ function harmonic_expectation_PolynomialPotential(this,frequency, &
        &                                                   thermal_energy, &
        &                                                   subspace,       &
        &                                                   anharmonic_data ))
-end function
-
-! Generates the next iteration of the potential, either following a damped
-!    iterative scheme or a pulay scheme.
-impure elemental function iterate_damped_PolynomialPotential(this, &
-   & new_potential,damping,anharmonic_data) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  class(PotentialData),       intent(in) :: new_potential
-  real(dp),                   intent(in) :: damping
-  type(AnharmonicData),       intent(in) :: anharmonic_data
-  type(PotentialPointer)                 :: output
-  
-  type(PolynomialPotential) :: poly_potential
-  
-  type(PolynomialPotential) :: potential
-  
-  integer :: i
-  
-  poly_potential = PolynomialPotential(new_potential)
-  
-  if (size(this%basis_functions_)/=size(poly_potential%basis_functions_)) then
-    call err()
-  endif
-  potential = this
-  potential%reference_energy = damping*this%reference_energy &
-                           & + (1-damping)*poly_potential%reference_energy
-  do i=1,size(potential%basis_functions_)
-    if (    size(this%basis_functions_(i))           &
-       & /= size(poly_potential%basis_functions_(i)) ) then
-      call err()
-    endif
-    call potential%basis_functions_(i)%set_coefficients(                   &
-       &   damping * this%basis_functions_(i)%coefficients()               &
-       & + (1-damping) * poly_potential%basis_functions_(i)%coefficients() )
-  enddo
-  
-  output = PotentialPointer(potential)
-end function
-
-function iterate_pulay_PolynomialPotential(this,input_potentials, &
-   & output_potentials,anharmonic_data) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  type(PotentialPointer),     intent(in) :: input_potentials(:)
-  type(PotentialPointer),     intent(in) :: output_potentials(:)
-  type(AnharmonicData),       intent(in) :: anharmonic_data
-  type(PotentialPointer)                 :: output
-  
-  type(RealVector), allocatable :: input_coefficients(:)
-  type(RealVector), allocatable :: output_coefficients(:)
-  real(dp),         allocatable :: pulay_coefficients(:)
-  
-  type(PolynomialPotential), allocatable :: input_potential
-  type(PolynomialPotential), allocatable :: output_potential
-  
-  type(PolynomialPotential) :: potential
-  
-  integer :: i,j,ialloc
-  
-  if (size(input_potentials)/=size(output_potentials)) then
-    call err()
-  endif
-  
-  potential = this
-  
-  ! Convert previous potential iterations to vectors of coefficients.
-  allocate( input_coefficients(size(input_potentials)),  &
-          & output_coefficients(size(input_potentials)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(input_potentials)
-    input_potential = PolynomialPotential(input_potentials(i))
-    input_coefficients(i) = vec([(                           &
-       & input_potential%basis_functions_(j)%coefficients(), &
-       & j=1,                                                &
-       & size(input_potential%basis_functions_)              )])
-    
-    output_potential = PolynomialPotential(output_potentials(i))
-    output_coefficients(i) = vec([(                           &
-       & output_potential%basis_functions_(j)%coefficients(), &
-       & j=1,                                                 &
-       & size(output_potential%basis_functions_)              )])
-  enddo
-  
-  ! Use a Pulay scheme to construct the next set of coefficients.
-  pulay_coefficients = dble(pulay( input_coefficients, &
-                                 & output_coefficients ))
-  
-  ! Set the output coefficients from the Pulay coefficients.
-  j = 0
-  do i=1,size(potential%basis_functions_)
-    call potential%basis_functions_(i)%set_coefficients(                &
-        & pulay_coefficients(j+1:j+size(potential%basis_functions_(i))) )
-    j = j + size(potential%basis_functions_(i))
-  enddo
-  if (j/=size(pulay_coefficients)) then
-    call err()
-  endif
-  
-  output = PotentialPointer(potential)
 end function
 
 function coefficients_PolynomialPotential(this) result(output)

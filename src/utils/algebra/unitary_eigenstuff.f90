@@ -86,11 +86,11 @@ function diagonalise_orthogonal_reals(input,order) result(output)
   
   ! C = (M+M^T)/2 is a symmetric matrix. C.x = cos(2*pi*phase/n).x .
   ! cos(2*pi*c/n) = cos(2*pi*phase/n).
-  cos_matrix = (input + transpose(input))/2.0_dp
+  cos_matrix = mat((input + transpose(input))/2.0_dp)
   
   ! S = (M-m^T)/2i is a Hermitian matrix. S.x = sin(2*pi*phase/n).x .
   ! sin(2*pi*s/n) = sin(2*pi*phase/n).
-  sin_matrix = (input - transpose(input))/cmplx(0.0_dp,2.0_dp,dp)
+  sin_matrix = mat((input - transpose(input))/cmplx(0.0_dp,2.0_dp,dp))
   
   ! Find the eigenstuff of C, and use it to calculate {c}.
   ! N.B. phase may be c or order - c.
@@ -118,7 +118,7 @@ function diagonalise_orthogonal_reals(input,order) result(output)
     ! N.B. S is Hermitian and purely imaginary.
     allocate(degenerate_cos_basis(size(ids)), stat=ialloc); call err(ialloc)
     do i=1,size(ids)
-      degenerate_cos_basis(i) = cmplx(cos_estuff(ids(i))%evec, 0.0_dp, dp)
+      degenerate_cos_basis(i) = vec(cmplx(cos_estuff(ids(i))%evec, 0.0_dp, dp))
     enddo
     sin_estuff = diagonalise_hermitian(sin_matrix,degenerate_cos_basis)
     deallocate(degenerate_cos_basis, stat=ialloc); call err(ialloc)

@@ -382,7 +382,7 @@ subroutine read_UniqueDirection(this,input)
     
     ! Read in displacement.
     line = split_line(input(3))
-    atomic_displacement = dble(line(3:5))
+    atomic_displacement = vec(dble(line(3:5)))
     
     this = UniqueDirection(atom_id,direction,atomic_displacement)
   class default

@@ -766,6 +766,8 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
   real(dp),                  allocatable :: hamiltonian(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
+  type(WavevectorState), allocatable :: wavevector_states(:)
+  
   integer :: i,j,k,ialloc
   
   allocate( hamiltonian( size(this%harmonic_states_),    &
@@ -789,14 +791,16 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
   
   estuff = diagonalise_symmetric(hamiltonian)
   
+  wavevector_states = [( WavevectorState( this%subspace_id,    &
+                      &                   this%wavevector,     &
+                      &                   estuff(i)%evec    ), &
+                      & i=1,                                   &
+                      & size(estuff)                           )]
+  
   ! TODO: Why is this multiplied by sqrt(N)???
-  output = WavevectorStates( [( WavevectorState( this%subspace_id,      &
-     &                                           this%wavevector,       &
-     &                                           estuff(i)%evec),       &
-     &                           i=1,                                   &
-     &                           size(estuff)                       )], &
-     &   estuff%eval                                                    &
-     & * sqrt(1.0_dp*anharmonic_data%anharmonic_supercell%sc_size)      )
+  output = WavevectorStates(                                                 &
+     & wavevector_states,                                                    &
+     & estuff%eval*sqrt(1.0_dp*anharmonic_data%anharmonic_supercell%sc_size) )
 end function
 
 ! ----------------------------------------------------------------------

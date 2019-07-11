@@ -228,7 +228,7 @@ function basis_conversion_matrix_ComplexMonomials_RealMonomials(this,that, &
     enddo
   enddo
   
-  output = matrix
+  output = mat(matrix)
 end function
 
 function basis_conversion_matrix_RealMonomials_ComplexMonomials(this,that, &
@@ -251,7 +251,7 @@ function basis_conversion_matrix_RealMonomials_ComplexMonomials(this,that, &
     enddo
   enddo
   
-  output = matrix
+  output = mat(matrix)
 end function
 
 ! ----------------------------------------------------------------------

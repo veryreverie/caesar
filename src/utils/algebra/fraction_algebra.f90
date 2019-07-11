@@ -347,7 +347,7 @@ impure elemental function intvec_FractionVector(input) result(output)
   type(FractionVector), intent(in) :: input
   type(IntVector)                  :: output
   
-  output = int(frac(input))
+  output = vec(int(frac(input)))
 end function
 
 impure elemental function intmat_FractionMatrix(input) result(output)
@@ -356,7 +356,7 @@ impure elemental function intmat_FractionMatrix(input) result(output)
   type(FractionMatrix), intent(in) :: input
   type(IntMatrix)                  :: output
   
-  output = int(frac(input))
+  output = mat(int(frac(input)))
 end function
 
 impure elemental function dblevec_FractionVector(input) result(output)
@@ -365,7 +365,7 @@ impure elemental function dblevec_FractionVector(input) result(output)
   type(FractionVector), intent(in) :: input
   type(RealVector)                 :: output
   
-  output = dble(frac(input))
+  output = vec(dble(frac(input)))
 end function
 
 impure elemental function dblemat_FractionMatrix(input) result(output)
@@ -374,7 +374,7 @@ impure elemental function dblemat_FractionMatrix(input) result(output)
   type(FractionMatrix), intent(in) :: input
   type(RealMatrix)                 :: output
   
-  output = dble(frac(input))
+  output = mat(dble(frac(input)))
 end function
 
 ! Properties of the vectors and matrices.

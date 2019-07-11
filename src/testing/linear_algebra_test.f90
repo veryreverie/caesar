@@ -25,8 +25,8 @@ subroutine linear_algebra_test(arguments)
   call print_line('')
   call print_line('Testing linear algebra.')
   
-  iv1 = [ 2,3,-1 ]
-  iv2 = [ 1,-2,3 ]
+  iv1 = vec([ 2,3,-1 ])
+  iv2 = vec([ 1,-2,3 ])
   
   if (iv1/=iv1) then
     call err()
@@ -38,8 +38,8 @@ subroutine linear_algebra_test(arguments)
     call err()
   endif
   
-  rv1 = [ 1.0_dp, 0.5_dp, -1.0_dp ]
-  rv2 = [ 3.0_dp, -0.3_dp, 1.0_dp ]
+  rv1 = vec([ 1.0_dp, 0.5_dp, -1.0_dp ])
+  rv2 = vec([ 3.0_dp, -0.3_dp, 1.0_dp ])
   
   if (abs(rv1*rv2-1.85_dp)>1.0e-10_dp) then
     call err()
@@ -95,8 +95,8 @@ subroutine linear_algebra_test(arguments)
     call err()
   endif
   
-  rv1 = [ 1.0_dp, 0.5_dp, -1.0_dp ]
-  rv2 = [ 3.0_dp, -0.3_dp, 1.0_dp ]
+  rv1 = vec([ 1.0_dp, 0.5_dp, -1.0_dp ])
+  rv2 = vec([ 3.0_dp, -0.3_dp, 1.0_dp ])
   rm2 = outer_product(rv1,rv2) - mat([  3.0_dp,  1.5_dp , -3.0_dp, &
                                      & -0.3_dp, -0.15_dp,  0.3_dp, &
                                      &  1.0_dp,  0.5_dp , -1.0_dp  ], 3,3)

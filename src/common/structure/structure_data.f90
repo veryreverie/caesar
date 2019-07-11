@@ -636,8 +636,8 @@ subroutine read_StructureData(this,input)
               & gvectors(sc_size), &
               & stat=ialloc); call err(ialloc)
       do i=1,sc_size
-        rvectors(i) = int(split_line(input(rvectors_line+i)))
-        gvectors(i) = int(split_line(input(gvectors_line+i)))
+        rvectors(i) = IntVector(input(rvectors_line+i))
+        gvectors(i) = IntVector(input(gvectors_line+i))
       enddo
     endif
     
@@ -669,10 +669,10 @@ subroutine read_StructureData(this,input)
           call err()
         endif
       endif
-      positions(prim,rvec)   = dble(line(3:5))
+      positions(prim,rvec) = vec(dble(line(3:5)))
       species2(atom) = line(1)
       masses2(atom) = dble(line(2))
-      positions2(atom)       = dble(line(3:5))
+      positions2(atom) = vec(dble(line(3:5)))
       atom_rvector_ids(atom) = rvec
       atom_prim_ids(atom) = prim
     enddo

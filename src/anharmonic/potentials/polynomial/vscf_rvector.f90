@@ -50,7 +50,7 @@ subroutine read_VscfRvector(this,input)
   select type(this); type is(VscfRvector)
     line = split_line(input)
     subspace_id = int(line(2))
-    rvector = int(line(4:6))
+    rvector = vec(int(line(4:6)))
     
     this = VscfRvector(subspace_id,rvector)
   end select

@@ -45,10 +45,10 @@ subroutine update_basis_functions_subroutine(arguments)
   
   type(String) :: coupling_dir
   
-  type(IFile)                   :: basis_function_ifile
-  type(StringArray, allocatable :: sections(:)
-  type(OFile)                   :: basis_function_ofile
-  type(String)                  :: new_line
+  type(IFile)                    :: basis_function_ifile
+  type(StringArray), allocatable :: sections(:)
+  type(OFile)                    :: basis_function_ofile
+  type(String)                   :: new_line
   
   type(String), allocatable :: line(:)
   

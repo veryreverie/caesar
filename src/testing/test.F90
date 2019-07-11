@@ -11,7 +11,16 @@ module test_module
   private
   
   public :: startup_test
+  
+  type :: TT
+    integer :: x
+  end type
+  
+#define MACRO_TYPE_NAME TT
+#include "array_operations.fpp"
 contains
+#define MACRO_BODY
+#include "array_operations.fpp"
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
@@ -38,6 +47,15 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  call pulay_solver_example()
+  type(TT), allocatable :: a(:)
+  
+  a = [TT(1), TT(3)]
+  call print_line(a%x)
+  
+  call append(a, TT(5))
+  call print_line(a%x)
+  
+  call append(a, a)
+  call print_line(a%x)
 end subroutine
 end module

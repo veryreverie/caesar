@@ -138,7 +138,7 @@ function read_input_file_qe(filename) result(output)
     do i=1,size(species)
       line = split_line(qe_file%atomic_positions(i+1))
       species(i) = line(1)
-      positions(i) = dble(line(2:4))
+      positions(i) = vec(dble(line(2:4)))
     enddo
   elseif ( line(2)=='angstrom'   .or. &
          & line(2)=='(angstrom)' .or. &
@@ -149,7 +149,7 @@ function read_input_file_qe(filename) result(output)
     do i=1,size(species)
       line = split_line(qe_file%atomic_positions(i+1))
       species(i) = line(1)
-      positions(i) = dble(line(2:4)) / ANGSTROM_PER_BOHR
+      positions(i) = vec(dble(line(2:4)) / ANGSTROM_PER_BOHR)
     enddo
   elseif ( line(2)=='crystal'   .or. &
          & line(2)=='(crystal)' .or. &
@@ -160,7 +160,7 @@ function read_input_file_qe(filename) result(output)
     do i=1,size(species)
       line = split_line(qe_file%atomic_positions(i+1))
       species(i) = line(1)
-      positions(i) = dble(line(2:4))
+      positions(i) = vec(dble(line(2:4)))
       positions(i) = transpose(lattice) * positions(i)
     enddo
   elseif ( line(2)=='crystal_sg'   .or. &
@@ -413,7 +413,7 @@ function read_output_file_qe(directory,seedname,structure,use_forces, &
         call quit()
       endif
       
-      forces_elements(j) = dble(line(7:9)) / RYDBERG_PER_HARTREE
+      forces_elements(j) = vec(dble(line(7:9)) / RYDBERG_PER_HARTREE)
       forces_found(j) = .true.
     enddo
     

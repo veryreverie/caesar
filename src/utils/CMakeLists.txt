@@ -9,11 +9,14 @@ add_library(utils utils.f90)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/precision precision/)
 target_link_libraries(utils precision)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/clock clock/)
-target_link_libraries(utils clock)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/profiling profiling/)
+target_link_libraries(utils profiling)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/io_basic io_basic/)
 target_link_libraries(utils io_basic)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/macros macros/)
+target_link_libraries(utils macros)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/abstract abstract/)
 target_link_libraries(utils abstract)

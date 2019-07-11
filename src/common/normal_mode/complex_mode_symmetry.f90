@@ -53,7 +53,7 @@ function calculate_symmetry_in_normal_coordinates_qpoint(modes,qpoint, &
     enddo
   enddo
   
-  output = dot_products
+  output = mat(dot_products)
 end function
 
 ! Takes {q1}, {u1}, {q2}, {u2} and S. Outputs {u2.S.u1}.
@@ -104,6 +104,6 @@ function calculate_symmetry_in_normal_coordinates_qpoints(modes,qpoints, &
     enddo
   enddo
   
-  output = dot_products
+  output = mat(dot_products)
 end function
 end module

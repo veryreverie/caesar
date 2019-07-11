@@ -219,11 +219,11 @@ subroutine assign_BasicStructure_Atoms(output,input)
   
   integer :: i,ialloc
   
-  lattice = transpose(input%lattice) / ANGSTROM_PER_BOHR
+  lattice = mat(transpose(input%lattice) / ANGSTROM_PER_BOHR)
   
   allocate(positions(size(input%z)), stat=ialloc); call err(ialloc)
   do i=1,size(positions)
-    positions(i) = input%pos(:,i) / ANGSTROM_PER_BOHR
+    positions(i) = vec(input%pos(:,i) / ANGSTROM_PER_BOHR)
   enddo
   
   output = BasicStructure( lattice,                             &

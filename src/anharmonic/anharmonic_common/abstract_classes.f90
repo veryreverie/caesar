@@ -208,13 +208,6 @@ module abstract_classes_module
        & coefficients
     procedure(set_coefficients_PotentialData), public, deferred :: &
        & set_coefficients
-    
-    ! Update the potential from previous iterations, either using damped
-    !    iteration or a Pulay scheme.
-    procedure(iterate_damped_PotentialData), public, deferred :: &
-       & iterate_damped
-    procedure(iterate_pulay_PotentialData), public, deferred :: &
-       & iterate_pulay
   end type
   
   type, extends(PotentialData) :: PotentialPointer
@@ -260,11 +253,6 @@ module abstract_classes_module
                        & coefficients_PotentialPointer
     procedure, public :: set_coefficients => &
                        & set_coefficients_PotentialPointer
-    
-    procedure, public :: iterate_damped => &
-                       & iterate_damped_PotentialPointer
-    procedure, public :: iterate_pulay => &
-                       & iterate_pulay_PotentialPointer
     
     ! I/O.
     procedure, public :: read  => read_PotentialPointer
@@ -760,35 +748,6 @@ module abstract_classes_module
       class(PotentialData), intent(inout) :: this
       real(dp),             intent(in)    :: coefficients(:)
     end subroutine
-    
-    impure elemental function iterate_damped_PotentialData(this, &
-       & new_potential,damping,anharmonic_data) result(output)
-      import PotentialData
-      import dp
-      import AnharmonicData
-      import PotentialPointer
-      implicit none
-      
-      class(PotentialData), intent(in)  :: this
-      class(PotentialData), intent(in)  :: new_potential
-      real(dp),             intent(in)  :: damping
-      type(AnharmonicData), intent(in)  :: anharmonic_data
-      type(PotentialPointer)            :: output
-    end function
-    
-    function iterate_pulay_PotentialData(this,input_potentials, &
-       & output_potentials,anharmonic_data) result(output)
-      import PotentialData
-      import PotentialPointer
-      import AnharmonicData
-      implicit none
-      
-      class(PotentialData),   intent(in)  :: this
-      type(PotentialPointer), intent(in)  :: input_potentials(:)
-      type(PotentialPointer), intent(in)  :: output_potentials(:)
-      type(AnharmonicData),   intent(in)  :: anharmonic_data
-      type(PotentialPointer)              :: output
-    end function
     
     ! StressData procedures.
     impure elemental function representation_StressData() result(output)
@@ -1584,51 +1543,6 @@ subroutine set_coefficients_PotentialPointer(this,coefficients)
   
   call this%potential_%set_coefficients(coefficients)
 end subroutine
-
-! Generates the next iteration of the potential, either following a damped
-!    iterative scheme or a pulay scheme.
-impure elemental function iterate_damped_PotentialPointer(this,new_potential, &
-   & damping,anharmonic_data) result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  class(PotentialData),    intent(in) :: new_potential
-  real(dp),                intent(in) :: damping
-  type(AnharmonicData),    intent(in) :: anharmonic_data
-  type(PotentialPointer)              :: output
-  
-  class(PotentialData), allocatable :: potential
-  
-  call this%check()
-  
-  select type(new_potential); type is(PotentialPointer)
-    call new_potential%check()
-    potential = new_potential%potential_
-  class default
-    potential = new_potential
-  end select
-  
-  output = this%potential_%iterate_damped( potential,      &
-                                         & damping,        &
-                                         & anharmonic_data )
-end function
-
-function iterate_pulay_PotentialPointer(this,input_potentials, &
-   & output_potentials,anharmonic_data) result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  type(PotentialPointer),  intent(in) :: input_potentials(:)
-  type(PotentialPointer),  intent(in) :: output_potentials(:)
-  type(AnharmonicData),    intent(in) :: anharmonic_data
-  type(PotentialPointer)              :: output
-  
-  call this%check()
-  
-  output = this%potential_%iterate_pulay( input_potentials,  &
-                                        & output_potentials, &
-                                        & anharmonic_data    )
-end function
 
 ! I/O.
 subroutine read_PotentialPointer(this,input)
