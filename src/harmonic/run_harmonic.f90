@@ -217,7 +217,7 @@ subroutine run_harmonic_subroutine(arguments)
     endif
     
     ! Loop over supercells.
-    run_dirs = [String::]
+    allocate(run_dirs(0), stat=ialloc); call err(ialloc)
     do i=supercells_to_run(1),supercells_to_run(2)
       supercell_dir = 'Supercell_'//left_pad(i,str(no_supercells))
       

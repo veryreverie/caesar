@@ -44,12 +44,14 @@ function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping, &
   real(dp), intent(in) :: initial_input(:)
   type(PulaySolver)    :: this
   
+  integer :: ialloc
+  
   this%pre_pulay_iterations_ = pre_pulay_iterations
   this%pre_pulay_damping_ = pre_pulay_damping
   this%max_pulay_iterations_ = max_pulay_iterations
   
   this%inputs_ = [vec(initial_input)]
-  this%outputs_ = [RealVector::]
+  allocate(this%outputs_(0), stat=ialloc); call err(ialloc)
 end function
 
 function get_input(this) result(output)
@@ -100,7 +102,7 @@ function example_function(input) result(output)
   matrix = mat( [ 1,  0,  0,    &
               &   0,  0,  1,    &
               &   0, -1,  0  ], &
-              & 3, 3)
+              & 3, 3            )
   
   output = dble(matrix*vec(input))
 end function

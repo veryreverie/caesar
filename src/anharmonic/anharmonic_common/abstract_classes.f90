@@ -1871,11 +1871,9 @@ function undisplaced_energy(this) result(output)
   class(PotentialData), intent(in) :: this
   real(dp)                         :: output
   
-  type(RealModeDisplacement) :: zero_displacement
+  type(RealSingleDisplacement) :: zero_displacement(0)
   
-  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
-  
-  output = this%energy(zero_displacement)
+  output = this%energy(RealModeDisplacement(zero_displacement))
 end function
 
 ! ----------------------------------------------------------------------
@@ -1887,10 +1885,8 @@ function undisplaced_stress(this) result(output)
   class(StressData), intent(in) :: this
   type(RealMatrix)              :: output
   
-  type(RealModeDisplacement) :: zero_displacement
+  type(RealSingleDisplacement) :: zero_displacement(0)
   
-  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
-  
-  output = this%stress(zero_displacement)
+  output = this%stress(RealModeDisplacement(zero_displacement))
 end function
 end module

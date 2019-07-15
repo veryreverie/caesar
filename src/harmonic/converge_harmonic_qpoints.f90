@@ -172,7 +172,7 @@ subroutine converge_harmonic_qpoints_subroutine(arguments)
   no_spacings = size(qpoint_spacings)
   
   ! Run calculations.
-  free_energies = [RealVector::]
+  allocate(free_energies(0), stat=ialloc); call err(ialloc)
   converged = .false.
   do i=1,no_spacings
     directory = 'qpoints_'//join(str(qpoint_grids(i)%grid), delimiter='_')

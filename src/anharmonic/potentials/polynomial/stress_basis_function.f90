@@ -153,7 +153,7 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
       & conserve_subspace_momentum=vscf_basis_functions_only )
   
   if (size(complex_monomials)==0) then
-    output = [StressBasisFunction::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
@@ -443,11 +443,9 @@ impure elemental function undisplaced_stress_StressBasisFunction(this) &
   class(StressBasisFunction), intent(in) :: this
   type(RealMatrix)                       :: output
   
-  type(RealModeDisplacement) :: zero_displacement
+  type(RealSingleDisplacement) :: zero_displacement(0)
   
-  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
-  
-  output = this%stress(zero_displacement)
+  output = this%stress(RealModeDisplacement(zero_displacement))
 end function
 
 ! ----------------------------------------------------------------------
@@ -523,10 +521,10 @@ function write_StressBasisFunction(this) result(output)
   class(StressBasisFunction), intent(in) :: this
   type(String), allocatable              :: output(:)
   
-  integer :: i,j
+  integer :: i,j,ialloc
   
   select type(this); type is(StressBasisFunction)
-    output = [String::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     do i=1,3
       do j=1,3
         if (i/=1 .or. j/=1) then

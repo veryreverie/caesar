@@ -90,10 +90,12 @@ function new_VscfRvectors(vscf_rvectors) result(this)
   type(VscfRvector), intent(in), optional :: vscf_rvectors(:)
   type(VscfRvectors)                      :: this
   
+  integer :: ialloc
+  
   if (present(vscf_rvectors)) then
     this%vscf_rvectors = vscf_rvectors
   else
-    this%vscf_rvectors = [VscfRvector::]
+    allocate(this%vscf_rvectors(0), stat=ialloc); call err(ialloc)
   endif
 end function
 
@@ -688,7 +690,7 @@ recursive function list_rvector_permutations(rvector_arrays,vscf_rvectors_in) &
   type(VscfRvectors) :: vscf_rvectors
   type(VscfRvector)  :: vscf_rvector
   
-  integer :: i
+  integer :: i,ialloc
   
   if (present(vscf_rvectors_in)) then
     vscf_rvectors = vscf_rvectors_in
@@ -696,7 +698,7 @@ recursive function list_rvector_permutations(rvector_arrays,vscf_rvectors_in) &
     vscf_rvectors = VscfRvectors()
   endif
   
-  output = [VscfRvectors::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   
   do i=1,size(rvector_arrays(1))
     vscf_rvector = VscfRvector( rvector_arrays(1)%subspace_id, &

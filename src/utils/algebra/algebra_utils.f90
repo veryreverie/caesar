@@ -207,8 +207,8 @@ impure elemental function factorial(input) result(output)
   ! Check that n is small enough that n! is storable as an integer.
   if (input>=size(factorials)) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
-       &integer greater than '//size(factorials)-1//'. This is too large to &
-       &fit in the standard integer type.')
+       &integer greater than '//(size(factorials)-1)//'. This is too large &
+       &to fit in the standard integer type.')
     call err()
   endif
   
@@ -273,8 +273,8 @@ impure elemental function real_factorial(input) result(output)
   ! Check that n is small enough that n! is storable as an dp float.
   if (input>=size(real_factorials)) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
-       &integer greater than '//size(real_factorials)-1//'. This is too large &
-       &to fit in the double-precision real type.')
+       &integer greater than '//(size(real_factorials)-1)//'. This is too &
+       &large to fit in the double-precision real type.')
     call err()
   endif
   
@@ -403,8 +403,8 @@ impure elemental function odd_factorial(input) result(output)
   ! Check that n is small enough that n! is storable as an integer.
   if (input>=size(odd_factorials)) then
     call print_line( ERROR//': Trying to calculate the odd factorial of an &
-       &integer greater than '//size(odd_factorials)-1//'. This is too large &
-       &to fit in the standard integer type.')
+       &integer greater than '//(size(odd_factorials)-1)//'. This is too &
+       &large to fit in the standard integer type.')
     call err()
   endif
   
@@ -471,7 +471,7 @@ impure elemental function real_odd_factorial(input) result(output)
   ! Check that n is small enough that n! is storable as an dp float.
   if (input>=size(real_odd_factorials)) then
     call print_line( ERROR//': Trying to calculate the odd factorial of an &
-       &integer greater than '//size(real_odd_factorials)-1//'. This is too &
+       &integer greater than '//(size(real_odd_factorials)-1)//'. This is too &
        &large to fit in the double-precision real type.')
     call err()
   endif

@@ -307,8 +307,9 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
      & maximum_expansion_order = potential_expansion_order )
     
   ! Loop over the subspace monomials corresponding to the coupling.
-  coupling_basis_functions = [BasisFunction::]
-  coupling_unique_terms = [RealMonomial::]
+  allocate( coupling_basis_functions(0), &
+          & coupling_unique_terms(0),    &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(subspace_monomials)
     ! Generate all basis functions for the subspace monomial.
     basis_functions = generate_basis_functions( subspace_monomials(i),     &
@@ -378,11 +379,9 @@ impure elemental function undisplaced_energy_CouplingBasisFunctions(this) &
   class(CouplingBasisFunctions), intent(in) :: this
   real(dp)                                  :: output
   
-  type(RealModeDisplacement) :: zero_displacement
+  type(RealSingleDisplacement) :: zero_displacement(0)
   
-  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
-  
-  output = this%energy(zero_displacement)
+  output = this%energy(RealModeDisplacement(zero_displacement))
 end function
 
 ! Get and set basis function coefficients.

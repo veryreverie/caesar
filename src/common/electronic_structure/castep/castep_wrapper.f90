@@ -422,7 +422,7 @@ function parse_castep_input_file(filename) result(output)
   positions_block = lines(positions_block_start:positions_block_end)
   masses_block = lines(masses_block_start:masses_block_end)
   if (kpoints_block_start==0) then
-    kpoints_block = [String::]
+    allocate(kpoints_block(0), stat=ialloc); call err(ialloc)
   else
     kpoints_block = lines(kpoints_block_start:kpoints_block_end)
   endif
@@ -446,7 +446,7 @@ function parse_castep_input_file(filename) result(output)
      &    size(kpoints_block)                                    )]))
   
   ! Copy across remainder of file.
-  remainder = [String::]
+  allocate(remainder(0), stat=ialloc); call err(ialloc)
   do i=1,size(lines)
     if (i>=lattice_block_start .and. i<=lattice_block_end) then
       cycle

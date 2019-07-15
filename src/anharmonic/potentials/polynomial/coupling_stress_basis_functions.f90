@@ -239,11 +239,9 @@ impure elemental function undisplaced_stress_CouplingStressBasisFunctions( &
   class(CouplingStressBasisFunctions), intent(in) :: this
   type(RealMatrix)                                :: output
   
-  type(RealModeDisplacement) :: zero_displacement
+  type(RealSingleDisplacement) :: zero_displacement(0)
   
-  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
-  
-  output = this%stress(zero_displacement)
+  output = this%stress(RealModeDisplacement(zero_displacement))
 end function
 
 ! Append another StressCouplingBasisFunctions to this.
@@ -285,7 +283,7 @@ function generate_stress_basis_functions_SubspaceCoupling(coupling,     &
   type(StressBasisFunction), allocatable :: coupling_basis_functions(:)
   type(StressBasisFunction), allocatable :: monomial_basis_functions(:)
   
-  integer :: i
+  integer :: i,ialloc
   
   ! Generate the set of subspace monomials corresponding to the subspace
   !    coupling.
@@ -297,7 +295,7 @@ function generate_stress_basis_functions_SubspaceCoupling(coupling,     &
      & maximum_expansion_order = stress_expansion_order )
   
   ! Loop over the subspace monomials corresponding to the coupling.
-  coupling_basis_functions = [StressBasisFunction::]
+  allocate(coupling_basis_functions(0), stat=ialloc); call err(ialloc)
   do i=1,size(subspace_monomials)
     monomial_basis_functions = generate_stress_basis_functions( &
                                    & subspace_monomials(i),     &

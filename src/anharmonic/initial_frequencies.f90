@@ -142,7 +142,7 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   
   ! Find self-consistent frequencies which minimise the energy.
   input_frequencies = [vec(frequencies)]
-  output_frequencies = [RealVector::]
+  allocate(output_frequencies(0), stat=ialloc); call err(ialloc)
   i = 1
   do
     ! Update the bases to have the output frequencies.
@@ -200,7 +200,8 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
       exit
     endif
     
-    call print_line('Completed self-consistency step '//i-1//'. L2 error: '// &
+    call print_line('Completed self-consistency step '//(i-1)// &
+                   & '. L2 error: '// &
                    & l2_norm(output_frequencies(i-1)-input_frequencies(i-1)) &
                    & //' (Ha).' )
   enddo

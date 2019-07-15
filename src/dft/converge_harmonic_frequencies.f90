@@ -252,12 +252,13 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
   structure = input_file_to_StructureData(file_type, input_filename)
   
   ! Initialise arrays.
-  cutoff_frequencies = [RealVector::]
-  cutoff_free_energies = [RealVector::]
-  kpoint_frequencies = [RealVector::]
-  kpoint_free_energies = [RealVector::]
-  smearing_frequencies = [RealVector::]
-  smearing_free_energies = [RealVector::]
+  allocate( cutoff_frequencies(0),     &
+          & cutoff_free_energies(0),   &
+          & kpoint_frequencies(0),     &
+          & kpoint_free_energies(0),   &
+          & smearing_frequencies(0),   &
+          & smearing_free_energies(0), &
+          & stat=ialloc); call err(ialloc)
   
   ! Calculate spacings, smearings and cutoffs.
   allocate( cutoffs(no_cutoffs),          &
@@ -668,7 +669,7 @@ function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,     &
   
   type(ComplexMode), allocatable :: modes(:)
   
-  integer :: i
+  integer :: i,ialloc
   
   ! Check input.
   if (count([ present(cutoff),      &
@@ -712,7 +713,7 @@ function calculate_frequencies(directory,cutoff,kpoint_grid,smearing,     &
   call call_caesar('calculate_normal_modes', calculate_normal_modes_arguments)
   
   ! Read in normal modes.
-  modes = [ComplexMode::]
+  allocate(modes(0), stat=ialloc); call err(ialloc)
   do i=1,no_qpoints
     qpoint_dir = directory//'/qpoint_'//left_pad(i, str(no_qpoints))
     complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')

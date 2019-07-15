@@ -18,9 +18,11 @@ subroutine startup_check_counter()
   
   type(CaesarMode) :: mode
   
+  integer :: ialloc
+  
   mode%mode_name = 'check_counter'
   mode%description = 'Checks for a gfortran bug with shared counters.'
-  mode%keywords = [KeywordData::]
+  allocate(mode%keywords(0), stat=ialloc); call err(ialloc)
   mode%main_subroutine => check_counter_subroutine
   
   call add_mode(mode)

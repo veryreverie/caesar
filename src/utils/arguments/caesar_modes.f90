@@ -87,7 +87,7 @@ module caesar_modes_module
   end interface
   
   ! An array of modes, which will be populated at startup.
-  type(CaesarModes) :: CAESAR_MODES
+  type(CaesarMode), allocatable :: CAESAR_MODES(:)
   
   interface add_mode
     module procedure add_mode_CaesarMode
@@ -105,7 +105,11 @@ function new_CaesarMode_character(mode) result(this)
   character(*), intent(in) :: mode
   type(CaesarMode)         :: this
   
-  this = CAESAR_MODES%mode(mode)
+  type(CaesarModes) :: modes
+  
+  modes = CaesarModes()
+  
+  this = modes%mode(mode)
 end function
 
 function new_CaesarMode_String(mode) result(this)
@@ -297,11 +301,11 @@ function new_CaesarModes() result(this)
   
   type(CaesarModes) :: this
   
-  if (.not. allocated(CAESAR_MODES%modes_)) then
+  if (.not. allocated(CAESAR_MODES)) then
     call print_line(CODE_ERROR//': CAESAR_MODES has not been allocated.')
     call err()
   else
-    this = CAESAR_MODES
+    this%modes_ = CAESAR_MODES
   endif
 end function
 
@@ -368,14 +372,14 @@ subroutine add_mode_CaesarMode(mode)
   
   type(CaesarMode), intent(in) :: mode
   
-  if (.not. allocated(CAESAR_MODES%modes_)) then
-    CAESAR_MODES%modes_ = [mode]
+  if (.not. allocated(CAESAR_MODES)) then
+    CAESAR_MODES = [mode]
   else
-    if (any(CAESAR_MODES%modes_%mode_name==mode%mode_name)) then
+    if (any(CAESAR_MODES%mode_name==mode%mode_name)) then
       call print_line(CODE_ERROR//': Trying to add the same mode twice.')
       call err()
     else
-      CAESAR_MODES%modes_ = [CAESAR_MODES%modes_, mode]
+      CAESAR_MODES = [CAESAR_MODES, mode]
     endif
   endif
 end subroutine

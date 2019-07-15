@@ -92,7 +92,7 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
   
   integer :: i,j,k,ialloc
   
-  vscf_steps = [VscfStep::]
+  allocate(vscf_steps(0), stat=ialloc); call err(ialloc)
   
   ! Generate initial states,
   !    and use these states to generate initial potentials.

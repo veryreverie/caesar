@@ -169,7 +169,10 @@ recursive function new_SplitQpointsBasis_SubspaceBasis(input) result(this)
   select type(input); type is(SplitQpointsBasis)
     this = input
   type is(SubspaceBasisPointer)
-    this = SplitQpointsBasis(input%basis())
+    ! WORKAROUND: ifort doesn't recognise the interface to this function
+    !    from within this function, so the full name is used instead.
+    !this = SplitQpointsBasis(input%basis())
+    this = new_SplitQpointsBasis_SubspaceBasis(input%basis())
   class default
     call err()
   end select
@@ -285,7 +288,7 @@ function ground_state_wavefunction(this,subspace,supercell) result(output)
   real(dp)                  :: coefficient
   type(String), allocatable :: terms(:)
   
-  integer :: i
+  integer :: i,ialloc
   
   ! Calculate the (geometric) average mass.
   mass = product(supercell%atoms%mass())
@@ -293,7 +296,7 @@ function ground_state_wavefunction(this,subspace,supercell) result(output)
   
   ! Calculate the coefficient.
   coefficient = 1
-  terms = [String::]
+  allocate(terms(0), stat=ialloc); call err(ialloc)
   do i=1,size(subspace)
     if (subspace%mode_ids(i)==subspace%paired_ids(i)) then
       ! |0_i> = sqrt(sqrt(m*w/pi)) exp(- 1/2 N w (u_i)^2 )
@@ -380,7 +383,7 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   
   integer :: first_pulay_step
   
-  integer :: i,j
+  integer :: i,j,ialloc
   
   ! Generate initial states,
   !    and use these states to generate initial potential.
@@ -405,7 +408,7 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
                       & initial_input = input_potential%coefficients() )
   
   ! Run Pulay scheme.
-  energies = [RealVector::]
+  allocate(energies(0), stat=ialloc); call err(ialloc)
   i = 1
   do
     call input_potential%set_coefficients(solver%get_input())
@@ -475,10 +478,11 @@ impure elemental function calculate_split_states_SplitQpointsBasis(this, &
   
   type(WavevectorStates) :: wavevector_states
   
-  integer :: i,j
+  integer :: i,j,ialloc
   
-  states = [WavevectorState::]
-  energies = [real(dp)::]
+  allocate( states(0),   &
+          & energies(0), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(this%wavevectors)
     wavevector_states = this%wavevectors(i)%calculate_states( &
                                         & subspace_potential, &

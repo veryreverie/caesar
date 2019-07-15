@@ -74,7 +74,10 @@ recursive function new_WavevectorState_BasisState(input) result(this)
   select type(input); type is(WavevectorState)
     this = input
   type is(BasisStatePointer)
-    this = WavevectorState(input%state())
+    ! WORKAROUND: ifort doesn't recognise the interface to this function
+    !    from within this function, so the full name is used instead.
+    !this = WavevectorState(input%state())
+    this = new_WavevectorState_BasisState(input%state())
   class default
     call err()
   end select

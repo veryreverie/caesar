@@ -377,7 +377,7 @@ subroutine converge_cutoff_and_kpoints_subroutine(arguments)
   do i=1,no_kpoints
     kpoint_spacings(i) = average_reciprocal_length &
                      & / (minimum_kpoints + (i-1)*kpoints_step)
-    dir = 'kpoints_'//minimum_kpoints+(i-1)*kpoints_step
+    dir = 'kpoints_'//(minimum_kpoints+(i-1)*kpoints_step)
     castep_file = run_castep( minimum_cutoff,     &
                             & kpoint_spacings(i), &
                             & wd,                 &

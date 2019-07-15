@@ -278,7 +278,7 @@ function new_StructureData(basic_structure,basic_supercell, &
   ! Fill out symmetry information with dummy data.
   this%symmetry_precision = 0.0_dp
   this%space_group = ''
-  this%symmetries = [SymmetryOperator::]
+  allocate(this%symmetries(0), stat=ialloc); call err(ialloc)
 end function
 
 ! ----------------------------------------------------------------------
@@ -333,6 +333,8 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
   type(BasicSymmetry), allocatable :: basic_symmetries(:)
   type(String)                     :: space_group
   
+  integer :: ialloc
+  
   ! Construct basic symmetries from inputs.
   if (present(symmetries)) then
     space_group = ''
@@ -379,7 +381,7 @@ subroutine calculate_symmetry(this,symmetry_precision,symmetries, &
                                       & this%lattice,      &
                                       & this%recip_lattice )
   else
-    this%symmetries = [SymmetryOperator::]
+    allocate(this%symmetries(0), stat=ialloc); call err(ialloc)
   endif
   this%symmetry_precision = symmetry_precision
   this%space_group = space_group

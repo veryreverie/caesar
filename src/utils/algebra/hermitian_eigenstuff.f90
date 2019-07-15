@@ -84,7 +84,7 @@ function diagonalise_symmetric_reals(input,basis) result(output)
   integer :: i,ialloc
   
   if (size(input,1)==0) then
-    output = [SymmetricEigenstuff::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
@@ -96,7 +96,7 @@ function diagonalise_symmetric_reals(input,basis) result(output)
   
   if (present(basis)) then
     if (size(basis)==0) then
-      output = [SymmetricEigenstuff::]
+      allocate(output(0), stat=ialloc); call err(ialloc)
       return
     endif
     
@@ -197,7 +197,7 @@ function diagonalise_hermitian_complexes(input,basis) result(output)
   integer :: i,ialloc
   
   if (size(input,1)==0) then
-    output = [HermitianEigenstuff::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
@@ -209,7 +209,7 @@ function diagonalise_hermitian_complexes(input,basis) result(output)
   
   if (present(basis)) then
     if (size(basis)==0) then
-      output = [HermitianEigenstuff::]
+      allocate(output(0), stat=ialloc); call err(ialloc)
       return
     endif
     
@@ -317,7 +317,7 @@ function diagonalise_complex_complexes(input,basis) result(output)
   integer :: i,ialloc
   
   if (size(input,1)==0) then
-    output = [ComplexEigenstuff::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
@@ -329,7 +329,7 @@ function diagonalise_complex_complexes(input,basis) result(output)
   
   if (present(basis)) then
     if (size(basis)==0) then
-      output = [ComplexEigenstuff::]
+      allocate(output(0), stat=ialloc); call err(ialloc)
       return
     endif
     

@@ -63,10 +63,12 @@ function new_SubspaceCoupling(ids) result(output)
   integer, intent(in), optional :: ids(:)
   type(SubspaceCoupling)        :: output
   
+  integer :: ialloc
+  
   if (present(ids)) then
     output%ids = ids
   else
-    output%ids = [integer::]
+    allocate(output%ids(0), stat=ialloc); call err(ialloc)
   endif
 end function
 
@@ -140,6 +142,8 @@ function generate_coupled_subspaces(subspaces,maximum_coupling_order) &
   
   integer :: coupling_order
   
+  integer :: ialloc
+  
   ! Check input.
   if (maximum_coupling_order<1) then
     call print_line(ERROR//': maximum_coupling_order must be at least 1.')
@@ -149,7 +153,7 @@ function generate_coupled_subspaces(subspaces,maximum_coupling_order) &
   ! Call the helper function once for each coupling order.
   ! Each call returns an array of results, and these arrays are concatenated
   !    together.
-  output = [SubspaceCoupling::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do coupling_order=1,maximum_coupling_order
     output = [ output,                                                &
            &   generate_coupled_subspaces_helper( SubspaceCoupling(), &
@@ -171,9 +175,9 @@ recursive function generate_coupled_subspaces_helper(coupling_in, &
   
   type(SubspaceCoupling) :: coupling
   
-  integer :: i
+  integer :: i,ialloc
   
-  output = [SubspaceCoupling::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
     coupling = coupling_in//subspaces(i)
     if (size(coupling)==coupling_order) then

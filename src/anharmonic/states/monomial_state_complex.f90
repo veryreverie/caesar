@@ -97,7 +97,10 @@ recursive function new_MonomialStateComplex_SubspaceState(input) result(this)
   select type(input); type is(MonomialStateComplex)
     this = input
   type is(SubspaceStatePointer)
-    this = MonomialStateComplex(input%state())
+    ! WORKAROUND: ifort doesn't recognise the interface to this function
+    !    from within this function, so the full name is used instead.
+    !this = MonomialStateComplex(input%state())
+    this = new_MonomialStateComplex_SubspaceState(input%state())
   class default
     call err()
   end select

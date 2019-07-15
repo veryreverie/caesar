@@ -60,6 +60,8 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores,      &
   logical,      intent(in) :: exit_on_error
   logical,      intent(in) :: repeat_calculations
   type(CalculationRunner)  :: this
+  
+  integer :: ialloc
     
   this%file_type_           = file_type
   this%seedname_            = seedname
@@ -73,7 +75,7 @@ function new_CalculationRunner(file_type,seedname,run_script,no_cores,      &
   this%calculate_stress_    = calculate_stress
   this%exit_on_error_       = exit_on_error
   this%repeat_calculations_ = repeat_calculations
-  this%directories_         = [String::]
+  allocate(this%directories_(0), stat=ialloc); call err(ialloc)
 end function
 
 ! Return a list of the directories in which calculations have been run.

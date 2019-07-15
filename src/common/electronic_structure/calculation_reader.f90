@@ -38,10 +38,12 @@ function new_CalculationReader(loto_direction) result(this)
   type(FractionVector), intent(in), optional :: loto_direction
   type(CalculationReader)                    :: this
   
+  integer :: ialloc
+  
   if (present(loto_direction)) then
     this%loto_direction_ = loto_direction
   endif
-  this%directories_ = [String::]
+  allocate(this%directories_(0), stat=ialloc); call err(ialloc)
 end function
 
 ! Return a list of the directories from which calculations have been read.

@@ -39,10 +39,12 @@ function new_CalculationWriter(file_type,seedname) result(this)
   type(String), intent(in) :: seedname
   type(CalculationWriter)  :: this
   
+  integer :: ialloc
+  
   this%file_type_      = file_type
   this%seedname_       = seedname
   this%input_filename_ = make_input_filename(file_type,seedname)
-  this%directories_    = [String::]
+  allocate(this%directories_(0), stat=ialloc); call err(ialloc)
   
   ! Check that the input file exists.
   if (.not. file_exists(this%input_filename_)) then

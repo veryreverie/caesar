@@ -72,8 +72,9 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
   alat = l2_norm(vec([1,0,0])*structure%lattice)
   
   ! Construct species mapping.
-  species = [String::]
-  masses  = [real::]
+  allocate( species(0), &
+          & masses(0),  &
+          & stat=ialloc); call err(ialloc)
   do p1=1,size(structure%atoms)
     atom_species = structure%atoms(p1)%species()
     if (.not. any(atom_species==species)) then

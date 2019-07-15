@@ -109,7 +109,10 @@ recursive function new_HarmonicStateReal_SubspaceState(input) result(this)
   select type(input); type is(HarmonicStateReal)
     this = input
   type is(SubspaceStatePointer)
-    this = HarmonicStateReal(input%state())
+    ! WORKAROUND: ifort doesn't recognise the interface to this function
+    !    from within this function, so the full name is used instead.
+    !this = HarmonicStateReal(input%state())
+    this = new_HarmonicStateReal_SubspaceState(input%state())
   class default
     call err()
   end select

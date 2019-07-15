@@ -767,13 +767,15 @@ impure elemental function force_RealMonomial(this,displacement) result(output)
   !    univariates making up the monomial.
   ! Evaluate and take the derivative of each univariate at the one-mode
   !    component of the vector.
-  powers = [integer::]
-  displacement_ids = [integer::]
-  energies = [real(dp)::]
-  forces = [RealSingleForce::]
+  allocate( powers(0),           &
+          & displacement_ids(0), &
+          & energies(0),         &
+          & forces(0),           &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(this)
-    id = [integer::]
-    power = [integer::]
+    allocate( id(0),    &
+            & power(0), &
+            & stat=ialloc); call err(ialloc)
     if (this%modes_(i)%id==this%modes_(i)%paired_id) then
       if (this%modes_(i)%power>0) then
         id = [id, this%modes_(i)%id]
@@ -822,6 +824,8 @@ impure elemental function force_RealMonomial(this,displacement) result(output)
       energies = [energies, energy]
       forces = [forces, force]
     enddo
+    
+    deallocate(id, power, stat=ialloc); call err(ialloc)
   enddo
   
   ! Use the Univariate terms to calculate forces along each mode.
@@ -829,12 +833,12 @@ impure elemental function force_RealMonomial(this,displacement) result(output)
     ! If U_i is zero for more than one i, then
     !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
     !    so all derivatives are zero.
-    components = [RealSingleForce::]
+    allocate(components(0), stat=ialloc); call err(ialloc)
   elseif (count(displacement_ids==0)==1) then
     i = first(displacement_ids==0, default=0)
     if (powers(i)>1) then
       ! If n_i>1, then the derivative along u_i is also zero.
-      components = [RealSingleForce::]
+      allocate(components(0), stat=ialloc); call err(ialloc)
     else
       ! If n_i=1, then the derivative is simply c*prod_{j/=i}[ {U_j}^{n_j}
       components = [ this%coefficient                       &
@@ -869,8 +873,10 @@ impure elemental function force_RealPolynomial(this,displacement) &
   class(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                     :: output
   
+  type(RealSingleForce) :: zero_force(0)
+  
   if (size(this)==0) then
-    output = RealModeForce([RealSingleForce::])
+    output = RealModeForce(zero_force)
   else
     output = sum(this%terms%force(displacement))
   endif
@@ -1103,10 +1109,12 @@ function sum_RealPolynomialables(input) result(output)
   class(RealPolynomialable), intent(in) :: input(:)
   type(RealPolynomial)                  :: output
   
+  type(RealMonomial) :: zero_monomial(0)
+  
   integer :: i
   
   if (size(input)==0) then
-    output = RealPolynomial([RealMonomial::])
+    output = RealPolynomial(zero_monomial)
   else
     output = input(1)%to_RealPolynomial()
     do i=2,size(input)
@@ -1323,7 +1331,7 @@ subroutine read_RealMonomial(this,input)
     
     coefficient = dble(line(1))
     
-    modes = [RealUnivariate::]
+    allocate(modes(0), stat=ialloc); call err(ialloc)
     i = 2
     do while (i<=size(line))
       ! Check if line(i) ends in a bracket.

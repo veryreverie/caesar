@@ -261,7 +261,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Read in harmonic normal modes which correspond to anharmonic q-points,
   !    and record which new q-point each corresponds to.
-  complex_modes = [ComplexMode::]
+  allocate(complex_modes(0), stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
     
     ! Identify the matching harmonic q-point.

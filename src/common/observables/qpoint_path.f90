@@ -166,10 +166,11 @@ function new_QpointPath_string(path,total_path_points) result(this)
   ! Parse vertices and edges, segment by segment.
   no_edges = 0
   no_vertices = 0
-  edge_start_vertices = [integer::]
-  edge_end_vertices = [integer::]
-  vertex_labels = [String::]
-  vertex_qpoints = [RealVector::]
+  allocate( edge_start_vertices(0), &
+          & edge_end_vertices(0),   &
+          & vertex_labels(0),       &
+          & vertex_qpoints(0),      &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(segments)
     segment_vertices = tokens(segments(i), delimiter=',')
     if (size(segment_vertices)<2) then

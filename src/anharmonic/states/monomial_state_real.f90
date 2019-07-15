@@ -99,7 +99,10 @@ recursive function new_MonomialStateReal_SubspaceState(input) result(this)
   select type(input); type is(MonomialStateReal)
     this = input
   type is(SubspaceStatePointer)
-    this = MonomialStateReal(input%state())
+    ! WORKAROUND: ifort doesn't recognise the interface to this function
+    !    from within this function, so the full name is used instead.
+    !this = MonomialStateReal(input%state())
+    this = new_MonomialStateReal_SubspaceState(input%state())
   class default
     call err()
   end select
@@ -156,10 +159,12 @@ function generate_monomial_states(subspace,frequency,modes,maximum_power) &
   integer, allocatable    :: ids(:)
   type(MonomialStateReal) :: state
   
+  type(MonomialState1D) :: zero_modes(0)
+  
   ids = subspace%mode_ids(sort(subspace%mode_ids))
-  state = MonomialStateReal( subspace_id = subspace%id,        &
-                           & frequency   = frequency,          &
-                           & modes       = [MonomialState1D::] )
+  state = MonomialStateReal( subspace_id = subspace%id, &
+                           & frequency   = frequency,   &
+                           & modes       = zero_modes   )
   output = generate_monomial_states_helper(ids,maximum_power,state)
 end function
 

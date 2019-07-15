@@ -204,7 +204,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
       & conserve_subspace_momentum=vscf_basis_functions_only )
   
   if (size(complex_monomials)==0) then
-    output = [BasisFunction::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
@@ -578,11 +578,9 @@ impure elemental function undisplaced_energy_BasisFunction(this) result(output)
   class(BasisFunction), intent(in) :: this
   real(dp)                         :: output
   
-  type(RealModeDisplacement) :: zero_displacement
+  type(RealSingleDisplacement) :: zero_displacement(0)
   
-  zero_displacement = RealModeDisplacement([RealSingleDisplacement::])
-  
-  output = this%energy(zero_displacement)
+  output = this%energy(RealModeDisplacement(zero_displacement))
 end function
 
 ! ----------------------------------------------------------------------

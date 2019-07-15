@@ -16,7 +16,7 @@
 
 ! Define concatenation macros for multiple arguments.
 #define MACRO_CAT2(a,b) MACRO_CAT(a,b)
-#define MACRO_CAT3(a,b,c) MACRO_CAT(a,MACRO_CAT(b,c))
+#define MACRO_CAT3(a,b,c) MACRO_CAT(a,MACRO_CAT2(b,c))
 #define MACRO_CAT4(a,b,c,d) MACRO_CAT(a,MACRO_CAT3(b,c,d))
 
 #endif

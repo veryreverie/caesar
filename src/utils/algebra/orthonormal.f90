@@ -53,7 +53,7 @@ function orthonormal_basis_RealVectors(input,shortest_valid, &
   
   ! Return early if nothing to process.
   if (size(input)==0) then
-    output = [RealVector::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
@@ -111,7 +111,7 @@ function orthonormal_basis_ComplexVectors(input,shortest_valid, &
   
   ! Return early if nothing to process.
   if (size(input)==0) then
-    output = [ComplexVector::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
@@ -179,7 +179,7 @@ function intersection_basis_ComplexVectors(a,b) result(output)
   
   ! Return early if nothing to process.
   if (size(a)==0 .or. size(b)==0) then
-    output = [ComplexVector::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   

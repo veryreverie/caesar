@@ -74,8 +74,11 @@ function new_SubspaceMonomial() result(this)
   
   type(SubspaceMonomial) :: this
   
-  this%ids = [integer::]
-  this%powers = [integer::]
+  integer :: ialloc
+  
+  allocate( this%ids(0),    &
+          & this%powers(0), &
+          & stat=ialloc); call err(ialloc)
 end function
 
 function new_SubspaceMonomial_ids_powers(ids,powers) result(this)
@@ -265,6 +268,8 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
   
   type(SubspaceMonomial) :: monomial
   
+  integer :: ialloc
+  
   ! If there are no more subspaces to append, return the monomial,
   !    but only if its size is at least minimum_expansion_order.
   ! Size 1 monomials are ignored because they correspond to linear terms in the
@@ -274,7 +279,7 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
       call print_line(CODE_ERROR//': Empty subspace coupling.')
       call err()
     elseif (sum(monomial_in%powers)<minimum_expansion_order) then
-      output = [SubspaceMonomial::]
+      allocate(output(0), stat=ialloc); call err(ialloc)
     else
       output = [monomial_in]
     endif
@@ -297,7 +302,7 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
     monomial = SubspaceMonomial()
   endif
   
-  output = [SubspaceMonomial::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do while(    sum(monomial%powers)+size(coupled_subspaces) &
           & <= maximum_expansion_order                      )
     monomial = monomial // first_subspace
@@ -328,7 +333,8 @@ function generate_complex_monomials(this,subspaces,modes,qpoints, &
   logical,                  intent(in) :: conserve_subspace_momentum
   type(ComplexMonomial), allocatable   :: output(:)
   
-  type(ComplexMonomial) :: root
+  type(ComplexUnivariate) :: zero_univariate(0)
+  type(ComplexMonomial)   :: root
   
   type(DegenerateSubspace)       :: subspace
   type(ComplexMode), allocatable :: subspace_modes(:)
@@ -338,12 +344,12 @@ function generate_complex_monomials(this,subspaces,modes,qpoints, &
   integer :: i,j,k,ialloc
   
   if (size(this)==0) then
-    output = [ComplexMonomial::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
-  root = ComplexMonomial( coefficient=cmplx(1.0_dp,0.0_dp,dp), &
-                        & modes=[ComplexUnivariate::]          )
+  root = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                        & modes       = zero_univariate          )
   
   do i=1,size(this)
     subspace = subspaces(first(subspaces%id==this%ids(i)))
@@ -398,7 +404,8 @@ function generate_real_monomials(this,subspaces,modes,qpoints) result(output)
   type(QpointData),         intent(in) :: qpoints(:)
   type(RealMonomial), allocatable      :: output(:)
   
-  type(RealMonomial) :: root
+  type(RealUnivariate) :: zero_univariate(0)
+  type(RealMonomial)   :: root
   
   type(DegenerateSubspace)    :: subspace
   type(RealMode), allocatable :: subspace_modes(:)
@@ -408,11 +415,11 @@ function generate_real_monomials(this,subspaces,modes,qpoints) result(output)
   integer :: i,j,k,ialloc
   
   if (size(this)==0) then
-    output = [RealMonomial::]
+    allocate(output(0), stat=ialloc); call err(ialloc)
     return
   endif
   
-  root = RealMonomial(coefficient=1.0_dp, modes=[RealUnivariate::])
+  root = RealMonomial(coefficient=1.0_dp, modes=zero_univariate)
   
   do i=1,size(this)
     subspace = subspaces(first(subspaces%id==this%ids(i)))
@@ -515,9 +522,9 @@ function no_permutations(input) result(output)
   
   integer, allocatable :: powers(:)
   
-  integer :: i
+  integer :: i,ialloc
   
-  powers = [integer::]
+  allocate(powers(0), stat=ialloc); call err(ialloc)
   select type(input); type is (ComplexMonomial)
     do i=1,size(input)
       powers = [powers, input%power(i)]

@@ -324,12 +324,12 @@ subroutine converge_qpoint_grid_subroutine(arguments)
                call print_line(ERROR//': Copying file failed.')
             endif
             freqfile1=IFile(dir//'/normal_mode_freq2')
-            copyfile='cp grid_'//i-1//'/normal_mode_freq grid_'//i-1//'/normal_mode_freq2'
+            copyfile='cp grid_'//(i-1)//'/normal_mode_freq grid_'//(i-1)//'/normal_mode_freq2'
             result_code=system_call(copyfile)
             if (result_code/=0) then
                call print_line(ERROR//': Coping file failed.')
             endif
-            freqfile2=IFile('grid_'//i-1//'/normal_mode_freq2')
+            freqfile2=IFile('grid_'//(i-1)//'/normal_mode_freq2')
             max_val=0.0_dp
             do j=1,size(freqfile1)
                var1char=char(freqfile1%line(j))
@@ -342,7 +342,9 @@ subroutine converge_qpoint_grid_subroutine(arguments)
                endif
             enddo
 
-            call freq_conv%print_line( 'qpoint grid changed from '//i-1//' '//i-1//' '//i-1//' to '//i//' '//i//' '//i)
+            call freq_conv%print_line( 'qpoint grid changed from '// &
+                                     & (i-1)//' '//(i-1)//' '//(i-1)// &
+                                     & ' to '//i//' '//i//' '//i)
             call freq_conv%print_line( 'Maximum frequency change: '//max_val)
 
             if (max_val<freq_tolerance) then
@@ -362,7 +364,7 @@ subroutine converge_qpoint_grid_subroutine(arguments)
             if (result_code/=0) then
                call print_line(ERROR//': Removing file failed.')
             endif
-            rmfile='rm grid_'//i-1//'/normal_mode_freq2'
+            rmfile='rm grid_'//(i-1)//'/normal_mode_freq2'
             result_code=system_call(rmfile)
             if (result_code/=0) then
                call print_line(ERROR//': Removing file failed.')
@@ -376,12 +378,12 @@ subroutine converge_qpoint_grid_subroutine(arguments)
                   call print_line(ERROR//': Copying file failed.')
                endif
                enfile1=IFile(dir//'/free_energies2')
-               copyfile='cp grid_'//i-1//'/free_energies grid_'//i-1//'/free_energies2'
+               copyfile='cp grid_'//(i-1)//'/free_energies grid_'//(i-1)//'/free_energies2'
                result_code=system_call(copyfile)
                if (result_code/=0) then
                   call print_line(ERROR//': Coping file failed.')
                endif
-               enfile2=IFile('grid_'//i-1//'/free_energies2')
+               enfile2=IFile('grid_'//(i-1)//'/free_energies2')
                max_val=0.0_dp
                do j=1,(size(therm_vars)-1)
                   var1char=char(enfile1%line(j))
@@ -394,8 +396,11 @@ subroutine converge_qpoint_grid_subroutine(arguments)
                   endif
                enddo
 
-               call energy_conv%print_line( 'qpoint grid changed from '//i-1//' '//i-1//' '//i-1//' to '//i//' '//i//' '//i)
-               call energy_conv%print_line( 'Maximum free energy change: '//max_val//' Hartree per cell')
+               call energy_conv%print_line( 'qpoint grid changed from '//   &
+                                          & (i-1)//' '//(i-1)//' '//(i-1)// &
+                                          & ' to '//i//' '//i//' '//i       )
+               call energy_conv%print_line( 'Maximum free energy change: '// &
+                                          & max_val//' Hartree per cell')
 
                if (max_val<energy_tolerance) then
                   conv_count2 = conv_count2 + 1
@@ -414,7 +419,7 @@ subroutine converge_qpoint_grid_subroutine(arguments)
                if (result_code/=0) then
                   call print_line(ERROR//': Removing file failed.')
                endif
-               rmfile='rm grid_'//i-1//'/free_energies2'
+               rmfile='rm grid_'//(i-1)//'/free_energies2'
                result_code=system_call(rmfile)
                if (result_code/=0) then
                   call print_line(ERROR//': Removing file failed.')

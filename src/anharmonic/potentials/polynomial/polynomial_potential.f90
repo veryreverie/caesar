@@ -109,7 +109,10 @@ recursive function new_PolynomialPotential_PotentialData(input) result(this)
   select type(input); type is(PolynomialPotential)
     this = input
   type is(PotentialPointer)
-    this = PolynomialPotential(input%potential())
+    ! WORKAROUND: ifort doesn't recognise the interface to this function
+    !    from within this function, so the full name is used instead.
+    !this = PolynomialPotential(input%potential())
+    this = new_PolynomialPotential_PotentialData(input%potential())
   class default
     call err()
   end select
@@ -357,7 +360,7 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
   ! --------------------------------------------------
   
   this%reference_energy = equilibrium_sample_result%energy
-  this%basis_functions_ = [CouplingBasisFunctions::]
+  allocate(this%basis_functions_(0), stat=ialloc); call err(ialloc)
   
   do i=1,size(anharmonic_data%subspace_couplings)
     coefficients = fit_coefficients( basis_functions(i)%basis_functions(), &
@@ -393,6 +396,7 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   type(StressPointer)                       :: output
   
   ! Stress basis functions.
+  type(CouplingStressBasisFunctions)              :: zero_basis_functions(0)
   type(CouplingStressBasisFunctions), allocatable :: basis_functions(:)
   
   ! Electronic structure results.
@@ -449,7 +453,7 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   
   ! Set the un-displaced stress tensor.
   stress = PolynomialStress( equilibrium_sample_result%stress(), &
-                           & [CouplingStressBasisFunctions::]    )
+                           & zero_basis_functions                )
   
   ! Fit basis functions.
   do i=1,size(basis_functions)
@@ -504,7 +508,9 @@ function generate_equilibrium_sampling_point() result(output)
   
   type(RealModeDisplacement) :: output
   
-  output = RealModeDisplacement([RealSingleDisplacement::])
+  type(RealSingleDisplacement) :: zero_displacement(0)
+  
+  output = RealModeDisplacement(zero_displacement)
 end function
 
 ! Reads basis functions.
@@ -540,12 +546,15 @@ function generate_constant_basis_function() result(output)
   type(RealMonomial)    :: constant_real_monomial
   type(ComplexMonomial) :: constant_complex_monomial
   
+  type(RealUnivariate)    :: zero_real(0)
+  type(ComplexUnivariate) :: zero_complex(0)
+  
   constant_real_monomial = RealMonomial( &
       & coefficient = 1.0_dp,            &
-      & modes       = [RealUnivariate::] )
+      & modes       = zero_real          )
   constant_complex_monomial = ComplexMonomial( &
          & coefficient = (1.0_dp,0.0_dp),      &
-         & modes       = [ComplexUnivariate::] )
+         & modes       = zero_complex          )
   output = BasisFunction(                                                     &
      & real_representation = RealPolynomial([constant_real_monomial]),        &
      & complex_representation = ComplexPolynomial([constant_complex_monomial]))

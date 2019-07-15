@@ -367,7 +367,7 @@ function calculate_unique_vectors(supercell,centre_on_origin) result(output)
   
   supercell_size = abs(determinant(supercell))
   
-  frac_vecs = [IntVector::]
+  allocate(frac_vecs(0), stat=ialloc); call err(ialloc)
   repeats = [(gcd([int(supercell%row(i)),supercell_size]),i=1,3)]
   do i=0,supercell_size/repeats(1)-1
     do j=0,supercell_size/repeats(2)-1

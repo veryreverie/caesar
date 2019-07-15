@@ -241,8 +241,9 @@ function choose_basis_complex(input,structure,symmetries,qpoint) &
   endif
   
   output = input
-  used_symmetries = [SymmetryOperator::]
-  used_phases = [IntArray1D::]
+  allocate( used_symmetries(0), &
+          & used_phases(0),     &
+          & stat=ialloc); call err(ialloc)
   ids = [(0,i=1,size(output))]
   phases = [(0,i=1,size(output))]
   max_id = 0
@@ -332,8 +333,9 @@ function choose_basis_real(input,structure,symmetries,qpoint) &
   endif
   
   output = input
-  used_symmetries = [SymmetryOperator::]
-  used_phases = [IntArray1D::]
+  allocate( used_symmetries(0), &
+          & used_phases(0),     &
+          & stat=ialloc); call err(ialloc)
   ids = [(0,i=1,size(output))]
   phases = [(0,i=1,size(output))]
   max_id = 0

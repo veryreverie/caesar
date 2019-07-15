@@ -2,6 +2,10 @@
 ! Assorted linear algebra / vector algebra subroutines.
 ! Includes interfaces for BLAS and LAPACK routines.
 ! ======================================================================
+! N.B. to avoid repeating code with multiple types,
+!    this file is mostly built by the preprocessor.
+! See unary_algebra.fpp and binary_algebra.fpp for
+!    interfaces and function definitions.
 module linear_algebra_module
   use precision_module
   use io_module
@@ -17,45 +21,52 @@ module linear_algebra_module
   public :: IntMatrix
   public :: RealMatrix
   public :: ComplexMatrix
-  public :: vec
-  public :: mat
   public :: zeroes
   public :: make_identity_matrix
-  public :: int
   public :: nint
-  public :: dble
   public :: dblevec
   public :: dblemat
-  public :: cmplx
   public :: cmplxvec
   public :: cmplxmat
-  public :: row_matrix
+  public :: l2_norm
+  public :: abs
   public :: real
   public :: aimag
-  public :: abs
   public :: conjg
-  public :: size
-  public :: trace
-  public :: commutator
-  public :: anticommutator
   public :: matrices_commute
   public :: matrices_anticommute
   public :: operator(==)
   public :: operator(/=)
-  public :: operator(+)
-  public :: operator(-)
-  public :: operator(*)
-  public :: operator(/)
-  public :: sum
-  public :: l2_norm
-  public :: cross_product
-  public :: outer_product
   public :: transpose
   public :: hermitian
   public :: determinant
   public :: invert
   public :: linear_least_squares
   public :: pulay
+  
+  ! Functionality defined in unary_algebra.fpp.
+  public :: int
+  public :: dble
+  public :: cmplx
+  public :: vec
+  public :: mat
+  public :: row_matrix
+  public :: column_matrix
+  public :: size
+  public :: trace
+  public :: sum
+  
+  ! Functionality defined in binary_algebra.fpp.
+  public :: operator(+)
+  public :: operator(*)
+  public :: operator(/)
+  public :: cross_product
+  public :: outer_product
+  public :: commutator
+  public :: anticommutator
+  
+  ! Functionality defined in both unary_algebra.fpp and binary_algebra.fpp.
+  public :: operator(-)
   
   ! --------------------------------------------------
   ! Vector and Matrix classes
@@ -72,10 +83,6 @@ module linear_algebra_module
     procedure, public :: write => write_IntVector
   end type
   
-  interface IntVector
-    module procedure new_IntVector_String
-  end interface
-  
   type, extends(Stringable) :: RealVector
     real(dp), allocatable, private :: contents_(:)
   contains
@@ -87,10 +94,6 @@ module linear_algebra_module
     procedure, public :: write => write_RealVector
   end type
   
-  interface RealVector
-    module procedure new_RealVector_String
-  end interface
-  
   type, extends(Stringable) :: ComplexVector
     complex(dp), allocatable, private :: contents_(:)
   contains
@@ -101,11 +104,6 @@ module linear_algebra_module
     procedure, public :: read  => read_ComplexVector
     procedure, public :: write => write_ComplexVector
   end type
-  
-  interface ComplexVector
-    module procedure new_ComplexVector_String
-  end interface
-  
   
   type, extends(Stringsable) :: IntMatrix
     integer, allocatable, private :: contents_(:,:)
@@ -120,11 +118,6 @@ module linear_algebra_module
     procedure, public :: write => write_IntMatrix
   end type
   
-  interface IntMatrix
-    module procedure new_IntMatrix_Strings
-    module procedure new_IntMatrix_StringArray
-  end interface
-  
   type, extends(Stringsable) :: RealMatrix
     real(dp), allocatable, private :: contents_(:,:)
   contains
@@ -137,11 +130,6 @@ module linear_algebra_module
     procedure, public :: read  => read_RealMatrix
     procedure, public :: write => write_RealMatrix
   end type
-  
-  interface RealMatrix
-    module procedure new_RealMatrix_Strings
-    module procedure new_RealMatrix_StringArray
-  end interface
   
   type, extends(Stringsable) :: ComplexMatrix
     complex(dp), allocatable, private :: contents_(:,:)
@@ -156,56 +144,7 @@ module linear_algebra_module
     procedure, public :: write => write_ComplexMatrix
   end type
   
-  interface ComplexMatrix
-    module procedure new_ComplexMatrix_Strings
-    module procedure new_ComplexMatrix_StringArray
-  end interface
-  
-  ! --------------------------------------------------
-  ! Assignment and retrieval of contents.
-  ! --------------------------------------------------
-  interface assignment(=)
-    module procedure assign_IntVector_integers
-    module procedure assign_RealVector_reals
-    module procedure assign_ComplexVector_complexes
-    module procedure assign_IntMatrix_integers
-    module procedure assign_RealMatrix_reals
-    module procedure assign_ComplexMatrix_complexes
-  end interface
-  
-  interface int
-    module procedure int_IntVector
-    module procedure int_IntMatrix
-  end interface
-  
-  interface dble
-    module procedure dble_RealVector
-    module procedure dble_RealMatrix
-  end interface
-  
-  interface cmplx
-    module procedure cmplx_ComplexVector
-    module procedure cmplx_ComplexMatrix
-  end interface
-  
-  ! --------------------------------------------------
   ! Conversion between types.
-  ! --------------------------------------------------
-  interface vec
-    module procedure vec_integers
-    module procedure vec_reals
-    module procedure vec_complexes
-  end interface
-  
-  interface mat
-    module procedure mat_integers
-    module procedure mat_reals
-    module procedure mat_complexes
-    module procedure mat_integers_shape
-    module procedure mat_reals_shape
-    module procedure mat_complexes_shape
-  end interface
-  
   interface dblevec
     module procedure dblevec_IntVector
   end interface
@@ -226,9 +165,7 @@ module linear_algebra_module
     module procedure cmplxmat_RealMatrices
   end interface
   
-  ! --------------------------------------------------
   ! Comparison and arithmetic.
-  ! --------------------------------------------------
   interface operator(==)
     module procedure equality_IntVector_IntVector
     module procedure equality_IntMatrix_IntMatrix
@@ -239,150 +176,7 @@ module linear_algebra_module
     module procedure non_equality_IntMatrix_IntMatrix
   end interface
   
-  interface operator(+)
-    module procedure add_IntVector_IntVector
-    module procedure add_IntVector_RealVector
-    module procedure add_RealVector_IntVector
-    module procedure add_RealVector_RealVector
-    module procedure add_RealVector_ComplexVector
-    module procedure add_ComplexVector_RealVector
-    module procedure add_ComplexVector_ComplexVector
-    
-    module procedure add_IntMatrix_IntMatrix
-    module procedure add_IntMatrix_RealMatrix
-    module procedure add_RealMatrix_IntMatrix
-    module procedure add_RealMatrix_RealMatrix
-    module procedure add_RealMatrix_ComplexMatrix
-    module procedure add_ComplexMatrix_RealMatrix
-    module procedure add_ComplexMatrix_ComplexMatrix
-  end interface
-  
-  interface operator(-)
-    module procedure negative_IntVector
-    module procedure negative_RealVector
-    module procedure negative_ComplexVector
-    module procedure negative_IntMatrix
-    module procedure negative_RealMatrix
-    module procedure negative_ComplexMatrix
-    
-    module procedure subtract_IntVector_IntVector
-    module procedure subtract_IntVector_RealVector
-    module procedure subtract_RealVector_IntVector
-    module procedure subtract_RealVector_RealVector
-    module procedure subtract_RealVector_ComplexVector
-    module procedure subtract_ComplexVector_RealVector
-    module procedure subtract_ComplexVector_ComplexVector
-    
-    module procedure subtract_IntMatrix_IntMatrix
-    module procedure subtract_IntMatrix_RealMatrix
-    module procedure subtract_RealMatrix_IntMatrix
-    module procedure subtract_RealMatrix_RealMatrix
-    module procedure subtract_RealMatrix_ComplexMatrix
-    module procedure subtract_ComplexMatrix_RealMatrix
-    module procedure subtract_ComplexMatrix_ComplexMatrix
-  end interface
-  
-  interface operator(*)
-    module procedure multiply_IntVector_integer
-    module procedure multiply_integer_IntVector
-    module procedure multiply_IntVector_real
-    module procedure multiply_real_IntVector
-    module procedure multiply_IntVector_complex
-    module procedure multiply_complex_Intvector
-    
-    module procedure multiply_RealVector_integer
-    module procedure multiply_integer_RealVector
-    module procedure multiply_RealVector_real
-    module procedure multiply_real_RealVector
-    module procedure multiply_RealVector_complex
-    module procedure multiply_complex_RealVector
-    
-    module procedure multiply_ComplexVector_integer
-    module procedure multiply_integer_ComplexVector
-    module procedure multiply_ComplexVector_real
-    module procedure multiply_real_ComplexVector
-    module procedure multiply_ComplexVector_complex
-    module procedure multiply_complex_ComplexVector
-    
-    module procedure multiply_IntMatrix_integer
-    module procedure multiply_integer_IntMatrix
-    module procedure multiply_IntMatrix_real
-    module procedure multiply_real_IntMatrix
-    module procedure multiply_IntMatrix_complex
-    module procedure multiply_complex_IntMatrix
-    
-    module procedure multiply_RealMatrix_integer
-    module procedure multiply_integer_RealMatrix
-    module procedure multiply_RealMatrix_real
-    module procedure multiply_real_RealMatrix
-    module procedure multiply_RealMatrix_complex
-    module procedure multiply_complex_RealMatrix
-    
-    module procedure multiply_ComplexMatrix_integer
-    module procedure multiply_integer_ComplexMatrix
-    module procedure multiply_ComplexMatrix_real
-    module procedure multiply_real_ComplexMatrix
-    module procedure multiply_ComplexMatrix_complex
-    module procedure multiply_complex_ComplexMatrix
-    
-    module procedure dot_IntVector_IntVector
-    module procedure dot_IntVector_RealVector
-    module procedure dot_RealVector_IntVector
-    module procedure dot_RealVector_RealVector
-    module procedure dot_RealVector_ComplexVector
-    module procedure dot_ComplexVector_RealVector
-    module procedure dot_ComplexVector_ComplexVector
-    
-    module procedure dot_IntVector_IntMatrix
-    module procedure dot_IntVector_RealMatrix
-    module procedure dot_RealVector_IntMatrix
-    module procedure dot_RealVector_RealMatrix
-    module procedure dot_RealVector_ComplexMatrix
-    module procedure dot_ComplexVector_RealMatrix
-    module procedure dot_ComplexVector_ComplexMatrix
-    
-    module procedure dot_IntMatrix_IntVector
-    module procedure dot_IntMatrix_RealVector
-    module procedure dot_RealMatrix_IntVector
-    module procedure dot_RealMatrix_RealVector
-    module procedure dot_RealMatrix_ComplexVector
-    module procedure dot_ComplexMatrix_RealVector
-    module procedure dot_ComplexMatrix_ComplexVector
-    
-    module procedure dot_IntMatrix_IntMatrix
-    module procedure dot_IntMatrix_RealMatrix
-    module procedure dot_RealMatrix_IntMatrix
-    module procedure dot_RealMatrix_RealMatrix
-    module procedure dot_RealMatrix_ComplexMatrix
-    module procedure dot_ComplexMatrix_RealMatrix
-    module procedure dot_ComplexMatrix_ComplexMatrix
-  end interface
-  
-  interface operator(/)
-    module procedure divide_IntVector_integer
-    module procedure divide_IntVector_real
-    module procedure divide_IntVector_complex
-    module procedure divide_RealVector_integer
-    module procedure divide_RealVector_real
-    module procedure divide_RealVector_complex
-    module procedure divide_ComplexVector_integer
-    module procedure divide_ComplexVector_real
-    module procedure divide_ComplexVector_complex
-    
-    module procedure divide_IntMatrix_integer
-    module procedure divide_IntMatrix_real
-    module procedure divide_IntMatrix_complex
-    module procedure divide_RealMatrix_integer
-    module procedure divide_RealMatrix_real
-    module procedure divide_RealMatrix_complex
-    module procedure divide_ComplexMatrix_integer
-    module procedure divide_ComplexMatrix_real
-    module procedure divide_ComplexMatrix_complex
-  end interface
-  
-  ! --------------------------------------------------
   ! Other operations.
-  ! --------------------------------------------------
   interface zeroes
     module procedure zeroes_IntVector
     module procedure zeroes_IntMatrix
@@ -413,29 +207,6 @@ module linear_algebra_module
     module procedure conjg_ComplexMatrix
   end interface
   
-  interface size
-    module procedure size_IntVector
-    module procedure size_RealVector
-    module procedure size_ComplexVector
-    module procedure size_IntMatrix
-    module procedure size_RealMatrix
-    module procedure size_ComplexMatrix
-  end interface
-  
-  interface trace
-    module procedure trace_IntMatrix
-    module procedure trace_RealMatrix
-    module procedure trace_ComplexMatrix
-  end interface
-  
-  interface commutator
-    module procedure commutator_IntMatrix_IntMatrix
-  end interface
-  
-  interface anticommutator
-    module procedure anticommutator_IntMatrix_IntMatrix
-  end interface
-  
   interface matrices_commute
     module procedure matrices_commute_IntMatrix_IntMatrix
   end interface
@@ -444,34 +215,9 @@ module linear_algebra_module
     module procedure matrices_anticommute_IntMatrix_IntMatrix
   end interface
   
-  interface row_matrix
-    module procedure row_matrix_IntVectors
-    module procedure row_matrix_RealVectors
-    module procedure row_matrix_ComplexVectors
-  end interface
-  
-  interface sum
-    module procedure sum_IntVectors
-    module procedure sum_RealVectors
-    module procedure sum_ComplexVectors
-    module procedure sum_IntMatrices
-    module procedure sum_RealMatrices
-    module procedure sum_ComplexMatrices
-  end interface
-  
   interface l2_norm
     module procedure l2_norm_RealVector
     module procedure l2_norm_ComplexVector
-  end interface
-  
-  interface cross_product
-    module procedure cross_product_IntVector_IntVector
-    module procedure cross_product_RealVector_RealVector
-  end interface
-  
-  interface outer_product
-    module procedure outer_product_RealVector_RealVector
-    module procedure outer_product_ComplexVector_ComplexVector
   end interface
   
   interface transpose
@@ -513,433 +259,6 @@ contains
 #include "linear_algebra_includes.fpp"
 
 ! ----------------------------------------------------------------------
-! Vector and Matrix operations involving the private contents_ variable.
-! ----------------------------------------------------------------------
-! Checking that contents_ is allocated.
-subroutine check_IntVector(this)
-  implicit none
-  
-  class(IntVector), intent(in) :: this
-  
-  if (.not.allocated(this%contents_)) then
-    call print_line(CODE_ERROR//': Trying to use the contents of a vector &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-subroutine check_RealVector(this)
-  implicit none
-  
-  class(RealVector), intent(in) :: this
-  
-  if (.not.allocated(this%contents_)) then
-    call print_line(CODE_ERROR//': Trying to use the contents of a vector &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-subroutine check_ComplexVector(this)
-  implicit none
-  
-  class(ComplexVector), intent(in) :: this
-  
-  if (.not.allocated(this%contents_)) then
-    call print_line(CODE_ERROR//': Trying to use the contents of a vector &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-subroutine check_IntMatrix(this)
-  implicit none
-  
-  class(IntMatrix), intent(in) :: this
-  
-  if (.not.allocated(this%contents_)) then
-    call print_line(CODE_ERROR//': Trying to use the contents of a matrix &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-subroutine check_RealMatrix(this)
-  implicit none
-  
-  class(RealMatrix), intent(in) :: this
-  
-  if (.not.allocated(this%contents_)) then
-    call print_line(CODE_ERROR//': Trying to use the contents of a matrix &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-subroutine check_ComplexMatrix(this)
-  implicit none
-  
-  class(ComplexMatrix), intent(in) :: this
-  
-  if (.not.allocated(this%contents_)) then
-    call print_line(CODE_ERROR//': Trying to use the contents of a matrix &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Assignment.
-subroutine assign_IntVector_integers(output,input)
-  implicit none
-  
-  type(IntVector), intent(out) :: output
-  integer,         intent(in)  :: input(:)
-  
-  output%contents_ = input
-end subroutine
-
-subroutine assign_RealVector_reals(output,input)
-  implicit none
-  
-  type(RealVector), intent(out) :: output
-  real(dp),         intent(in)  :: input(:)
-  
-  output%contents_ = input
-end subroutine
-
-subroutine assign_ComplexVector_complexes(output,input)
-  implicit none
-  
-  type(ComplexVector), intent(out) :: output
-  complex(dp),         intent(in)  :: input(:)
-  
-  output%contents_ = input
-end subroutine
-
-subroutine assign_IntMatrix_integers(output,input)
-  implicit none
-  
-  type(IntMatrix), intent(out) :: output
-  integer,         intent(in)  :: input(:,:)
-  
-  output%contents_ = input
-end subroutine
-
-subroutine assign_RealMatrix_reals(output,input)
-  implicit none
-  
-  type(RealMatrix), intent(out) :: output
-  real(dp),         intent(in)  :: input(:,:)
-  
-  output%contents_ = input
-end subroutine
-
-subroutine assign_ComplexMatrix_complexes(output,input)
-  implicit none
-  
-  type(ComplexMatrix), intent(out) :: output
-  complex(dp),         intent(in)  :: input(:,:)
-  
-  output%contents_ = input
-end subroutine
-
-! Conversion to fundamental types. Effectively getters for contents_.
-function int_IntVector(input) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: input
-  integer, allocatable        :: output(:)
-  
-  if (allocated(input%contents_)) then
-    output = input%contents_
-  else
-    call print_line(CODE_ERROR//': Trying to use the contents of a vector &
-       &before it has been allocated.')
-    call err()
-  endif
-end function
-
-function int_IntMatrix(input) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  integer, allocatable        :: output(:,:)
-  
-  if (allocated(input%contents_)) then
-    output = input%contents_
-  else
-    call print_line(CODE_ERROR//': Trying to use the contents of a matrix &
-       &before it has been allocated.')
-    call err()
-  endif
-end function
-
-function dble_RealVector(input) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: input
-  real(dp), allocatable        :: output(:)
-  
-  if (allocated(input%contents_)) then
-    output = input%contents_
-  else
-    call print_line(CODE_ERROR//': Trying to use the contents of a vector &
-       &before it has been allocated.')
-    call err()
-  endif
-end function
-
-function dble_RealMatrix(input) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: input
-  real(dp), allocatable        :: output(:,:)
-  
-  if (allocated(input%contents_)) then
-    output = input%contents_
-  else
-    call print_line(CODE_ERROR//': Trying to use the contents of a matrix &
-       &before it has been allocated.')
-    call err()
-  endif
-end function
-
-function cmplx_ComplexVector(input) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: input
-  complex(dp), allocatable        :: output(:)
-  
-  if (allocated(input%contents_)) then
-    output = input%contents_
-  else
-    call print_line(CODE_ERROR//': Trying to use the contents of a vector &
-       &before it has been allocated.')
-    call err()
-  endif
-end function
-
-function cmplx_ComplexMatrix(input) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: input
-  complex(dp), allocatable        :: output(:,:)
-  
-  if (allocated(input%contents_)) then
-    output = input%contents_
-  else
-    call print_line(CODE_ERROR//': Trying to use the contents of a matrix &
-       &before it has been allocated.')
-    call err()
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! N.B. the number of procedures accessing contents_ directly is intentionally
-!    limited for stability reasons.
-! The above procedures behave well if contents_ has not been allocated,
-!    and this good behaviour is automatically passed to the procedures below.
-! ----------------------------------------------------------------------
-
-! ----------------------------------------------------------------------
-! Getters for elements, rows and columns.
-! ----------------------------------------------------------------------
-impure elemental function element_IntVector(this,i) result(output)
-  implicit none
-  
-  class(IntVector), intent(in) :: this
-  integer,          intent(in) :: i
-  integer                      :: output
-  
-  if (i>0 .and. i<=size(this)) then
-    output = this%contents_(i)
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the vector.')
-    call err()
-  endif
-end function
-
-impure elemental function element_RealVector(this,i) result(output)
-  implicit none
-  
-  class(RealVector), intent(in) :: this
-  integer,           intent(in) :: i
-  real(dp)                      :: output
-  
-  if (i>0 .and. i<=size(this)) then
-    output = this%contents_(i)
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the vector.')
-    call err()
-  endif
-end function
-
-impure elemental function element_ComplexVector(this,i) result(output)
-  implicit none
-  
-  class(ComplexVector), intent(in) :: this
-  integer,              intent(in) :: i
-  complex(dp)                      :: output
-  
-  if (i>0 .and. i<=size(this)) then
-    output = this%contents_(i)
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the vector.')
-    call err()
-  endif
-end function
-
-impure elemental function element_IntMatrix(this,i,j) result(output)
-  implicit none
-  
-  class(IntMatrix), intent(in) :: this
-  integer,          intent(in) :: i
-  integer,          intent(in) :: j
-  integer                      :: output
-  
-  if (i>0 .and. i<=size(this,1) .and. j>0 .and. j<=size(this,2)) then
-    output = this%contents_(i,j)
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function row_IntMatrix(this,i) result(output)
-  implicit none
-  
-  class(IntMatrix), intent(in) :: this
-  integer,          intent(in) :: i
-  type(IntVector)              :: output
-  
-  if (i>0 .and. i<=size(this,1)) then
-    output = vec(this%contents_(i,:))
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function column_IntMatrix(this,j) result(output)
-  implicit none
-  
-  class(IntMatrix), intent(in) :: this
-  integer,          intent(in) :: j
-  type(IntVector)              :: output
-  
-  if (j>0 .and. j<=size(this,2)) then
-    output = vec(this%contents_(:,j))
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function element_RealMatrix(this,i,j) result(output)
-  implicit none
-  
-  class(RealMatrix), intent(in) :: this
-  integer,           intent(in) :: i
-  integer,           intent(in) :: j
-  real(dp)                      :: output
-  
-  if (i>0 .and. i<=size(this,1) .and. j>0 .and. j<=size(this,2)) then
-    output = this%contents_(i,j)
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function row_RealMatrix(this,i) result(output)
-  implicit none
-  
-  class(RealMatrix), intent(in) :: this
-  integer,           intent(in) :: i
-  type(RealVector)              :: output
-  
-  if (i>0 .and. i<=size(this,1)) then
-    output = vec(this%contents_(i,:))
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function column_RealMatrix(this,j) result(output)
-  implicit none
-  
-  class(RealMatrix), intent(in) :: this
-  integer,           intent(in) :: j
-  type(RealVector)              :: output
-  
-  if (j>0 .and. j<=size(this,2)) then
-    output = vec(this%contents_(:,j))
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function element_ComplexMatrix(this,i,j) result(output)
-  implicit none
-  
-  class(ComplexMatrix), intent(in) :: this
-  integer,              intent(in) :: i
-  integer,              intent(in) :: j
-  complex(dp)                      :: output
-  
-  if (i>0 .and. i<=size(this,1) .and. j>0 .and. j<=size(this,2)) then
-    output = this%contents_(i,j)
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function row_ComplexMatrix(this,i) result(output)
-  implicit none
-  
-  class(ComplexMatrix), intent(in) :: this
-  integer,              intent(in) :: i
-  type(ComplexVector)              :: output
-  
-  if (i>0 .and. i<=size(this,1)) then
-    output = vec(this%contents_(i,:))
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-impure elemental function column_ComplexMatrix(this,j) result(output)
-  implicit none
-  
-  class(ComplexMatrix), intent(in) :: this
-  integer,              intent(in) :: j
-  type(ComplexVector)              :: output
-  
-  if (j>0 .and. j<=size(this,2)) then
-    output = vec(this%contents_(:,j))
-  else
-    call print_line(CODE_ERROR//': Trying to access an element outside of &
-       &the matrix.')
-    call err()
-  endif
-end function
-
-! ----------------------------------------------------------------------
 ! Conversions between types.
 ! ----------------------------------------------------------------------
 impure elemental function dblevec_IntVector(input) result(output)
@@ -948,7 +267,9 @@ impure elemental function dblevec_IntVector(input) result(output)
   class(IntVector), intent(in) :: input
   type(RealVector)             :: output
   
-  output = vec(real(int(input),dp))
+  call input%check()
+  
+  output = vec(real(input%contents_,dp))
 end function
 
 impure elemental function dblemat_IntMatrix(input) result(output)
@@ -957,7 +278,9 @@ impure elemental function dblemat_IntMatrix(input) result(output)
   class(IntMatrix), intent(in) :: input
   type(RealMatrix)             :: output
   
-  output = mat(real(int(input),dp))
+  call input%check()
+  
+  output = mat(real(input%contents_,dp))
 end function
 
 impure elemental function cmplxvec_IntVector(input) result(output)
@@ -966,7 +289,9 @@ impure elemental function cmplxvec_IntVector(input) result(output)
   class(IntVector), intent(in) :: input
   type(ComplexVector)          :: output
   
-  output = cmplx(int(input),0.0_dp,dp)
+  call input%check()
+  
+  output = vec(cmplx(input%contents_,0.0_dp,dp))
 end function
 
 impure elemental function cmplxvec_RealVector(input) result(output)
@@ -975,7 +300,9 @@ impure elemental function cmplxvec_RealVector(input) result(output)
   class(RealVector), intent(in) :: input
   type(ComplexVector)           :: output
   
-  output = cmplx(dble(input),0.0_dp,dp)
+  call input%check()
+  
+  output = vec(cmplx(input%contents_,0.0_dp,dp))
 end function
 
 impure elemental function cmplxvec_RealVectors(real,imag) &
@@ -986,7 +313,13 @@ impure elemental function cmplxvec_RealVectors(real,imag) &
   class(RealVector), intent(in) :: imag
   type(ComplexVector)           :: output
   
-  output = cmplx(dble(real),dble(imag),dp)
+  if (size(real)/=size(imag)) then
+    call print_line(CODE_ERROR//': Constructing complex vector from &
+       &incompatible real vectors.')
+    call err()
+  endif
+  
+  output = vec(cmplx(real%contents_,imag%contents_,dp))
 end function
 
 impure elemental function cmplxmat_IntMatrix(input) result(output)
@@ -995,7 +328,9 @@ impure elemental function cmplxmat_IntMatrix(input) result(output)
   class(IntMatrix), intent(in) :: input
   type(ComplexMatrix)          :: output
   
-  output = cmplx(int(input),0.0_dp,dp)
+  call input%check()
+  
+  output = mat(cmplx(input%contents_,0.0_dp,dp))
 end function
 
 impure elemental function cmplxmat_RealMatrix(input) result(output)
@@ -1004,7 +339,9 @@ impure elemental function cmplxmat_RealMatrix(input) result(output)
   class(RealMatrix), intent(in) :: input
   type(ComplexMatrix)           :: output
   
-  output = cmplx(dble(input),0.0_dp,dp)
+  call input%check()
+  
+  output = mat(cmplx(input%contents_,0.0_dp,dp))
 end function
 
 impure elemental function cmplxmat_RealMatrices(real,imag) result(output)
@@ -1014,95 +351,13 @@ impure elemental function cmplxmat_RealMatrices(real,imag) result(output)
   class(RealMatrix), intent(in) :: imag
   type(ComplexMatrix)           :: output
   
-  output = cmplx(dble(real),dble(imag),dp)
-end function
-
-! Conversion to Vector and Matrix from intrinsic types.
-function vec_integers(input) result(output)
-  implicit none
+  if (size(real,1)/=size(imag,1) .or. size(real,2)/=size(imag,2)) then
+    call print_line(CODE_ERROR//': Constructing complex vector from &
+       &incompatible real vectors.')
+    call err()
+  endif
   
-  integer, intent(in) :: input(:)
-  type(IntVector)     :: output
-  
-  output = input
-end function
-
-function vec_reals(input) result(output)
-  implicit none
-  
-  real(dp), intent(in) :: input(:)
-  type(RealVector)     :: output
-  
-  output = input
-end function
-
-function vec_complexes(input) result(output)
-  implicit none
-  
-  complex(dp), intent(in) :: input(:)
-  type(ComplexVector)     :: output
-  
-  output = input
-end function
-
-function mat_integers(input) result(output)
-  implicit none
-  
-  integer, intent(in) :: input(:,:)
-  type(IntMatrix)     :: output
-  
-  output = input
-end function
-
-function mat_reals(input) result(output)
-  implicit none
-  
-  real(dp), intent(in) :: input(:,:)
-  type(RealMatrix)     :: output
-  
-  output = input
-end function
-
-function mat_complexes(input) result(output)
-  implicit none
-  
-  complex(dp), intent(in) :: input(:,:)
-  type(ComplexMatrix)     :: output
-  
-  output = input
-end function
-
-function mat_integers_shape(input,m,n) result(output)
-  implicit none
-  
-  integer, intent(in) :: input(:)
-  integer, intent(in) :: m
-  integer, intent(in) :: n
-  type(IntMatrix)     :: output
-  
-  output = transpose(reshape(input, [m,n]))
-end function
-
-function mat_reals_shape(input,m,n) result(output)
-  implicit none
-  
-  real(dp), intent(in) :: input(:)
-  integer,  intent(in) :: m
-  integer,  intent(in) :: n
-  type(RealMatrix)     :: output
-  
-  output = transpose(reshape(input, [m,n]))
-end function
-
-function mat_complexes_shape(input,m,n) result(output)
-  implicit none
-  
-  complex(dp), intent(in) :: input(:)
-  integer,     intent(in) :: m
-  integer,     intent(in) :: n
-  type(ComplexMatrix)     :: output
-  
-  output = transpose(reshape(input, [m,n]))
+  output = mat(cmplx(real%contents_,imag%contents_,dp))
 end function
 
 ! ----------------------------------------------------------------------
@@ -1118,7 +373,7 @@ function zeroes_IntVector(n) result(output)
   
   integer :: i
   
-  output = [(0,i=1,n)]
+  output = vec([(0,i=1,n)])
 end function
 
 ! Makes a mxn matrix full of zeroes.
@@ -1129,13 +384,10 @@ function zeroes_IntMatrix(m,n) result(output)
   integer, intent(in) :: n
   type(IntMatrix)     :: output
   
-  integer, allocatable :: contents(:,:)
-  
   integer :: ialloc
   
-  allocate(contents(m,n), stat=ialloc); call err(ialloc)
-  contents = 0
-  output = contents
+  allocate(output%contents_(m,n), stat=ialloc); call err(ialloc)
+  output%contents_ = 0
 end function
 
 ! Makes an nxn identity matrix.
@@ -1145,16 +397,13 @@ function make_identity_matrix(n) result(output)
   integer, intent(in) :: n
   type(IntMatrix)     :: output
   
-  integer, allocatable :: contents(:,:)
-  
   integer :: i,ialloc
   
-  allocate(contents(n,n), stat=ialloc); call err(ialloc)
-  contents = 0
+  allocate(output%contents_(n,n), stat=ialloc); call err(ialloc)
+  output%contents_ = 0
   do i=1,n
-    contents(i,i) = 1
+    output%contents_(i,i) = 1
   enddo
-  output = contents
 end function
 
 ! Conversion to nearest integer.
@@ -1164,7 +413,9 @@ impure elemental function nint_RealVector(input) result(output)
   type(RealVector), intent(in) :: input
   type(IntVector)              :: output
   
-  output = vec(nint(dble(input)))
+  call input%check()
+  
+  output = vec(nint(input%contents_))
 end function
 
 impure elemental function nint_RealMatrix(input) result(output)
@@ -1173,92 +424,9 @@ impure elemental function nint_RealMatrix(input) result(output)
   type(RealMatrix), intent(in) :: input
   type(IntMatrix)              :: output
   
-  output = mat(nint(dble(input)))
-end function
-
-! Makes a matrix whose rows are the input vectors.
-function row_matrix_IntVectors(input) result(output)
-  implicit none
+  call input%check()
   
-  type(IntVector), intent(in) :: input(:)
-  integer, allocatable        :: output(:,:)
-  
-  integer :: i,ialloc
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to make row matrix from empty &
-       &array.')
-    call err()
-  endif
-  
-  do i=2,size(input)
-    if (size(input(i))/=size(input(1))) then
-      call print_line(CODE_ERROR//': Trying to make row matrix from &
-         &inconsistent vectors.')
-      call err()
-    endif
-  enddo
-  
-  allocate(output(size(input), size(input,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output(i,:) = int(input(i))
-  enddo
-end function
-
-function row_matrix_RealVectors(input) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: input(:)
-  real(dp), allocatable        :: output(:,:)
-  
-  integer :: i,ialloc
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to make row matrix from empty &
-       &array.')
-    call err()
-  endif
-  
-  do i=2,size(input)
-    if (size(input(i))/=size(input(1))) then
-      call print_line(CODE_ERROR//': Trying to make row matrix from &
-         &inconsistent vectors.')
-      call err()
-    endif
-  enddo
-  
-  allocate(output(size(input), size(input,1)), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output(i,:) = dble(input(i))
-  enddo
-end function
-
-function row_matrix_ComplexVectors(input) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: input(:)
-  complex(dp), allocatable        :: output(:,:)
-  
-  integer :: i,ialloc
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to make row matrix from empty &
-       &array.')
-    call err()
-  endif
-  
-  do i=2,size(input)
-    if (size(input(i))/=size(input(1))) then
-      call print_line(CODE_ERROR//': Trying to make row matrix from &
-         &inconsistent vectors.')
-      call err()
-    endif
-  enddo
-  
-  allocate(output(size(input), size(input(1))), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output(i,:) = cmplx(input(i))
-  enddo
+  output = mat(nint(input%contents_))
 end function
 
 ! Real part of a complex object.
@@ -1268,7 +436,9 @@ impure elemental function real_ComplexVector(input) result(output)
   type(ComplexVector), intent(in) :: input
   type(RealVector)                :: output
   
-  output = real(cmplx(input),dp)
+  call input%check()
+  
+  output = vec(real(input%contents_,dp))
 end function
 
 impure elemental function real_ComplexMatrix(input) result(output)
@@ -1277,7 +447,9 @@ impure elemental function real_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(RealMatrix)                :: output
   
-  output = real(cmplx(input),dp)
+  call input%check()
+  
+  output = mat(real(input%contents_,dp))
 end function
 
 ! Imaginary part of a complex object.
@@ -1287,7 +459,9 @@ impure elemental function aimag_ComplexVector(input) result(output)
   type(ComplexVector), intent(in) :: input
   type(RealVector)                :: output
   
-  output = aimag(cmplx(input))
+  call input%check()
+  
+  output = vec(aimag(input%contents_))
 end function
 
 impure elemental function aimag_ComplexMatrix(input) result(output)
@@ -1296,7 +470,9 @@ impure elemental function aimag_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(RealMatrix)                :: output
   
-  output = aimag(cmplx(input))
+  call input%check()
+  
+  output = mat(aimag(input%contents_))
 end function
 
 ! Element-wise abs of a complex object.
@@ -1306,7 +482,9 @@ impure elemental function abs_ComplexVector(input) result(output)
   type(ComplexVector), intent(in) :: input
   type(RealVector)                :: output
   
-  output = abs(cmplx(input))
+  call input%check()
+  
+  output = vec(abs(input%contents_))
 end function
 
 impure elemental function abs_ComplexMatrix(input) result(output)
@@ -1315,7 +493,9 @@ impure elemental function abs_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(RealMatrix)                :: output
   
-  output = abs(cmplx(input))
+  call input%check()
+  
+  output = mat(abs(input%contents_))
 end function
 
 ! Conjugate of a complex object.
@@ -1325,7 +505,9 @@ impure elemental function conjg_ComplexVector(input) result(output)
   type(ComplexVector), intent(in) :: input
   type(ComplexVector)             :: output
   
-  output = conjg(cmplx(input))
+  call input%check()
+  
+  output = vec(conjg(input%contents_))
 end function
 
 impure elemental function conjg_ComplexMatrix(input) result(output)
@@ -1334,181 +516,9 @@ impure elemental function conjg_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(ComplexMatrix)             :: output
   
-  output = conjg(cmplx(input))
-end function
-
-! size().
-function size_IntVector(input) result(output)
-  implicit none
+  call input%check()
   
-  type(IntVector), intent(in) :: input
-  integer                     :: output
-  
-  output = size(int(input))
-end function
-
-function size_RealVector(input) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: input
-  integer                      :: output
-  
-  output = size(dble(input))
-end function
-
-function size_ComplexVector(input) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: input
-  integer                         :: output
-  
-  output = size(cmplx(input))
-end function
-
-function size_IntMatrix(input,dim) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  integer,         intent(in) :: dim
-  integer                     :: output
-  
-  output = size(int(input), dim)
-end function
-
-function size_RealMatrix(input,dim) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: input
-  integer,          intent(in) :: dim
-  integer                      :: output
-  
-  output = size(dble(input), dim)
-end function
-
-function size_ComplexMatrix(input,dim) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: input
-  integer,             intent(in) :: dim
-  integer                         :: output
-  
-  output = size(cmplx(input), dim)
-end function
-
-! Trace
-function trace_IntMatrix(input) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  integer                     :: output
-  
-  integer, allocatable :: contents(:,:)
-  
-  integer :: i
-  
-  contents = int(input)
-  if (size(contents,1)/=size(contents,2)) then
-    call print_line(CODE_ERROR//': Trying to take the trace of a non-square &
-       &matrix.')
-    call err()
-  endif
-  output = 0
-  do i=1,size(contents,1)
-    output = output + contents(i,i)
-  enddo
-end function
-
-function trace_RealMatrix(input) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: input
-  real(dp)                     :: output
-  
-  real(dp), allocatable :: contents(:,:)
-  
-  integer :: i
-  
-  contents = dble(input)
-  if (size(contents,1)/=size(contents,2)) then
-    call print_line(CODE_ERROR//': Trying to take the trace of a non-square &
-       &matrix.')
-    call err()
-  endif
-  output = 0
-  do i=1,size(contents,1)
-    output = output + contents(i,i)
-  enddo
-end function
-
-function trace_ComplexMatrix(input) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: input
-  complex(dp)                     :: output
-  
-  complex(dp), allocatable :: contents(:,:)
-  
-  integer :: i
-  
-  contents = cmplx(input)
-  if (size(contents,1)/=size(contents,2)) then
-    call print_line(CODE_ERROR//': Trying to take the trace of a non-square &
-       &matrix.')
-    call err()
-  endif
-  output = 0
-  do i=1,size(contents,1)
-    output = output + contents(i,i)
-  enddo
-end function
-
-! Find the commutator or anti-commutator of two matrices.
-function commutator_IntMatrix_IntMatrix(this,that) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: this
-  type(IntMatrix), intent(in) :: that
-  type(IntMatrix)             :: output
-  
-  if (size(this,1)/=size(this,2)) then
-    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
-       &non-square matrix.')
-    call err()
-  elseif (size(that,1)/=size(that,2)) then
-    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
-       &non-square matrix.')
-    call err()
-  elseif (size(this,1)/=size(that,1)) then
-    call print_line(CODE_ERROR//': Trying to find commutator of matrices of &
-       &different sizes.')
-    call err()
-  endif
-  
-  output = this*that - that*this
-end function
-
-function anticommutator_IntMatrix_IntMatrix(this,that) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: this
-  type(IntMatrix), intent(in) :: that
-  type(IntMatrix)             :: output
-  
-  if (size(this,1)/=size(this,2)) then
-    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
-       &non-square matrix.')
-    call err()
-  elseif (size(that,1)/=size(that,2)) then
-    call print_line(CODE_ERROR//': Trying to find a commutator involving a &
-       &non-square matrix.')
-    call err()
-  elseif (size(this,1)/=size(that,1)) then
-    call print_line(CODE_ERROR//': Trying to find commutator of matrices of &
-       &different sizes.')
-    call err()
-  endif
-  
-  output = this*that + that*this
+  output = mat(conjg(input%contents_))
 end function
 
 ! Check if two matrices commute or anti-commute.
@@ -1574,1456 +584,6 @@ impure elemental function non_equality_IntMatrix_IntMatrix(a,b) result(output)
   output = .not. a==b
 end function
 
-! Addition.
-impure elemental function add_IntVector_IntVector(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(IntVector)             :: output
-  
-  output = int(a) + int(b)
-end function
-
-impure elemental function add_IntVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(IntVector),  intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = int(a) + dble(b)
-end function
-
-impure elemental function add_RealVector_IntVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(IntVector),  intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a) + int(b)
-end function
-
-impure elemental function add_RealVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a) + dble(b)
-end function
-
-impure elemental function add_RealVector_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector),    intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = dble(a) + cmplx(b)
-end function
-
-impure elemental function add_ComplexVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(RealVector),    intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a) + dble(b)
-end function
-
-impure elemental function add_ComplexVector_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a) + cmplx(b)
-end function
-
-impure elemental function add_IntMatrix_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  type(IntMatrix), intent(in) :: b
-  type(IntMatrix)             :: output
-  
-  output = int(a) + int(b)
-end function
-
-impure elemental function add_IntMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix),  intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = int(a) + dble(b)
-end function
-
-impure elemental function add_RealMatrix_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(IntMatrix),  intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a) + int(b)
-end function
-
-impure elemental function add_RealMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a) + dble(b)
-end function
-
-impure elemental function add_RealMatrix_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix),    intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = dble(a) + cmplx(b)
-end function
-
-impure elemental function add_ComplexMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(RealMatrix),    intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a) + dble(b)
-end function
-
-impure elemental function add_ComplexMatrix_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a) + cmplx(b)
-end function
-
-! Negative.
-impure elemental function negative_IntVector(input) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: input
-  type(IntVector)             :: output
-  
-  output = -int(input)
-end function
-
-impure elemental function negative_RealVector(input) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: input
-  type(RealVector)             :: output
-  
-  output = -dble(input)
-end function
-
-impure elemental function negative_ComplexVector(input) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: input
-  type(ComplexVector)             :: output
-  
-  output = -cmplx(input)
-end function
-
-impure elemental function negative_IntMatrix(input) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input
-  type(IntMatrix)             :: output
-  
-  output = -int(input)
-end function
-
-impure elemental function negative_RealMatrix(input) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: input
-  type(RealMatrix)             :: output
-  
-  output = -dble(input)
-end function
-
-impure elemental function negative_ComplexMatrix(input) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: input
-  type(ComplexMatrix)             :: output
-  
-  output = -cmplx(input)
-end function
-
-! Subtraction.
-impure elemental function subtract_IntVector_IntVector(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(IntVector)             :: output
-  
-  output = int(a) - int(b)
-end function
-
-impure elemental function subtract_IntVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(IntVector),  intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = int(a) - dble(b)
-end function
-
-impure elemental function subtract_RealVector_IntVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(IntVector),  intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a) - int(b)
-end function
-
-impure elemental function subtract_RealVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a) - dble(b)
-end function
-
-impure elemental function subtract_RealVector_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector),    intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = dble(a) - cmplx(b)
-end function
-
-impure elemental function subtract_ComplexVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(RealVector),    intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a) - dble(b)
-end function
-
-impure elemental function subtract_ComplexVector_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a) - cmplx(b)
-end function
-
-impure elemental function subtract_IntMatrix_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  type(IntMatrix), intent(in) :: b
-  type(IntMatrix)             :: output
-  
-  output = int(a) - int(b)
-end function
-
-impure elemental function subtract_IntMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix),  intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = int(a) - dble(b)
-end function
-
-impure elemental function subtract_RealMatrix_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(IntMatrix),  intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a) - int(b)
-end function
-
-impure elemental function subtract_RealMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a) - dble(b)
-end function
-
-impure elemental function subtract_RealMatrix_ComplexMatrix(a,b) &
-   & result(output)
-  implicit none
-  
-  type(RealMatrix),    intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = dble(a) - cmplx(b)
-end function
-
-impure elemental function subtract_ComplexMatrix_RealMatrix(a,b) &
-   & result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(RealMatrix),    intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a) - dble(b)
-end function
-
-impure elemental function subtract_ComplexMatrix_ComplexMatrix(a,b) &
-   & result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a) - cmplx(b)
-end function
-
-! Multiplication by a scalar.
-impure elemental function multiply_IntVector_integer(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  integer,         intent(in) :: b
-  type(IntVector)             :: output
-  
-  output = int(a)*b
-end function
-
-impure elemental function multiply_integer_IntVector(a,b) result(output)
-  implicit none
-  
-  integer,         intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(IntVector)             :: output
-  
-  output = a*int(b)
-end function
-
-impure elemental function multiply_IntVector_real(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  real(dp),        intent(in) :: b
-  type(RealVector)            :: output
-  
-  output = int(a)*b
-end function
-
-impure elemental function multiply_real_IntVector(a,b) result(output)
-  implicit none
-  
-  real(dp),        intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(RealVector)            :: output
-  
-  output = a*int(b)
-end function
-
-impure elemental function multiply_IntVector_complex(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  complex(dp),     intent(in) :: b
-  type(ComplexVector)         :: output
-  
-  output = int(a)*b
-end function
-
-impure elemental function multiply_complex_IntVector(a,b) result(output)
-  implicit none
-  
-  complex(dp),     intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(ComplexVector)         :: output
-  
-  output = a*int(b)
-end function
-
-impure elemental function multiply_RealVector_integer(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  integer,          intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a)*b
-end function
-
-impure elemental function multiply_integer_RealVector(a,b) result(output)
-  implicit none
-  
-  integer,          intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = a*dble(b)
-end function
-
-impure elemental function multiply_RealVector_real(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  real(dp),         intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a)*b
-end function
-
-impure elemental function multiply_real_RealVector(a,b) result(output)
-  implicit none
-  
-  real(dp),         intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = a*dble(b)
-end function
-
-impure elemental function multiply_RealVector_complex(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  complex(dp),      intent(in) :: b
-  type(ComplexVector)          :: output
-  
-  output = dble(a)*b
-end function
-
-impure elemental function multiply_complex_RealVector(a,b) result(output)
-  implicit none
-  
-  complex(dp),      intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(ComplexVector)          :: output
-  
-  output = a*dble(b)
-end function
-
-impure elemental function multiply_ComplexVector_integer(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  integer,             intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a)*b
-end function
-
-impure elemental function multiply_integer_ComplexVector(a,b) result(output)
-  implicit none
-  
-  integer,             intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = a*cmplx(b)
-end function
-
-impure elemental function multiply_ComplexVector_real(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  real(dp),            intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a)*b
-end function
-
-impure elemental function multiply_real_ComplexVector(a,b) result(output)
-  implicit none
-  
-  real(dp),            intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = a*cmplx(b)
-end function
-
-impure elemental function multiply_ComplexVector_complex(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  complex(dp),         intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a)*b
-end function
-
-impure elemental function multiply_complex_ComplexVector(a,b) result(output)
-  implicit none
-  
-  complex(dp),         intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = a*cmplx(b)
-end function
-
-impure elemental function multiply_IntMatrix_integer(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  integer,         intent(in) :: b
-  type(IntMatrix)             :: output
-  
-  output = int(a)*b
-end function
-
-impure elemental function multiply_integer_IntMatrix(a,b) result(output)
-  implicit none
-  
-  integer,         intent(in) :: a
-  type(IntMatrix), intent(in) :: b
-  type(IntMatrix)             :: output
-  
-  output = a*int(b)
-end function
-
-impure elemental function multiply_IntMatrix_real(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  real(dp),        intent(in) :: b
-  type(RealMatrix)            :: output
-  
-  output = int(a)*b
-end function
-
-impure elemental function multiply_real_IntMatrix(a,b) result(output)
-  implicit none
-  
-  real(dp),        intent(in) :: a
-  type(IntMatrix), intent(in) :: b
-  type(RealMatrix)            :: output
-  
-  output = a*int(b)
-end function
-
-impure elemental function multiply_IntMatrix_complex(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  complex(dp),     intent(in) :: b
-  type(ComplexMatrix)         :: output
-  
-  output = int(a)*b
-end function
-
-impure elemental function multiply_complex_IntMatrix(a,b) result(output)
-  implicit none
-  
-  complex(dp),     intent(in) :: a
-  type(IntMatrix), intent(in) :: b
-  type(ComplexMatrix)         :: output
-  
-  output = a*int(b)
-end function
-
-impure elemental function multiply_RealMatrix_integer(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  integer,          intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a)*b
-end function
-
-impure elemental function multiply_integer_RealMatrix(a,b) result(output)
-  implicit none
-  
-  integer,          intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = a*dble(b)
-end function
-
-impure elemental function multiply_RealMatrix_real(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  real(dp),         intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a)*b
-end function
-
-impure elemental function multiply_real_RealMatrix(a,b) result(output)
-  implicit none
-  
-  real(dp),         intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = a*dble(b)
-end function
-
-impure elemental function multiply_RealMatrix_complex(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  complex(dp),      intent(in) :: b
-  type(ComplexMatrix)          :: output
-  
-  output = dble(a)*b
-end function
-
-impure elemental function multiply_complex_RealMatrix(a,b) result(output)
-  implicit none
-  
-  complex(dp),      intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(ComplexMatrix)          :: output
-  
-  output = a*dble(b)
-end function
-
-impure elemental function multiply_ComplexMatrix_integer(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  integer,             intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a)*b
-end function
-
-impure elemental function multiply_integer_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  integer,             intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = a*cmplx(b)
-end function
-
-impure elemental function multiply_ComplexMatrix_real(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  real(dp),            intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a)*b
-end function
-
-impure elemental function multiply_real_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  real(dp),            intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = a*cmplx(b)
-end function
-
-impure elemental function multiply_ComplexMatrix_complex(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  complex(dp),         intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a)*b
-end function
-
-impure elemental function multiply_complex_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  complex(dp),         intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = a*cmplx(b)
-end function
-
-! Dot products and matrix multiplication.
-impure elemental function dot_IntVector_IntVector(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  type(IntVector), intent(in) :: b
-  integer                     :: output
-  
-  if (size(a)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to take the dot product of two &
-       &vectors of different lengths.')
-    call err()
-  endif
-  
-  output = dot_product(int(a), int(b))
-end function
-
-impure elemental function dot_IntVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(IntVector),  intent(in) :: a
-  type(RealVector), intent(in) :: b
-  real(dp)                     :: output
-  
-  if (size(a)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to take the dot product of two &
-       &vectors of different lengths.')
-    call err()
-  endif
-  
-  output = dot_product(int(a), dble(b))
-end function
-
-impure elemental function dot_RealVector_IntVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(IntVector),  intent(in) :: b
-  real(dp)                     :: output
-  
-  if (size(a)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to take the dot product of two &
-       &vectors of different lengths.')
-    call err()
-  endif
-  
-  output = dot_product(dble(a), int(b))
-end function
-
-impure elemental function dot_RealVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(RealVector), intent(in) :: b
-  real(dp)                     :: output
-  
-  if (size(a)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to take the dot product of two &
-       &vectors of different lengths.')
-    call err()
-  endif
-  
-  output = dot_product(dble(a), dble(b))
-end function
-
-impure elemental function dot_RealVector_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector),    intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  complex(dp)                     :: output
-  
-  if (size(a)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to take the dot product of two &
-       &vectors of different lengths.')
-    call err()
-  endif
-  
-  output = dot_product(dble(a), cmplx(b))
-end function
-
-impure elemental function dot_ComplexVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(RealVector),    intent(in) :: b
-  complex(dp)                     :: output
-  
-  if (size(a)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to take the dot product of two &
-       &vectors of different lengths.')
-    call err()
-  endif
-  
-  output = dot_product(cmplx(a), dble(b))
-end function
-
-impure elemental function dot_ComplexVector_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  complex(dp)                     :: output
-  
-  if (size(a)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to take the dot product of two &
-       &vectors of different lengths.')
-    call err()
-  endif
-  
-  ! N.B. does not use dot_product since that takes the conjugate of the
-  !    first argument.
-  ! This behaviour would not be desirable, since (vec*mat)*vec should give the
-  !    same result as vec*(mat*vec).
-  output = sum(cmplx(a)*cmplx(b))
-end function
-
-impure elemental function dot_IntVector_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  type(IntMatrix), intent(in) :: b
-  type(IntVector)             :: output
-  
-  if (size(a)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply a vector by a matrix &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(int(a), int(b))
-end function
-
-impure elemental function dot_IntVector_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntVector),  intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealVector)             :: output
-  
-  if (size(a)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply a vector by a matrix &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(int(a), dble(b))
-end function
-
-impure elemental function dot_RealVector_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(IntMatrix),  intent(in) :: b
-  type(RealVector)             :: output
-  
-  if (size(a)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply a vector by a matrix &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), int(b))
-end function
-
-impure elemental function dot_RealVector_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealVector)             :: output
-  
-  if (size(a)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply a vector by a matrix &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), dble(b))
-end function
-
-impure elemental function dot_RealVector_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealVector),    intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  if (size(a)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply a vector by a matrix &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), cmplx(b))
-end function
-
-impure elemental function dot_ComplexVector_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(RealMatrix),    intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  if (size(a)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply a vector by a matrix &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(cmplx(a), dble(b))
-end function
-
-impure elemental function dot_ComplexVector_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  if (size(a)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply a vector by a matrix &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(cmplx(a), cmplx(b))
-end function
-
-impure elemental function dot_IntMatrix_IntVector(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(IntVector)             :: output
-  
-  if (size(a,2)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to multiply a matrix by a vector &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(int(a), int(b))
-end function
-
-impure elemental function dot_IntMatrix_RealVector(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix),  intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  if (size(a,2)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to multiply a matrix by a vector &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(int(a), dble(b))
-end function
-
-impure elemental function dot_RealMatrix_IntVector(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(IntVector),  intent(in) :: b
-  type(RealVector)             :: output
-  
-  if (size(a,2)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to multiply a matrix by a vector &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), int(b))
-end function
-
-impure elemental function dot_RealMatrix_RealVector(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  if (size(a,2)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to multiply a matrix by a vector &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), dble(b))
-end function
-
-impure elemental function dot_RealMatrix_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix),    intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  if (size(a,2)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to multiply a matrix by a vector &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), cmplx(b))
-end function
-
-impure elemental function dot_ComplexMatrix_RealVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(RealVector),    intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  if (size(a,2)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to multiply a matrix by a vector &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(cmplx(a), dble(b))
-end function
-
-impure elemental function dot_ComplexMatrix_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  if (size(a,2)/=size(b)) then
-    call print_line(CODE_ERROR//': Trying to multiply a matrix by a vector &
-       &of incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(cmplx(a), cmplx(b))
-end function
-
-impure elemental function dot_IntMatrix_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  type(IntMatrix), intent(in) :: b
-  type(IntMatrix)             :: output
-  
-  if (size(a,2)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply two matrices of &
-       & incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(int(a), int(b))
-end function
-
-impure elemental function dot_IntMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix),  intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  if (size(a,2)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply two matrices of &
-       & incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(int(a), dble(b))
-end function
-
-impure elemental function dot_RealMatrix_IntMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(IntMatrix),  intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  if (size(a,2)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply two matrices of &
-       & incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), int(b))
-end function
-
-impure elemental function dot_RealMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  type(RealMatrix), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  if (size(a,2)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply two matrices of &
-       & incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), dble(b))
-end function
-
-impure elemental function dot_RealMatrix_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix),    intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  if (size(a,2)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply two matrices of &
-       & incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(dble(a), cmplx(b))
-end function
-
-impure elemental function dot_ComplexMatrix_RealMatrix(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(RealMatrix),    intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  if (size(a,2)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply two matrices of &
-       & incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(cmplx(a), dble(b))
-end function
-
-impure elemental function dot_ComplexMatrix_ComplexMatrix(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  type(ComplexMatrix), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  if (size(a,2)/=size(b,1)) then
-    call print_line(CODE_ERROR//': Trying to multiply two matrices of &
-       & incompatible dimensions.')
-    call err()
-  endif
-  
-  output = matmul(cmplx(a), cmplx(b))
-end function
-
-! Division by scalar.
-impure elemental function divide_IntVector_integer(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  integer,         intent(in) :: b
-  type(IntVector)             :: output
-  
-  output = int(a)/b
-end function
-
-impure elemental function divide_IntVector_real(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  real(dp),        intent(in) :: b
-  type(RealVector)            :: output
-  
-  output = int(a)/b
-end function
-
-impure elemental function divide_IntVector_complex(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  complex(dp),     intent(in) :: b
-  type(ComplexVector)         :: output
-  
-  output = int(a)/b
-end function
-
-impure elemental function divide_RealVector_integer(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  integer,          intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a)/b
-end function
-
-impure elemental function divide_RealVector_real(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  real(dp),         intent(in) :: b
-  type(RealVector)             :: output
-  
-  output = dble(a)/b
-end function
-
-impure elemental function divide_RealVector_complex(a,b) result(output)
-  implicit none
-  
-  type(RealVector),    intent(in) :: a
-  complex(dp),         intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = dble(a)/b
-end function
-
-impure elemental function divide_ComplexVector_integer(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  integer,             intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a)/b
-end function
-
-impure elemental function divide_ComplexVector_real(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  real(dp),            intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a)/b
-end function
-
-impure elemental function divide_ComplexVector_complex(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  complex(dp),         intent(in) :: b
-  type(ComplexVector)             :: output
-  
-  output = cmplx(a)/b
-end function
-
-impure elemental function divide_IntMatrix_integer(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  integer,         intent(in) :: b
-  type(IntMatrix)             :: output
-  
-  output = int(a)/b
-end function
-
-impure elemental function divide_IntMatrix_real(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  real(dp),        intent(in) :: b
-  type(RealMatrix)            :: output
-  
-  output = int(a)/b
-end function
-
-impure elemental function divide_IntMatrix_complex(a,b) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: a
-  complex(dp),     intent(in) :: b
-  type(ComplexMatrix)         :: output
-  
-  output = int(a)/b
-end function
-
-impure elemental function divide_RealMatrix_integer(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  integer,          intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a)/b
-end function
-
-impure elemental function divide_RealMatrix_real(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: a
-  real(dp),         intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  output = dble(a)/b
-end function
-
-impure elemental function divide_RealMatrix_complex(a,b) result(output)
-  implicit none
-  
-  type(RealMatrix),    intent(in) :: a
-  complex(dp),         intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = dble(a)/b
-end function
-
-impure elemental function divide_ComplexMatrix_integer(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  integer,             intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a)/b
-end function
-
-impure elemental function divide_ComplexMatrix_real(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  real(dp),            intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a)/b
-end function
-
-impure elemental function divide_ComplexMatrix_complex(a,b) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: a
-  complex(dp),         intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  output = cmplx(a)/b
-end function
-
-! Sum.
-function sum_IntVectors(input) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: input(:)
-  type(IntVector)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-function sum_RealVectors(input) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: input(:)
-  type(RealVector)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-function sum_ComplexVectors(input) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: input(:)
-  type(ComplexVector)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-function sum_IntMatrices(input) result(output)
-  implicit none
-  
-  type(IntMatrix), intent(in) :: input(:)
-  type(IntMatrix)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-function sum_RealMatrices(input) result(output)
-  implicit none
-  
-  type(RealMatrix), intent(in) :: input(:)
-  type(RealMatrix)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-function sum_ComplexMatrices(input) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: input(:)
-  type(ComplexMatrix)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(CODE_ERROR//': Trying to take the sum of an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
 ! L2 norm.
 impure elemental function l2_norm_RealVector(input) result(output)
   implicit none
@@ -3043,95 +603,6 @@ impure elemental function l2_norm_ComplexVector(input) result(output)
   output = sqrt(real(input*conjg(input)))
 end function
 
-! Cross product.
-function cross_product_IntVector_IntVector(a,b) result(output)
-  implicit none
-  
-  type(IntVector), intent(in) :: a
-  type(IntVector), intent(in) :: b
-  type(IntVector)             :: output
-  
-  if (size(a)/=3 .or. size(b)/=3) then
-    call print_line(CODE_ERROR//': Trying to take a cross product involving &
-       &a vector which has other than three components.')
-    call err()
-  endif
-  
-  output = [ a%contents_(2)*b%contents_(3) - b%contents_(2)*a%contents_(3), &
-           & a%contents_(3)*b%contents_(1) - b%contents_(3)*a%contents_(1), &
-           & a%contents_(1)*b%contents_(2) - b%contents_(1)*a%contents_(2)  ]
-end function
-
-function cross_product_RealVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealVector)             :: output
-  
-  if (size(a)/=3 .or. size(b)/=3) then
-    call print_line(CODE_ERROR//': Trying to take a cross product involving &
-       &a vector which has other than three components.')
-    call err()
-  endif
-  
-  output = [ a%contents_(2)*b%contents_(3) - b%contents_(2)*a%contents_(3), &
-           & a%contents_(3)*b%contents_(1) - b%contents_(3)*a%contents_(1), &
-           & a%contents_(1)*b%contents_(2) - b%contents_(1)*a%contents_(2)  ]
-end function
-
-! Outer product.
-! N.B. the conjugate is NOT taken in the complex case.
-function outer_product_RealVector_RealVector(a,b) result(output)
-  implicit none
-  
-  type(RealVector), intent(in) :: a
-  type(RealVector), intent(in) :: b
-  type(RealMatrix)             :: output
-  
-  real(dp), allocatable :: a_contents(:)
-  real(dp), allocatable :: b_contents(:)
-  real(dp), allocatable :: contents(:,:)
-  
-  integer :: i,j,ialloc
-  
-  a_contents = dble(a)
-  b_contents = dble(b)
-  allocate( contents(size(a_contents),size(b_contents)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(b_contents)
-    do j=1,size(a_contents)
-      contents(j,i) = a_contents(j)*b_contents(i)
-    enddo
-  enddo
-  output = contents
-end function
-
-function outer_product_ComplexVector_ComplexVector(a,b) result(output)
-  implicit none
-  
-  type(ComplexVector), intent(in) :: a
-  type(ComplexVector), intent(in) :: b
-  type(ComplexMatrix)             :: output
-  
-  complex(dp), allocatable :: a_contents(:)
-  complex(dp), allocatable :: b_contents(:)
-  complex(dp), allocatable :: contents(:,:)
-  
-  integer :: i,j,ialloc
-  
-  a_contents = cmplx(a)
-  b_contents = cmplx(b)
-  allocate( contents(size(a_contents),size(b_contents)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(b_contents)
-    do j=1,size(a_contents)
-      contents(j,i) = a_contents(j)*b_contents(i)
-    enddo
-  enddo
-  output = contents
-end function
-
 ! Transpose.
 function transpose_IntMatrix(input) result(output)
   implicit none
@@ -3139,7 +610,9 @@ function transpose_IntMatrix(input) result(output)
   type(IntMatrix), intent(in) :: input
   type(IntMatrix)             :: output
   
-  output = transpose(int(input))
+  call input%check()
+  
+  output = mat(transpose(input%contents_))
 end function
 
 function transpose_RealMatrix(input) result(output)
@@ -3148,7 +621,9 @@ function transpose_RealMatrix(input) result(output)
   type(RealMatrix), intent(in) :: input
   type(RealMatrix)             :: output
   
-  output = transpose(dble(input))
+  call input%check()
+  
+  output = mat(transpose(input%contents_))
 end function
 
 function transpose_ComplexMatrix(input) result(output)
@@ -3157,7 +632,9 @@ function transpose_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(ComplexMatrix)             :: output
   
-  output = transpose(cmplx(input))
+  call input%check()
+  
+  output = mat(transpose(input%contents_))
 end function
 
 ! Hermitian conjugate.
@@ -3167,7 +644,9 @@ function hermitian_ComplexMatrix(input) result(output)
   type(ComplexMatrix), intent(in) :: input
   type(ComplexMatrix)             :: output
   
-  output = transpose(conjg(cmplx(input)))
+  call input%check()
+  
+  output = mat(transpose(conjg(input%contents_)))
 end function
 
 ! Determinant. (3x3 only)
@@ -3186,9 +665,9 @@ function determinant_integer(input) result(output)
     call err()
   endif
   
-  output = input(1,1)*(input(2,2)*input(3,3)-input(2,3)*input(3,2))&
-        &+ input(1,2)*(input(2,3)*input(3,1)-input(2,1)*input(3,3))&
-        &+ input(1,3)*(input(2,1)*input(3,2)-input(2,2)*input(3,1))
+  output = input(1,1)*(input(2,2)*input(3,3)-input(2,3)*input(3,2)) &
+       & + input(1,2)*(input(2,3)*input(3,1)-input(2,1)*input(3,3)) &
+       & + input(1,3)*(input(2,1)*input(3,2)-input(2,2)*input(3,1))
 end function
 
 function determinant_real(input) result(output)
@@ -3204,8 +683,8 @@ function determinant_real(input) result(output)
     call err()
   endif
   
-  output = input(1,1)*(input(2,2)*input(3,3)-input(2,3)*input(3,2))&
-       & + input(1,2)*(input(2,3)*input(3,1)-input(2,1)*input(3,3))&
+  output = input(1,1)*(input(2,2)*input(3,3)-input(2,3)*input(3,2)) &
+       & + input(1,2)*(input(2,3)*input(3,1)-input(2,1)*input(3,3)) &
        & + input(1,3)*(input(2,1)*input(3,2)-input(2,2)*input(3,1))
 end function
 
@@ -3215,7 +694,9 @@ function determinant_IntMatrix(input) result(output)
   type(IntMatrix), intent(in) :: input
   integer                     :: output
   
-  output = determinant(int(input))
+  call input%check()
+  
+  output = determinant(input%contents_)
 end function
 
 function determinant_RealMatrix(input) result(output)
@@ -3224,7 +705,9 @@ function determinant_RealMatrix(input) result(output)
   type(RealMatrix), intent(in) :: input
   real(dp)                     :: output
   
-  output = determinant(dble(input))
+  call input%check()
+  
+  output = determinant(input%contents_)
 end function
 
 ! Calculates the inverse of a matrix.
@@ -3286,7 +769,9 @@ function invert_RealMatrix(input) result(output)
   type(RealMatrix), intent(in) :: input
   type(RealMatrix)             :: output
   
-  output = invert(dble(input))
+  call input%check()
+  
+  output = mat(invert(input%contents_))
 end function
 
 ! --------------------------------------------------
@@ -3343,7 +828,7 @@ function linear_least_squares_reals_reals(a,b) result(output)
     call err()
   endif
   
-  output = b2(:n,1)
+  output = vec(b2(:n,1))
 end function
 
 function linear_least_squares_reals_RealVector(a,b) result(x)
@@ -3449,326 +934,5 @@ function pulay(input_vectors,output_vectors) result(output)
   
   ! Construct output frequencies as x_n = sum_{i=1}^n a_i x_i.
   output = sum(coefficients(:n)*input_vectors)
-end function
-
-! ----------------------------------------------------------------------
-! I/O overloads.
-! ----------------------------------------------------------------------
-subroutine read_IntVector(this,input)
-  implicit none
-  
-  class(IntVector), intent(out) :: this
-  type(String),     intent(in)  :: input
-  
-  select type(this); type is(IntVector)
-    this = vec(int(split_line(input)))
-  end select
-end subroutine
-
-function write_IntVector(this) result(output)
-  implicit none
-  
-  class(IntVector), intent(in) :: this
-  type(String)                 :: output
-  
-  select type(this); type is(IntVector)
-    output = join(int(this))
-  end select
-end function
-
-impure elemental function new_IntVector_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(IntVector)          :: this
-  
-  call this%read(input)
-end function
-
-subroutine read_RealVector(this,input)
-  implicit none
-  
-  class(RealVector), intent(out) :: this
-  type(String),      intent(in)  :: input
-  
-  select type(this); type is(RealVector)
-    this = vec(dble(split_line(input)))
-  end select
-end subroutine
-
-function write_RealVector(this) result(output)
-  implicit none
-  
-  class(RealVector), intent(in) :: this
-  type(String)                  :: output
-  
-  select type(this); type is(RealVector)
-    output = join(dble(this))
-  end select
-end function
-
-impure elemental function new_RealVector_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(RealVector)         :: this
-  
-  call this%read(input)
-end function
-
-subroutine read_ComplexVector(this,input)
-  implicit none
-  
-  class(ComplexVector), intent(out) :: this
-  type(String),         intent(in)  :: input
-  
-  select type(this); type is(ComplexVector)
-    this = vec(cmplx(split_line(input)))
-  end select
-end subroutine
-
-function write_ComplexVector(this) result(output)
-  implicit none
-  
-  class(ComplexVector), intent(in) :: this
-  type(String)                     :: output
-  
-  select type(this); type is(ComplexVector)
-    output = join(cmplx(this))
-  end select
-end function
-
-impure elemental function new_ComplexVector_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(ComplexVector)      :: this
-  
-  call this%read(input)
-end function
-
-subroutine read_IntMatrix(this,input)
-  implicit none
-  
-  class(IntMatrix), intent(out) :: this
-  type(String),     intent(in)  :: input(:)
-  
-  integer, allocatable :: line(:)
-  integer, allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(IntMatrix)
-    if (size(input)==0) then
-      allocate(contents(0,0), stat=ialloc); call err(ialloc)
-    else
-      line = int(split_line(input(1)))
-      allocate( contents(size(input),size(line)), &
-              & stat=ialloc); call err(ialloc)
-      contents(1,:) = line
-      do i=2,size(input)
-        line = int(split_line(input(i)))
-        if (size(line)/=size(contents,2)) then
-          call print_line(ERROR//': Reading matrix: rows of different &
-             &lengths.')
-          call err()
-        endif
-        contents(i,:) = line
-      enddo
-    endif
-    
-    this = mat(contents)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_IntMatrix(this) result(output)
-  implicit none
-  
-  Class(IntMatrix), intent(in) :: this
-  type(String), allocatable    :: output(:)
-  
-  integer, allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(IntMatrix)
-    contents = int(this)
-    allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-    do i=1,size(contents,1)
-      output(i) = join(contents(i,:))
-    enddo
-  class default
-    call err()
-  end select
-end function
-
-function new_IntMatrix_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(IntMatrix)          :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_IntMatrix_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(IntMatrix)               :: this
-  
-  this = IntMatrix(str(input))
-end function
-
-subroutine read_RealMatrix(this,input)
-  implicit none
-  
-  class(RealMatrix), intent(out) :: this
-  type(String),      intent(in)  :: input(:)
-  
-  real(dp), allocatable :: line(:)
-  real(dp), allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(RealMatrix)
-    if (size(input)==0) then
-      allocate(contents(0,0), stat=ialloc); call err(ialloc)
-    else
-      line = dble(split_line(input(1)))
-      allocate( contents(size(input),size(line)), &
-              & stat=ialloc); call err(ialloc)
-      contents(1,:) = line
-      do i=2,size(input)
-        line = dble(split_line(input(i)))
-        if (size(line)/=size(contents,2)) then
-          call print_line(ERROR//': Reading matrix: rows of different &
-             &lengths.')
-          call err()
-        endif
-        contents(i,:) = line
-      enddo
-    endif
-    
-    this = mat(contents)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_RealMatrix(this) result(output)
-  implicit none
-  
-  Class(RealMatrix), intent(in) :: this
-  type(String), allocatable     :: output(:)
-  
-  real(dp), allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(RealMatrix)
-    contents = dble(this)
-    allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-    do i=1,size(contents,1)
-      output(i) = join(contents(i,:))
-    enddo
-  class default
-    call err()
-  end select
-end function
-
-function new_RealMatrix_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(RealMatrix)         :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_RealMatrix_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(RealMatrix)              :: this
-  
-  this = RealMatrix(str(input))
-end function
-
-subroutine read_ComplexMatrix(this,input)
-  implicit none
-  
-  class(ComplexMatrix), intent(out) :: this
-  type(String),         intent(in)  :: input(:)
-  
-  complex(dp), allocatable :: line(:)
-  complex(dp), allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(ComplexMatrix)
-    if (size(input)==0) then
-      allocate(contents(0,0), stat=ialloc); call err(ialloc)
-    else
-      line = cmplx(split_line(input(1)))
-      allocate( contents(size(input),size(line)), &
-              & stat=ialloc); call err(ialloc)
-      contents(1,:) = line
-      do i=2,size(input)
-        line = cmplx(split_line(input(i)))
-        if (size(line)/=size(contents,2)) then
-          call print_line(ERROR//': Reading matrix: rows of different &
-             &lengths.')
-          call err()
-        endif
-        contents(i,:) = line
-      enddo
-    endif
-    
-    this = mat(contents)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_ComplexMatrix(this) result(output)
-  implicit none
-  
-  Class(ComplexMatrix), intent(in) :: this
-  type(String), allocatable        :: output(:)
-  
-  complex(dp), allocatable :: contents(:,:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(ComplexMatrix)
-    contents = cmplx(this)
-    allocate(output(size(contents,1)), stat=ialloc); call err(ialloc)
-    do i=1,size(contents,1)
-      output(i) = join(contents(i,:))
-    enddo
-  class default
-    call err()
-  end select
-end function
-
-function new_ComplexMatrix_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(ComplexMatrix)      :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_ComplexMatrix_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(ComplexMatrix)           :: this
-  
-  this = ComplexMatrix(str(input))
 end function
 end module

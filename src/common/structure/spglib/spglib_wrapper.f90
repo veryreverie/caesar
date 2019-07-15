@@ -21,10 +21,6 @@ module spglib_wrapper_module
     module procedure new_SpglibSymmetries_calculated
   end interface
   
-  interface BasicStructure
-    module procedure new_BasicStructure_spglib
-  end interface
-  
   ! ----------------------------------------------------------------------
   ! spglib interface.
   ! ----------------------------------------------------------------------
@@ -242,6 +238,9 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
   type(RealVector), allocatable :: old_frac_positions(:)
   type(RealVector), allocatable :: new_frac_positions(:)
   
+  type(RealVector), allocatable :: new_positions(:)
+  type(BasicAtom),  allocatable :: output_atoms(:)
+  
   real(dp) :: max_lattice_change
   real(dp) :: max_atom_change
   
@@ -358,10 +357,14 @@ function snap_to_symmetry(lattice,atoms,symmetry_precision) result(output)
   
   ! Transform the lattice and atoms by this transformation, to return to the
   !    original cell.
-  output = BasicStructure(                                              &
-     & atoms,                                                           &
-     & transpose(transformation)*new_lattice,                           &
-     & [(transpose(new_lattice)*new_frac_positions(i),i=1,size(atoms))] )
+  new_positions = [( transpose(new_lattice)*new_frac_positions(i), &
+                   & i=1,                                          &
+                   & size(atoms)                                   )]
+  
+  output_atoms = BasicAtom(atoms%species(), atoms%mass(), new_positions)
+  output = BasicStructure(                                     &
+     & lattice_matrix = transpose(transformation)*new_lattice, &
+     & atoms          = output_atoms                           )
   
   ! Calculate changes.
   max_lattice_change = 0
@@ -428,21 +431,6 @@ function standardize_lattice(lattice) result(output)
               &   bx, by    , 0.0_dp,    &
               &   cx, cy    , cz      ], &
               & 3,3                      )
-end function
-
-function new_BasicStructure_spglib(atoms,lattice,positions) result(output)
-  implicit none
-  
-  type(AtomData),   intent(in) :: atoms(:)
-  type(RealMatrix), intent(in) :: lattice
-  type(RealVector), intent(in) :: positions(:)
-  type(BasicStructure)         :: output
-  
-  type(BasicAtom),  allocatable :: output_atoms(:)
-  
-  output_atoms = BasicAtom(atoms%species(), atoms%mass(), positions)
-  output = BasicStructure( lattice_matrix = lattice,     &
-                         & atoms          = output_atoms )
 end function
 
 ! Calculate spglib_atom_types array.

@@ -420,8 +420,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                         & pre_pulay_damping,              &
                         & anharmonic_data                 )
   
-  subspace_potentials = vscf_output%potential
-  subspace_states = vscf_output%states
+  subspace_potentials = [(vscf_output(i)%potential, i=1, size(vscf_output))]
+  subspace_states = [(vscf_output(i)%states, i=1, size(vscf_output))]
   
   ! Use VSCF states to generate single-subspace stresses.
   if (calculate_stress) then
@@ -464,14 +464,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   i = minloc(subspace_spectra%max_energy()-subspace_spectra%min_energy(),1)
   call print_line('')
   call print_line('Minimum VSCF energy span is '// &
-     & subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()// &
+     & (subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy())// &
      & '(Ha), in subspace '//subspaces(i)%id//'.' )
   call print_line('This is equivalent to a temperature span of '// &
-     & (subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
-     & / KB_IN_AU//' (K).')
+     & ((subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
+     & / KB_IN_AU)//' (K).')
   call print_line('VSCF finite basis error should be within 5% up to ~'// &
-     & (subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
-     & /(-log(0.05_dp)*KB_IN_AU)//' (K).')
+     & ((subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
+     & /(-log(0.05_dp)*KB_IN_AU))//' (K).')
   call print_line('')
   
   !! Print VSCF spectra and wavefunction information.

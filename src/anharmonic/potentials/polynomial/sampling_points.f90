@@ -70,7 +70,7 @@ function generate_sampling_points(unique_terms,potential_expansion_order, &
   
   type(RealModeDisplacement), allocatable :: points(:)
   
-  integer :: i
+  integer :: i,ialloc
   
   ! Sampling points are generated in groups, where each group contains all
   !    basis functions with the same modes with non-zero power.
@@ -81,7 +81,7 @@ function generate_sampling_points(unique_terms,potential_expansion_order, &
   unique_bases = unique_terms(set(unique_terms, compare_modes))
   
   ! Loop over the groups.
-  points = [RealModeDisplacement::]
+  allocate(points(0), stat=ialloc); call err(ialloc)
   do i=1,size(unique_bases)
     ! Identify the basis functions in the group.
     ! These are the basis functions equivalent to the representative function.
@@ -113,11 +113,11 @@ contains
     integer, allocatable :: this_ids(:)
     integer, allocatable :: that_ids(:)
     
-    integer :: i
+    integer :: i,ialloc
     
     select type(this); type is(RealMonomial)
       select type(that); type is(RealMonomial)
-        this_ids = [integer::]
+        allocate(this_ids(0), stat=ialloc); call err(ialloc)
         do i=1,size(this)
           if (this%power(i)>0) then
             this_ids = [this_ids, this%id(i)]
@@ -130,7 +130,7 @@ contains
           endif
         enddo
         
-        that_ids = [integer::]
+        allocate(that_ids(0), stat=ialloc); call err(ialloc)
         do i=1,size(that)
           if (that%power(i)>0) then
             that_ids = [that_ids, that%id(i)]
@@ -183,11 +183,12 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
   
   integer :: i,j,ialloc
   
-  output = [RealModeDisplacement::]
+  allocate(output(0), stat=ialloc); call err(ialloc)
   
   do i=1,size(monomials)
-    ids = [integer::]
-    powers = [integer::]
+    allocate( ids(0),    &
+            & powers(0), &
+            & stat=ialloc); call err(ialloc)
     do j=1,size(monomials(i))
       if (monomials(i)%power(j)>0) then
         ids = [ids, monomials(i)%id(j)]
@@ -233,7 +234,7 @@ function generate_sampling_points_helper(monomials,potential_expansion_order, &
     
     output = [output, RealModeDisplacement(vectors)]
     output = [output, -RealModeDisplacement(vectors)]
-    deallocate(vectors, stat=ialloc); call err(ialloc)
+    deallocate(ids, powers, vectors, stat=ialloc); call err(ialloc)
   enddo
 end function
 
