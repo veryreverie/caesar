@@ -106,6 +106,7 @@ function new_SpglibSymmetries_calculated(lattice,atoms,symmetry_precision) &
   type(SpglibSymmetries)       :: this
   
   ! Spglib input variables.
+  real(dp)              :: real_lattice(3,3)
   integer,  allocatable :: atom_types(:)
   real(dp), allocatable :: positions(:,:)
   
@@ -144,7 +145,8 @@ function new_SpglibSymmetries_calculated(lattice,atoms,symmetry_precision) &
   do i=1,size(atoms)
     positions(:,i) = dble(atoms(i)%fractional_position())
   enddo
-  call spglib_calculate_symmetries( dble(lattice),       &
+  real_lattice = dble(lattice)
+  call spglib_calculate_symmetries( real_lattice,        &
                                   & positions,           &
                                   & atom_types,          &
                                   & size(atoms),         &

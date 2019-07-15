@@ -203,7 +203,9 @@ subroutine calculate_normal_modes_subroutine(arguments)
                                                    & supercell_hessians,      &
                                                    & qpoints,                 &
                                                    & dynamical_matrix_logfile )
-  dynamical_matrices = matrices_and_modes%matrix
+  dynamical_matrices = [( matrices_and_modes(i)%matrix, &
+                        & i=1,                          &
+                        & size(matrices_and_modes)      )]
   
   ! Copy normal modes from dynamical matrices into a single array.
   allocate( complex_modes(structure%no_modes,size(qpoints)), &
