@@ -17,9 +17,9 @@ if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   #    maybe-initialized erroneously triggers hundreds of times.
   set(CMAKE_Fortran_FLAGS "-g -O3 -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -fcheck-array-temporaries")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
-  set(CMAKE_Fortran_FLAGS "-f2008 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u -mtrace -nan -info -g -gline -pg -colour")
+  set(CMAKE_Fortran_FLAGS "-f2008 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u -mtrace -nan -info -g -gline -colour")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
-  set(CMAKE_Fortran_FLAGS "-stand f08 -O0 -g -check all -p -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1")
+  set(CMAKE_Fortran_FLAGS "-stand f08 -O0 -g -check all -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "PGI")
   set(CMAKE_Fortran_FLAGS "-C -c -g -traceback -O0")
 else()
@@ -27,7 +27,7 @@ else()
 endif()
 
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_C_FLAGS "-g -pg -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -std=c99")
+  set(CMAKE_C_FLAGS "-g -O0 -W -Wall -Wextra -pedantic -fmax-errors=1 -std=c99")
 endif()
 
 # Add the main caesar executable as bin/caesar
