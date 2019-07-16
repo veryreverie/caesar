@@ -104,6 +104,8 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   real(dp), allocatable :: input_frequency(:)
   real(dp), allocatable :: output_frequency(:)
   
+  type(PulaySolver) :: solver
+  
   integer :: i,j,ialloc
   
   subspaces = anharmonic_data%degenerate_subspaces
@@ -141,38 +143,31 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
      & size(subspaces)                                           )]
   
   ! Find self-consistent frequencies which minimise the energy.
-  input_frequencies = [vec(frequencies)]
-  allocate(output_frequencies(0), stat=ialloc); call err(ialloc)
-  i = 1
+  solver = PulaySolver( pre_pulay_iterations, &
+                      & pre_pulay_damping,    &
+                      & max_pulay_iterations, &
+                      & frequencies           )
+  i = 0
+  allocate( input_frequencies(0),  &
+          & output_frequencies(0), &
+          & stat=ialloc); call err(ialloc)
   do
-    ! Update the bases to have the output frequencies.
-    call subspace_bases%set_frequency(dble(input_frequencies(i)))
+    input_frequency = solver%get_input()
+    input_frequencies = [input_frequencies, vec(input_frequency)]
     
     ! Calculate mean-field potentials from the input frequencies, and use these
     !    mean-field potentials to calculate output frequencies.
+    call subspace_bases%set_frequency(input_frequency)
     output_frequency = optimise_frequencies( potential,            &
                                            & subspaces,            &
                                            & subspace_bases,       &
                                            & subspace_states,      &
                                            & anharmonic_data,      &
                                            & frequency_convergence )
-    output_frequencies = [output_frequencies, vec(output_frequency)]
-    
-    ! Use a damped iterative scheme or a Pulay scheme to converge towards the
-    !    self-consistent solution where output frequencies = input frequencies.
-    if (i<=pre_pulay_iterations) then
-      input_frequency = pre_pulay_damping * dble(input_frequencies(i)) &
-                    & + (1-pre_pulay_damping) * dble(output_frequencies(i))
-    else
-      j = max(2, i-max_pulay_iterations+1)
-      input_frequency = dble(pulay( input_frequencies(j:), &
-                                  & output_frequencies(j:) ))
-    endif
     
     ! Find and correct negative frequencies.
-    input_frequency = max(input_frequency, output_frequency/2)
-    
-    input_frequencies = [input_frequencies, vec(input_frequency)]
+    output_frequency = max(output_frequency, input_frequency/2)
+    output_frequencies = [output_frequencies, vec(output_frequency)]
     
     ! Increment the loop counter.
     i = i+1
@@ -180,11 +175,11 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
     ! Check whether the frequencies have converged by the normal convergence
     !    condition.
     if (i>no_converged_calculations) then
-      if (all(steps_converged(                                 &
-         & input_frequencies(i-no_converged_calculations:i-1), &
-         & input_frequencies(i),                               &
-         & frequency_convergence                               ))) then
-        frequencies = dble(input_frequencies(i))
+      if (all(steps_converged(                                  &
+         & output_frequencies(i-no_converged_calculations:i-1), &
+         & output_frequencies(i),                               &
+         & frequency_convergence                                ))) then
+        frequencies = dble(output_frequencies(i))
         exit
       endif
     endif
@@ -193,17 +188,21 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
     !    tighter convergence.
     ! This is needed to avoid numerical problems with the Pulay scheme caused
     !    by over-convergence.
-    if (steps_converged( input_frequencies(i),     &
-                       & input_frequencies(i-1),   &
-                       & frequency_convergence/100 )) then
-      frequencies = dble(input_frequencies(i))
-      exit
+    if (i>1) then
+      if (steps_converged( output_frequencies(i),     &
+                         & output_frequencies(i-1),   &
+                         & frequency_convergence/100  )) then
+        frequencies = dble(output_frequencies(i))
+        exit
+      endif
     endif
     
     call print_line('Completed self-consistency step '//(i-1)// &
                    & '. L2 error: '// &
-                   & l2_norm(output_frequencies(i-1)-input_frequencies(i-1)) &
+                   & l2_norm(output_frequencies(i)-input_frequencies(i)) &
                    & //' (Ha).' )
+    
+    call solver%set_output(output_frequency)
   enddo
   
   output = InitialFrequencies(subspaces%id, frequencies)
