@@ -3,8 +3,7 @@
 ! ======================================================================
 ! Should be run after calculate_potential.
 module calculate_anharmonic_observables_module
-  use common_module
-  
+  use common_module 
   use states_module
   use anharmonic_common_module
   use potentials_module
@@ -455,11 +454,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
        & anharmonic_data    = anharmonic_data      )
   endif
   
-  subspace_wavefunctions = SubspaceWavefunctionsPointer( &
-                & basis%wavefunctions( subspace_states,  &
-                &                      subspaces,        &
-                &                      anharmonic_data ) )
-  
   ! Print finite basis error information.
   i = minloc(subspace_spectra%max_energy()-subspace_spectra%min_energy(),1)
   call print_line('')
@@ -475,6 +469,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   call print_line('')
   
   !! Print VSCF spectra and wavefunction information.
+  !subspace_wavefunctions = SubspaceWavefunctionsPointer( &
+  !              & basis%wavefunctions( subspace_states,  &
+  !              &                      subspaces,        &
+  !              &                      anharmonic_data ) )
   !do i=1,size(subspaces)
   !  subspace_dir = output_dir//'/subspace_'// &
   !     & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))

@@ -106,20 +106,20 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
                                                  & subspace_states, &
                                                  & anharmonic_data  )
   ! Initialise Pulay solvers.
-  solvers = [(                                                            &
-     & PulaySolver( pre_pulay_iterations,                                 &
-     &              pre_pulay_damping,                                    &
-     &              max_pulay_iterations,                                 &
-     &              initial_input = input_potentials(i)%coefficients() ), &
-     & i=1,                                                               &
-     & size(input_potentials)                                             )]
+  solvers = [(                                            &
+     & PulaySolver( pre_pulay_iterations,                 &
+     &              pre_pulay_damping,                    &
+     &              max_pulay_iterations,                 &
+     &              input_potentials(i)%coefficients() ), &
+     & i=1,                                               &
+     & size(input_potentials)                             )]
   
   ! Run Pulay scheme.
   i = 1
   do
     call print_line('Beginning VSCF self-consistency step '//i//'.')
     do j=1,size(input_potentials)
-      call input_potentials(i)%set_coefficients(solvers(i)%get_input())
+      call input_potentials(i)%set_coefficients(solvers(i)%get_x())
     enddo
     
     ! Use the single-subspace potentials to calculate the new states.
@@ -184,7 +184,7 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     ! If the energies have not converged, generate the next input potentials
     !    using either a damped iterative scheme or a Pulay scheme.
     do j=1,size(output_potentials)
-      call solvers(j)%set_output(output_potentials(j)%coefficients())
+      call solvers(j)%set_f(output_potentials(j)%coefficients())
     enddo
     
     ! Increment the loop counter.

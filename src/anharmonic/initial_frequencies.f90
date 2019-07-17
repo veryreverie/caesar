@@ -95,11 +95,11 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp),                 allocatable :: frequencies(:)
+  type(PotentialPointer),   allocatable :: subspace_potentials(:)
   type(FullSubspaceBasis),  allocatable :: subspace_bases(:)
   type(WavevectorStates),   allocatable :: subspace_states(:)
   
-  type(RealVector), allocatable :: input_frequencies(:)
-  type(RealVector), allocatable :: output_frequencies(:)
+  real(dp), allocatable :: max_differences(:)
   
   real(dp), allocatable :: input_frequency(:)
   real(dp), allocatable :: output_frequency(:)
@@ -146,63 +146,57 @@ function new_InitialFrequencies_PotentialData(potential,anharmonic_data,   &
   solver = PulaySolver( pre_pulay_iterations, &
                       & pre_pulay_damping,    &
                       & max_pulay_iterations, &
-                      & frequencies           )
+                      & frequencies,          &
+                      & bound_at_zero=.true.  )
   i = 0
-  allocate( input_frequencies(0),  &
-          & output_frequencies(0), &
-          & stat=ialloc); call err(ialloc)
+  allocate(max_differences(0), stat=ialloc); call err(ialloc)
   do
-    input_frequency = solver%get_input()
-    input_frequencies = [input_frequencies, vec(input_frequency)]
+    input_frequency = solver%get_x()
     
-    ! Calculate mean-field potentials from the input frequencies, and use these
-    !    mean-field potentials to calculate output frequencies.
+    ! Calculate single-subspace mean-field potentials, defined as
+    !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
     call subspace_bases%set_frequency(input_frequency)
-    output_frequency = optimise_frequencies( potential,            &
-                                           & subspaces,            &
-                                           & subspace_bases,       &
-                                           & subspace_states,      &
-                                           & anharmonic_data,      &
-                                           & frequency_convergence )
     
-    ! Find and correct negative frequencies.
-    output_frequency = max(output_frequency, input_frequency/2)
-    output_frequencies = [output_frequencies, vec(output_frequency)]
+    subspace_potentials = PotentialPointer(               &
+       & generate_subspace_potentials( potential,         &
+       &                               subspaces,         &
+       &                               subspace_bases,    &
+       &                               subspace_states,   &
+       &                               anharmonic_data  ) )
+    
+    ! Calculate updated frequencies, each of which minimises the free energy
+    !    of the corresponding subspace potential.
+    output_frequency = optimise_frequency( subspace_potentials,  &
+                                         & subspaces,            &
+                                         & subspace_bases,       &
+                                         & subspace_states,      &
+                                         & anharmonic_data,      &
+                                         & frequency_convergence )
+    
+    ! Calculate the maximum error in self-consistency,
+    !    for convergence purposes.
+    max_differences = [ max_differences,                              &
+                      & maxval(abs(output_frequency-input_frequency)) ]
     
     ! Increment the loop counter.
     i = i+1
     
     ! Check whether the frequencies have converged by the normal convergence
     !    condition.
-    if (i>no_converged_calculations) then
-      if (all(steps_converged(                                  &
-         & output_frequencies(i-no_converged_calculations:i-1), &
-         & output_frequencies(i),                               &
-         & frequency_convergence                                ))) then
-        frequencies = dble(output_frequencies(i))
+    if (i>=no_converged_calculations) then
+      if (all( max_differences(i-no_converged_calculations+1:) &
+           & < frequency_convergence                           )) then
+        frequencies = output_frequency
         exit
       endif
     endif
     
-    ! Check whether the last two sets of frequencies have converged to a much
-    !    tighter convergence.
-    ! This is needed to avoid numerical problems with the Pulay scheme caused
-    !    by over-convergence.
-    if (i>1) then
-      if (steps_converged( output_frequencies(i),     &
-                         & output_frequencies(i-1),   &
-                         & frequency_convergence/100  )) then
-        frequencies = dble(output_frequencies(i))
-        exit
-      endif
-    endif
+    call print_line('Frequency self-consistency step '//i// &
+                   & '. Maximum error: '//                  &
+                   & max_differences(i)                     &
+                   & //' (Ha).'                             )
     
-    call print_line('Completed self-consistency step '//(i-1)// &
-                   & '. L2 error: '// &
-                   & l2_norm(output_frequencies(i)-input_frequencies(i)) &
-                   & //' (Ha).' )
-    
-    call solver%set_output(output_frequency)
+    call solver%set_f(output_frequency)
   enddo
   
   output = InitialFrequencies(subspaces%id, frequencies)
@@ -219,42 +213,6 @@ impure elemental function steps_converged(this,that,frequency_convergence) &
   logical                      :: output
   
   output = all(abs(dble(this-that))<frequency_convergence)
-end function
-
-! For each subspace, integrate the potential across all other subspaces
-!    to get a single-subspace mean-field potential.
-! Then find the subspace frequency which minimises the single-subspace energy.
-function optimise_frequencies(potential,subspaces,subspace_bases, &
-   & subspace_states,anharmonic_data,frequency_convergence) result(output)
-  implicit none
-  
-  class(PotentialData),     intent(in) :: potential
-  type(DegenerateSubspace), intent(in) :: subspaces(:)
-  type(FullSubspaceBasis),  intent(in) :: subspace_bases(:)
-  type(WavevectorStates),   intent(in) :: subspace_states(:)
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp),                 intent(in) :: frequency_convergence
-  real(dp), allocatable                :: output(:)
-  
-  type(PotentialPointer), allocatable :: subspace_potentials(:)
-  
-  ! Calculate the single-subspace potentials, defined as
-  !    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
-  subspace_potentials = PotentialPointer(               &
-     & generate_subspace_potentials( potential,         &
-     &                               subspaces,         &
-     &                               subspace_bases,    &
-     &                               subspace_states,   &
-     &                               anharmonic_data  ) )
-  
-  ! Calculate updated frequencies, which minimise the free energy subspace
-  !    by subspace.
-  output = optimise_frequency( subspace_potentials,  &
-                             & subspaces,            &
-                             & subspace_bases,       &
-                             & subspace_states,      &
-                             & anharmonic_data,      &
-                             & frequency_convergence )
 end function
 
 ! Find the frequency which minimises energy in a single subspace.

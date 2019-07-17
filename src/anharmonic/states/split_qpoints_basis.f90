@@ -402,16 +402,16 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   call input_potential%zero_energy()
   
   ! Initialise Pulay solver.
-  solver = PulaySolver( pre_pulay_iterations,                          &
-                      & pre_pulay_damping,                             &
-                      & max_pulay_iterations,                          &
-                      & initial_input = input_potential%coefficients() )
+  solver = PulaySolver( pre_pulay_iterations,          &
+                      & pre_pulay_damping,             &
+                      & max_pulay_iterations,          &
+                      & input_potential%coefficients() )
   
   ! Run Pulay scheme.
   allocate(energies(0), stat=ialloc); call err(ialloc)
   i = 1
   do
-    call input_potential%set_coefficients(solver%get_input())
+    call input_potential%set_coefficients(solver%get_x())
     
     ! Calculate new states.
     states = this%calculate_split_states( subspace,        &
@@ -455,7 +455,7 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
     endif
     
     ! If convergence has not been reached, generate the next input potential.
-    call solver%set_output(output_potential%coefficients())
+    call solver%set_f(output_potential%coefficients())
     
     ! Increment the loop counter.
     i = i+1
