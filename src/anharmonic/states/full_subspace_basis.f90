@@ -55,22 +55,23 @@ module full_subspace_basis_module
     
     ! Procedures involving individual states.
     procedure, public :: inner_product => &
-                       & inner_product_WavevectorState
+                       & inner_product_FullSubspaceBasis
     procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_WavevectorState
+                       & braket_ComplexMonomial_FullSubspaceBasis
     procedure, public :: kinetic_energy => &
-                       & kinetic_energy_WavevectorState
+                       & kinetic_energy_FullSubspaceBasis
     procedure, public :: harmonic_potential_energy => &
-                       & harmonic_potential_energy_WavevectorState
+                       & harmonic_potential_energy_FullSubspaceBasis
     procedure, public :: kinetic_stress => &
-                       & kinetic_stress_WavevectorState
-    procedure, public :: wavefunction => wavefunction_WavevectorState
+                       & kinetic_stress_FullSubspaceBasis
+    procedure, public :: wavefunction => wavefunction_FullSubspaceBasis
     
     ! Procedures involving sets of states.
-    procedure, public :: spectra => spectra_WavevectorStates
-    procedure, public :: wavefunctions => wavefunctions_WavevectorStates
+    procedure, public :: thermodynamic_data => &
+                       & thermodynamic_data_FullSubspaceBasis
+    procedure, public :: wavefunctions => wavefunctions_FullSubspaceBasis
     procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_WavevectorStates
+                       & integrate_ComplexMonomial_FullSubspaceBasis
     
     ! I/O.
     procedure, public :: read  => read_FullSubspaceBasis
@@ -309,7 +310,7 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
   output = BasisStatesPointer(WavevectorStates(states, energies))
 end function
 
-impure elemental function wavefunction_WavevectorState(this,state, &
+impure elemental function wavefunction_FullSubspaceBasis(this,state, &
    & supercell) result(output)
   implicit none
   
@@ -333,7 +334,7 @@ function modes_FullSubspaceBasis(this,subspace,anharmonic_data) result(output)
   output = subspace%mode_ids
 end function
 
-impure elemental function inner_product_WavevectorState(this,bra,ket, &
+impure elemental function inner_product_FullSubspaceBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -365,7 +366,7 @@ impure elemental function inner_product_WavevectorState(this,bra,ket, &
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_WavevectorState(this, &
+impure elemental function braket_ComplexMonomial_FullSubspaceBasis(this, &
    & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -400,7 +401,7 @@ impure elemental function braket_ComplexMonomial_WavevectorState(this, &
   endif
 end function
 
-impure elemental function kinetic_energy_WavevectorState(this,bra,ket, &
+impure elemental function kinetic_energy_FullSubspaceBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -432,7 +433,7 @@ impure elemental function kinetic_energy_WavevectorState(this,bra,ket, &
   endif
 end function
 
-impure elemental function harmonic_potential_energy_WavevectorState( &
+impure elemental function harmonic_potential_energy_FullSubspaceBasis( &
    & this,bra,ket,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -464,7 +465,7 @@ impure elemental function harmonic_potential_energy_WavevectorState( &
   endif
 end function
 
-impure elemental function kinetic_stress_WavevectorState(this,bra,ket, &
+impure elemental function kinetic_stress_FullSubspaceBasis(this,bra,ket, &
    & subspace,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
@@ -499,20 +500,21 @@ impure elemental function kinetic_stress_WavevectorState(this,bra,ket, &
   endif
 end function
 
-! Energy spectra.
-impure elemental function spectra_WavevectorStates(this,states,subspace,   &
-   & subspace_potential,subspace_stress,stress_prefactors,anharmonic_data) &
-   & result(output)
+! Thermodynamic data. Energy, entropy, free energy etc.
+impure elemental function thermodynamic_data_FullSubspaceBasis(this,    &
+   & thermal_energy,states,subspace,subspace_potential,subspace_stress, &
+   & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(FullSubspaceBasis),  intent(in)           :: this
-  class(BasisStates),        intent(in)           :: states
-  type(DegenerateSubspace),  intent(in)           :: subspace
-  class(PotentialData),      intent(in)           :: subspace_potential
-  class(StressData),         intent(in), optional :: subspace_stress
-  type(StressPrefactors),    intent(in), optional :: stress_prefactors
-  type(AnharmonicData),      intent(in)           :: anharmonic_data
-  type(EnergySpectra)                             :: output
+  class(FullSubspaceBasis), intent(in)           :: this
+  real(dp),                 intent(in)           :: thermal_energy
+  class(BasisStates),       intent(in)           :: states
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(PotentialData),     intent(in)           :: subspace_potential
+  class(StressData),        intent(in), optional :: subspace_stress
+  type(StressPrefactors),   intent(in), optional :: stress_prefactors
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ThermodynamicData)                        :: output
   
   type(WavevectorStates) :: full_states
   
@@ -520,11 +522,11 @@ impure elemental function spectra_WavevectorStates(this,states,subspace,   &
   
   integer :: i,ialloc
   
-  full_states = WavevectorStates(states)
-  
   if (present(subspace_stress) .neqv. present(stress_prefactors)) then
     call err()
   endif
+  
+  full_states = WavevectorStates(states)
   
   if (present(subspace_stress)) then
     allocate( stress(size(full_states%states)), &
@@ -541,15 +543,14 @@ impure elemental function spectra_WavevectorStates(this,states,subspace,   &
               &      stress_prefactors = stress_prefactors,     &
               &      anharmonic_data   = anharmonic_data        )
     enddo
-    output = EnergySpectra([EnergySpectrum( full_states%energies, &
-                                          & stresses = stress     )])
-  else
-    output = EnergySpectra([EnergySpectrum(full_states%energies)])
   endif
+  
+  ! TODO: include stress.
+  output = ThermodynamicData(thermal_energy, full_states%energies)
 end function
 
 ! Wavefunctions.
-impure elemental function wavefunctions_WavevectorStates(this,states, &
+impure elemental function wavefunctions_FullSubspaceBasis(this,states, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -593,7 +594,7 @@ impure elemental function wavefunctions_WavevectorStates(this,states, &
 end function
 
 ! Integrate a monomial.
-impure elemental function integrate_ComplexMonomial_WavevectorStates(this, &
+impure elemental function integrate_ComplexMonomial_FullSubspaceBasis(this, &
    & states,monomial,subspace,anharmonic_data) result(output)
   implicit none
   

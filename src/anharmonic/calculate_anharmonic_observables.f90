@@ -204,7 +204,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: vscha2_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
   
-  type(EnergySpectra),                allocatable :: subspace_spectra(:)
   type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
   
   real(dp) :: harmonic_potential_expectation
@@ -407,11 +406,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     endif
   enddo
   
-  ! Run VSCF to generate single-subspace potentials and ground states.
+  ! Run VSCF to generate single-subspace potentials and states.
   call print_line('Running VSCF')
   vscf_output = run_vscf( potential,                      &
                         & subspaces,                      &
                         & basis,                          &
+                        & 0.0_dp,                         &
                         & energy_convergence,             &
                         & no_converged_calculations_vscf, &
                         & max_pulay_iterations,           &
@@ -423,50 +423,46 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   subspace_states = [(vscf_output(i)%states, i=1, size(vscf_output))]
   
   ! Use VSCF states to generate single-subspace stresses.
+  ! Also generate stress prefactors, which are geometric factors quantifying
+  !    the direction of each pair of modes w/r/t the lattice vectors.
   if (calculate_stress) then
-    call print_line('Generating single-subspaces stresses.')
+    call print_line('Generating single-subspaces stresses &
+       &and stress prefactors.')
     subspace_stresses = generate_subspace_stresses( stress,          &
                                                   & subspaces,       &
                                                   & basis,           &
                                                   & subspace_states, &
                                                   & anharmonic_data  )
-  endif
-  
-  ! Generate energy spectra and wavefunctions from states.
-  call print_line('Generating single-subspace spectra.')
-  if (calculate_stress) then
     stress_prefactors = [( StressPrefactors(subspaces(i),modes), &
                          & i=1,                                  &
                          & size(subspaces)                       )]
-    
-    subspace_spectra = basis%spectra(              &
-       & states             = subspace_states,     &
-       & subspace           = subspaces,           &
-       & subspace_potential = subspace_potentials, &
-       & subspace_stress    = subspace_stresses,   &
-       & stress_prefactors  = stress_prefactors,   &
-       & anharmonic_data    = anharmonic_data      )
-  else
-    subspace_spectra = basis%spectra(              &
-       & states             = subspace_states,     &
-       & subspace           = subspaces,           &
-       & subspace_potential = subspace_potentials, &
-       & anharmonic_data    = anharmonic_data      )
   endif
   
-  ! Print finite basis error information.
-  i = minloc(subspace_spectra%max_energy()-subspace_spectra%min_energy(),1)
-  call print_line('')
-  call print_line('Minimum VSCF energy span is '// &
-     & (subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy())// &
-     & '(Ha), in subspace '//subspaces(i)%id//'.' )
-  call print_line('This is equivalent to a temperature span of '// &
-     & ((subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
-     & / KB_IN_AU)//' (K).')
-  call print_line('VSCF finite basis error should be within 5% up to ~'// &
-     & ((subspace_spectra(i)%max_energy()-subspace_spectra(i)%min_energy()) &
-     & /(-log(0.05_dp)*KB_IN_AU))//' (K).')
-  call print_line('')
+  ! Calculate thermodynamic quantities under VSCF.
+  allocate( vscf_thermodynamics( size(subspaces),            &
+          &                      size(thermal_energies) ),   &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(thermal_energies)
+    if (calculate_stress) then
+      vscf_thermodynamics(:,i) = basis%thermodynamic_data(   &
+                             &        thermal_energies(i),   &
+                             &        subspace_states,       &
+                             &        subspaces,             &
+                             &        subspace_potentials,   &
+                             &        subspace_stresses,     &
+                             &        stress_prefactors,     &
+                             &        anharmonic_data      ) &
+                             & / supercell%sc_size
+    else
+      vscf_thermodynamics(:,i) = basis%thermodynamic_data(            &
+                             &      thermal_energies(i),              &
+                             &      subspace_states,                  &
+                             &      subspaces,                        &
+                             &      subspace_potentials,              &
+                             &      anharmonic_data=anharmonic_data ) &
+                             & / supercell%sc_size
+    endif
+  enddo
   
   !! Print VSCF spectra and wavefunction information.
   !subspace_wavefunctions = SubspaceWavefunctionsPointer( &
@@ -609,26 +605,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
   enddo
   
-  call print_line('VSCHA calculation complete.')
-  
-  ! --------------------------------------------------
-  ! Calculate observables under full VSCF.
-  ! --------------------------------------------------
-  
-  ! Calculate thermodynamic quantities.
+  ! Calculate thermodynamic quantities under VSCHA.
   allocate( vscha1_thermodynamics( size(subspaces),          &
           &                        size(thermal_energies) ), &
           & vscha2_thermodynamics( size(subspaces),          &
           &                        size(thermal_energies) ), &
-          & vscf_thermodynamics( size(subspaces),            &
-          &                      size(thermal_energies) ),   &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     do j=1,size(subspaces)
-      vscf_thermodynamics(j,i) = ThermodynamicData( thermal_energies(i),  &
-                             &                      subspace_spectra(j) ) &
-                             & / supercell%sc_size
-      
       vscha1_thermodynamics(j,i) =                         &
          & ThermodynamicData( thermal_energies(i),         &
          &                    effective_frequencies(j,i) ) &
@@ -653,6 +637,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
          & + anharmonic_potential_expectation
     enddo
   enddo
+  
+  call print_line('VSCHA calculation complete.')
   
   ! Write out thermodynamic results.
   

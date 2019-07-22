@@ -21,7 +21,6 @@ module abstract_classes_module
   
   use subspace_coupling_module
   use anharmonic_data_module
-  use energy_spectrum_module
   use subspace_wavefunctions_module
   use stress_prefactors_module
   use subspace_state_module
@@ -61,44 +60,46 @@ module abstract_classes_module
     procedure(modes_SubspaceBasis), public, deferred :: modes
     
     ! If ket is not given, <this|this>, otherwise <this|ket>.
-    procedure(inner_product_BasisState), public, deferred :: inner_product
+    procedure(inner_product_SubspaceBasis), public, deferred :: inner_product
     
     ! Integrals of the form <i|V|j>
     generic, public :: braket =>                 &
                      & braket_ComplexMonomial,   &
                      & braket_ComplexPolynomial
     ! Either <this|V|this> or <this|V|ket>, where V is a ComplexMonomial.
-    procedure(braket_ComplexMonomial_BasisState), public, deferred :: &
+    procedure(braket_ComplexMonomial_SubspaceBasis), public, deferred :: &
        & braket_ComplexMonomial
     ! Either <this|V|this> or <this|V|ket>, where V is a ComplexPolynomial.
     procedure, public :: braket_ComplexPolynomial => &
-                       & braket_ComplexPolynomial_BasisState
+                       & braket_ComplexPolynomial_SubspaceBasis
     
     ! Either <this|T|this> or <this|T|ket>, where T is the kinetic energy.
-    procedure(kinetic_energy_BasisState), public, deferred :: &
+    procedure(kinetic_energy_SubspaceBasis), public, deferred :: &
        & kinetic_energy
     
     ! Either <this|V|this> or <this|V|ket>, where V is the harmonic potential
     !    energy.
-    procedure(harmonic_potential_energy_BasisState), public, deferred :: &
+    procedure(harmonic_potential_energy_SubspaceBasis), public, deferred :: &
        & harmonic_potential_energy
     
     ! Either <this|stress|this> or <this|stress|ket>, where stress is the
     !    kinetic stress.
-    procedure(kinetic_stress_BasisState), public, deferred :: &
+    procedure(kinetic_stress_SubspaceBasis), public, deferred :: &
        & kinetic_stress
     
     ! Functionality involving SubspaceStates.
-    procedure(spectra_BasisStates),       public, deferred :: spectra
-    procedure(wavefunctions_BasisStates), public, deferred :: wavefunctions
+    procedure(thermodynamic_data_SubspaceBasis), public, deferred :: &
+       & thermodynamic_data
+    procedure(wavefunctions_SubspaceBasis),      public, deferred :: &
+       & wavefunctions
     
     generic, public :: integrate =>               &
                      & integrate_ComplexMonomial, &
                      & integrate_ComplexPolynomial
-    procedure(integrate_ComplexMonomial_BasisStates), public, deferred :: &
+    procedure(integrate_ComplexMonomial_SubspaceBasis), public, deferred :: &
        & integrate_ComplexMonomial
     procedure, public :: integrate_ComplexPolynomial => &
-                       & integrate_ComplexPolynomial_BasisStates
+                       & integrate_ComplexPolynomial_SubspaceBasis
   end type
   
   type, extends(SubspaceBasis) :: SubspaceBasisPointer
@@ -119,20 +120,21 @@ module abstract_classes_module
     procedure, public :: modes => modes_SubspaceBasisPointer
     
     procedure, public :: inner_product => &
-                       & inner_product_BasisStatePointer
+                       & inner_product_SubspaceBasisPointer
     procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_BasisStatePointer
+                       & braket_ComplexMonomial_SubspaceBasisPointer
     procedure, public :: kinetic_energy => &
-                       & kinetic_energy_BasisStatePointer
+                       & kinetic_energy_SubspaceBasisPointer
     procedure, public :: harmonic_potential_energy => &
-                       & harmonic_potential_energy_BasisStatePointer
+                       & harmonic_potential_energy_SubspaceBasisPointer
     procedure, public :: kinetic_stress => &
-                       & kinetic_stress_BasisStatePointer
+                       & kinetic_stress_SubspaceBasisPointer
     
-    procedure, public :: spectra => spectra_BasisStatesPointer
-    procedure, public :: wavefunctions => wavefunctions_BasisStatesPointer
+    procedure, public :: thermodynamic_data => &
+                       & thermodynamic_data_SubspaceBasisPointer
+    procedure, public :: wavefunctions => wavefunctions_SubspaceBasisPointer
     procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_BasisStatesPointer
+                       & integrate_ComplexMonomial_SubspaceBasisPointer
     
     ! I/O.
     procedure, public :: read  => read_SubspaceBasisPointer
@@ -396,7 +398,7 @@ module abstract_classes_module
       integer, allocatable                 :: output(:)
     end function
     
-    impure elemental function inner_product_BasisState(this,bra,ket, &
+    impure elemental function inner_product_SubspaceBasis(this,bra,ket, &
        & subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisState
@@ -413,7 +415,7 @@ module abstract_classes_module
       real(dp)                                       :: output
     end function
     
-    impure elemental function braket_ComplexMonomial_BasisState(this, &
+    impure elemental function braket_ComplexMonomial_SubspaceBasis(this, &
        & bra,monomial,ket,subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisState
@@ -431,7 +433,7 @@ module abstract_classes_module
       type(ComplexMonomial)                          :: output
     end function
     
-    impure elemental function kinetic_energy_BasisState(this,bra,ket, &
+    impure elemental function kinetic_energy_SubspaceBasis(this,bra,ket, &
        & subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisState
@@ -448,7 +450,7 @@ module abstract_classes_module
       real(dp)                                       :: output
     end function
     
-    impure elemental function harmonic_potential_energy_BasisState(this, &
+    impure elemental function harmonic_potential_energy_SubspaceBasis(this, &
        & bra,ket,subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisState
@@ -465,7 +467,7 @@ module abstract_classes_module
       real(dp)                                       :: output
     end function
     
-    impure elemental function kinetic_stress_BasisState(this,bra,ket, &
+    impure elemental function kinetic_stress_SubspaceBasis(this,bra,ket, &
        & subspace,stress_prefactors,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisState
@@ -484,30 +486,32 @@ module abstract_classes_module
       type(RealMatrix)                               :: output
     end function
     
-    impure elemental function spectra_BasisStates(this,states,subspace, &
-       & subspace_potential,subspace_stress,stress_prefactors,          &
-       & anharmonic_data) result(output)
+    impure elemental function thermodynamic_data_SubspaceBasis(this, &
+       & thermal_energy,states,subspace,subspace_potential,          &
+       & subspace_stress,stress_prefactors,anharmonic_data) result(output)
       import SubspaceBasis
+      import dp
       import BasisStates
       import DegenerateSubspace
       import PotentialData
       import StressData
       import StressPrefactors
       import AnharmonicData
-      import EnergySpectra
+      import ThermodynamicData
       implicit none
       
       class(SubspaceBasis),     intent(in)           :: this
+      real(dp),                 intent(in)           :: thermal_energy
       class(BasisStates),       intent(in)           :: states
       type(DegenerateSubspace), intent(in)           :: subspace
       class(PotentialData),     intent(in)           :: subspace_potential
       class(StressData),        intent(in), optional :: subspace_stress
       type(StressPrefactors),   intent(in), optional :: stress_prefactors
       type(AnharmonicData),     intent(in)           :: anharmonic_data
-      type(EnergySpectra)                            :: output
+      type(ThermodynamicData)                        :: output
     end function
     
-    impure elemental function wavefunctions_BasisStates(this,states, &
+    impure elemental function wavefunctions_SubspaceBasis(this,states, &
        & subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisStates
@@ -523,7 +527,7 @@ module abstract_classes_module
       type(SubspaceWavefunctionsPointer)   :: output
     end function
     
-    impure elemental function integrate_ComplexMonomial_BasisStates(this, &
+    impure elemental function integrate_ComplexMonomial_SubspaceBasis(this, &
        & states,monomial,subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisStates
@@ -1040,7 +1044,7 @@ function modes_SubspaceBasisPointer(this,subspace,anharmonic_data) &
   output = this%basis_%modes(subspace,anharmonic_data)
 end function
 
-impure elemental function inner_product_BasisStatePointer(this,bra,ket, &
+impure elemental function inner_product_SubspaceBasisPointer(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -1059,7 +1063,7 @@ impure elemental function inner_product_BasisStatePointer(this,bra,ket, &
                                     & anharmonic_data )
 end function
 
-impure elemental function braket_ComplexMonomial_BasisStatePointer(this,bra, &
+impure elemental function braket_ComplexMonomial_SubspaceBasisPointer(this,bra, &
    & monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -1080,7 +1084,7 @@ impure elemental function braket_ComplexMonomial_BasisStatePointer(this,bra, &
                              & anharmonic_data )
 end function
 
-impure elemental function kinetic_energy_BasisStatePointer(this,bra,ket, &
+impure elemental function kinetic_energy_SubspaceBasisPointer(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -1099,7 +1103,7 @@ impure elemental function kinetic_energy_BasisStatePointer(this,bra,ket, &
                                      & anharmonic_data )
 end function
 
-impure elemental function harmonic_potential_energy_BasisStatePointer( &
+impure elemental function harmonic_potential_energy_SubspaceBasisPointer( &
    & this,bra,ket,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -1118,7 +1122,7 @@ impure elemental function harmonic_potential_energy_BasisStatePointer( &
                                                 & anharmonic_data )
 end function
 
-impure elemental function kinetic_stress_BasisStatePointer(this,bra,ket, &
+impure elemental function kinetic_stress_SubspaceBasisPointer(this,bra,ket, &
    & subspace,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
@@ -1139,31 +1143,33 @@ impure elemental function kinetic_stress_BasisStatePointer(this,bra,ket, &
                                      & anharmonic_data    )
 end function
 
-impure elemental function spectra_BasisStatesPointer(this,states,subspace, &
-   & subspace_potential,subspace_stress,stress_prefactors,anharmonic_data) &
-   & result(output)
+impure elemental function thermodynamic_data_SubspaceBasisPointer(this, &
+   & thermal_energy,states,subspace,subspace_potential,subspace_stress, &
+   & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in)           :: this
+  real(dp),                    intent(in)           :: thermal_energy
   class(BasisStates),          intent(in)           :: states
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(PotentialData),        intent(in)           :: subspace_potential
   class(StressData),           intent(in), optional :: subspace_stress
   type(StressPrefactors),      intent(in), optional :: stress_prefactors
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(EnergySpectra)                               :: output
+  type(ThermodynamicData)                           :: output
   
   call this%check()
   
-  output = this%basis_%spectra( states,             &
-                              & subspace,           &
-                              & subspace_potential, &
-                              & subspace_stress,    &
-                              & stress_prefactors,  &
-                              & anharmonic_data     )
+  output = this%basis_%thermodynamic_data( thermal_energy,     &
+                                         & states,             &
+                                         & subspace,           &
+                                         & subspace_potential, &
+                                         & subspace_stress,    &
+                                         & stress_prefactors,  &
+                                         & anharmonic_data     )
 end function
 
-impure elemental function wavefunctions_BasisStatesPointer(this,states, &
+impure elemental function wavefunctions_SubspaceBasisPointer(this,states, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -1180,7 +1186,7 @@ impure elemental function wavefunctions_BasisStatesPointer(this,states, &
                                     & anharmonic_data )
 end function
 
-impure elemental function integrate_ComplexMonomial_BasisStatesPointer(this, &
+impure elemental function integrate_ComplexMonomial_SubspaceBasisPointer(this, &
    & states,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -1821,7 +1827,7 @@ end function
 ! Concrete methods of abstract classes.
 ! ----------------------------------------------------------------------
 ! BasisState methods.
-impure elemental function braket_ComplexPolynomial_BasisState(this, &
+impure elemental function braket_ComplexPolynomial_SubspaceBasis(this, &
    & bra,polynomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -1844,7 +1850,7 @@ impure elemental function braket_ComplexPolynomial_BasisState(this, &
 end function
 
 ! BasisStates methods.
-impure elemental function integrate_ComplexPolynomial_BasisStates(this, &
+impure elemental function integrate_ComplexPolynomial_SubspaceBasis(this, &
    & states,polynomial,subspace,anharmonic_data) result(output)
   implicit none
   

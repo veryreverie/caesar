@@ -313,16 +313,18 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
   type(CalculationReader),    intent(inout) :: calculation_reader
   type(OFile),                intent(inout) :: logfile
   
-  ! Basis functions and sampling points.
-  type(CouplingBasisFunctions), allocatable :: basis_functions(:)
-  type(SamplingPoints),         allocatable :: sampling_points(:)
-  type(SampleResults),          allocatable :: sample_results(:)
-  
   ! Basis functions and sampling points corresponding to the un-displaced
   !    structure and the constant basis function.
   type(BasisFunction)         :: constant_basis_function
   type(RealModeDisplacement)  :: equilibrium_sampling_point
   type(SampleResult)          :: equilibrium_sample_result
+  
+  ! Basis functions and sampling points at each coupling.
+  type(SubspaceCoupling)       :: coupling
+  type(String)                 :: coupling_directory
+  type(CouplingBasisFunctions) :: basis_functions
+  type(SamplingPoints)         :: sampling_points
+  type(SampleResults)          :: sample_results
   
   ! Basis function coefficients.
   real(dp), allocatable :: coefficients(:)
@@ -330,52 +332,58 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
   ! Temporary variables.
   integer :: i,j,k,ialloc
   
-  ! --------------------------------------------------
-  ! Read in basis functions and sampling points.
-  ! --------------------------------------------------
-  basis_functions = read_basis_functions( anharmonic_data%subspace_couplings, &
-                                        & sampling_points_dir                 )
+  ! Generate the potential at zero displacement.
+  call print_line('Generating potential at zero displacement.')
   constant_basis_function = generate_constant_basis_function()
-  
-  sampling_points = read_sampling_points( anharmonic_data%subspace_couplings, &
-                                        & sampling_points_dir                 )
   equilibrium_sampling_point = generate_equilibrium_sampling_point()
-  
-  ! --------------------------------------------------
-  ! Read in electronic structure data.
-  ! --------------------------------------------------
-  sample_results = read_sample_results( anharmonic_data%subspace_couplings, &
-                                      & sampling_points,                    &
-                                      & sampling_points_dir,                &
-                                      & anharmonic_data,                    &
-                                      & calculation_reader                  )
   equilibrium_sample_result = read_equilibrium_sample_result( &
                                 & equilibrium_sampling_point, &
                                 & sampling_points_dir,        &
                                 & anharmonic_data,            &
                                 & calculation_reader          )
-  
-  ! --------------------------------------------------
-  ! Fit basis function coefficients.
-  ! --------------------------------------------------
-  
   this%reference_energy = equilibrium_sample_result%energy
+  
   allocate(this%basis_functions_(0), stat=ialloc); call err(ialloc)
   
   do i=1,size(anharmonic_data%subspace_couplings)
-    coefficients = fit_coefficients( basis_functions(i)%basis_functions(), &
-                                   & sampling_points(i)%points,            &
-                                   & sample_results(i)%results,            &
-                                   & anharmonic_data%real_modes,           &
-                                   & weighted_energy_force_ratio,          &
-                                   & this                                  )
+    call print_line('Fitting potential in subspace coupling '//i//' of ' // &
+       &size(anharmonic_data%subspace_couplings)//', containing &
+       &subspaces '//anharmonic_data%subspace_couplings(i)%ids//'.')
     
-    this%basis_functions_ = [                                        &
-       & this%basis_functions_,                                      &
-       & CouplingBasisFunctions(                                     &
-       &    coupling = basis_functions(i)%coupling,                  &
-       &    basis_functions = coefficients                           &
-       &                    * basis_functions(i)%basis_functions() ) ]
+    coupling = anharmonic_data%subspace_couplings(i)
+    
+    ! Generate directory names.
+    coupling_directory = sampling_points_dir//'/coupling_'//left_pad( &
+                      & i,                                            &
+                      & str(size(anharmonic_data%subspace_couplings)) )
+    
+    ! Read in basis functions.
+    basis_functions = read_basis_functions(coupling_directory)
+    
+    ! Read in sampling points.
+    sampling_points = read_sampling_points(coupling_directory)
+    
+    ! Read in electronic structure data.
+    sample_results = read_sample_results( sampling_points,    &
+                                        & coupling_directory, &
+                                        & anharmonic_data,    &
+                                        & calculation_reader  )
+    
+    ! Fit basis function coefficients.
+    coefficients = fit_coefficients( basis_functions%basis_functions(), &
+                                   & sampling_points%points,            &
+                                   & sample_results%results,            &
+                                   & anharmonic_data%real_modes,        &
+                                   & weighted_energy_force_ratio,       &
+                                   & this                               )
+    
+    ! Add fitted basis functions to potential.
+    this%basis_functions_ = [                                     &
+       & this%basis_functions_,                                   &
+       & CouplingBasisFunctions(                                  &
+       &    coupling = basis_functions%coupling,                  &
+       &    basis_functions = coefficients                        &
+       &                    * basis_functions%basis_functions() ) ]
   enddo
 end subroutine
 
@@ -395,19 +403,18 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   type(OFile),                intent(inout) :: logfile
   type(StressPointer)                       :: output
   
+  ! Electronic structure results corresponding to the un-displaced structure.
+  type(CouplingStressBasisFunctions) :: zero_basis_functions(0)
+  type(RealModeDisplacement)         :: equilibrium_sampling_point
+  type(SampleResult)                 :: equilibrium_sample_result
+  
   ! Stress basis functions.
-  type(CouplingStressBasisFunctions)              :: zero_basis_functions(0)
   type(CouplingStressBasisFunctions), allocatable :: basis_functions(:)
   
   ! Electronic structure results.
-  type(SamplingPoints), allocatable :: sampling_points(:)
-  type(SampleResults),  allocatable :: sample_results(:)
-  type(SamplingPoints), allocatable :: stress_sampling_points(:)
-  type(SampleResults),  allocatable :: stress_sample_results(:)
-  
-  ! Electronic structure results corresponding to the un-displaced structure.
-  type(RealModeDisplacement) :: equilibrium_sampling_point
-  type(SampleResult)         :: equilibrium_sample_result
+  type(String)         :: coupling_directory
+  type(SamplingPoints) :: sampling_points
+  type(SampleResults)  :: sample_results
   
   ! The stress.
   type(PolynomialStress) :: stress
@@ -418,10 +425,24 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   ! Temporary variables.
   integer :: i,j,ialloc
   
+  ! Generate the stress tensor at zero displacement.
+  call print_line('Generating stress at zero displacement.')
+  equilibrium_sampling_point = generate_equilibrium_sampling_point()
+  equilibrium_sample_result = read_equilibrium_sample_result( &
+                                & equilibrium_sampling_point, &
+                                & sampling_points_dir,        &
+                                & anharmonic_data,            &
+                                & calculation_reader          )
+  stress = PolynomialStress( equilibrium_sample_result%stress(), &
+                           & zero_basis_functions                )
+  
   ! Generate basis functions.
   allocate( basis_functions(size(stress_subspace_coupling)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(basis_functions)
+    call print_line('Fitting stress in subspace coupling '//i//' of ' // &
+       &size(stress_subspace_coupling)//', containing &
+       &subspaces '//stress_subspace_coupling(i)%ids//'.')
     basis_functions(i) = generate_stress_basis_functions( &
                  & stress_subspace_coupling(i),           &
                  & stress_expansion_order,                &
@@ -433,36 +454,27 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
                  & anharmonic_data%degenerate_symmetries, &
                  & vscf_basis_functions_only,             &
                  & logfile                                )
-  enddo
-  
-  ! Read in all sampling points and sample results.
-  sampling_points = read_sampling_points( anharmonic_data%subspace_couplings, &
-                                        & sampling_points_dir                 )
-  equilibrium_sampling_point = generate_equilibrium_sampling_point()
-  
-  sample_results = read_sample_results( anharmonic_data%subspace_couplings, &
-                                      & sampling_points,                    &
-                                      & sampling_points_dir,                &
-                                      & anharmonic_data,                    &
-                                      & calculation_reader                  )
-  equilibrium_sample_result = read_equilibrium_sample_result( &
-                                & equilibrium_sampling_point, &
-                                & sampling_points_dir,        &
-                                & anharmonic_data,            &
-                                & calculation_reader          )
-  
-  ! Set the un-displaced stress tensor.
-  stress = PolynomialStress( equilibrium_sample_result%stress(), &
-                           & zero_basis_functions                )
-  
-  ! Fit basis functions.
-  do i=1,size(basis_functions)
+    
+    j = first(anharmonic_data%subspace_couplings==stress_subspace_coupling(i))
+    coupling_directory = sampling_points_dir//'/coupling_'//left_pad( &
+                      & j,                                            &
+                      & str(size(anharmonic_data%subspace_couplings)) )
+    
+    ! Read in all sampling points and sample results.
+    sampling_points = read_sampling_points(coupling_directory)
+    
+    sample_results = read_sample_results( sampling_points,    &
+                                        & coupling_directory, &
+                                        & anharmonic_data,    &
+                                        & calculation_reader  )
+    
+    ! Fit basis functions.
     j = first(stress_subspace_coupling==basis_functions(i)%coupling)
     
     coefficients = fit_stress_coefficients(    &
        & basis_functions(i)%basis_functions(), &
-       & sampling_points(j)%points,            &
-       & sample_results(j)%results,            &
+       & sampling_points%points,               &
+       & sample_results%results,               &
        & stress                                )
     
     basis_functions(i) = CouplingStressBasisFunctions(     &
@@ -479,27 +491,17 @@ end function
 ! Helper functions for generate_potential and generate_stress.
 
 ! Reads sampling points.
-function read_sampling_points(couplings,sampling_points_directory) &
+impure elemental function read_sampling_points(coupling_directory) &
    & result(output)
   implicit none
   
-  type(SubspaceCoupling), intent(in) :: couplings(:)
-  type(String),           intent(in) :: sampling_points_directory
-  type(SamplingPoints), allocatable  :: output(:)
+  type(String), intent(in) :: coupling_directory
+  type(SamplingPoints)     :: output
   
-  type(String) :: coupling_directory
-  type(IFile)  :: sampling_points_file
+  type(IFile) :: sampling_points_file
   
-  integer :: i,ialloc
-  
-  allocate(output(size(couplings)), stat=ialloc); call err(ialloc)
-  do i=1,size(couplings)
-    coupling_directory = sampling_points_directory// &
-       & '/coupling_'//left_pad(i,str(size(couplings)))
-    
-    sampling_points_file = IFile(coupling_directory//'/sampling_points.dat')
-    output(i) = SamplingPoints(sampling_points_file%lines())
-  enddo
+  sampling_points_file = IFile(coupling_directory//'/sampling_points.dat')
+  output = SamplingPoints(sampling_points_file%lines())
 end function
 
 ! Generates the sampling point for the equilibrium structure.
@@ -514,27 +516,17 @@ function generate_equilibrium_sampling_point() result(output)
 end function
 
 ! Reads basis functions.
-function read_basis_functions(couplings,sampling_points_directory) &
+impure elemental function read_basis_functions(coupling_directory) &
    & result(output)
   implicit none
   
-  type(SubspaceCoupling), intent(in)        :: couplings(:)
-  type(String),           intent(in)        :: sampling_points_directory
-  type(CouplingBasisFunctions), allocatable :: output(:)
+  type(String), intent(in)     :: coupling_directory
+  type(CouplingBasisFunctions) :: output
   
-  type(String) :: coupling_directory
-  type(IFile)  :: basis_functions_file
+  type(IFile) :: basis_functions_file
   
-  integer :: i,ialloc
-  
-  allocate(output(size(couplings)), stat=ialloc); call err(ialloc)
-  do i=1,size(couplings)
-    coupling_directory = sampling_points_directory// &
-       & '/coupling_'//left_pad(i,str(size(couplings)))
-    
-    basis_functions_file = IFile(coupling_directory//'/basis_functions.dat')
-    output(i) = CouplingBasisFunctions(basis_functions_file%lines())
-  enddo
+  basis_functions_file = IFile(coupling_directory//'/basis_functions.dat')
+  output = CouplingBasisFunctions(basis_functions_file%lines())
 end function
 
 ! Generates the basis function which is just a constant.
@@ -561,17 +553,15 @@ function generate_constant_basis_function() result(output)
 end function
 
 ! Reads sample results.
-function read_sample_results(couplings,sampling_points,            &
-   & sampling_points_directory,anharmonic_data,calculation_reader) &
-   & result(output)
+impure elemental function read_sample_results(sampling_points, &
+   & coupling_directory,anharmonic_data,calculation_reader) result(output)
   implicit none
   
-  type(SubspaceCoupling),  intent(in)    :: couplings(:)
-  type(SamplingPoints),    intent(in)    :: sampling_points(:)
-  type(String),            intent(in)    :: sampling_points_directory
+  type(SamplingPoints),    intent(in)    :: sampling_points
+  type(String),            intent(in)    :: coupling_directory
   type(AnharmonicData),    intent(in)    :: anharmonic_data
   type(CalculationReader), intent(inout) :: calculation_reader
-  type(SampleResults), allocatable       :: output(:)
+  type(SampleResults)                    :: output
   
   type(StructureData)                    :: supercell
   type(CartesianDisplacement)            :: displacement
@@ -579,59 +569,52 @@ function read_sample_results(couplings,sampling_points,            &
   type(ElectronicStructure), allocatable :: calculations(:)
   
   ! Files and directories.
-  type(String) :: coupling_directory
   type(String) :: sampling_directory
   type(IFile)  :: supercell_file
   type(IFile)  :: vscf_rvectors_file
   type(String) :: vscf_rvectors_directory
   
   ! Temporary variables.
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
-  allocate(output(size(couplings)), stat=ialloc); call err(ialloc)
-  do i=1,size(couplings)
-    coupling_directory = sampling_points_directory// &
-       & '/coupling_'//left_pad(i,str(size(sampling_points)))
+  allocate( output%results(size(sampling_points)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(sampling_points)
+    sampling_directory = coupling_directory// &
+       & '/sampling_point_'//left_pad(i,str(size(sampling_points)))
     
-    allocate( output(i)%results(size(sampling_points(i))), &
+    ! Read in supercell and VSCF R-vectors.
+    supercell_file = IFile(sampling_directory//'/structure.dat')
+    supercell = StructureData(supercell_file%lines())
+    
+    displacement = CartesianDisplacement( sampling_points%points(i),  &
+                                        & supercell,                  &
+                                        & anharmonic_data%real_modes, &
+                                        & anharmonic_data%qpoints     )
+    
+    vscf_rvectors_file = IFile(sampling_directory//'/vscf_rvectors.dat')
+    vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
+    
+    ! Read in electronic structure calculations.
+    allocate( calculations(size(vscf_rvectors)), &
             & stat=ialloc); call err(ialloc)
-    do j=1,size(sampling_points(i))
-      sampling_directory = coupling_directory// &
-         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
-      
-      ! Read in supercell and VSCF R-vectors.
-      supercell_file = IFile(sampling_directory//'/structure.dat')
-      supercell = StructureData(supercell_file%lines())
-      
-      displacement = CartesianDisplacement( sampling_points(i)%points(j), &
-                                          & supercell,                    &
-                                          & anharmonic_data%real_modes,   &
-                                          & anharmonic_data%qpoints       )
-      
-      vscf_rvectors_file = IFile(sampling_directory//'/vscf_rvectors.dat')
-      vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
-      
-      ! Read in electronic structure calculations.
-      allocate( calculations(size(vscf_rvectors)), &
-              & stat=ialloc); call err(ialloc)
-      do k=1,size(vscf_rvectors)
-        vscf_rvectors_directory = sampling_directory// &
-           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
-        calculations(k) = calculation_reader%read_calculation( &
-                                    & vscf_rvectors_directory, &
-                                    & displacement             )
-      enddo
-      
-      ! Average electronic structure across VSCF R-vectors, and convert
-      !    to correct normalisation and real mode co-ordinates.
-      output(i)%results(j) = SampleResult( vscf_rvectors,              &
-                                         & calculations,               &
-                                         & supercell,                  &
-                                         & anharmonic_data%real_modes, &
-                                         & anharmonic_data%qpoints     )
-      
-      deallocate(calculations, stat=ialloc); call err(ialloc)
+    do j=1,size(vscf_rvectors)
+      vscf_rvectors_directory = sampling_directory// &
+         & '/vscf_rvectors_'//left_pad(j,str(size(vscf_rvectors)))
+      calculations(j) = calculation_reader%read_calculation( &
+                                  & vscf_rvectors_directory, &
+                                  & displacement             )
     enddo
+    
+    ! Average electronic structure across VSCF R-vectors, and convert
+    !    to correct normalisation and real mode co-ordinates.
+    output%results(i) = SampleResult( vscf_rvectors,              &
+                                    & calculations,               &
+                                    & supercell,                  &
+                                    & anharmonic_data%real_modes, &
+                                    & anharmonic_data%qpoints     )
+    
+    deallocate(calculations, stat=ialloc); call err(ialloc)
   enddo
 end function
 

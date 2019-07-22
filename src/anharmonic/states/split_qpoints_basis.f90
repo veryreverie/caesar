@@ -78,22 +78,23 @@ module split_qpoints_basis_module
     
     ! Procedures involving individual states.
     procedure, public :: inner_product => &
-                       & inner_product_WavevectorState
+                       & inner_product_SplitQpointsBasis
     procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_WavevectorState
+                       & braket_ComplexMonomial_SplitQpointsBasis
     procedure, public :: kinetic_energy => &
-                       & kinetic_energy_WavevectorState
+                       & kinetic_energy_SplitQpointsBasis
     procedure, public :: harmonic_potential_energy => &
-                       & harmonic_potential_energy_WavevectorState
+                       & harmonic_potential_energy_SplitQpointsBasis
     procedure, public :: kinetic_stress => &
-                       & kinetic_stress_WavevectorState
-    procedure, public :: wavefunction => wavefunction_WavevectorState
+                       & kinetic_stress_SplitQpointsBasis
+    procedure, public :: wavefunction => wavefunction_SplitQpointsBasis
     
     ! Procedures involving sets of states.
-    procedure, public :: spectra => spectra_WavevectorStates
-    procedure, public :: wavefunctions => wavefunctions_WavevectorStates
+    procedure, public :: thermodynamic_data => &
+                       & thermodynamic_data_SplitQpointsBasis
+    procedure, public :: wavefunctions => wavefunctions_SplitQpointsBasis
     procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_WavevectorStates
+                       & integrate_ComplexMonomial_SplitQpointsBasis
     
     ! I/O.
     procedure, public :: read  => read_SplitQpointsBasis
@@ -421,17 +422,6 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
     energies = [energies, vec(states%energies)]
     state = states%states(minloc(states%energies,1))
     
-    ! Use states to calculate new potential.
-    output_potential = PotentialPointer(subspace_potential)
-    do j=2,size(this%qpoint_modes)
-      call output_potential%braket(               &
-         & state,                                 &
-         & subspace        = subspace,            &
-         & subspace_basis  = pick_qpoint(this,j), &
-         & anharmonic_data = anharmonic_data      )
-    enddo
-    call output_potential%zero_energy()
-    
     ! Check for convergence.
     if (i>no_converged_calculations) then
       if (all(steps_converged(                        &
@@ -453,6 +443,17 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
         exit
       endif
     endif
+    
+    ! Use states to calculate new potential.
+    output_potential = PotentialPointer(subspace_potential)
+    do j=2,size(this%qpoint_modes)
+      call output_potential%braket(               &
+         & state,                                 &
+         & subspace        = subspace,            &
+         & subspace_basis  = pick_qpoint(this,j), &
+         & anharmonic_data = anharmonic_data      )
+    enddo
+    call output_potential%zero_energy()
     
     ! If convergence has not been reached, generate the next input potential.
     call solver%set_f(output_potential%coefficients())
@@ -506,7 +507,7 @@ impure elemental function steps_converged(this,that,energy_convergence) &
   output = all(abs(dble(this-that)) < energy_convergence)
 end function
 
-impure elemental function wavefunction_WavevectorState(this,state, &
+impure elemental function wavefunction_SplitQpointsBasis(this,state, &
    & supercell) result(output)
   implicit none
   
@@ -540,7 +541,7 @@ function modes_SplitQpointsBasis(this,subspace,anharmonic_data) result(output)
   endif
 end function
 
-impure elemental function inner_product_WavevectorState(this,bra,ket, &
+impure elemental function inner_product_SplitQpointsBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -572,7 +573,7 @@ impure elemental function inner_product_WavevectorState(this,bra,ket, &
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_WavevectorState(this, &
+impure elemental function braket_ComplexMonomial_SplitQpointsBasis(this, &
    & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -645,7 +646,7 @@ impure elemental function braket_ComplexMonomial_WavevectorState(this, &
      & modes       = non_qpoint_modes                                  )
 end function
 
-impure elemental function kinetic_energy_WavevectorState(this,bra,ket, &
+impure elemental function kinetic_energy_SplitQpointsBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -677,7 +678,7 @@ impure elemental function kinetic_energy_WavevectorState(this,bra,ket, &
   endif
 end function
 
-impure elemental function harmonic_potential_energy_WavevectorState(this, &
+impure elemental function harmonic_potential_energy_SplitQpointsBasis(this, &
    & bra,ket,subspace,anharmonic_data) result(output)
   implicit none
   
@@ -709,7 +710,7 @@ impure elemental function harmonic_potential_energy_WavevectorState(this, &
   endif
 end function
 
-impure elemental function kinetic_stress_WavevectorState(this,bra,ket, &
+impure elemental function kinetic_stress_SplitQpointsBasis(this,bra,ket, &
    & subspace,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
@@ -744,24 +745,25 @@ impure elemental function kinetic_stress_WavevectorState(this,bra,ket, &
   endif
 end function
 
-! Energy spectra.
-impure elemental function spectra_WavevectorStates(this,states,subspace,   &
-   & subspace_potential,subspace_stress,stress_prefactors,anharmonic_data) &
-   & result(output)
+! Thermodynamic data. Energy, entropy, free energy etc.
+impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
+   & thermal_energy,states,subspace,subspace_potential,subspace_stress, &
+   & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in)           :: this
+  real(dp),                 intent(in)           :: thermal_energy
   class(BasisStates),       intent(in)           :: states
   type(DegenerateSubspace), intent(in)           :: subspace
   class(PotentialData),     intent(in)           :: subspace_potential
   class(StressData),        intent(in), optional :: subspace_stress
   type(StressPrefactors),   intent(in), optional :: stress_prefactors
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(EnergySpectra)                            :: output
+  type(ThermodynamicData)                        :: output
   
-  type(WavevectorStates)        :: split_states
+  type(WavevectorStates) :: split_states
+  
   type(RealMatrix), allocatable :: stress(:)
-  type(EnergySpectrum)          :: energy_spectrum
   
   integer :: i,ialloc
   
@@ -788,18 +790,15 @@ impure elemental function spectra_WavevectorStates(this,states,subspace,   &
               &        stress_prefactors = stress_prefactors,      &
               &        anharmonic_data   = anharmonic_data         )
     enddo
-    energy_spectrum =  EnergySpectrum(split_states%energies, stresses=stress)
-  else
-    energy_spectrum = EnergySpectrum(split_states%energies)
   endif
   
-  output = EnergySpectra([( energy_spectrum,        &
-                          & i=1,                    &
-                          & size(this%qpoint_modes) )])
+  ! TODO: include stress.
+  output = ThermodynamicData(thermal_energy, split_states%energies) &
+       & * size(this%qpoint_modes)
 end function
 
 ! Wavefunctions.
-impure elemental function wavefunctions_WavevectorStates(this,states, &
+impure elemental function wavefunctions_SplitQpointsBasis(this,states, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
@@ -842,7 +841,7 @@ impure elemental function wavefunctions_WavevectorStates(this,states, &
 end function
 
 ! Integrate a monomial.
-impure elemental function integrate_ComplexMonomial_WavevectorStates(this, &
+impure elemental function integrate_ComplexMonomial_SplitQpointsBasis(this, &
    & states,monomial,subspace,anharmonic_data) result(output)
   implicit none
   

@@ -165,6 +165,7 @@ subroutine calculate_potential_subroutine(arguments)
   logfile = OFile('setup_anharmonic_logfile.dat')
   
   ! Generate the potential itself, and write it to file.
+  call print_line('Generating potential energy surface.')
   sampling_points_dir = 'sampling_points'
   call potential%generate_potential( anharmonic_data,             &
                                    & weighted_energy_force_ratio, &
@@ -177,6 +178,7 @@ subroutine calculate_potential_subroutine(arguments)
   
   ! If calculate_stress is true, generate the stress and write it to file.
   if (calculate_stress) then
+    call print_line('Generating stress surface.')
     ! Re-initialise calculation reader for stress mapping.
     if (loto_direction_set) then
       calculation_reader = CalculationReader(loto_direction)

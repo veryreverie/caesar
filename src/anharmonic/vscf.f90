@@ -18,14 +18,6 @@ module vscf_module
   
   public :: run_vscf
   
-  type, extends(NoDefaultConstructor) :: VscfStep
-    type(EnergySpectra), allocatable :: spectra(:)
-  end type
-  
-  interface VscfStep
-    module procedure new_VscfStep
-  end interface
-  
   type, extends(NoDefaultConstructor) :: VscfOutput
     type(PotentialPointer)   :: potential
     type(BasisStatesPointer) :: states
@@ -36,16 +28,7 @@ module vscf_module
   end interface
 contains
 
-! Constructors.
-function new_VscfStep(spectra) result(this)
-  implicit none
-  
-  type(EnergySpectra), intent(in) :: spectra(:)
-  type(VscfStep)                  :: this
-  
-  this%spectra = spectra
-end function
-
+! Constructor.
 impure elemental function new_VscfOutput(potential,states) result(this)
   implicit none
   
@@ -60,14 +43,16 @@ end function
 ! ----------------------------------------------------------------------
 ! Main functions.
 ! ----------------------------------------------------------------------
-function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
-   & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
-   & pre_pulay_damping,anharmonic_data) result(output)
+function run_vscf(potential,subspaces,subspace_bases,thermal_energy,    &
+   & energy_convergence,no_converged_calculations,max_pulay_iterations, &
+   & pre_pulay_iterations,pre_pulay_damping,anharmonic_data)            &
+   & result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   class(SubspaceBasis),     intent(in) :: subspace_bases(:)
+  real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: energy_convergence
   integer,                  intent(in) :: no_converged_calculations
   integer,                  intent(in) :: max_pulay_iterations
@@ -80,19 +65,17 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
   
   type(PotentialPointer),   allocatable :: input_potentials(:)
   type(BasisStatesPointer), allocatable :: subspace_states(:)
-  type(EnergySpectra),      allocatable :: subspace_spectra(:)
   type(PotentialPointer),   allocatable :: output_potentials(:)
   
   type(PotentialPointer), allocatable :: in_potentials(:)
   type(PotentialPointer), allocatable :: out_potentials(:)
   
-  type(VscfStep), allocatable :: vscf_steps(:)
+  type(ThermodynamicData), allocatable :: thermodynamic_data(:)
+  real(dp),                allocatable :: free_energies(:)
   
   integer :: first_pulay_step
   
   integer :: i,j,k,ialloc
-  
-  allocate(vscf_steps(0), stat=ialloc); call err(ialloc)
   
   ! Generate initial states,
   !    and use these states to generate initial potentials.
@@ -116,6 +99,7 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
   
   ! Run Pulay scheme.
   i = 1
+  free_energies = [real(dp)::]
   do
     call print_line('Beginning VSCF self-consistency step '//i//'.')
     do j=1,size(input_potentials)
@@ -134,35 +118,24 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
        &                                  pre_pulay_damping,           &
        &                                  anharmonic_data            ) )
     
-    ! Generate the energy spectra from the states.
-    subspace_spectra = subspace_bases%spectra(  &
-       & states             = subspace_states,  &
-       & subspace           = subspaces,        &
-       & subspace_potential = input_potentials, &
-       & anharmonic_data    = anharmonic_data   )
-    call print_line( 'Ground-state energy: '//                    &
-                   & sum(subspace_spectra%min_energy())//' (Ha).' )
-    
-    ! Use the current single-subspace states to calculate the single-subspace
-    !    potentials.
-    call print_line('Generating single-subspace potentials.')
-    output_potentials = generate_subspace_potentials( potential,       &
-                                                    & subspaces,       &
-                                                    & subspace_bases,  &
-                                                    & subspace_states, &
-                                                    & anharmonic_data  )
-    
-    ! Store the input and output potentials and spectra as the next
-    !    VSCF step.
-    vscf_steps = [vscf_steps, VscfStep(subspace_spectra)]
+    ! Generate the free energy from the states.
+    thermodynamic_data = subspace_bases%thermodynamic_data( &
+                          & thermal_energy,                 &
+                          & subspace_states,                &
+                          & subspaces,                      &
+                          & input_potentials,               &
+                          & anharmonic_data=anharmonic_data )
+    free_energies = [ free_energies,                                 &
+                    &   sum(thermodynamic_data%free_energy)          &
+                    & / anharmonic_data%anharmonic_supercell%sc_size ]
+    call print_line('Free energy: '//free_energies(i)//' (Ha).')
     
     ! Check whether the energies have converged by the normal convergence
     !    condition.
-    if (i>no_converged_calculations) then
-      if (all(steps_converged(                          &
-         & vscf_steps(i-no_converged_calculations:i-1), &
-         & vscf_steps(i),                               &
-         & energy_convergence                           ))) then
+    j = i-no_converged_calculations
+    if (j>0) then
+      if (all( abs(free_energies(j:i-1)-free_energies(i)) &
+           & < energy_convergence                         )) then
         output = VscfOutput(input_potentials, subspace_states)
         exit
       endif
@@ -173,13 +146,20 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     ! This is needed to avoid numerical problems with the Pulay scheme caused
     !    by over-convergence.
     if (i>1) then
-      if (steps_converged( vscf_steps(i),         &
-                         & vscf_steps(i-1),       &
-                         & energy_convergence/100 )) then
+      if (abs(free_energies(i-1)-free_energies(i))<energy_convergence/100) then
         output = VscfOutput(input_potentials, subspace_states)
         exit
       endif
     endif
+    
+    ! Use the current single-subspace states to calculate the single-subspace
+    !    potentials.
+    call print_line('Generating single-subspace potentials.')
+    output_potentials = generate_subspace_potentials( potential,       &
+                                                    & subspaces,       &
+                                                    & subspace_bases,  &
+                                                    & subspace_states, &
+                                                    & anharmonic_data  )
     
     ! If the energies have not converged, generate the next input potentials
     !    using either a damped iterative scheme or a Pulay scheme.
@@ -190,18 +170,5 @@ function run_vscf(potential,subspaces,subspace_bases,energy_convergence,  &
     ! Increment the loop counter.
     i = i+1
   enddo
-end function
-
-! Check if two vscf steps have converged w/r/t one another.
-impure elemental function steps_converged(this,that,energy_convergence) &
-   & result(output)
-  implicit none
-  
-  type(VscfStep), intent(in) :: this
-  type(VscfStep), intent(in) :: that
-  real(dp),       intent(in) :: energy_convergence
-  logical                    :: output
-  
-  output = all(converged(this%spectra, that%spectra, energy_convergence))
 end function
 end module
