@@ -243,19 +243,17 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
 end subroutine
 
 impure elemental function harmonic_expectation_CouplingBasisFunctions(this, &
-   & frequency,thermal_energy,subspace,anharmonic_data) result(output)
+   & frequency,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
   real(dp),                      intent(in) :: frequency
   real(dp),                      intent(in) :: thermal_energy
-  type(DegenerateSubspace),      intent(in) :: subspace
   type(AnharmonicData),          intent(in) :: anharmonic_data
   real(dp)                                  :: output
   
   output = sum(this%basis_functions_%harmonic_expectation( frequency,      &
                                                          & thermal_energy, &
-                                                         & subspace,       &
                                                          & anharmonic_data ))
 end function
 

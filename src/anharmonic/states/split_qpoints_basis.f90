@@ -12,7 +12,7 @@ module split_qpoints_basis_module
   use wavevector_states_module
   use wavevector_basis_module
   use split_qpoints_wavefunctions_module
-  
+  use core_shell_thermodynamics_module
   implicit none
   
   private
@@ -763,7 +763,16 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   
   type(WavevectorStates) :: split_states
   
+  type(WavevectorState)  :: state
+  type(PotentialPointer) :: potential
+  
   type(RealMatrix), allocatable :: stress(:)
+  
+  type(ThermodynamicData) :: full_harmonic_thermodynamics
+  type(ThermodynamicData) :: core_harmonic_thermodynamics
+  type(ThermodynamicData) :: full_effective_thermodynamics
+  type(ThermodynamicData) :: core_effective_thermodynamics
+  type(ThermodynamicData) :: core_vci_thermodynamics
   
   integer :: i,ialloc
   
@@ -775,6 +784,19 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   
   split_states = WavevectorStates(states)
   
+  ! Calculate potential at the q-point.
+  potential = PotentialPointer(subspace_potential)
+  state = split_states%states(minloc(split_states%energies,1))
+  do i=2,size(this%qpoint_modes)
+    call potential%braket(                      &
+       & state,                                 &
+       & subspace        = subspace,            &
+       & subspace_basis  = pick_qpoint(this,i), &
+       & anharmonic_data = anharmonic_data      )
+  enddo
+  call potential%zero_energy()
+  
+  ! Calculate stress.
   if (present(subspace_stress)) then
     allocate( stress(size(split_states%states)), &
             & stat=ialloc); call err(ialloc)
@@ -793,8 +815,19 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   endif
   
   ! TODO: include stress.
-  output = ThermodynamicData(thermal_energy, split_states%energies) &
-       & * size(this%qpoint_modes)
+  
+  ! Calculate the thermodynamic properties for one q-point in the system.
+  output = core_shell_thermodynamics(          &
+     & thermal_energy,                         &
+     & this%frequency,                         &
+     & size(subspace)/size(this%qpoint_modes), &
+     & this%wavevectors,                       &
+     & potential,                              &
+     & split_states%energies,                  &
+     & anharmonic_data                         )
+  
+  ! Multiply by the number of q-points.
+  output = output * size(this%qpoint_modes)
 end function
 
 ! Wavefunctions.

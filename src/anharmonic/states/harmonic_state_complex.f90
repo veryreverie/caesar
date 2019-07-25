@@ -240,8 +240,8 @@ impure elemental function inner_product_HarmonicStateComplex(this, &
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_HarmonicStateComplex(this,monomial, &
-   & ket,anharmonic_data) result(output)
+impure elemental function braket_ComplexMonomial_HarmonicStateComplex(this, &
+   & monomial,ket,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in)           :: this
@@ -394,6 +394,8 @@ impure elemental function harmonic_potential_energy_HarmonicStateComplex( &
     output = (this%frequency**2/2) &
          & * sum(bra_modes%braket(bra_modes,harmonic_potential))
   endif
+  
+  output = output*anharmonic_data%anharmonic_supercell%sc_size
 end function
 
 impure elemental function kinetic_stress_HarmonicStateComplex(this,ket, &

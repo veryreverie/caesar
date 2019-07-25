@@ -232,8 +232,6 @@ subroutine generate_sampling_points_PolynomialPotential(this,  &
     ! Make a directory for each coupling.
     coupling_dir = sampling_points_dir// &
        & '/coupling_'//left_pad(i,str(size(sampling_points)))
-    coupling_dir = sampling_points_dir// &
-                 & '/coupling_'//left_pad(i,str(size(sampling_points)))
     call mkdir(coupling_dir)
     
     ! Write basis functions to file.
@@ -782,9 +780,7 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
-  logical, allocatable :: to_remove(:)
-  
-  integer :: i,j,k
+  integer :: i
   
   ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
   this%reference_energy = this%reference_energy                         &
@@ -801,36 +797,6 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
                                         & subspace_basis, &
                                         & anharmonic_data )
   enddo
-  
-  ! Check if the basis function is now a constant.
-  ! If so, add the constant energy to the potential's reference energy,
-  !    and flag the term for removal.
-  ! Then check if a coupling is now the same as a previous coupling.
-  ! If so, combine the two and flag the duplicate term for removal.
-  to_remove = [(.false., i=1, size(this%basis_functions_))]
-  do i=1,size(this%basis_functions_)
-    if (size(this%basis_functions_(i)%coupling)==0) then
-      this%reference_energy =      &
-         &   this%reference_energy &
-         & + this%basis_functions_(i)%undisplaced_energy()
-      to_remove(i) = .true.
-    else
-      do j=1,i-1
-        if (    this%basis_functions_(i)%coupling &
-           & == this%basis_functions_(j)%coupling ) then
-          if (to_remove(j)) then
-            call err()
-          endif
-          call this%basis_functions_(j)%append( &
-                     & this%basis_functions_(i) )
-          to_remove(i) = .true.
-        endif
-      enddo
-    endif
-  enddo
-  
-  ! Remove constant and duplicate terms.
-  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove) )
 end subroutine
 
 subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
@@ -849,10 +815,17 @@ subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket( states,         &
-                                        & subspace,       &
-                                        & subspace_basis, &
-                                        & anharmonic_data )
+    j = first( this%basis_functions_(i)%coupling%ids==subspace%id, &
+             & default = 0)
+    if (j/=0) then
+      this%basis_functions_(i)%coupling%ids = [         &
+         & this%basis_functions_(i)%coupling%ids(:j-1), &
+         & this%basis_functions_(i)%coupling%ids(j+1:)  ]
+      call this%basis_functions_(i)%braket( states,         &
+                                          & subspace,       &
+                                          & subspace_basis, &
+                                          & anharmonic_data )
+    endif
   enddo
   
   ! Check if the basis function is now a constant.
@@ -889,20 +862,18 @@ end subroutine
 ! Calculate the thermal expectation of the potential, <V>, for a set of
 !    harmonic states.
 function harmonic_expectation_PolynomialPotential(this,frequency, &
-   & thermal_energy,subspace,anharmonic_data) result(output)
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
   real(dp),                   intent(in) :: frequency
   real(dp),                   intent(in) :: thermal_energy
-  type(DegenerateSubspace),   intent(in) :: subspace
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp)                               :: output
   
   output = this%reference_energy                                           &
        & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
        &                                                   thermal_energy, &
-       &                                                   subspace,       &
        &                                                   anharmonic_data ))
 end function
 

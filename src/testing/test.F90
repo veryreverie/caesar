@@ -51,13 +51,7 @@ subroutine test_subroutine(arguments)
   
   type(TT), allocatable :: a(:)
   
-  a = [TT(1), TT(3)]
-  call print_line(a%x)
-  
-  call append(a, TT(5))
-  call print_line(a%x)
-  
-  call append(a, a)
-  call print_line(a%x)
+  call print_line(-log(0.0_dp))
+  call print_line(-log(-1e-100_dp))
 end subroutine
 end module

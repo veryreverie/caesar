@@ -10,6 +10,7 @@ module full_subspace_basis_module
   use wavevector_states_module
   use wavevector_basis_module
   use full_subspace_wavefunctions_module
+  use core_shell_thermodynamics_module
   implicit none
   
   private
@@ -520,14 +521,23 @@ impure elemental function thermodynamic_data_FullSubspaceBasis(this,    &
   
   type(RealMatrix), allocatable :: stress(:)
   
+  type(ThermodynamicData) :: full_harmonic_thermodynamics
+  type(ThermodynamicData) :: core_harmonic_thermodynamics
+  type(ThermodynamicData) :: full_effective_thermodynamics
+  type(ThermodynamicData) :: core_effective_thermodynamics
+  type(ThermodynamicData) :: core_vci_thermodynamics
+  
   integer :: i,ialloc
   
   if (present(subspace_stress) .neqv. present(stress_prefactors)) then
+    call print_line(CODE_ERROR//': Only one of subspace_stress and &
+       &stress_prefactors passed.')
     call err()
   endif
   
   full_states = WavevectorStates(states)
   
+  ! Calculate stress.
   if (present(subspace_stress)) then
     allocate( stress(size(full_states%states)), &
             & stat=ialloc); call err(ialloc)
@@ -546,7 +556,16 @@ impure elemental function thermodynamic_data_FullSubspaceBasis(this,    &
   endif
   
   ! TODO: include stress.
-  output = ThermodynamicData(thermal_energy, full_states%energies)
+  
+  ! Calculate the thermodynamic properties for the system.
+  output = core_shell_thermodynamics( &
+              & thermal_energy,       &
+              & this%frequency,       &
+              & size(subspace),       &
+              & this%wavevectors,     &
+              & subspace_potential,   &
+              & full_states%energies, &
+              & anharmonic_data       )
 end function
 
 ! Wavefunctions.

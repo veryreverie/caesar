@@ -206,9 +206,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   
   type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
   
-  real(dp) :: harmonic_potential_expectation
-  real(dp) :: anharmonic_potential_expectation
-  
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(IFile)  :: potential_file
@@ -619,22 +616,13 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
          & * size(subspaces(j))                            &
          & / (1.0_dp*supercell%sc_size)
       
-      vscha2_thermodynamics(j,i) = vscha1_thermodynamics(j,i)
-      harmonic_potential_expectation = vscha1_thermodynamics(j,i)%energy / 2
-      anharmonic_potential_expectation =                &
-         & subspace_potentials(j)%harmonic_expectation( &
-         &                  effective_frequencies(j,i), &
-         &                  thermal_energies(i),        &
-         &                  subspaces(j),               &
-         &                  anharmonic_data             )
-      vscha2_thermodynamics(j,i)%energy =      &
-         &   vscha2_thermodynamics(j,i)%energy &
-         & - harmonic_potential_expectation    &
-         & + anharmonic_potential_expectation
-      vscha2_thermodynamics(j,i)%free_energy =      &
-         &   vscha2_thermodynamics(j,i)%free_energy &
-         & - harmonic_potential_expectation         &
-         & + anharmonic_potential_expectation
+      vscha2_thermodynamics(j,i) = effective_harmonic_observables(   &
+                               &       thermal_energies(i),          &
+                               &       subspace_potentials(j),       &
+                               &       effective_frequencies(j,i),   &
+                               &       size(subspaces(j)),           &
+                               &       anharmonic_data             ) &
+                               & / supercell%sc_size
     enddo
   enddo
   
@@ -652,7 +640,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
      &Vibrational Shannon Entropy per cell, S/k_B, (arb. units)')
   call vscha_thermodynamic_file%print_lines(vscha_thermodynamics)
   
-  ! VSCHA and VSCHA with <V>.
+  ! VSCHA without Fourier interpolation.
   vscha1_thermodynamic_file = OFile(                    &
      & output_dir//'/vscha_thermodynamic_variables.dat' )
   call vscha1_thermodynamic_file%print_line( &
@@ -664,6 +652,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call vscha1_thermodynamic_file%print_line(sum(vscha1_thermodynamics(:,i)))
   enddo
   
+  ! VSCHA without Fourier interpolation, but with <V> taken using the VSCF
+  !    potential rather than the effective harmonic potential.
   vscha2_thermodynamic_file = OFile(                         &
      & output_dir//'/vscha_vscf_thermodynamic_variables.dat' )
   call vscha2_thermodynamic_file%print_line( &

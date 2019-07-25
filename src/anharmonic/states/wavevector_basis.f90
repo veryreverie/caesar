@@ -23,6 +23,9 @@ module wavevector_basis_module
   
   public :: WavevectorBasis
   
+  public :: harmonic_thermodynamics
+  public :: harmonic_expectation
+  
   type, extends(Stringsable) :: WavevectorBasis
     integer                                          :: maximum_power
     integer                                          :: expansion_order
@@ -65,6 +68,14 @@ module wavevector_basis_module
     module procedure new_WavevectorBasis_subspace
     module procedure new_WavevectorBasis_Strings
     module procedure new_WavevectorBasis_StringArray
+  end interface
+  
+  interface harmonic_thermodynamics
+    module procedure harmonic_thermodynamics_WavevectorBasis
+  end interface
+  
+  interface harmonic_expectation
+    module procedure harmonic_expectation_WavevectorBasis
   end interface
 contains
 
@@ -785,7 +796,8 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
                      & + potential_energy( bra,                &
                      &                     potential,          &
                      &                     ket,                &
-                     &                     anharmonic_data )
+                     &                     anharmonic_data )   &
+                     & * anharmonic_data%anharmonic_supercell%sc_size
     enddo
   enddo
   
@@ -797,10 +809,119 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
                       & i=1,                                   &
                       & size(estuff)                           )]
   
-  ! TODO: Why is this multiplied by sqrt(N)???
-  output = WavevectorStates(                                                 &
-     & wavevector_states,                                                    &
-     & estuff%eval*sqrt(1.0_dp*anharmonic_data%anharmonic_supercell%sc_size) )
+  output = WavevectorStates(wavevector_states, estuff%eval)
+end function
+
+! Calculate the harmonic expectation of the harmonic potential,
+!    but only using the states in the basis.
+! N.B. this normalises the sum of thermal weights of the included states
+!    to be one,
+!    rather than normalising to the sum across all states to be one.
+function harmonic_thermodynamics_WavevectorBasis(bases,thermal_energy, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  type(WavevectorBasis), intent(in) :: bases(:)
+  real(dp),              intent(in) :: thermal_energy
+  type(AnharmonicData),  intent(in) :: anharmonic_data
+  type(ThermodynamicData)           :: output
+  
+  real(dp), allocatable :: kinetic_energies(:)
+  
+  integer :: i
+  
+  ! Calculate <|T|>. N.B. this is also <|V|> for the harmonic potential.
+  kinetic_energies = [( bases(i)%harmonic_states_%kinetic_energy(    &
+                      &           anharmonic_data=anharmonic_data ), &
+                      & i=1,                                         &
+                      & size(bases)                                  )]
+  
+  output = ThermodynamicData(thermal_energy, 2*kinetic_energies)
+end function
+
+! Calculate the harmonic expectation of a potential,
+!    but only using the states in the basis.
+! N.B. this normalises the sum of thermal weights of the included states
+!    to be one,
+!    rather than normalising to the sum across all states to be one.
+function harmonic_expectation_WavevectorBasis(bases,potential, &
+   & thermal_energy,anharmonic_data) result(output)
+  implicit none
+  
+  type(WavevectorBasis), intent(in) :: bases(:)
+  class(PotentialData),  intent(in) :: potential
+  real(dp),              intent(in) :: thermal_energy
+  type(AnharmonicData),  intent(in) :: anharmonic_data
+  type(ThermodynamicData)           :: output
+  
+  real(dp), allocatable :: kinetic_energies(:)
+  real(dp), allocatable :: energies(:)
+  real(dp), allocatable :: boltzmann_factors(:)
+  real(dp)              :: partition_function
+  
+  integer               :: ground_state
+  real(dp), allocatable :: energy_difference(:)
+  
+  real(dp) :: anharmonic_minus_harmonic
+  
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  integer :: i,j,ialloc
+  
+  ! Calculate <|T|>. N.B. this is also <|V|> for the harmonic potential.
+  kinetic_energies = [( bases(i)%harmonic_states_%kinetic_energy(    &
+                      &           anharmonic_data=anharmonic_data ), &
+                      & i=1,                                         &
+                      & size(bases)                                  )]
+  
+  ! Calculate <|V|> for the input potential.
+  energies = [(                                               &
+     & [( potential_energy( bases(i)%harmonic_states_(j),     &
+     &                      potential,                        &
+     &                      anharmonic_data           ),      &
+     &    j=1,                                                &
+     &    size(bases(i)%harmonic_states_)                 )], &
+     & i=1,                                                   &
+     & size(bases)                                            )]
+  energies = energies * anharmonic_data%anharmonic_supercell%sc_size
+  
+  ! Identify the ground state.
+  ground_state = minloc(kinetic_energies, 1)
+  
+  ! Calculate E-E' = <|T+V|>-<|T+V|>' = 2<T>-2<T>'.
+  energy_difference = [( 2.0_dp*( kinetic_energies(i)               &
+                       &        - kinetic_energies(ground_state) ), &
+                       & i=1,                                       &
+                       & size(kinetic_energies)                     )]
+  
+  if (maxval(energy_difference) < 1e20_dp*thermal_energy) then
+    ! Normal temperature range.
+    boltzmann_factors = exp(-energy_difference/thermal_energy)
+    partition_function = sum(boltzmann_factors)
+    
+    ! Calculate observables w/r/t the harmonic potential.
+    energy = sum(boltzmann_factors*kinetic_energies) * 2 / partition_function
+    free_energy = 2*kinetic_energies(ground_state) &
+              & - thermal_energy*log(partition_function)
+    entropy = (energy-free_energy)/thermal_energy
+    
+    ! Update the energy and free energy to account for the input potential.
+    ! N.B. again, the harmonic kinetic and potential energies are the same.
+    anharmonic_minus_harmonic = sum( boltzmann_factors             &
+                            &      * (energies-kinetic_energies) ) &
+                            & / partition_function
+    energy = energy + anharmonic_minus_harmonic
+    free_energy = free_energy + anharmonic_minus_harmonic
+  else
+    ! Very low temperature limit.
+    energy = energies(ground_state) + kinetic_energies(ground_state)
+    free_energy = energy
+    entropy = 0
+  endif
+  
+  output = ThermodynamicData(thermal_energy, energy, free_energy, entropy)
 end function
 
 ! ----------------------------------------------------------------------

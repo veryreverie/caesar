@@ -91,35 +91,13 @@ impure elemental function calculate_free_energy(potential,frequency, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   real(dp)                             :: output
   
-  real(dp)                :: supercell_size
-  type(ThermodynamicData) :: harmonic_thermodynamics
-  real(dp)                :: harmonic_free_energy
-  real(dp)                :: harmonic_potential_energy_expectation
-  real(dp)                :: anharmonic_potential_energy_expectation
+  type(ThermodynamicData) :: thermodynamics
   
-  supercell_size = anharmonic_data%anharmonic_supercell%sc_size
-  
-  ! Calculate the free energy per primitive cell
-  !    of the harmonic system in the harmonic basis.
-  harmonic_thermodynamics = ThermodynamicData(thermal_energy, frequency)
-  harmonic_free_energy = harmonic_thermodynamics%free_energy &
-                     & * size(subspace)                      &
-                     & / supercell_size
-  
-  ! Calculate <V> for the harmonic and anharmonic potentials.
-  
-  ! U = <V> + <T>. Under the harmonic approximation, <V>=<T>, so <V>=U/2.
-  harmonic_potential_energy_expectation = harmonic_thermodynamics%energy &
-                                      & * size(subspace)                 &
-                                      & / (2.0_dp * supercell_size)
-  anharmonic_potential_energy_expectation =            &
-     & potential%harmonic_expectation( frequency,      &
-     &                                 thermal_energy, &
-     &                                 subspace,       &
-     &                                 anharmonic_data )
-  
-  output = harmonic_free_energy                  &
-       & - harmonic_potential_energy_expectation &
-       & + anharmonic_potential_energy_expectation
+  thermodynamics = effective_harmonic_observables( thermal_energy, &
+                                                 & potential,      &
+                                                 & frequency,      &
+                                                 & size(subspace), &
+                                                 & anharmonic_data )
+  output = thermodynamics%free_energy
 end function
 end module

@@ -16,6 +16,9 @@
 !    but with better syntax and compiler support.
 ! See the example module in potential_example.f90 for how to use this module,
 !    using the PotentialData and PotentialPointer types as an example.
+!
+! N.B. PotentialData objects should return energies normalised per primitive
+!    cell.
 module abstract_classes_module
   use common_module
   
@@ -720,19 +723,17 @@ module abstract_classes_module
     end subroutine
     
     function harmonic_expectation_PotentialData(this,frequency, &
-       & thermal_energy,subspace,anharmonic_data) result(output)
+       & thermal_energy,anharmonic_data) result(output)
       import PotentialData
       import dp
-      import DegenerateSubspace
       import AnharmonicData
       implicit none
       
-      class(PotentialData),     intent(in) :: this
-      real(dp),                 intent(in) :: frequency
-      real(dp),                 intent(in) :: thermal_energy
-      type(DegenerateSubspace), intent(in) :: subspace
-      type(AnharmonicData),     intent(in) :: anharmonic_data
-      real(dp)                             :: output
+      class(PotentialData), intent(in) :: this
+      real(dp),             intent(in) :: frequency
+      real(dp),             intent(in) :: thermal_energy
+      type(AnharmonicData), intent(in) :: anharmonic_data
+      real(dp)                         :: output
     end function
     
     function coefficients_PotentialData(this) result(output)
@@ -838,20 +839,18 @@ module abstract_classes_module
     end subroutine
     
     function harmonic_expectation_StressData(this,frequency, &
-       & thermal_energy,subspace,anharmonic_data) result(output)
+       & thermal_energy,anharmonic_data) result(output)
       import StressData
       import dp
-      import DegenerateSubspace
       import AnharmonicData
       import RealMatrix
       implicit none
       
-      class(StressData),        intent(in) :: this
-      real(dp),                 intent(in) :: frequency
-      real(dp),                 intent(in) :: thermal_energy
-      type(DegenerateSubspace), intent(in) :: subspace
-      type(AnharmonicData),     intent(in) :: anharmonic_data
-      type(RealMatrix)                     :: output
+      class(StressData),    intent(in) :: this
+      real(dp),             intent(in) :: frequency
+      real(dp),             intent(in) :: thermal_energy
+      type(AnharmonicData), intent(in) :: anharmonic_data
+      type(RealMatrix)                 :: output
     end function
   end interface
   
@@ -1509,21 +1508,19 @@ subroutine braket_BasisStates_PotentialPointer(this,states,subspace, &
 end subroutine
 
 function harmonic_expectation_PotentialPointer(this,frequency, &
-   & thermal_energy,subspace,anharmonic_data) result(output)
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(PotentialPointer),  intent(in) :: this
-  real(dp),                 intent(in) :: frequency
-  real(dp),                 intent(in) :: thermal_energy
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp)                             :: output
+  class(PotentialPointer), intent(in) :: this
+  real(dp),                intent(in) :: frequency
+  real(dp),                intent(in) :: thermal_energy
+  type(AnharmonicData),    intent(in) :: anharmonic_data
+  real(dp)                            :: output
   
   call this%check()
   
   output = this%potential_%harmonic_expectation( frequency,      &
                                                & thermal_energy, &
-                                               & subspace,       &
                                                & anharmonic_data )
 end function
 
@@ -1743,21 +1740,19 @@ subroutine braket_BasisStates_StressPointer(this,states,subspace, &
 end subroutine
 
 function harmonic_expectation_StressPointer(this,frequency, &
-   & thermal_energy,subspace,anharmonic_data) result(output)
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(StressPointer),     intent(in) :: this
-  real(dp),                 intent(in) :: frequency
-  real(dp),                 intent(in) :: thermal_energy
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(RealMatrix)                     :: output
+  class(StressPointer), intent(in) :: this
+  real(dp),             intent(in) :: frequency
+  real(dp),             intent(in) :: thermal_energy
+  type(AnharmonicData), intent(in) :: anharmonic_data
+  type(RealMatrix)                 :: output
   
   call this%check()
   
   output = this%stress_%harmonic_expectation( frequency,      &
                                             & thermal_energy, &
-                                            & subspace,       &
                                             & anharmonic_data )
 end function
 

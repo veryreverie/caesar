@@ -109,7 +109,7 @@ subroutine set_f(this,f)
     
     ! Check if the Pulay scheme failed.
     if (size(x)==0) then
-      call print_line(WARNING//': Pulay scheme failed. &
+      call print_line(WARNING//': Pulay scheme stalled. &
          &Restarting from damped iterative scheme.')
       this%fs_ = this%fs_(size(this%fs_):)
       this%xs_ = this%xs_(size(this%xs_):)

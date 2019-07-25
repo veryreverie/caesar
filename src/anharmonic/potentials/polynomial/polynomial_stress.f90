@@ -298,20 +298,18 @@ end subroutine
 ! Calculate the thermal expectation of the stress, <stress>, for a set of
 !    harmonic states.
 function harmonic_expectation_PolynomialStress(this,frequency, &
-   & thermal_energy,subspace,anharmonic_data) result(output)
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(PolynomialStress),  intent(in) :: this
-  real(dp),                 intent(in) :: frequency
-  real(dp),                 intent(in) :: thermal_energy
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(RealMatrix)                     :: output
+  class(PolynomialStress), intent(in) :: this
+  real(dp),                intent(in) :: frequency
+  real(dp),                intent(in) :: thermal_energy
+  type(AnharmonicData),    intent(in) :: anharmonic_data
+  type(RealMatrix)                    :: output
   
   output = this%reference_stress_                                          &
        & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
        &                                                   thermal_energy, &
-       &                                                   subspace,       &
        &                                                   anharmonic_data ))
 end function
 

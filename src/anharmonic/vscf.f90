@@ -103,7 +103,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy,    &
   do
     call print_line('Beginning VSCF self-consistency step '//i//'.')
     do j=1,size(input_potentials)
-      call input_potentials(i)%set_coefficients(solvers(i)%get_x())
+      call input_potentials(j)%set_coefficients(solvers(j)%get_x())
     enddo
     
     ! Use the single-subspace potentials to calculate the new states.

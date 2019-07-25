@@ -250,11 +250,13 @@ impure elemental function optimise_frequency(potential,subspace,           &
     
     do i=1,3
       call new_basis%set_frequency(frequencies(i))
+      
       energies(i) = potential_energy( subspace_states%states(1),    &
                 &                     potential,                    &
                 &                     subspace,                     &
                 &                     new_basis,                    &
                 &                     anharmonic_data            )  &
+                & * anharmonic_data%anharmonic_supercell%sc_size    &
                 & + new_basis%kinetic_energy(                       &
                 &      bra             = subspace_states%states(1), &
                 &      subspace        = subspace,                  &

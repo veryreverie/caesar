@@ -14,8 +14,8 @@ module braket_module
   private
   
   public :: potential_energy
-  
   public :: potential_stress
+  public :: effective_harmonic_observables
   
   interface potential_energy
     module procedure potential_energy_BasisState
@@ -214,5 +214,45 @@ recursive function potential_stress_SubspaceState_SubspaceState(bra,stress, &
                                & ket,            &
                                & anharmonic_data )
   output = integrated_stress%undisplaced_stress()
+end function
+
+! Calculate <T+V> for effective harmonic states with
+!    effective harmonic weightings.
+! N.B. the result is extensive, so will in general need to be normalised
+!    to be per unit cell or similar.
+function effective_harmonic_observables(thermal_energy,potential,frequency, &
+   & num_dimensions,anharmonic_data) result(output)
+  implicit none
+  
+  real(dp),             intent(in) :: thermal_energy
+  class(PotentialData), intent(in) :: potential
+  real(dp),             intent(in) :: frequency
+  integer,              intent(in) :: num_dimensions
+  type(AnharmonicData), intent(in) :: anharmonic_data
+  type(ThermodynamicData)          :: output
+  
+  real(dp) :: harmonic_expectation
+  real(dp) :: potential_expectation
+  
+  ! Calculate <T+V> for the effective harmonic potential.
+  output = ThermodynamicData(thermal_energy, frequency) * num_dimensions
+  
+  ! Subtract <V> for the effective harmonic potential,
+  !    and add <V> for the input potential.
+  ! N.B. <V> for the effective harmonic potential is just <T+V>/2.
+  ! N.B. the kinetic energy and entropy do not change.
+  harmonic_expectation = output%energy/2
+  potential_expectation = potential%harmonic_expectation(   &
+                      &                   frequency,        &
+                      &                   thermal_energy,   &
+                      &                   anharmonic_data ) &
+                      & * anharmonic_data%anharmonic_supercell%sc_size
+  
+  output%energy = output%energy        &
+              & - harmonic_expectation &
+              & + potential_expectation
+  output%free_energy = output%free_energy   &
+                   & - harmonic_expectation &
+                   & + potential_expectation
 end function
 end module
