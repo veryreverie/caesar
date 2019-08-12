@@ -1,4 +1,5 @@
 ! ======================================================================
+! A basis state, defined in terms of a SubspaceBasis.
 ! ======================================================================
 module basis_state_module
   use common_module
@@ -89,6 +90,7 @@ impure elemental function new_BasisStatePointer(state) result(this)
     this%representation_ = state%representation()
     allocate( this%state_, source=state, &
             & stat=ialloc); call err(ialloc)
+    this%subspace_id = this%state_%subspace_id
   end select
 end function
 

@@ -1,4 +1,5 @@
 ! ======================================================================
+! A set of basis states, defined in terms of a SubspaceBasis.
 ! ======================================================================
 module basis_states_module
   use common_module
@@ -10,6 +11,7 @@ module basis_states_module
   public :: BasisStatesPointer
   
   type, abstract, extends(Stringsable) :: BasisStates
+    integer :: subspace_id
   contains
     procedure(representation_BasisStates), public, deferred, nopass :: &
        & representation
@@ -88,6 +90,7 @@ impure elemental function new_BasisStatesPointer(states) result(this)
     this%representation_ = states%representation()
     allocate( this%states_, source=states, &
             & stat=ialloc); call err(ialloc)
+    this%subspace_id = this%states_%subspace_id
   end select
 end function
 

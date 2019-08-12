@@ -231,21 +231,23 @@ subroutine set_outputs(this,input)
     ! f(x+d) is greater than f(x-d). The next guess is less than x.
     this%has_upper_bound_ = .true.
     this%upper_bound_ = x
-    if (abs(df_dx)<d2f_dx2*(x-lower)) then
+    if ((.not. this%has_lower_bound_) .or. abs(df_dx)>d2f_dx2*(x-lower)) then
+      ! The guess is the lower bound.
+      guess = lower
+    else
       ! The guess is greater than the lower bound.
       guess = x - df_dx/d2f_dx2
-    else
-      guess = lower
     endif
   elseif (input(1)>input(3)) then
     ! f(x+d) is less than f(x-d). The next guess is greater than x.
     this%has_lower_bound_ = .true.
     this%lower_bound_ = x
-    if (abs(df_dx)<d2f_dx2*(upper-x)) then
+    if ((.not. this%has_upper_bound_) .or. abs(df_dx)>d2f_dx2*(upper-x)) then
+      ! The guess is the upper bound.
+      guess = upper
+    else
       ! The guess is less than the upper bound.
       guess = x - df_dx/d2f_dx2
-    else
-      guess = upper
     endif
   else
     ! f(x-d) = f(x+d) <= f(x).

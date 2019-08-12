@@ -51,7 +51,7 @@ recursive function potential_energy_BasisState(state,potential,subspace, &
   type(PotentialPointer), allocatable :: integrated_potential
   
   integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( state,                            &
+  call integrated_potential%braket( bra             = state,          &
                                   & subspace        = subspace,       &
                                   & subspace_basis  = subspace_basis, &
                                   & anharmonic_data = anharmonic_data )
@@ -74,11 +74,11 @@ recursive function potential_energy_BasisState_BasisState(bra,potential,ket, &
   type(PotentialPointer), allocatable :: integrated_potential
   
   integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( bra,            &
-                                  & ket,            &
-                                  & subspace,       &
-                                  & subspace_basis, &
-                                  & anharmonic_data )
+  call integrated_potential%braket( bra             = bra,            &
+                                  & ket             = ket,            &
+                                  & subspace        = subspace,       &
+                                  & subspace_basis  = subspace_basis, &
+                                  & anharmonic_data = anharmonic_data )
   output = integrated_potential%undisplaced_energy()
 end function
 
@@ -101,7 +101,7 @@ recursive function potential_stress_BasisState(state,stress,subspace, &
   type(StressPointer), allocatable :: integrated_stress
   
   integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( state,                            &
+  call integrated_stress%braket( bra             = state,          &
                                & subspace        = subspace,       &
                                & subspace_basis  = subspace_basis, &
                                & anharmonic_data = anharmonic_data )
@@ -124,11 +124,11 @@ recursive function potential_stress_BasisState_BasisState(bra,stress,ket, &
   type(StressPointer), allocatable :: integrated_stress
   
   integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( bra,            &
-                               & ket,            &
-                               & subspace,       &
-                               & subspace_basis, &
-                               & anharmonic_data )
+  call integrated_stress%braket( bra             = bra,            &
+                               & ket             = ket,            &
+                               & subspace        = subspace,       &
+                               & subspace_basis  = subspace_basis, &
+                               & anharmonic_data = anharmonic_data )
   output = integrated_stress%undisplaced_stress()
 end function
 
@@ -149,7 +149,7 @@ recursive function potential_energy_SubspaceState(state,potential, &
   type(PotentialPointer), allocatable :: integrated_potential
   
   integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( state,                            &
+  call integrated_potential%braket( bra             = state,          &
                                   & anharmonic_data = anharmonic_data )
   output = integrated_potential%undisplaced_energy()
 end function
@@ -168,9 +168,9 @@ recursive function potential_energy_SubspaceState_SubspaceState(bra, &
   type(PotentialPointer), allocatable :: integrated_potential
   
   integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( bra,            &
-                                  & ket,            &
-                                  & anharmonic_data )
+  call integrated_potential%braket( bra             = bra,            &
+                                  & ket             = ket,            &
+                                  & anharmonic_data = anharmonic_data )
   output = integrated_potential%undisplaced_energy()
 end function
 
@@ -191,7 +191,7 @@ recursive function potential_stress_SubspaceState(state,stress, &
   type(StressPointer), allocatable :: integrated_stress
   
   integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( state,                            &
+  call integrated_stress%braket( bra             = state,          &
                                & anharmonic_data = anharmonic_data )
   output = integrated_stress%undisplaced_stress()
 end function
@@ -210,9 +210,9 @@ recursive function potential_stress_SubspaceState_SubspaceState(bra,stress, &
   type(StressPointer), allocatable :: integrated_stress
   
   integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( bra,            &
-                               & ket,            &
-                               & anharmonic_data )
+  call integrated_stress%braket( bra             = bra,            &
+                               & ket             = ket,            &
+                               & anharmonic_data = anharmonic_data )
   output = integrated_stress%undisplaced_stress()
 end function
 
@@ -220,8 +220,8 @@ end function
 !    effective harmonic weightings.
 ! N.B. the result is extensive, so will in general need to be normalised
 !    to be per unit cell or similar.
-function effective_harmonic_observables(thermal_energy,potential,frequency, &
-   & num_dimensions,anharmonic_data) result(output)
+impure elemental function effective_harmonic_observables(thermal_energy, &
+   & potential,frequency,num_dimensions,anharmonic_data) result(output)
   implicit none
   
   real(dp),             intent(in) :: thermal_energy

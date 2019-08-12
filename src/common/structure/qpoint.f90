@@ -60,7 +60,8 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_QpointData(qpoint,id,paired_qpoint_id) result(this)
+impure elemental function new_QpointData(qpoint,id,paired_qpoint_id) &
+   & result(this)
   implicit none
   
   type(FractionVector), intent(in) :: qpoint

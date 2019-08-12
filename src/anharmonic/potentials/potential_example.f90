@@ -29,6 +29,7 @@ module potential_example_module
        & generate_stress_PotentialDataExample
     
     procedure, public :: zero_energy => zero_energy_PotentialDataExample
+    procedure, public :: add_constant => add_constant_PotentialDataExample
     
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PotentialDataExample
@@ -169,6 +170,17 @@ impure elemental subroutine zero_energy_PotentialDataExample(this)
   ! Code to zero the energy (s.t. undisplaced_energy()=0) goes here.
 end subroutine
 
+impure elemental subroutine add_constant_PotentialDataExample(this,input)
+  implicit none
+  
+  class(PotentialDataExample), intent(inout) :: this
+  real(dp),                    intent(in)    :: input
+  
+  call print_line('PotentialDataExample: adding constant.')
+  
+  ! Code to add a constant to the potential goes here.
+end subroutine
+
 impure elemental function energy_RealModeDisplacement_PotentialDataExample( &
    & this,displacement) result(output)
   implicit none
@@ -226,12 +238,13 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
 end function
 
 subroutine braket_SubspaceState_PotentialDataExample(this,bra,ket, &
-   & anharmonic_data)
+   & whole_subspace,anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
   class(SubspaceState),        intent(in)           :: bra
   class(SubspaceState),        intent(in), optional :: ket
+  logical,                     intent(in), optional :: whole_subspace
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
@@ -241,7 +254,7 @@ subroutine braket_SubspaceState_PotentialDataExample(this,bra,ket, &
 end subroutine
 
 subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data)
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
@@ -249,6 +262,7 @@ subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
   class(BasisState),           intent(in), optional :: ket
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
+  logical,                     intent(in), optional :: whole_subspace
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   
   call print_line('PotentialDataExample: evaluating <bra|potential|ket>.')
@@ -258,14 +272,15 @@ subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
 end subroutine
 
 subroutine braket_BasisStates_PotentialDataExample(this,states,subspace, &
-   & subspace_basis,anharmonic_data)
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
-  class(PotentialDataExample), intent(inout) :: this
-  class(BasisStates),          intent(in)    :: states
-  type(DegenerateSubspace),    intent(in)    :: subspace
-  class(SubspaceBasis),        intent(in)    :: subspace_basis
-  type(AnharmonicData),        intent(in)    :: anharmonic_data
+  class(PotentialDataExample), intent(inout)        :: this
+  class(BasisStates),          intent(in)           :: states
+  type(DegenerateSubspace),    intent(in)           :: subspace
+  class(SubspaceBasis),        intent(in)           :: subspace_basis
+  logical,                     intent(in), optional :: whole_subspace
+  type(AnharmonicData),        intent(in)           :: anharmonic_data
   
   call print_line('PotentialDataExample: evaluating <potential>.')
   
@@ -289,20 +304,26 @@ function harmonic_expectation_PotentialDataExample(this,frequency, &
   ! Code to calculate thermal harmonic expectation goes here.
 end function
 
-function coefficients_PotentialDataExample(this) result(output)
+function coefficients_PotentialDataExample(this,frequency,anharmonic_data) &
+   & result(output)
   implicit none
   
   class(PotentialDataExample), intent(in) :: this
+  real(dp),                    intent(in) :: frequency
+  type(AnharmonicData),        intent(in) :: anharmonic_data
   real(dp), allocatable                   :: output(:)
   
   ! Code to convert the potential to an array of real coefficients goes here.
 end function
 
-subroutine set_coefficients_PotentialDataExample(this,coefficients)
+subroutine set_coefficients_PotentialDataExample(this,coefficients,frequency, &
+   & anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   real(dp),                    intent(in)    :: coefficients(:)
+  real(dp),                    intent(in)    :: frequency
+  type(AnharmonicData),        intent(in)    :: anharmonic_data
   
   ! Code to convert the coefficients into the potential goes here.
 end subroutine
@@ -426,9 +447,12 @@ subroutine potential_example_subroutine()
   complex_force  = potential%force(complex_displacement)
   
   ! The potential can also be integrated between two states.
-  call potential%braket( state_1,        &
-                       & state_2,        &
-                       & anharmonic_data )
+  ! If whole_subspace is .true., then the potential will be integrated across
+  !    the whole subspace. whole_subspace default to true.
+  call potential%braket( bra             = state_1,        &
+                       & ket             = state_2,        &
+                       & whole_subspace  = .true.,         &
+                       & anharmonic_data = anharmonic_data )
   
   ! The potential can be written to and read from file using the potential
   !    pointer's methods.

@@ -252,13 +252,17 @@ impure elemental function braket_ComplexMonomial_HarmonicStateComplex(this, &
   
   type(HarmonicStateComplex) :: harmonic_ket
   
-  type(ComplexUnivariate), allocatable :: monomial_modes(:)
+  type(ComplexUnivariate), allocatable :: integrated_modes(:)
+  type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
   complex(dp)                          :: coefficient
   
   integer :: i
   
-  monomial_modes = monomial%modes( ids        = this%modes_%id(),       &
-                                 & paired_ids = this%modes_%paired_id() )
+  ! Separate the monomial into modes to be integrated and modes which will
+  !    be left untouched.
+  integrated_modes = monomial%modes( ids        = this%modes_%id(),       &
+                                   & paired_ids = this%modes_%paired_id() )
+  unintegrated_modes = monomial%modes(exclude_ids=this%modes_%id())
   
   ! Calculate the coefficient of <bra|X|ket>,
   !    up to the factor of 1/sqrt(2Nw)^n.
@@ -269,11 +273,11 @@ impure elemental function braket_ComplexMonomial_HarmonicStateComplex(this, &
     harmonic_ket = HarmonicStateComplex(ket)
     coefficient = monomial%coefficient                             &
               & * product(this%modes_%braket( harmonic_ket%modes_, &
-              &                               monomial_modes       ))
+              &                               integrated_modes     ))
   else
-    coefficient = monomial%coefficient                       &
-              & * product(this%modes_%braket( this%modes_,   &
-              &                               monomial_modes ))
+    coefficient = monomial%coefficient                         &
+              & * product(this%modes_%braket( this%modes_,     &
+              &                               integrated_modes ))
   endif
   
   ! Include the factor of (2Nw)^(n/2).
@@ -281,12 +285,11 @@ impure elemental function braket_ComplexMonomial_HarmonicStateComplex(this, &
            &  / sqrt( 2.0_dp                                         &
            &        * anharmonic_data%anharmonic_supercell%sc_size   &
            &        * this%frequency                               ) &
-           & ** sum(monomial_modes%total_power())
+           & ** sum(integrated_modes%total_power())
   
   ! Construct the output, from the coefficient and the un-integrated modes.
-  output = ComplexMonomial(                                       &
-     & coefficient = coefficient,                                 &
-     & modes       = monomial%modes(exclude_ids=this%modes_%id()) )
+  output = ComplexMonomial( coefficient = coefficient,       &
+                          & modes       = unintegrated_modes )
 end function
 
 impure elemental function kinetic_energy_HarmonicStateComplex(this,ket, &

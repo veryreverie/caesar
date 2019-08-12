@@ -9,9 +9,7 @@ module calculate_anharmonic_observables_module
   use potentials_module
   
   use generate_subspace_potentials_module
-  use initial_frequencies_module
   use vscf_module
-  use effective_frequency_module
   use stress_prefactors_module
   implicit none
   
@@ -38,10 +36,6 @@ subroutine startup_calculate_anharmonic_observables()
      &accurate, but is required for reasonable calculation times if the &
      &system contains large subspaces spread over multiple q-points.',        &
      &              default_value='true'),                                    &
-     & KeywordData( 'harmonic_frequency_convergence',                         &
-     &              'harmonic_frequency_convergence is the precision to which &
-     &frequencies will be converged when constructing the harmonic ground &
-     &state.' ),                                                              &
      & KeywordData( 'energy_convergence',                                     &
      &              'energy_convergence is the precision to which energies &
      &will be converged when constructing the VSCF ground state.' ),          &
@@ -124,25 +118,24 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! Inputs.
-  type(RandomReal)              :: random_generator
-  integer                       :: random_generator_seed
-  logical                       :: split_qpoints
-  real(dp)                      :: harmonic_frequency_convergence
-  real(dp)                      :: energy_convergence
-  integer                       :: no_converged_calculations_vscf
-  integer                       :: max_pulay_iterations
-  integer                       :: pre_pulay_iterations
-  real(dp)                      :: pre_pulay_damping
-  real(dp)                      :: min_temperature
-  real(dp)                      :: max_temperature
-  integer                       :: no_temperature_steps
-  real(dp)                      :: frequency_convergence
-  integer                       :: no_vscf_basis_states
-  real(dp)                      :: min_frequency
-  real(dp),         allocatable :: thermal_energies(:)
-  type(String)                  :: path
-  integer                       :: no_path_points
-  integer                       :: no_dos_samples
+  type(RandomReal)      :: random_generator
+  integer               :: random_generator_seed
+  logical               :: split_qpoints
+  real(dp)              :: energy_convergence
+  integer               :: no_converged_calculations_vscf
+  integer               :: max_pulay_iterations
+  integer               :: pre_pulay_iterations
+  real(dp)              :: pre_pulay_damping
+  real(dp)              :: min_temperature
+  real(dp)              :: max_temperature
+  integer               :: no_temperature_steps
+  real(dp)              :: frequency_convergence
+  integer               :: no_vscf_basis_states
+  real(dp)              :: min_frequency
+  real(dp), allocatable :: thermal_energies(:)
+  type(String)          :: path
+  integer               :: no_path_points
+  integer               :: no_dos_samples
   
   ! Previous inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -162,27 +155,27 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(QpointData),       allocatable :: subspace_qpoints(:)
   type(StressPrefactors), allocatable :: stress_prefactors(:)
   
+  ! max(harmonic frequencies, frequency of max displacement).
+  real(dp), allocatable :: starting_frequencies(:)
+  
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
   ! Anharmonic stress.
   type(StressPointer) :: stress
   
-  ! Single-subspace frequencies.
-  type(InitialFrequencies) :: initial_frequencies
+  ! VSCHA basis and states.
+  type(HarmonicBasis),  allocatable :: vscha_basis(:)
+  type(VscfOutput),     allocatable :: vscha_output(:)
+  type(HarmonicStates), allocatable :: vscha_states(:)
+  real(dp),             allocatable :: vscha_frequencies(:,:)
   
-  ! Basis states.
-  type(SubspaceBasisPointer), allocatable :: basis(:)
-  
-  ! VSCF ground states.
-  type(VscfOutput),         allocatable :: vscf_output(:)
-  type(PotentialPointer),   allocatable :: subspace_potentials(:)
-  type(BasisStatesPointer), allocatable :: subspace_states(:)
-  type(StressPointer),      allocatable :: subspace_stresses(:)
-  
-  ! Finite-temperature effective harmonic frequencies.
-  real(dp), allocatable :: frequencies(:)
-  real(dp), allocatable :: effective_frequencies(:,:)
+  ! VSCF basis, states and potential.
+  type(SubspaceBasisPointer), allocatable :: vscf_basis(:)
+  type(VscfOutput),           allocatable :: vscf_output(:)
+  type(PotentialPointer),     allocatable :: subspace_potentials(:)
+  type(BasisStatesPointer),   allocatable :: subspace_states(:)
+  type(StressPointer),        allocatable :: subspace_stresses(:)
   
   ! VSCHA variables; modes and dynamical matrices at each q-point.
   type(ComplexMode),     allocatable :: vscha_modes(:,:)
@@ -240,8 +233,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   random_generator_seed = random_generator%get_seed()
   split_qpoints = lgcl(arguments%value('split_q-points'))
-  harmonic_frequency_convergence = dble(                 &
-     & arguments%value('harmonic_frequency_convergence') )
   energy_convergence = dble(arguments%value('energy_convergence'))
   no_converged_calculations_vscf = int(                  &
      & arguments%value('no_converged_calculations_vscf') )
@@ -351,107 +342,171 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Construct minimum image data.
   min_images = calculate_min_images(supercell)
   
-  ! --------------------------------------------------
-  ! Run VSCF on potential to generate single-subspace potentials.
-  ! --------------------------------------------------
-  
-  ! Generate effective harmonic frequencies.
-  call print_line('Running zero-temperature VSCHA to obtain inital &
-     &frequencies.')
-  initial_frequencies = InitialFrequencies( potential,                      &
-                                          & anharmonic_data,                &
-                                          & harmonic_frequency_convergence, &
-                                          & no_converged_calculations_vscf, &
-                                          & max_pulay_iterations,           &
-                                          & pre_pulay_iterations,           &
-                                          & pre_pulay_damping               )
-  
-  ! Generate basis of states.
-  call print_line('Generating basis for VSCF.')
-  allocate(basis(size(subspaces)), stat=ialloc); call err(ialloc)
-  do i=1,size(basis)
-    subspace_modes = subspaces(i)%modes(modes)
-    subspace_qpoints = subspaces(i)%qpoints(modes,qpoints)
-    subspace_qpoints = subspace_qpoints(set(subspace_qpoints%id))
-    call print_line( 'Generating basis in subspace ' // &
-                   & subspaces(i)%id                 // &
-                   & ', containing '                 // &
-                   & size(subspace_modes)            // &
-                   & ' modes across '                // &
-                   & size(subspace_qpoints)          // &
-                   & ' q-points.'                       )
-    if (split_qpoints) then
-      basis(i) = SubspaceBasisPointer(SplitQpointsBasis(   &
-         & subspaces(i),                                   &
-         & initial_frequencies%frequency(subspaces(i)%id), &
-         & modes,                                          &
-         & qpoints,                                        &
-         & supercell,                                      &
-         & no_vscf_basis_states-1,                         &
-         & anharmonic_data%potential_expansion_order,      &
-         & anharmonic_data%structure%symmetries            ))
-    else
-      basis(i) = SubspaceBasisPointer(FullSubspaceBasis(   &
-         & subspaces(i),                                   &
-         & initial_frequencies%frequency(subspaces(i)%id), &
-         & modes,                                          &
-         & qpoints,                                        &
-         & supercell,                                      &
-         & no_vscf_basis_states-1,                         &
-         & anharmonic_data%potential_expansion_order,      &
-         & anharmonic_data%structure%symmetries            ))
-    endif
-  enddo
-  
-  ! Run VSCF to generate single-subspace potentials and states.
-  call print_line('Running VSCF')
-  vscf_output = run_vscf( potential,                      &
-                        & subspaces,                      &
-                        & basis,                          &
-                        & 0.0_dp,                         &
-                        & energy_convergence,             &
-                        & no_converged_calculations_vscf, &
-                        & max_pulay_iterations,           &
-                        & pre_pulay_iterations,           &
-                        & pre_pulay_damping,              &
-                        & anharmonic_data                 )
-  
-  subspace_potentials = [(vscf_output(i)%potential, i=1, size(vscf_output))]
-  subspace_states = [(vscf_output(i)%states, i=1, size(vscf_output))]
-  
-  ! Use VSCF states to generate single-subspace stresses.
-  ! Also generate stress prefactors, which are geometric factors quantifying
+  ! Generate stress prefactors, which are geometric factors quantifying
   !    the direction of each pair of modes w/r/t the lattice vectors.
   if (calculate_stress) then
-    call print_line('Generating single-subspaces stresses &
-       &and stress prefactors.')
-    subspace_stresses = generate_subspace_stresses( stress,          &
-                                                  & subspaces,       &
-                                                  & basis,           &
-                                                  & subspace_states, &
-                                                  & anharmonic_data  )
     stress_prefactors = [( StressPrefactors(subspaces(i),modes), &
                          & i=1,                                  &
                          & size(subspaces)                       )]
   endif
   
-  ! Calculate thermodynamic quantities under VSCF.
-  allocate( vscf_thermodynamics( size(subspaces),            &
-          &                      size(thermal_energies) ),   &
+  ! --------------------------------------------------
+  ! WORK IN PROGRESS
+  ! Run VSCHA on potential to generate subspace frequencies.
+  ! --------------------------------------------------
+  allocate( vscha_frequencies( size(subspaces),                 &
+          &                    size(thermal_energies) ),        &
+          & vscf_basis(size(subspaces)),                        &
+          & vscha_modes( anharmonic_data%structure%no_modes,    &
+          &              size(qpoints)                       ), &
+          & dynamical_matrices(size(qpoints)),                  &
+          & vscf_thermodynamics( size(subspaces),               &
+          &                      size(thermal_energies) ),      &
+          & vscha_thermodynamics(size(thermal_energies)),       &
+          & vscha1_thermodynamics( size(subspaces),             &
+          &                        size(thermal_energies) ),    &
+          & vscha2_thermodynamics( size(subspaces),             &
+          &                        size(thermal_energies) ),    &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
+    call print_line('')
+    call print_line(repeat('=',50))
+    call print_line('Thermal energy '//i//' of '//size(thermal_energies)// &
+       & ': KT = '//thermal_energies(i)//' Ha')
+    call print_line(repeat('=',50))
+    
+    ! Make temperature directory.
+    temperature_dir = output_dir//'/temperature_'// &
+       & left_pad(i,str(size(thermal_energies)))
+    call mkdir(temperature_dir)
+    
+    ! --------------------------------------------------
+    ! Run VSCF using VSCHA basis.
+    ! --------------------------------------------------
+    
+    if (i==1) then
+      vscha_basis = HarmonicBasis( subspaces%id,         &
+                                 & starting_frequencies, &
+                                 & thermal_energies(i)   )
+    else
+      vscha_basis = HarmonicBasis( subspaces%id,             &
+                                 & vscha_frequencies(:,i-1), &
+                                 & thermal_energies(i)       )
+    endif
+    
+    call print_line('Running VSCHA.')
+    ! N.B. for the first run, vscha_output is not allocated,
+    !    so starting_configuration will not be present() inside run_vscf.
+    ! For later runs, starting_configuration will be the output of the
+    !    previous run.
+    vscha_output = run_vscf( potential,                          &
+                           & subspaces,                          &
+                           & vscha_basis,                        &
+                           & thermal_energies(i),                &
+                           & energy_convergence,                 &
+                           & starting_frequencies,               &
+                           & no_converged_calculations_vscf,     &
+                           & max_pulay_iterations,               &
+                           & pre_pulay_iterations,               &
+                           & pre_pulay_damping,                  &
+                           & anharmonic_data,                    &
+                           & starting_configuration=vscha_output )
+    vscha_states = [( HarmonicStates(vscha_output(i)%states), &
+                    & i=1,                                    &
+                    & size(vscha_output)                      )]
+    vscha_frequencies(:,i) = vscha_states%frequency
+    call print_line('')
+    
+    ! --------------------------------------------------
+    ! Run VSCF using VCI basis.
+    ! --------------------------------------------------
+    
+    ! Generate basis of states.
+    call print_line('Generating basis for VSCF.')
+    do j=1,size(subspaces)
+      subspace_modes = subspaces(j)%modes(modes)
+      subspace_qpoints = subspaces(j)%qpoints(modes,qpoints)
+      subspace_qpoints = subspace_qpoints(set(subspace_qpoints%id))
+      call print_line( 'Generating basis in subspace ' // &
+                     & subspaces(j)%id                 // &
+                     & ', containing '                 // &
+                     & size(subspace_modes)            // &
+                     & ' modes across '                // &
+                     & size(subspace_qpoints)          // &
+                     & ' q-points.'                       )
+      if (split_qpoints) then
+        vscf_basis(j) = SubspaceBasisPointer(SplitQpointsBasis( &
+              & subspaces(j),                                   &
+              & vscha_frequencies(j,i),                         &
+              & modes,                                          &
+              & qpoints,                                        &
+              & supercell,                                      &
+              & no_vscf_basis_states-1,                         &
+              & anharmonic_data%potential_expansion_order,      &
+              & anharmonic_data%structure%symmetries            ))
+      else
+        vscf_basis(j) = SubspaceBasisPointer(FullSubspaceBasis( &
+              & subspaces(j),                                   &
+              & vscha_frequencies(j,i),                         &
+              & modes,                                          &
+              & qpoints,                                        &
+              & supercell,                                      &
+              & no_vscf_basis_states-1,                         &
+              & anharmonic_data%potential_expansion_order,      &
+              & anharmonic_data%structure%symmetries            ))
+      endif
+    enddo
+    call print_line('')
+    
+    ! Run VSCF to generate single-subspace potentials and states.
+    ! N.B. for the first run, vscf_output is not allocated,
+    !    so starting_configuration will not be present() inside run_vscf.
+    ! For later runs, starting_configuration will be the output of the
+    !    previous run.
+    call print_line('Running VSCF.')
+    vscf_output = run_vscf( potential,                         &
+                          & subspaces,                         &
+                          & vscf_basis,                        &
+                          & thermal_energies(i),               &
+                          & energy_convergence,                &
+                          & vscha_frequencies(:,i),            &
+                          & no_converged_calculations_vscf,    &
+                          & max_pulay_iterations,              &
+                          & pre_pulay_iterations,              &
+                          & pre_pulay_damping,                 &
+                          & anharmonic_data,                   &
+                          & starting_configuration=vscf_output )
+    
+    subspace_potentials = [(vscf_output(j)%potential, j=1, size(vscf_output))]
+    subspace_states = [(vscf_output(j)%states, j=1, size(vscf_output))]
+    call print_line('')
+    
+    ! --------------------------------------------------
+    ! Calculate thermodynamic quantities under VSCF.
+    ! --------------------------------------------------
+    call print_line('Calculating thermodynamic observables under VSCHA.')
+    
     if (calculate_stress) then
-      vscf_thermodynamics(:,i) = basis%thermodynamic_data(   &
-                             &        thermal_energies(i),   &
-                             &        subspace_states,       &
-                             &        subspaces,             &
-                             &        subspace_potentials,   &
-                             &        subspace_stresses,     &
-                             &        stress_prefactors,     &
-                             &        anharmonic_data      ) &
+      ! Use VSCF states to generate single-subspace stresses.
+      call print_line('Generating single-subspaces stresses &
+         &and stress prefactors.')
+      subspace_stresses = generate_subspace_stresses( stress,          &
+                                                    & subspaces,       &
+                                                    & vscf_basis,      &
+                                                    & subspace_states, &
+                                                    & anharmonic_data  )
+      
+      vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data( &
+                             &           thermal_energies(i),   &
+                             &           subspace_states,       &
+                             &           subspaces,             &
+                             &           subspace_potentials,   &
+                             &           subspace_stresses,     &
+                             &           stress_prefactors,     &
+                             &           anharmonic_data      ) &
                              & / supercell%sc_size
     else
-      vscf_thermodynamics(:,i) = basis%thermodynamic_data(            &
+      vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data(       &
                              &      thermal_energies(i),              &
                              &      subspace_states,                  &
                              &      subspaces,                        &
@@ -459,74 +514,36 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                              &      anharmonic_data=anharmonic_data ) &
                              & / supercell%sc_size
     endif
-  enddo
-  
-  !! Print VSCF spectra and wavefunction information.
-  !subspace_wavefunctions = SubspaceWavefunctionsPointer( &
-  !              & basis%wavefunctions( subspace_states,  &
-  !              &                      subspaces,        &
-  !              &                      anharmonic_data ) )
-  !do i=1,size(subspaces)
-  !  subspace_dir = output_dir//'/subspace_'// &
-  !     & left_pad(subspaces(i)%id, str(maxval(subspaces%id)))
-  !  call mkdir(subspace_dir)
-  !  
-  !  wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
-  !  call wavefunctions_file%print_lines(subspace_wavefunctions(i))
-  !enddo
-  
-  ! --------------------------------------------------
-  ! Generate observables under the VSCHA approximation.
-  ! --------------------------------------------------
-  
-  call print_line('VSCF calculations complete. Running VSCHA calculations.')
-  
-  ! Initialise frequencies to the frequencies which minimise the energy
-  !    of the harmonic ground state.
-  frequencies = initial_frequencies%frequency(subspaces%id)
-  allocate( effective_frequencies( size(subspaces),             &
-          &                        size(thermal_energies) ),    &
-          & vscha_modes( anharmonic_data%structure%no_modes,    &
-          &              size(qpoints)                       ), &
-          & dynamical_matrices(size(qpoints)),                  &
-          & vscha_thermodynamics(size(thermal_energies)),       &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(thermal_energies)
-    ! Make temperature directory.
-    temperature_dir = output_dir//'/temperature_'// &
-       & left_pad(i,str(size(thermal_energies)))
-    call mkdir(temperature_dir)
     
-    ! Calculate effective frequencies for each subspace.
-    call print_line('')
-    call print_line('Thermal energy '//i//' of '//size(thermal_energies)// &
-       & ': KT = '//thermal_energies(i)//' Ha')
-    do j=1,size(subspace_potentials)
-      effective_frequencies(j,i) = calculate_effective_frequency( &
-                                & subspace_potentials(j),         &
-                                & subspaces(j),                   &
-                                & anharmonic_data,                &
-                                & thermal_energies(i),            &
-                                & frequencies(j),                 &
-                                & frequency_convergence           )
-      call print_line('Self-consistent harmonic frequency in subspace '// &
-         &subspaces(j)%id//': '//effective_frequencies(j,i)//' (Ha).')
-    enddo
+    !! Print VSCF spectra and wavefunction information.
+    !subspace_wavefunctions = SubspaceWavefunctionsPointer( &
+    !         & vscf_basis%wavefunctions( subspace_states,  &
+    !         &                           subspaces,        &
+    !         &                           anharmonic_data ) )
+    !do j=1,size(subspaces)
+    !  subspace_dir = temperature_dir//'/subspace_'// &
+    !     & left_pad(subspaces(j)%id, str(maxval(subspaces%id)))
+    !  call mkdir(subspace_dir)
+    !  
+    !  wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
+    !  call wavefunctions_file%print_lines(subspace_wavefunctions(j))
+    !enddo
     
-    ! The starting point for calculating the effective frequencies at the
-    !    next temperature is the frequencies at this temperature.
-    frequencies = effective_frequencies(:,i)
+    ! --------------------------------------------------
+    ! Calculate DOS and Dispersion under VSCHA.
+    ! --------------------------------------------------
+    call print_line('Calculating DOS and dispersion under VSCHA.')
     
     ! Assemble the dynamical matrices at each q-point from the complex modes
     !    and the effective frequencies.
     do j=1,size(qpoints)
       qpoint_modes = modes(filter(modes%qpoint_id==qpoints(j)%id))
-      qpoint_frequencies = [(                                              &
-         & effective_frequencies(                                          &
-         &    first(subspaces%id==qpoint_modes(k)%subspace_id),            &
-         &    i                                                 ),         &
-         & k=1,                                                            &
-         & size(qpoint_modes)                                              )]
+      qpoint_frequencies = [(                                      &
+         & vscha_frequencies(                                      &
+         &    first(subspaces%id==qpoint_modes(k)%subspace_id),    &
+         &    i                                                 ), &
+         & k=1,                                                    &
+         & size(qpoint_modes)                                      )]
       if (size(qpoint_modes)==anharmonic_data%structure%no_modes) then
         vscha_modes(:,j) = qpoint_modes
         vscha_modes(:,j)%frequency = qpoint_frequencies
@@ -599,27 +616,24 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     pdos_file = OFile(temperature_dir//'/phonon_density_of_states.dat')
     call pdos_file%print_lines(phonon_dos%pdos)
     
+    ! --------------------------------------------------
+    ! Calculate thermodynamic quantities under VSCHA.
+    ! --------------------------------------------------
+    call print_line('Calculating thermodynamic observables under VSCHA.')
+    
     vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
-  enddo
-  
-  ! Calculate thermodynamic quantities under VSCHA.
-  allocate( vscha1_thermodynamics( size(subspaces),          &
-          &                        size(thermal_energies) ), &
-          & vscha2_thermodynamics( size(subspaces),          &
-          &                        size(thermal_energies) ), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(thermal_energies)
+    
     do j=1,size(subspaces)
-      vscha1_thermodynamics(j,i) =                         &
-         & ThermodynamicData( thermal_energies(i),         &
-         &                    effective_frequencies(j,i) ) &
-         & * size(subspaces(j))                            &
+      vscha1_thermodynamics(j,i) =                     &
+         & ThermodynamicData( thermal_energies(i),     &
+         &                    vscha_frequencies(j,i) ) &
+         & * size(subspaces(j))                        &
          & / (1.0_dp*supercell%sc_size)
       
       vscha2_thermodynamics(j,i) = effective_harmonic_observables(   &
                                &       thermal_energies(i),          &
                                &       subspace_potentials(j),       &
-                               &       effective_frequencies(j,i),   &
+                               &       vscha_frequencies(j,i),       &
                                &       size(subspaces(j)),           &
                                &       anharmonic_data             ) &
                                & / supercell%sc_size

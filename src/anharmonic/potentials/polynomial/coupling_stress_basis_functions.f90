@@ -137,26 +137,36 @@ end function
 
 impure elemental subroutine                                          &
    & braket_SubspaceState_CouplingStressBasisFunctions(this,bra,ket, &
-   & anharmonic_data)
+   & whole_subspace,anharmonic_data)
   implicit none
   
   class(CouplingStressBasisFunctions), intent(inout)        :: this
   class(SubspaceState),                intent(in)           :: bra
   class(SubspaceState),                intent(in), optional :: ket
+  logical,                             intent(in), optional :: whole_subspace
   type(AnharmonicData),                intent(in)           :: anharmonic_data
   
   integer :: i
   
-  do i=1,size(this)
-    call this%basis_functions_(i)%braket(bra, ket, anharmonic_data)
-  enddo
-  
-  ! Simplify the potential.
-  call this%basis_functions_%simplify()
+  ! Check if the subspace is in this basis function's coupling.
+  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  if (i/=0) then
+    ! If whole_subspace is .true., remove the subspace from the coupling.
+    if (set_default(whole_subspace,.true.)) then
+      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+    endif
+    
+    ! Integrate across the basis function, and simplify it.
+    do i=1,size(this)
+      call this%basis_functions_(i)%braket(bra, ket, anharmonic_data)
+    enddo
+    
+    call this%basis_functions_%simplify()
+  endif
 end subroutine
 
 impure elemental subroutine braket_BasisState_CouplingStressBasisFunctions( &
-   & this,bra,ket,subspace,subspace_basis,anharmonic_data)
+   & this,bra,ket,subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(CouplingStressBasisFunctions), intent(inout)        :: this
@@ -164,36 +174,54 @@ impure elemental subroutine braket_BasisState_CouplingStressBasisFunctions( &
   class(BasisState),                   intent(in), optional :: ket
   type(DegenerateSubspace),            intent(in)           :: subspace
   class(SubspaceBasis),                intent(in)           :: subspace_basis
+  logical,                             intent(in), optional :: whole_subspace
   type(AnharmonicData),                intent(in)           :: anharmonic_data
   
   integer :: i
   
-  do i=1,size(this)
-    call this%basis_functions_(i)%braket( bra,            &
-                                        & ket,            &
-                                        & subspace,       &
-                                        & subspace_basis, &
-                                        & anharmonic_data )
-  enddo
+  ! Check if the subspace is in this basis function's coupling.
+  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  if (i/=0) then
+    ! If whole_subspace is .true., remove the subspace from the coupling.
+    if (set_default(whole_subspace,.true.)) then
+      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+    endif
   
-  ! Simplify the potential.
-  call this%basis_functions_%simplify()
+    ! Integrate across the basis function, and simplify it.
+    do i=1,size(this)
+      call this%basis_functions_(i)%braket( bra,            &
+                                          & ket,            &
+                                          & subspace,       &
+                                          & subspace_basis, &
+                                          & anharmonic_data )
+    enddo
+    
+    call this%basis_functions_%simplify()
+  endif
 end subroutine
 
 impure elemental subroutine braket_BasisStates_CouplingStressBasisFunctions( &
-   & this,states,subspace,subspace_basis,anharmonic_data)
+   & this,states,subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
-  class(CouplingStressBasisFunctions), intent(inout) :: this
-  class(BasisStates),                  intent(in)    :: states
-  type(DegenerateSubspace),            intent(in)    :: subspace
-  class(SubspaceBasis),                intent(in)    :: subspace_basis
-  type(AnharmonicData),                intent(in)    :: anharmonic_data
+  class(CouplingStressBasisFunctions), intent(inout)        :: this
+  class(BasisStates),                  intent(in)           :: states
+  type(DegenerateSubspace),            intent(in)           :: subspace
+  class(SubspaceBasis),                intent(in)           :: subspace_basis
+  logical,                             intent(in), optional :: whole_subspace
+  type(AnharmonicData),                intent(in)           :: anharmonic_data
   
   integer :: i,j
   
-  i = first(this%coupling%ids==subspace%id, default=0)
+  ! Check if the subspace is in this basis function's coupling.
+  i = first(this%coupling%ids==states%subspace_id, default=0)
   if (i/=0) then
+    ! If whole_subspace is .true., remove the subspace from the coupling.
+    if (set_default(whole_subspace,.true.)) then
+      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+    endif
+    
+    ! Integrate across the basis function, and simplify it.
     do j=1,size(this)
       call this%basis_functions_(j)%braket( states,         &
                                           & subspace,       &
@@ -201,12 +229,7 @@ impure elemental subroutine braket_BasisStates_CouplingStressBasisFunctions( &
                                           & anharmonic_data )
     enddo
     
-    ! Simplify the potential.
     call this%basis_functions_%simplify()
-    
-    ! Update the coupling to remove the integrated subspace.
-    this%coupling%ids = [ this%coupling%ids(:i-1), &
-                        & this%coupling%ids(i+1:)  ]
   endif
 end subroutine
 

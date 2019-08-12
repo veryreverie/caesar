@@ -1,6 +1,18 @@
 ! ======================================================================
 ! Run VSCF on a potential to generate VSCF ground states.
 ! ======================================================================
+! Each step in the routine:
+!    1) starts from a set of single-subspace potentials, P.
+!    2) uses P to generate a set of single-subspace states, S(P),
+!         such that the states diagonalise the potentials.
+!    3) uses S(P) and P to generate the free energy, F(P,S(P)).
+!    4) checks for convergence of F(P,S(P)), and returns if converged.
+!    5) uses S(P) to generate a new set of single-subspace potentials, P(S(P)).
+!    6) uses a Pulay scheme to generate the next P, which attempts to minimise
+!          F(P,S(P)) subject to P(S(P))=P.
+!
+! The Pulay scheme sees P as a vector of real coefficients. It is down to the
+!    implementation of the potential to define how P is generated.
 module vscf_module
   use common_module
   
@@ -40,77 +52,97 @@ impure elemental function new_VscfOutput(potential,states) result(this)
   this%states = BasisStatesPointer(states)
 end function
 
-! ----------------------------------------------------------------------
-! Main functions.
-! ----------------------------------------------------------------------
-function run_vscf(potential,subspaces,subspace_bases,thermal_energy,    &
-   & energy_convergence,no_converged_calculations,max_pulay_iterations, &
-   & pre_pulay_iterations,pre_pulay_damping,anharmonic_data)            &
-   & result(output)
+! Vscf routine.
+function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
+   & energy_convergence,frequencies,no_converged_calculations,       &
+   & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,    &
+   & anharmonic_data,starting_configuration) result(output)
   implicit none
   
-  class(PotentialData),     intent(in) :: potential
-  type(DegenerateSubspace), intent(in) :: subspaces(:)
-  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  real(dp),                 intent(in) :: thermal_energy
-  real(dp),                 intent(in) :: energy_convergence
-  integer,                  intent(in) :: no_converged_calculations
-  integer,                  intent(in) :: max_pulay_iterations
-  integer,                  intent(in) :: pre_pulay_iterations
-  real(dp),                 intent(in) :: pre_pulay_damping
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(VscfOutput), allocatable        :: output(:)
+  class(PotentialData),     intent(in)           :: potential
+  type(DegenerateSubspace), intent(in)           :: subspaces(:)
+  class(SubspaceBasis),     intent(in)           :: subspace_bases(:)
+  real(dp),                 intent(in)           :: thermal_energy
+  real(dp),                 intent(in)           :: energy_convergence
+  real(dp),                 intent(in)           :: frequencies(:)
+  integer,                  intent(in)           :: no_converged_calculations
+  integer,                  intent(in)           :: max_pulay_iterations
+  integer,                  intent(in)           :: pre_pulay_iterations
+  real(dp),                 intent(in)           :: pre_pulay_damping
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(VscfOutput),         intent(in), optional :: starting_configuration(:)
+  type(VscfOutput), allocatable                  :: output(:)
   
-  type(PulaySolver), allocatable :: solvers(:)
-  
-  type(PotentialPointer),   allocatable :: input_potentials(:)
+  ! Single-subspace potentials and states.
+  type(PotentialPointer),   allocatable :: subspace_potentials(:)
   type(BasisStatesPointer), allocatable :: subspace_states(:)
-  type(PotentialPointer),   allocatable :: output_potentials(:)
   
-  type(PotentialPointer), allocatable :: in_potentials(:)
-  type(PotentialPointer), allocatable :: out_potentials(:)
+  ! Potential coefficients.
+  integer,  allocatable :: first_coefficient(:)
+  integer,  allocatable :: last_coefficient(:)
+  real(dp), allocatable :: coefficients(:)
+  real(dp), allocatable :: old_coefficients(:)
   
+  ! The Pulay scheme solver.
+  type(PulaySolver) :: solver
+  
+  ! Thermodynamic variables.
   type(ThermodynamicData), allocatable :: thermodynamic_data(:)
   real(dp),                allocatable :: free_energies(:)
   
-  integer :: first_pulay_step
+  ! Temporary variables.
+  integer :: i,j,ialloc
   
-  integer :: i,j,k,ialloc
-  
-  ! Generate initial states,
-  !    and use these states to generate initial potentials.
+  ! Generate initial single-subspace states,
+  !    and use these states to generate initial single-subpsace potentials.
   call print_line('Generating initial states and potentials.')
   subspace_states = BasisStatesPointer(subspace_bases%initial_states( &
                                                     & subspaces,      &
                                                     & anharmonic_data ))
-  input_potentials = generate_subspace_potentials( potential,       &
-                                                 & subspaces,       &
-                                                 & subspace_bases,  &
-                                                 & subspace_states, &
-                                                 & anharmonic_data  )
-  ! Initialise Pulay solvers.
-  solvers = [(                                            &
-     & PulaySolver( pre_pulay_iterations,                 &
-     &              pre_pulay_damping,                    &
-     &              max_pulay_iterations,                 &
-     &              input_potentials(i)%coefficients() ), &
-     & i=1,                                               &
-     & size(input_potentials)                             )]
+  subspace_potentials = generate_subspace_potentials( potential,       &
+                                                    & subspaces,       &
+                                                    & subspace_bases,  &
+                                                    & subspace_states, &
+                                                    & anharmonic_data  )
+  
+  ! Construct a single vector of coefficients from the subspace potentials.
+  allocate( coefficients(0),                    &
+          & first_coefficient(size(subspaces)), &
+          & last_coefficient(size(subspaces)),  &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(subspaces)
+    first_coefficient(i) = size(coefficients)+1
+    coefficients = [ coefficients,                                          &
+                   & subspace_potentials(i)%coefficients( frequencies(i),   &
+                   &                                      anharmonic_data ) ]
+    last_coefficient(i) = size(coefficients)
+  enddo
+  
+  ! Initialise Pulay solver.
+  solver = PulaySolver( pre_pulay_iterations, &
+                      & pre_pulay_damping,    &
+                      & max_pulay_iterations, &
+                      & coefficients          )
   
   ! Run Pulay scheme.
   i = 1
   free_energies = [real(dp)::]
   do
-    call print_line('Beginning VSCF self-consistency step '//i//'.')
-    do j=1,size(input_potentials)
-      call input_potentials(j)%set_coefficients(solvers(j)%get_x())
+    ! Generate single-subspace potentials from Pulay scheme.
+    coefficients = solver%get_x()
+    do j=1,size(subspaces)
+      call subspace_potentials(j)%set_coefficients(                &
+         & coefficients(first_coefficient(j):last_coefficient(j)), &
+         & frequencies(j),                                         &
+         & anharmonic_data                                         )
     enddo
     
-    ! Use the single-subspace potentials to calculate the new states.
+    ! Use single-subspace potentials to calculate new single-subspace states.
     call print_line('Generating single-subspace ground states.')
     subspace_states = BasisStatesPointer(                              &
        & subspace_bases%calculate_states( subspaces,                   &
-       &                                  input_potentials,            &
+       &                                  subspace_potentials,         &
+       &                                  thermal_energy,              &
        &                                  energy_convergence,          &
        &                                  no_converged_calculations,   &
        &                                  max_pulay_iterations,        &
@@ -118,54 +150,56 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy,    &
        &                                  pre_pulay_damping,           &
        &                                  anharmonic_data            ) )
     
-    ! Generate the free energy from the states.
+    ! Calculate the free energy from the potentials and states.
     thermodynamic_data = subspace_bases%thermodynamic_data( &
                           & thermal_energy,                 &
                           & subspace_states,                &
                           & subspaces,                      &
-                          & input_potentials,               &
+                          & subspace_potentials,            &
                           & anharmonic_data=anharmonic_data )
     free_energies = [ free_energies,                                 &
                     &   sum(thermodynamic_data%free_energy)          &
                     & / anharmonic_data%anharmonic_supercell%sc_size ]
-    call print_line('Free energy: '//free_energies(i)//' (Ha).')
     
-    ! Check whether the energies have converged by the normal convergence
-    !    condition.
-    j = i-no_converged_calculations
-    if (j>0) then
-      if (all( abs(free_energies(j:i-1)-free_energies(i)) &
-           & < energy_convergence                         )) then
-        output = VscfOutput(input_potentials, subspace_states)
-        exit
-      endif
-    endif
-    
-    ! Check whether the last two sets of energies have converged to a much
-    !    tighter convergence.
-    ! This is needed to avoid numerical problems with the Pulay scheme caused
-    !    by over-convergence.
-    if (i>1) then
-      if (abs(free_energies(i-1)-free_energies(i))<energy_convergence/100) then
-        output = VscfOutput(input_potentials, subspace_states)
-        exit
-      endif
-    endif
-    
-    ! Use the current single-subspace states to calculate the single-subspace
-    !    potentials.
+    ! Use single-subspace states to calculate new single-subspace potentials.
     call print_line('Generating single-subspace potentials.')
-    output_potentials = generate_subspace_potentials( potential,       &
-                                                    & subspaces,       &
-                                                    & subspace_bases,  &
-                                                    & subspace_states, &
-                                                    & anharmonic_data  )
+    subspace_potentials = generate_subspace_potentials( potential,       &
+                                                      & subspaces,       &
+                                                      & subspace_bases,  &
+                                                      & subspace_states, &
+                                                      & anharmonic_data  )
     
-    ! If the energies have not converged, generate the next input potentials
-    !    using either a damped iterative scheme or a Pulay scheme.
-    do j=1,size(output_potentials)
-      call solvers(j)%set_f(output_potentials(j)%coefficients())
+    ! Update the Pulay scheme.
+    old_coefficients = coefficients
+    do j=1,size(subspaces)
+      coefficients(first_coefficient(j):last_coefficient(j)) = &
+         & subspace_potentials(j)%coefficients(frequencies(j), anharmonic_data)
     enddo
+    call solver%set_f(coefficients, free_energies(i))
+    
+    ! Check for convergence.
+    if (solver%converged( energy_convergence,       &
+                        & no_converged_calculations )) then
+      output = VscfOutput(subspace_potentials, subspace_states)
+      call print_line('Convergence reached.')
+      return
+    endif
+    
+    ! Print progress.
+    call print_line('VSCF self-consistency step '//i//'.')
+    call print_line( 'Self-consistency error  : '        // &
+                   & l2_norm(coefficients-old_coefficients) )
+    call print_line( 'Free energy, F          : ' // &
+                   & free_energies(i)//' (Ha)'       )
+    if (i>1) then
+      call print_line( 'F minus previous min(F) : '                   // &
+                     & (free_energies(i)-minval(free_energies(:i-1))) // &
+                     & ' (Ha)'                                           )
+    endif
+    call print_line('Coefficients:')
+    call set_print_settings(decimal_places=3)
+    call print_line(coefficients(1))
+    call unset_print_settings()
     
     ! Increment the loop counter.
     i = i+1

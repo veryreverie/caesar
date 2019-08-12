@@ -169,26 +169,36 @@ impure elemental function                                                    &
 end function
 
 impure elemental subroutine braket_SubspaceState_CouplingBasisFunctions(this, &
-   & bra,ket,anharmonic_data)
+   & bra,ket,whole_subspace,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
   class(SubspaceState),          intent(in)           :: bra
   class(SubspaceState),          intent(in), optional :: ket
+  logical,                       intent(in), optional :: whole_subspace
   type(AnharmonicData),          intent(in)           :: anharmonic_data
   
   integer :: i
   
-  do i=1,size(this)
-    call this%basis_functions_(i)%braket(bra, ket, anharmonic_data)
-  enddo
-  
-  ! Simplify the potential.
-  call this%basis_functions_%simplify()
+  ! Check if the subspace is in this basis function's coupling.
+  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  if (i/=0) then
+    ! If whole_subspace is .true., remove the subspace from the coupling.
+    if (set_default(whole_subspace,.true.)) then
+      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+    endif
+    
+    ! Integrate across the basis function, and simplify it.
+    do i=1,size(this)
+      call this%basis_functions_(i)%braket(bra, ket, anharmonic_data)
+    enddo
+    
+    call this%basis_functions_%simplify()
+  endif
 end subroutine
 
 impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
-   & bra,ket,subspace,subspace_basis,anharmonic_data)
+   & bra,ket,subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
@@ -196,36 +206,54 @@ impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
   class(BasisState),             intent(in), optional :: ket
   type(DegenerateSubspace),      intent(in)           :: subspace
   class(SubspaceBasis),          intent(in)           :: subspace_basis
+  logical,                       intent(in), optional :: whole_subspace
   type(AnharmonicData),          intent(in)           :: anharmonic_data
   
   integer :: i
   
-  do i=1,size(this)
-    call this%basis_functions_(i)%braket( bra,            &
-                                        & ket,            &
-                                        & subspace,       &
-                                        & subspace_basis, &
-                                        & anharmonic_data )
-  enddo
-  
-  ! Simplify the potential.
-  call this%basis_functions_%simplify()
+  ! Check if the subspace is in this basis function's coupling.
+  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  if (i/=0) then
+    ! If whole_subspace is .true., remove the subspace from the coupling.
+    if (set_default(whole_subspace,.true.)) then
+      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+    endif
+    
+    ! Integrate across the basis function, and simplify it.
+    do i=1,size(this)
+      call this%basis_functions_(i)%braket( bra,            &
+                                          & ket,            &
+                                          & subspace,       &
+                                          & subspace_basis, &
+                                          & anharmonic_data )
+    enddo
+    
+    call this%basis_functions_%simplify()
+  endif
 end subroutine
 
 impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
-   & states,subspace,subspace_basis,anharmonic_data)
+   & states,subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
-  class(CouplingBasisFunctions), intent(inout) :: this
-  class(BasisStates),            intent(in)    :: states
-  type(DegenerateSubspace),      intent(in)    :: subspace
-  class(SubspaceBasis),          intent(in)    :: subspace_basis
-  type(AnharmonicData),          intent(in)    :: anharmonic_data
+  class(CouplingBasisFunctions), intent(inout)        :: this
+  class(BasisStates),            intent(in)           :: states
+  type(DegenerateSubspace),      intent(in)           :: subspace
+  class(SubspaceBasis),          intent(in)           :: subspace_basis
+  logical,                       intent(in), optional :: whole_subspace
+  type(AnharmonicData),          intent(in)           :: anharmonic_data
   
   integer :: i,j
   
-  i = first(this%coupling%ids==subspace%id, default=0)
+  ! Check if the subspace is in this basis function's coupling.
+  i = first(this%coupling%ids==states%subspace_id, default=0)
   if (i/=0) then
+    ! If whole_subspace is .true., remove the subspace from the coupling.
+    if (set_default(whole_subspace,.true.)) then
+      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+    endif
+    
+    ! Integrate across the basis function, and simplify it.
     do j=1,size(this)
       call this%basis_functions_(j)%braket( states,         &
                                           & subspace,       &
@@ -233,12 +261,7 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
                                           & anharmonic_data )
     enddo
     
-    ! Simplify the potential.
     call this%basis_functions_%simplify()
-    
-    ! Update the coupling to remove the integrated subspace.
-    this%coupling%ids = [ this%coupling%ids(:i-1), &
-                        & this%coupling%ids(i+1:)  ]
   endif
 end subroutine
 
@@ -321,7 +344,7 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
                                               & logfile                    )
     
     ! Take linear combinations of basis functions such that each basis function
-    !    contains at least term which is in no other basis function.
+    !    contains at least one term which is in no other basis function.
     allocate( unique_terms(size(basis_functions)), &
             & stat=ialloc); call err(ialloc)
     do j=1,size(unique_terms)
@@ -383,27 +406,29 @@ impure elemental function undisplaced_energy_CouplingBasisFunctions(this) &
 end function
 
 ! Get and set basis function coefficients.
-function coefficients_CouplingBasisFunctions(this) result(output)
+function coefficients_CouplingBasisFunctions(this,frequency) result(output)
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
+  real(dp),                      intent(in) :: frequency
   real(dp), allocatable                     :: output(:)
   
-  output = this%basis_functions_%coefficient()
+  output = this%basis_functions_%coefficient(frequency)
 end function
 
-subroutine set_coefficients_CouplingBasisFunctions(this,coefficients)
+subroutine set_coefficients_CouplingBasisFunctions(this,coefficients,frequency)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout) :: this
   real(dp),                      intent(in)    :: coefficients(:)
+  real(dp),                      intent(in)    :: frequency
   
   if (size(this)/=size(coefficients)) then
     call print_line(CODE_ERROR//': Incorrect number of coefficients.')
     call err()
   endif
   
-  call this%basis_functions_%set_coefficient(coefficients)
+  call this%basis_functions_%set_coefficient(coefficients,frequency)
 end subroutine
 
 ! Append another CouplingBasisFunctions to this.

@@ -263,6 +263,7 @@ impure elemental function new_SubspaceStatePointer(state) result(this)
     this%representation_ = state%representation()
     allocate( this%state_, source=state, &
             & stat=ialloc); call err(ialloc)
+    this%subspace_id = this%state_%subspace_id
   end select
 end function
 

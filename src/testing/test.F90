@@ -11,16 +11,7 @@ module test_module
   private
   
   public :: startup_test
-  
-  type :: TT
-    integer :: x
-  end type
-  
-#define MACRO_TYPE_NAME TT
-#include "array_operations.fpp"
 contains
-#define MACRO_BODY
-#include "array_operations.fpp"
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
@@ -49,9 +40,16 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  type(TT), allocatable :: a(:)
   
-  call print_line(-log(0.0_dp))
-  call print_line(-log(-1e-100_dp))
+  logical, allocatable :: a
+  
+  call print_line(set_default(a,.true.))
+  call print_line(set_default(a,.false.))
+  a = .true.
+  call print_line(set_default(a,.true.))
+  call print_line(set_default(a,.false.))
+  a = .false.
+  call print_line(set_default(a,.true.))
+  call print_line(set_default(a,.false.))
 end subroutine
 end module

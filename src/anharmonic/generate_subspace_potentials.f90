@@ -17,7 +17,8 @@ contains
 ! ----------------------------------------------------------------------
 ! Takes a potential V and an array of subspace states {|i>}, and generates the
 !    set of single-subspace potentials {V_i}, defined by
-!    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
+!    V_i = (prod_{j/=i}<j|)V(prod_{j/=i}|j>)
+!        - (prod_i<i|)V(prod_i|i>) * (n-1)/n
 ! ----------------------------------------------------------------------
 ! The naive method of calculating {V_i} for n subspaces takes
 !    n(n-1) operations.
@@ -57,6 +58,10 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
   ! The half-way point of each interval.
   integer :: s
   
+  ! The correction energy, -<V>(n-1)/n
+  type(PotentialPointer) :: integrated_potential
+  real(dp)               :: correction_energy
+  
   integer :: i,j,ialloc
   
   if (size(subspace_states)==0) then
@@ -70,6 +75,7 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
   maxs_in = [size(subspace_states)]
   allocate(output(size(subspace_states)), stat=ialloc); call err(ialloc)
   output(1) = PotentialPointer(potential)
+  call output(1)%zero_energy()
   
   ! Loop over iteration until every interval contains exactly one subspace.
   do while (any(mins_in/=maxs_in))
@@ -97,16 +103,18 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
         ! Integrate the first potential over all states in the second interval,
         !    and the second potential over all states in the first interval.
         do j=s,maxs_in(i)
-          call output(mins_in(i))%braket( subspace_states(j), &
-                                        & subspaces(j),       &
-                                        & subspace_bases(j),  &
-                                        & anharmonic_data     )
+          call output(mins_in(i))%braket(            &
+             & states          = subspace_states(j), &
+             & subspace        = subspaces(j),       &
+             & subspace_basis  = subspace_bases(j),  &
+             & anharmonic_data = anharmonic_data     )
         enddo
         do j=mins_in(i),s-1
-          call output(s)%braket( subspace_states(j), &
-                               & subspaces(j),       &
-                               & subspace_bases(j),  &
-                               & anharmonic_data     )
+          call output(s)%braket(                     &
+             & states          = subspace_states(j), &
+             & subspace        = subspaces(j),       &
+             & subspace_basis  = subspace_bases(j),  &
+             & anharmonic_data = anharmonic_data     )
         enddo
       endif
     enddo
@@ -115,10 +123,20 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
     maxs_in = maxs_out
   enddo
   
-  ! Set the constant term to zero.
-  do i=1,size(output)
-    call output(i)%zero_energy()
-  enddo
+  ! Calculate the fully-integrated potential,
+  !    <V> = (prod_i<i|)V(prod_i|i>).
+  ! Use this to correct for the overcounting of terms.
+  integrated_potential = output(1)
+  
+  call integrated_potential%braket( states          = subspace_states(1), &
+                                  & subspace        = subspaces(1),       &
+                                  & subspace_basis  = subspace_bases(1),  &
+                                  & anharmonic_data = anharmonic_data     )
+  
+  correction_energy = integrated_potential%undisplaced_energy() &
+                  & * (1.0_dp-size(subspaces))/size(subspaces)
+  
+  call output%add_constant(correction_energy)
 end function
 
 ! ----------------------------------------------------------------------
@@ -185,16 +203,18 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
         ! Integrate the first stress over all states in the second interval,
         !    and the second stress over all states in the first interval.
         do j=s,maxs_in(i)
-          call output(mins_in(i))%braket( subspace_states(j), &
-                                        & subspaces(j),       &
-                                        & subspace_bases(j),  &
-                                        & anharmonic_data     )
+          call output(mins_in(i))%braket(            &
+             & states          = subspace_states(j), &
+             & subspace        = subspaces(j),       &
+             & subspace_basis  = subspace_bases(j),  &
+             & anharmonic_data = anharmonic_data     )
         enddo
         do j=mins_in(i),s-1
-          call output(s)%braket( subspace_states(j), &
-                               & subspaces(j),       &
-                               & subspace_bases(j),  &
-                               & anharmonic_data     )
+          call output(s)%braket(                     &
+             & states          = subspace_states(j), &
+             & subspace        = subspaces(j),       &
+             & subspace_basis  = subspace_bases(j),  &
+             & anharmonic_data = anharmonic_data     )
         enddo
       endif
     enddo

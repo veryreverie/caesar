@@ -49,8 +49,9 @@ module keyword_module
     procedure, public :: set_flag            => set_flag_KeywordData
     
     ! Default-related procedures.
-    procedure, public :: defaults_to_keyword
-    procedure, public :: set_default
+    procedure, public :: defaults_to_keyword => &
+                       & defaults_to_keyword_KeywordData
+    procedure, public :: set_default => set_default_KeywordData
     
     ! Setters.
     procedure, public  :: unset   => unset_KeywordData
@@ -148,7 +149,7 @@ end subroutine
 
 ! If the keyword defaults to another keyword, returns that keyword.
 ! Returns '' if the keyword does not default to a keyword.
-function defaults_to_keyword(this) result(output)
+function defaults_to_keyword_KeywordData(this) result(output)
   implicit none
   
   class(KeywordData), intent(in) :: this
@@ -164,7 +165,7 @@ end function
 ! Sets an unset keyword to its default value.
 ! Does nothing if the keyword is set or has no default.
 ! Throws an error if the keyword defaults to another keyword.
-subroutine set_default(this)
+subroutine set_default_KeywordData(this)
   implicit none
   
   class(KeywordData), intent(inout) :: this

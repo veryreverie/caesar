@@ -18,6 +18,7 @@ module thermodynamic_data_module
   public :: operator(/)
   
   public :: sum
+  public :: min
   
   type, extends(Stringable) :: ThermodynamicData
     real(dp) :: thermal_energy
@@ -59,6 +60,10 @@ module thermodynamic_data_module
   
   interface sum
     module procedure sum_ThermodynamicData
+  end interface
+  
+  interface min
+    module procedure min_ThermodynamicData
   end interface
 contains
 
@@ -331,6 +336,15 @@ function sum_ThermodynamicData(input) result(output)
   do i=2,size(input)
     output = output + input(i)
   enddo
+end function
+
+function min_ThermodynamicData(input) result(output)
+  implicit none
+  
+  type(ThermodynamicData), intent(in) :: input(:)
+  type(ThermodynamicData)             :: output
+  
+  output = input(minloc(input%free_energy,1))
 end function
 
 ! ----------------------------------------------------------------------

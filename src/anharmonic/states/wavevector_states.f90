@@ -46,14 +46,16 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! WavevectorStates methods.
 ! ----------------------------------------------------------------------
-! Constructor.
-function new_WavevectorStates(states,energies) result(this)
+! Constructors.
+function new_WavevectorStates(subspace_id,states,energies) result(this)
   implicit none
   
+  integer,               intent(in) :: subspace_id
   type(WavevectorState), intent(in) :: states(:)
   real(dp),              intent(in) :: energies(:)
   type(WavevectorStates)            :: this
   
+  this%subspace_id = subspace_id
   this%states = states
   this%energies = energies
 end function
@@ -96,15 +98,16 @@ subroutine read_WavevectorStates(this,input)
   
   type(StringArray), allocatable :: sections(:)
   
+  integer                            :: subspace_id
   type(WavevectorState), allocatable :: states(:)
   real(dp),              allocatable :: energies(:)
-  
-  type(String), allocatable :: line(:)
   
   integer :: i,ialloc
   
   select type(this); type is(WavevectorStates)
-    sections = split_into_sections(input, separating_line=repeat('=',50))
+    subspace_id = int(token(input(1),2))
+    
+    sections = split_into_sections(input(2:), separating_line=repeat('=',50))
     
     allocate( states(size(sections)),   &
             & energies(size(sections)), &
@@ -112,10 +115,9 @@ subroutine read_WavevectorStates(this,input)
     do i=1,size(sections)
       states(i) = WavevectorState(sections(i)%strings(:size(sections(i))-1))
       
-      line = split_line(sections(i)%strings(size(sections(i))))
-      energies(i) = dble(line(3))
+      energies(i) = dble(token(sections(i)%strings(size(sections(i))), 3))
     enddo
-    this = WavevectorStates(states, energies)
+    this = WavevectorStates(subspace_id, states, energies)
   class default
     call err()
   end select
@@ -136,7 +138,8 @@ function write_WavevectorStates(this) result(output)
                 &               'Energy : '//this%energies(i)]), &
                 & i=1,                                           &
                 & size(this%states)                              )]
-    output = str(sections, separating_line=repeat('=',50))
+    output = [ str('Subspace: '//this%subspace_id),          &
+             & str(sections, separating_line=repeat('=',50)) ]
   class default
     call err()
   end select

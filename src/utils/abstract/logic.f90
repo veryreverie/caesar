@@ -25,6 +25,7 @@ module logic_module
   public :: is_sorted
   public :: sort
   public :: set
+  public :: set_default
   
   ! Lambdas.
   public :: LogicalLambda
@@ -1299,6 +1300,23 @@ function set_ComparisonLambda(input,lambda,mask) result(output)
   enddo do_i
   
   output = output(:no_unique_elements)
+end function
+
+! Takes an optional argument and its default value.
+! Returns the optional argument if present, or the default if not.
+impure elemental function set_default(optional_argument,default_value) &
+   & result(output)
+  implicit none
+  
+  logical, intent(in), optional :: optional_argument
+  logical, intent(in)           :: default_value
+  logical                       :: output
+  
+  if (present(optional_argument)) then
+    output = optional_argument
+  else
+    output = default_value
+  endif
 end function
 end module
 

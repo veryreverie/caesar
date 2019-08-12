@@ -559,8 +559,6 @@ impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
   type(AnharmonicData), intent(in) :: anharmonic_data
   real(dp)                         :: output
   
-  integer :: i
-  
   output = this%coefficient_                                  &
        & * this%complex_representation_%harmonic_expectation( &
        &                 frequency,                           &
@@ -589,39 +587,45 @@ end function
 !    real representation coefficient.
 ! These methods allow for simpler linear algebra with basis functions.
 ! ----------------------------------------------------------------------
-impure elemental function coefficient_BasisFunction(this) result(output)
+impure elemental function coefficient_BasisFunction(this,frequency) &
+   & result(output)
   implicit none
   
   class(BasisFunction), intent(in) :: this
+  real(dp),             intent(in) :: frequency
   real(dp)                         :: output
   
-  output = this%coefficient_ * this%internal_coefficient()
+  output = this%coefficient_ * this%internal_coefficient(frequency)
 end function
 
-impure elemental subroutine set_coefficient_BasisFunction(this,coefficient)
+impure elemental subroutine set_coefficient_BasisFunction(this,coefficient, &
+   & frequency)
   implicit none
   
   class(BasisFunction), intent(inout) :: this
   real(dp),             intent(in)    :: coefficient
+  real(dp),             intent(in)    :: frequency
   
   real(dp) :: internal_coefficient
   
-  internal_coefficient = this%internal_coefficient()
+  internal_coefficient = this%internal_coefficient(frequency)
   
   if (abs(internal_coefficient)>1.0e-300_dp) then
-    this%coefficient_ = coefficient / this%internal_coefficient()
+    this%coefficient_ = coefficient / internal_coefficient
   endif
 end subroutine
 
-function internal_coefficient(this) result(output)
+function internal_coefficient(this,frequency) result(output)
   implicit none
   
   class(BasisFunction), intent(in) :: this
+  real(dp),             intent(in) :: frequency
   real(dp)                         :: output
   
   integer ::  i
   
-  output = sum(abs(this%real_representation_%terms%coefficient))
+  output = sum( abs(this%real_representation_%terms%coefficient)           &
+            & * frequency ** this%real_representation_%terms%total_power() )
   
   i = first(abs(this%real_representation_%terms%coefficient)>0, default=0)
   if (i/=0) then

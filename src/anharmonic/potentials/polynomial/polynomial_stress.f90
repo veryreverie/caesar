@@ -38,6 +38,9 @@ module polynomial_stress_module
     procedure, public :: braket_BasisStates => &
                        & braket_BasisStates_PolynomialStress
     
+    procedure, public :: simplify => &
+                       & simplify_PolynomialStress
+    
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PolynomialStress
     
@@ -126,18 +129,17 @@ impure elemental function stress_ComplexModeDisplacement_PolynomialStress( &
 end function
 
 ! Integrate the stress between two states.
-subroutine braket_SubspaceState_PolynomialStress(this,bra,ket, &
+subroutine braket_SubspaceState_PolynomialStress(this,bra,ket,whole_subspace, &
    & anharmonic_data)
   implicit none
   
   class(PolynomialStress),  intent(inout)        :: this
   class(SubspaceState),     intent(in)           :: bra
   class(SubspaceState),     intent(in), optional :: ket
+  logical,                  intent(in), optional :: whole_subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   
-  logical, allocatable :: to_remove(:)
-  
-  integer :: i,j,k
+  integer :: i
   
   ! Integrate the reference stress (N.B. <i|e|j> = e<i|j> if e is a scalar.).
   this%reference_stress_ = this%reference_stress_ &
@@ -145,43 +147,21 @@ subroutine braket_SubspaceState_PolynomialStress(this,bra,ket, &
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket(bra,ket,anharmonic_data)
+    call this%basis_functions_(i)%braket( bra,            &
+                                        & ket,            &
+                                        & whole_subspace, &
+                                        & anharmonic_data )
   enddo
   
-  ! Check if the basis function is now a constant.
-  ! If so, add the constant stress to the potential's reference stress,
-  !    and flag the term for removal.
-  ! Then check if a coupling is now the same as a previous coupling.
-  ! If so, combine the two and flag the duplicate term for removal.
-  to_remove = [(.false., i=1, size(this%basis_functions_))]
-  do i=1,size(this%basis_functions_)
-    if (size(this%basis_functions_(i)%coupling)==0) then
-      this%reference_stress_ =      &
-         &   this%reference_stress_ &
-         & + this%basis_functions_(i)%undisplaced_stress()
-      to_remove(i) = .true.
-    else
-      do j=1,i-1
-        if (    this%basis_functions_(i)%coupling &
-           & == this%basis_functions_(j)%coupling ) then
-          if (to_remove(j)) then
-            call err()
-          endif
-          call this%basis_functions_(j)%append( &
-                     & this%basis_functions_(i) )
-          to_remove(i) = .true.
-        endif
-      enddo
-    endif
-  enddo
-  
-  ! Remove constant and duplicate terms.
-  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove))
+  ! Simplify the stress.
+  if (set_default(whole_subspace,.true.)) then
+    call this%simplify()
+  endif
 end subroutine
 
 ! Integrate the stress between two states.
 subroutine braket_BasisState_PolynomialStress(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data)
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(PolynomialStress),  intent(inout)        :: this
@@ -189,11 +169,10 @@ subroutine braket_BasisState_PolynomialStress(this,bra,ket,subspace, &
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
+  logical,                  intent(in), optional :: whole_subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   
-  logical, allocatable :: to_remove(:)
-  
-  integer :: i,j,k
+  integer :: i
   
   ! Integrate the reference stress (N.B. <i|e|j> = e<i|j> if e is a scalar.).
   this%reference_stress_ = this%reference_stress_                        &
@@ -208,68 +187,60 @@ subroutine braket_BasisState_PolynomialStress(this,bra,ket,subspace, &
                                         & ket,            &
                                         & subspace,       &
                                         & subspace_basis, &
+                                        & whole_subspace, &
                                         & anharmonic_data )
   enddo
   
-  ! Check if the basis function is now a constant.
-  ! If so, add the constant stress to the potential's reference stress,
-  !    and flag the term for removal.
-  ! Then check if a coupling is now the same as a previous coupling.
-  ! If so, combine the two and flag the duplicate term for removal.
-  to_remove = [(.false., i=1, size(this%basis_functions_))]
-  do i=1,size(this%basis_functions_)
-    if (size(this%basis_functions_(i)%coupling)==0) then
-      this%reference_stress_ =      &
-         &   this%reference_stress_ &
-         & + this%basis_functions_(i)%undisplaced_stress()
-      to_remove(i) = .true.
-    else
-      do j=1,i-1
-        if (    this%basis_functions_(i)%coupling &
-           & == this%basis_functions_(j)%coupling ) then
-          if (to_remove(j)) then
-            call err()
-          endif
-          call this%basis_functions_(j)%append( &
-                     & this%basis_functions_(i) )
-          to_remove(i) = .true.
-        endif
-      enddo
-    endif
-  enddo
-  
-  ! Remove constant and duplicate terms.
-  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove))
+  ! Simplify the stress.
+  if (set_default(whole_subspace,.true.)) then
+    call this%simplify()
+  endif
 end subroutine
 
 subroutine braket_BasisStates_PolynomialStress(this,states,subspace, &
-   & subspace_basis,anharmonic_data)
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
-  class(PolynomialStress),  intent(inout) :: this
-  class(BasisStates),       intent(in)    :: states
-  type(DegenerateSubspace), intent(in)    :: subspace
-  class(SubspaceBasis),     intent(in)    :: subspace_basis
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  class(PolynomialStress),  intent(inout)        :: this
+  class(BasisStates),       intent(in)           :: states
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  logical,                  intent(in), optional :: whole_subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
   
-  logical, allocatable :: to_remove(:)
-  
-  integer :: i,j,k
+  integer :: i
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
     call this%basis_functions_(i)%braket( states,         &
                                         & subspace,       &
                                         & subspace_basis, &
+                                        & whole_subspace, &
                                         & anharmonic_data )
   enddo
   
-  ! Check if the basis function is now a constant.
-  ! If so, add the constant stress to the potential's reference stress,
-  !    and flag the term for removal.
-  ! Then check if a coupling is now the same as a previous coupling.
-  ! If so, combine the two and flag the duplicate term for removal.
+  ! Simplify the stress.
+  if (set_default(whole_subspace,.true.)) then
+    call this%simplify()
+  endif
+end subroutine
+
+! Identify basis functions which are constant,
+!    add the constant energy to the potential's reference energy,
+!    and remove the term.
+! Then identify basis functions with the same coupling as a previous coupling,
+!    combine the two and remove the duplicate term.
+subroutine simplify_PolynomialStress(this)
+  implicit none
+  
+  class(PolynomialStress), intent(inout) :: this
+  
+  logical, allocatable :: to_remove(:)
+  
+  integer :: i,j
+  
   to_remove = [(.false., i=1, size(this%basis_functions_))]
+  
   do i=1,size(this%basis_functions_)
     if (size(this%basis_functions_(i)%coupling)==0) then
       this%reference_stress_ =      &

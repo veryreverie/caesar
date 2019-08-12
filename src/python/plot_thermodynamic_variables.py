@@ -25,7 +25,7 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in data.
-  names  = ['Interpolated VSCHA', 'VSCF', 'Harmonic', 'Uninterpolated VSCHA', 'VSCHA/VSCF']
+  names  = ['Interpolated effective harmonic', 'VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
   fnames = ['interpolated_vscha_', 'vscf_', '', 'vscha_', 'vscha_vscf_']
   dashes = [[5,1], [6,0], [6,0], [3,1,1,1], [1,2,1,2]]
   
@@ -71,17 +71,17 @@ def main():
   for datum in data:
     axes['energy']['l'].plot(datum['thermal energies'],
                              datum['energies'],
-                             linewidth=1,
+                             linewidth=2,
                              dashes=datum['dashes'],
                              color=colours['turquoise'])
     axes['energy']['r'].plot(datum['thermal energies'],
                              datum['free energies'],
-                             linewidth=1,
+                             linewidth=2,
                              dashes=datum['dashes'],
                              color=colours['orange'])
     axes['entropy']['l'].plot(datum['thermal energies'],
                               datum['entropies'],
-                              linewidth=1,
+                              linewidth=2,
                               dashes=datum['dashes'],
                               color=colours['purple'])
     if xmin_hartree == None:

@@ -27,8 +27,8 @@ module polynomial_potential_module
   public :: PolynomialPotential
   
   type, extends(PotentialData) :: PolynomialPotential
-    integer,  private :: potential_expansion_order
-    real(dp), private :: reference_energy
+    integer,  private :: potential_expansion_order_
+    real(dp), private :: reference_energy_
     type(CouplingBasisFunctions), allocatable, private :: basis_functions_(:)
   contains
     procedure, public, nopass :: representation => &
@@ -42,6 +42,7 @@ module polynomial_potential_module
        & generate_stress_PolynomialPotential
     
     procedure, public :: zero_energy => zero_energy_PolynomialPotential
+    procedure, public :: add_constant => add_constant_PolynomialPotential
     
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PolynomialPotential
@@ -58,6 +59,9 @@ module polynomial_potential_module
                        & braket_BasisState_PolynomialPotential
     procedure, public :: braket_BasisStates => &
                        & braket_BasisStates_PolynomialPotential
+    
+    procedure, public :: simplify => &
+                       & simplify_PolynomialPotential
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PolynomialPotential
@@ -97,7 +101,7 @@ function new_PolynomialPotential(potential_expansion_order) result(this)
   integer, intent(in)       :: potential_expansion_order
   type(PolynomialPotential) :: this
   
-  this%potential_expansion_order = potential_expansion_order
+  this%potential_expansion_order_ = potential_expansion_order
 end function
 
 recursive function new_PolynomialPotential_PotentialData(input) result(this)
@@ -127,9 +131,9 @@ function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
   type(CouplingBasisFunctions), intent(in) :: basis_functions(:)
   type(PolynomialPotential)                :: this
   
-  this%potential_expansion_order = potential_expansion_order
-  this%reference_energy          = reference_energy
-  this%basis_functions_          = basis_functions
+  this%potential_expansion_order_ = potential_expansion_order
+  this%reference_energy_          = reference_energy
+  this%basis_functions_           = basis_functions
 end function
 
 ! Type representation.
@@ -203,7 +207,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,  &
     !    can be constructed.
     basis_functions_and_points = generate_basis_functions( &
           & anharmonic_data%subspace_couplings(i),         &
-          & this%potential_expansion_order,                &
+          & this%potential_expansion_order_,               &
           & anharmonic_data%structure,                     &
           & anharmonic_data%complex_modes,                 &
           & anharmonic_data%real_modes,                    &
@@ -339,7 +343,7 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
                                 & sampling_points_dir,        &
                                 & anharmonic_data,            &
                                 & calculation_reader          )
-  this%reference_energy = equilibrium_sample_result%energy
+  this%reference_energy_ = equilibrium_sample_result%energy
   
   allocate(this%basis_functions_(0), stat=ialloc); call err(ialloc)
   
@@ -654,7 +658,17 @@ impure elemental subroutine zero_energy_PolynomialPotential(this)
   
   class(PolynomialPotential), intent(inout) :: this
   
-  this%reference_energy = this%reference_energy - this%undisplaced_energy()
+  this%reference_energy_ = this%reference_energy_ - this%undisplaced_energy()
+end subroutine
+
+! Add a constant to the energy.
+impure elemental subroutine add_constant_PolynomialPotential(this,input)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  real(dp),                   intent(in)    :: input
+  
+  this%reference_energy_ = this%reference_energy_ + input
 end subroutine
 
 ! Calculate the energy at a given displacement.
@@ -666,7 +680,7 @@ impure elemental function energy_RealModeDisplacement_PolynomialPotential( &
   type(RealModeDisplacement), intent(in) :: displacement
   real(dp)                               :: output
   
-  output = this%reference_energy &
+  output = this%reference_energy_ &
        & + sum(this%basis_functions_%energy(displacement))
 end function
 
@@ -678,7 +692,7 @@ impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   complex(dp)                               :: output
   
-  output = this%reference_energy &
+  output = this%reference_energy_ &
        & + sum(this%basis_functions_%energy(displacement))
 end function
 
@@ -716,61 +730,38 @@ end function
 
 ! Integrate the potential between two states.
 subroutine braket_SubspaceState_PolynomialPotential(this,bra,ket, &
-   & anharmonic_data)
+   & whole_subspace,anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
   class(SubspaceState),       intent(in)           :: bra
   class(SubspaceState),       intent(in), optional :: ket
+  logical,                    intent(in), optional :: whole_subspace
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
-  logical, allocatable :: to_remove(:)
-  
-  integer :: i,j,k
+  integer :: i
   
   ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-  this%reference_energy = this%reference_energy &
-                      & * bra%inner_product(ket,anharmonic_data)
+  this%reference_energy_ = this%reference_energy_ &
+                       & * bra%inner_product(ket,anharmonic_data)
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket(bra,ket,anharmonic_data)
+    call this%basis_functions_(i)%braket( bra,            &
+                                        & ket,            &
+                                        & whole_subspace, &
+                                        & anharmonic_data )
   enddo
   
-  ! Check if the basis function is now a constant.
-  ! If so, add the constant energy to the potential's reference energy,
-  !    and flag the term for removal.
-  ! Then check if a coupling is now the same as a previous coupling.
-  ! If so, combine the two and flag the duplicate term for removal.
-  to_remove = [(.false., i=1, size(this%basis_functions_))]
-  do i=1,size(this%basis_functions_)
-    if (size(this%basis_functions_(i)%coupling)==0) then
-      this%reference_energy =      &
-         &   this%reference_energy &
-         & + this%basis_functions_(i)%undisplaced_energy()
-      to_remove(i) = .true.
-    else
-      do j=1,i-1
-        if (    this%basis_functions_(i)%coupling &
-           & == this%basis_functions_(j)%coupling ) then
-          if (to_remove(j)) then
-            call err()
-          endif
-          call this%basis_functions_(j)%append( &
-                     & this%basis_functions_(i) )
-          to_remove(i) = .true.
-        endif
-      enddo
-    endif
-  enddo
-  
-  ! Remove constant and duplicate terms.
-  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove) )
+  ! Simplify the potential.
+  if (set_default(whole_subspace,.true.)) then
+    call this%simplify()
+  endif
 end subroutine
 
 ! Integrate the potential between two states.
 subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data)
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
@@ -778,16 +769,17 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   class(BasisState),          intent(in), optional :: ket
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
+  logical,                    intent(in), optional :: whole_subspace
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
   integer :: i
   
   ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-  this%reference_energy = this%reference_energy                         &
-                      & * subspace_basis%inner_product( bra,            &
-                      &                                 ket,            &
-                      &                                 subspace,       &
-                      &                                 anharmonic_data )
+  this%reference_energy_ = this%reference_energy_                         &
+                       & * subspace_basis%inner_product( bra,            &
+                       &                                 ket,            &
+                       &                                 subspace,       &
+                       &                                 anharmonic_data )
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
@@ -795,49 +787,64 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
                                         & ket,            &
                                         & subspace,       &
                                         & subspace_basis, &
+                                        & whole_subspace, &
                                         & anharmonic_data )
   enddo
+  
+  ! Simplify the potential.
+  if (set_default(whole_subspace,.true.)) then
+    call this%simplify()
+  endif
 end subroutine
 
 subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
-   & subspace_basis,anharmonic_data)
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
-  class(PolynomialPotential), intent(inout) :: this
-  class(BasisStates),         intent(in)    :: states
-  type(DegenerateSubspace),   intent(in)    :: subspace
-  class(SubspaceBasis),       intent(in)    :: subspace_basis
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  class(PolynomialPotential), intent(inout)        :: this
+  class(BasisStates),         intent(in)           :: states
+  type(DegenerateSubspace),   intent(in)           :: subspace
+  class(SubspaceBasis),       intent(in)           :: subspace_basis
+  logical,                    intent(in), optional :: whole_subspace
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
   
-  logical, allocatable :: to_remove(:)
-  
-  integer :: i,j,k
+  integer :: i
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
-    j = first( this%basis_functions_(i)%coupling%ids==subspace%id, &
-             & default = 0)
-    if (j/=0) then
-      this%basis_functions_(i)%coupling%ids = [         &
-         & this%basis_functions_(i)%coupling%ids(:j-1), &
-         & this%basis_functions_(i)%coupling%ids(j+1:)  ]
-      call this%basis_functions_(i)%braket( states,         &
-                                          & subspace,       &
-                                          & subspace_basis, &
-                                          & anharmonic_data )
-    endif
+    call this%basis_functions_(i)%braket( states,         &
+                                        & subspace,       &
+                                        & subspace_basis, &
+                                        & whole_subspace, &
+                                        & anharmonic_data )
   enddo
   
-  ! Check if the basis function is now a constant.
-  ! If so, add the constant energy to the potential's reference energy,
-  !    and flag the term for removal.
-  ! Then check if a coupling is now the same as a previous coupling.
-  ! If so, combine the two and flag the duplicate term for removal.
+  ! Simplify the potential.
+  if (set_default(whole_subspace,.true.)) then
+    call this%simplify()
+  endif
+end subroutine
+
+! Identify basis functions which are constant,
+!    add the constant energy to the potential's reference energy,
+!    and remove the term.
+! Then identify basis functions with the same coupling as a previous coupling,
+!    combine the two and remove the duplicate term.
+subroutine simplify_PolynomialPotential(this)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  
+  logical, allocatable :: to_remove(:)
+  
+  integer :: i,j
+  
   to_remove = [(.false., i=1, size(this%basis_functions_))]
+  
   do i=1,size(this%basis_functions_)
     if (size(this%basis_functions_(i)%coupling)==0) then
-      this%reference_energy =      &
-         &   this%reference_energy &
+      this%reference_energy_ =      &
+         &   this%reference_energy_ &
          & + this%basis_functions_(i)%undisplaced_energy()
       to_remove(i) = .true.
     else
@@ -856,7 +863,7 @@ subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
   enddo
   
   ! Remove constant and duplicate terms.
-  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove) )
+  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove))
 end subroutine
 
 ! Calculate the thermal expectation of the potential, <V>, for a set of
@@ -871,40 +878,47 @@ function harmonic_expectation_PolynomialPotential(this,frequency, &
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp)                               :: output
   
-  output = this%reference_energy                                           &
+  output = this%reference_energy_                                          &
        & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
        &                                                   thermal_energy, &
        &                                                   anharmonic_data ))
 end function
 
-function coefficients_PolynomialPotential(this) result(output)
+function coefficients_PolynomialPotential(this,frequency,anharmonic_data) &
+   & result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
+  real(dp),                   intent(in) :: frequency
+  type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp), allocatable                  :: output(:)
   
   integer :: i
   
-  output = [ this%reference_energy,                         &
-           & [( this%basis_functions_(i)%coefficients(),    &
-           &    i=1,                                        &
-           &    size(this%basis_functions_)              )] ]
+  output = [ this%reference_energy_,                              &
+           & [( this%basis_functions_(i)%coefficients(frequency), &
+           &    i=1,                                              &
+           &    size(this%basis_functions_)                       )] ]
 end function
 
-subroutine set_coefficients_PolynomialPotential(this,coefficients)
+subroutine set_coefficients_PolynomialPotential(this,coefficients,frequency, &
+   & anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   real(dp),                   intent(in)    :: coefficients(:)
+  real(dp),                   intent(in)    :: frequency
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
   
   integer :: i,j
   
-  this%reference_energy = coefficients(1)
+  this%reference_energy_ = coefficients(1)
   
   j = 1
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%set_coefficients(         &
-       & coefficients(j+1:j+size(this%basis_functions_(i))) )
+    call this%basis_functions_(i)%set_coefficients(          &
+       & coefficients(j+1:j+size(this%basis_functions_(i))), &
+       & frequency                                           )
     j = j+size(this%basis_functions_(i))
   enddo
 end subroutine
@@ -950,8 +964,8 @@ function write_PolynomialPotential(this) result(output)
   type(String), allocatable              :: output(:)
   
   select type(this); type is(PolynomialPotential)
-    output = [ 'Expansion order: '//this%potential_expansion_order,       &
-             & 'Reference energy: '//this%reference_energy,               &
+    output = [ 'Expansion order: '//this%potential_expansion_order_,      &
+             & 'Reference energy: '//this%reference_energy_,              &
              & str('Basis functions:'),                                   &
              & str(''),                                                   &
              & str(this%basis_functions_, separating_line=repeat('=',50)) ]

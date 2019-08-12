@@ -249,7 +249,9 @@ impure elemental function initial_states_FullSubspaceBasis(this,subspace, &
   ground_state = initial_ground_state(this)
   
   ! Generate the set of states {|0>}.
-  output = BasisStatesPointer(WavevectorStates([ground_state],[0.0_dp]))
+  output = BasisStatesPointer(WavevectorStates( subspace%id,    &
+                                              & [ground_state], &
+                                              & [0.0_dp]        ))
 end function
 
 ! Generate initial guess. This is simply the basis state |0>, i.e. the
@@ -273,14 +275,15 @@ end function
 
 ! Calculate the eigenstates of a single-subspace potential.
 impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
-   & subspace_potential,energy_convergence,no_converged_calculations,       &
-   & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,           &
-   & anharmonic_data) result(output)
+   & subspace_potential,thermal_energy,energy_convergence,                  &
+   & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations,   &
+   & pre_pulay_damping,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
   class(PotentialData),     intent(in) :: subspace_potential
+  real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: energy_convergence
   integer,                  intent(in) :: no_converged_calculations
   integer,                  intent(in) :: max_pulay_iterations
@@ -308,7 +311,7 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
     energies = [energies, wavevector_states%energies]
   enddo
   
-  output = BasisStatesPointer(WavevectorStates(states, energies))
+  output = BasisStatesPointer(WavevectorStates(subspace%id, states, energies))
 end function
 
 impure elemental function wavefunction_FullSubspaceBasis(this,state, &

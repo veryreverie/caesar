@@ -223,10 +223,10 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
   type(SubspaceStatePointer), allocatable :: harmonic_states(:)
   type(CoupledStates),        allocatable :: harmonic_couplings(:)
   
-  integer               :: power
-  integer               :: state
-  integer               :: term
-  real(dp)              :: coefficient
+  integer  :: power
+  integer  :: state
+  integer  :: term
+  real(dp) :: coefficient
   
   integer, allocatable :: coupling_ids(:)
   integer, allocatable :: separations(:)
@@ -286,12 +286,12 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
   
   integer :: total_power
   
-  integer               :: no_states
-  integer               :: power
-  integer               :: state
-  integer               :: term
-  real(dp)              :: coefficient
-  integer               :: separation
+  integer  :: no_states
+  integer  :: power
+  integer  :: state
+  integer  :: term
+  real(dp) :: coefficient
+  integer  :: separation
   
   integer, allocatable :: coupling_ids(:)
   integer, allocatable :: separations(:)
@@ -490,7 +490,8 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   type(SymmetryOperator), intent(in) :: symmetries(:)
   type(WavevectorBasis), allocatable :: output(:)
   
-  type(FractionVector), allocatable :: wavevectors(:)
+  type(QpointData),     allocatable :: wavevector_qpoints(:)
+  type(QpointData),     allocatable :: basis_qpoints(:)
   
   integer, allocatable :: qpoint_set(:)
   integer, allocatable :: wavevector_states(:)
@@ -500,36 +501,29 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   integer, allocatable :: allowed_couplings(:)
   
   ! Output variables.
-  integer                                 :: maximum_power
-  integer                                 :: expansion_order
-  integer                                 :: subspace_id
-  real(dp)                                :: frequency
-  type(FractionVector)                    :: wavevector
   type(SubspaceStatePointer), allocatable :: harmonic_states(:)
   type(CoupledStates),        allocatable :: couplings(:)
   
   integer :: i,j,ialloc
   
-  wavevectors = [( input%harmonic_states_(i)%wavevector(modes,qpoints), &
-                 & i=1,                                                  &
-                 & size(input%harmonic_states_)                         )]
+  wavevector_qpoints = [(                                                  &
+     & QpointData(                                                         &
+     &    qpoint = input%harmonic_states_(i)%wavevector(modes,qpoints),    &
+     &    id               = 0,                                            &
+     &    paired_qpoint_id = 0                                          ), &
+     & i=1,                                                                &
+     & size(input%harmonic_states_)                                        )]
   
-  qpoint_set = filter([( any(wavevectors==qpoints(i)%qpoint), &
-                       & i=1,                                 &
-                       & size(qpoints)                        )])
+  basis_qpoints = qpoints(filter(                 &
+     & [( any(wavevector_qpoints==qpoints(i)),    &
+     &    i=1,                                    &
+     &    size(qpoints)                        )] ))
   
-  allocate(output(size(qpoint_set)), stat=ialloc); call err(ialloc)
+  allocate(output(size(basis_qpoints)), stat=ialloc); call err(ialloc)
   new_ids = [(0,i=1,size(input%harmonic_states_))]
   do i=1,size(output)
-    ! Copy over the maximum power, subspace ID and frequency.
-    maximum_power = input%maximum_power
-    expansion_order = input%expansion_order
-    subspace_id = input%subspace_id
-    frequency = input%frequency
-    
     ! Identify the states at the given wavevector.
-    wavevector = qpoints(qpoint_set(i))%qpoint
-    wavevector_states = filter(wavevectors==wavevector)
+    wavevector_states = filter(wavevector_qpoints==basis_qpoints(i))
     harmonic_states = input%harmonic_states_(wavevector_states)
     couplings       = input%harmonic_couplings_(wavevector_states)
     
@@ -546,13 +540,13 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
     enddo
     
     ! Construct output.
-    output(i) = WavevectorBasis( maximum_power,   &
-                               & expansion_order, &
-                               & subspace_id,     &
-                               & frequency,       &
-                               & wavevector,      &
-                               & harmonic_states, &
-                               & couplings        )
+    output(i) = WavevectorBasis( input%maximum_power,     &
+                               & input%expansion_order,   &
+                               & input%subspace_id,       &
+                               & input%frequency,         &
+                               & basis_qpoints(i)%qpoint, &
+                               & harmonic_states,         &
+                               & couplings                )
   enddo
 end function
 
@@ -594,18 +588,18 @@ impure elemental function braket_WavevectorBasis(this,bra,monomial,ket, &
   
   integer :: i,j,k
   
-  ! TODO: Improve this.
-  output = this%harmonic_states_(1)%braket( &
-        & monomial        = monomial,       &
-        & anharmonic_data = anharmonic_data )
-  
-  output%coefficient = 0
   do i=1,size(this%harmonic_states_)
     do j=1,size(this%harmonic_couplings_(i))
       k = this%harmonic_couplings_(i)%id(j)
       term = this%harmonic_states_(i)%braket( monomial,                 &
                                             & this%harmonic_states_(k), &
                                             & anharmonic_data           )
+      
+      if (i==1 .and. j==1) then
+        output = term
+        output%coefficient = 0
+      endif
+      
       if (present(ket)) then
         output%coefficient = output%coefficient  &
                          & + bra%coefficients(i) &
@@ -759,7 +753,8 @@ function initial_states_WavevectorBasis(this,anharmonic_data) &
   type(AnharmonicData),   intent(in) :: anharmonic_data
   type(WavevectorStates)             :: output
   
-  output = WavevectorStates( [this%initial_ground_state()], &
+  output = WavevectorStates( this%subspace_id,              &
+                           & [this%initial_ground_state()], &
                            & [0.0_dp]                       )
 end function
 
@@ -809,7 +804,7 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
                       & i=1,                                   &
                       & size(estuff)                           )]
   
-  output = WavevectorStates(wavevector_states, estuff%eval)
+  output = WavevectorStates(this%subspace_id, wavevector_states, estuff%eval)
 end function
 
 ! Calculate the harmonic expectation of the harmonic potential,
@@ -898,7 +893,7 @@ function harmonic_expectation_WavevectorBasis(bases,potential, &
   
   if (maxval(energy_difference) < 1e20_dp*thermal_energy) then
     ! Normal temperature range.
-    boltzmann_factors = exp(-energy_difference/thermal_energy)
+    boltzmann_factors = [exp(-energy_difference/thermal_energy)]
     partition_function = sum(boltzmann_factors)
     
     ! Calculate observables w/r/t the harmonic potential.
@@ -1000,8 +995,6 @@ function write_WavevectorBasis(this) result(output)
   type(String), allocatable :: state_strings(:)
   
   integer :: i
-  
-  ! TODO
   
   select type(this); type is(WavevectorBasis)
     output = [ 'Maximum power   : '//this%maximum_power,   &

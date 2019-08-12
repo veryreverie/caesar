@@ -1,5 +1,6 @@
 ! ======================================================================
-! Performs a Pulay self-consistency solver, to find f(x)=x.
+! Performs a Pulay self-consistency solver, to minimise F(x)
+!    subject to f(x)=x.
 ! ======================================================================
 ! See the example function at the bottom of this file for how to use.
 module pulay_module
@@ -7,6 +8,7 @@ module pulay_module
   use abstract_module
   use io_module
   use linear_algebra_module
+  use hermitian_eigenstuff_module
   implicit none
   
   private
@@ -21,17 +23,24 @@ module pulay_module
     integer,  private :: max_pulay_iterations_
     logical,  private :: bound_at_zero_
     
-    ! The current set of x and f(x).
+    ! The current set of x, f(x) and the free energy F(x).
     type(RealVector), allocatable, private :: xs_(:)
     type(RealVector), allocatable, private :: fs_(:)
+    real(dp),         allocatable, private :: free_energies_(:)
     
+    integer, private :: i_
   contains
-    ! Get x_i, from which f(x_i) should be calculated.
+    ! Get x_i, from which f(x_i) and F(x_i) should be calculated.
     procedure, public :: get_x
     
-    ! Set f(x_i).
+    ! Set f(x_i) and F(x_i).
     ! This also calculates x_{i+1}.
     procedure, public :: set_f
+    
+    ! Check if the Pulay scheme has converged.
+    procedure, public :: converged
+    
+    procedure, private :: i
   end type
   
   interface PulaySolver
@@ -52,6 +61,14 @@ function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping, &
   
   integer :: ialloc
   
+  if (pre_pulay_iterations<2) then
+    call print_line(ERROR//': pre_pulay_iterations must be at least 2.')
+    call quit()
+  elseif (max_pulay_iterations<2) then
+    call print_line(ERROR//': max_pulay_iterations must be at least 2.')
+    call quit()
+  endif
+  
   this%pre_pulay_iterations_ = pre_pulay_iterations
   this%pre_pulay_damping_ = pre_pulay_damping
   this%max_pulay_iterations_ = max_pulay_iterations
@@ -61,8 +78,28 @@ function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping, &
     this%bound_at_zero_ = .false.
   endif
   
-  this%xs_ = [vec(initial_x)]
-  allocate(this%fs_(0), stat=ialloc); call err(ialloc)
+  allocate( this%xs_(max_pulay_iterations),            &
+          & this%fs_(max_pulay_iterations),            &
+          & this%free_energies_(max_pulay_iterations), &
+          & stat=ialloc); call err(ialloc)
+  this%xs_(1) = vec(initial_x)
+  
+  this%i_ = 1
+end function
+
+! Private index function.
+function i(this,offset) result(output)
+  implicit none
+  
+  class(PulaySolver), intent(in)           :: this
+  integer,            intent(in), optional :: offset
+  integer                                  :: output
+  
+  if (present(offset)) then
+    output = modulo(this%i_+offset-1,this%max_pulay_iterations_)+1
+  else
+    output = modulo(this%i_-1,this%max_pulay_iterations_)+1
+  endif
 end function
 
 ! Get x_i
@@ -72,50 +109,42 @@ function get_x(this) result(output)
   class(PulaySolver), intent(in) :: this
   real(dp), allocatable          :: output(:)
   
-  output = dble(this%xs_(size(this%xs_)))
+  output = dble(this%xs_(this%i()))
 end function
 
-! Set f(x_i). Also calculates x_{i+1}.
-subroutine set_f(this,f)
+! Set f(x_i) and F(x_i). Also calculates x_{i+1}.
+subroutine set_f(this,f,free_energy)
   implicit none
   
   class(PulaySolver), intent(inout) :: this
   real(dp),           intent(in)    :: f(:)
+  real(dp),           intent(in)    :: free_energy
   
-  integer :: first_pulay_step
-  integer :: last_step
+  ! Record f(x_i) and F(x_i).
+  this%fs_(this%i()) = vec(f)
+  this%free_energies_(this%i()) = free_energy
   
-  type(RealVector) :: x
-  
-  ! Record f(x_i).
-  this%fs_ = [this%fs_, vec(f)]
+  ! Update i.
+  this%i_ = this%i_+1
   
   ! Construct x_{i+1}.
   ! This uses a damped iterative scheme if i<pre_pulay_iterations, and a Pulay
   !    scheme otherwise.
   ! The Pulay scheme may fail, in which case i is reset to 1, and the scheme
   !    re-starts using the latest values of x and f(x).
-  last_step = size(this%fs_)
-  if (last_step<this%pre_pulay_iterations_) then
+  if (this%i_<=this%pre_pulay_iterations_) then
     ! The damped iterative scheme.
     ! x_{i+1} = ax_i + bf(x_i), where a=pre_pulay_damping and b=1-a.
-    x = this%pre_pulay_damping_     * this%xs_(last_step) &
-    & + (1-this%pre_pulay_damping_) * this%fs_(last_step)
+    this%xs_(this%i()) = this%pre_pulay_damping_     &
+                     & * this%xs_(this%i(offset=-1)) &
+                     & + (1-this%pre_pulay_damping_) &
+                     & * this%fs_(this%i(offset=-1))
   else
     ! The Pulay scheme.
-    first_pulay_step = max(1, last_step-this%max_pulay_iterations_+1)
-    x = pulay( this%xs_(first_pulay_step:last_step), &
-                     & this%fs_(first_pulay_step:last_step) )
-    
-    ! Check if the Pulay scheme failed.
-    if (size(x)==0) then
-      call print_line(WARNING//': Pulay scheme stalled. &
-         &Restarting from damped iterative scheme.')
-      this%fs_ = this%fs_(size(this%fs_):)
-      this%xs_ = this%xs_(size(this%xs_):)
-      last_step = size(this%fs_)
-      x = this%pre_pulay_damping_     * this%xs_(last_step) &
-      & + (1-this%pre_pulay_damping_) * this%fs_(last_step)
+    if (this%i_<=this%max_pulay_iterations_) then
+      this%xs_(this%i()) = pulay(this%xs_(:this%i_-1), this%fs_(:this%i_-1))
+    else
+      this%xs_(this%i()) = pulay(this%xs_, this%fs_)
     endif
   endif
   
@@ -123,11 +152,8 @@ subroutine set_f(this,f)
   ! N.B. this is done by limiting the input to be at least half the previous
   !    output, to avoid sharp changes.
   if (this%bound_at_zero_) then
-    x = vec(max(dble(x), f/2.0_dp))
+    this%xs_(this%i()) = vec(max(dble(this%xs_(this%i())), f/2.0_dp))
   endif
-  
-  ! Set the next input.
-  this%xs_ = [this%xs_, x]
 end subroutine
 
 ! A Pulay scheme to find self-consistent solution to f(x)=x.
@@ -145,9 +171,9 @@ function pulay(xs,fs) result(output)
   real(dp),         allocatable :: lagrange_vector(:)
   real(dp),         allocatable :: coefficients(:)
   
-  integer :: m,n
+  type(SymmetricEigenstuff), allocatable :: estuff(:)
   
-  integer :: rank_info
+  integer :: m,n
   
   integer :: i,j,ialloc
   
@@ -202,19 +228,63 @@ function pulay(xs,fs) result(output)
   ! Construct lagrange vector, equal to (0, 0, ..., 0, 1).
   lagrange_vector = [(0.0_dp,i=1,n), 1.0_dp]
   
-  ! Perform least-squares optimisation to get coefficients, {a_i}.
-  coefficients = dble(linear_least_squares( error_matrix,                &
-                                          & lagrange_vector,             &
-                                          & return_empty_on_error=.true. ))
+  ! Diagonalise the error matrix.
+  ! Each eigenvector has length n+1, where the first n components are
+  !    coefficients, and the final compontent is a weight.
+  ! The contribution of each eigenvector to the output is c*w/l,
+  !    where c is the vector of coefficients,
+  !    w is the weight,
+  !    and l is the eigenvalue.
+  estuff = diagonalise_symmetric(error_matrix)
   
-  ! Return an empty vector if the linear least squares failed.
-  if (size(coefficients)==0) then
-    output = vec([real(dp)::])
+  coefficients = [(0.0_dp, i=1, n)]
+  do i=1,n+1
+    if (abs(estuff(i)%evec(n+1))<abs(estuff(i)%eval)*100) then
+      coefficients = coefficients        &
+                 & + estuff(i)%evec(:n)  &
+                 & * estuff(i)%evec(n+1) &
+                 & / estuff(i)%eval
+    endif
+  enddo
+  
+  ! Construct output frequencies as x_n = sum_{i=1}^n a_i x_i.
+  output = sum(coefficients(:n)*(0.99_dp*xs+0.01_dp*fs))
+end function
+
+! Check for convergence.
+function converged(this,energy_convergence,no_converged_calculations) &
+   & result(output)
+  implicit none
+  
+  class(PulaySolver), intent(in) :: this
+  real(dp),           intent(in) :: energy_convergence
+  integer,            intent(in) :: no_converged_calculations
+  logical                        :: output
+  
+  integer :: i
+  
+  if (this%i_<=no_converged_calculations) then
+    output = .false.
     return
   endif
   
-  ! Construct output frequencies as x_n = sum_{i=1}^n a_i x_i.
-  output = sum(coefficients(:n)*xs)
+  do i=2,no_converged_calculations
+    if ( abs( this%free_energies_(this%i(offset=-i))   &
+     &      - this%free_energies_(this%i(offset=-1)) ) &
+     & > energy_convergence                            ) then
+      output = .false.
+      return
+    endif
+  enddo
+  
+  if (any( abs(dble( this%fs_(this%i(offset=-1))    &
+       &           - this%xs_(this%i(offset=-1)) )) &
+       & > energy_convergence                       )) then
+    output = .false.
+    return
+  endif
+  
+  output = .true.
 end function
 
 ! ----------------------------------------------------------------------
@@ -237,6 +307,15 @@ function example_function(input) result(output)
   output = dble(matrix*vec(input))
 end function
 
+function example_free_energy(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:)
+  real(dp)             :: output
+  
+  output = sum(input)
+end function
+
 ! Finds x such that example_function(x)=x.
 subroutine pulay_solver_example()
   implicit none
@@ -250,6 +329,7 @@ subroutine pulay_solver_example()
   
   real(dp), allocatable :: x(:)
   real(dp), allocatable :: f(:)
+  real(dp)              :: free_energy
   
   integer :: i
   
@@ -270,11 +350,12 @@ subroutine pulay_solver_example()
     ! Get x from the solver.
     x = solver%get_x()
     
-    ! Calculate f(x).
+    ! Calculate f(x) and F(x).
     f = example_function(x)
+    free_energy = example_free_energy(x)
     
     ! Feed f(x) into the solver.
-    call solver%set_f(f)
+    call solver%set_f(f, free_energy)
     
     ! Print progress.
     i = i+1
