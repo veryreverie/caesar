@@ -73,11 +73,6 @@ subroutine startup_calculate_anharmonic_observables()
      &              'no_temperature_steps is the number of temperatures at &
      &which thermodynamic quantities are calculated.',                        &
      &              default_value='0'),                                       &
-     & KeywordData( 'frequency_convergence',                                  &
-     &              'frequency_convergence is the precision to which &
-     &self-consistent frequencies will be converged when constructing the &
-     &self-consistent anharmonic approximation to the VSCF potential. This &
-     &should be given in Hartree.' ),                                         &
      & KeywordData( 'no_vscf_basis_states',                                   &
      &              'no_vscf_basis_states is the number of states along each &
      &mode in the basis used for the VSCF calculation.'),                     &
@@ -129,7 +124,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   real(dp)              :: min_temperature
   real(dp)              :: max_temperature
   integer               :: no_temperature_steps
-  real(dp)              :: frequency_convergence
   integer               :: no_vscf_basis_states
   real(dp)              :: min_frequency
   real(dp), allocatable :: thermal_energies(:)
@@ -242,7 +236,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
-  frequency_convergence = dble(arguments%value('frequency_convergence'))
   min_frequency = dble(arguments%value('min_frequency'))
   path = arguments%value('path')
   no_path_points = int(arguments%value('no_path_points'))
@@ -389,8 +382,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! --------------------------------------------------
     
     if (i==1) then
-      call print_line(size(subspaces))
-      call print_line(size(starting_frequencies))
       vscha_basis = HarmonicBasis( subspaces%id,         &
                                  & starting_frequencies, &
                                  & thermal_energies(i)   )
