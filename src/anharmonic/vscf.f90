@@ -196,10 +196,6 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
                      & (free_energies(i)-minval(free_energies(:i-1))) // &
                      & ' (Ha)'                                           )
     endif
-    call print_line('Coefficients:')
-    call set_print_settings(decimal_places=3)
-    call print_line(coefficients(1))
-    call unset_print_settings()
     
     ! Increment the loop counter.
     i = i+1

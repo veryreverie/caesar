@@ -350,8 +350,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                          & size(subspaces)                       )]
   endif
   
+  ! Calculate starting frequencies.
+  starting_frequencies = [                                  &
+     & max( subspaces%frequency,                            &
+     &      anharmonic_data%frequency_of_max_displacement ) ]
+  
   ! --------------------------------------------------
-  ! WORK IN PROGRESS
   ! Run VSCHA on potential to generate subspace frequencies.
   ! --------------------------------------------------
   allocate( vscha_frequencies( size(subspaces),                 &
@@ -385,6 +389,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! --------------------------------------------------
     
     if (i==1) then
+      call print_line(size(subspaces))
+      call print_line(size(starting_frequencies))
       vscha_basis = HarmonicBasis( subspaces%id,         &
                                  & starting_frequencies, &
                                  & thermal_energies(i)   )
