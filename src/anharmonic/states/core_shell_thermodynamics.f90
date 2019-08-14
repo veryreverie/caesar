@@ -83,8 +83,6 @@ function core_shell_thermodynamics(thermal_energy,frequency,no_modes,bases, &
   core_vci_thermodynamics = ThermodynamicData( thermal_energy, &
                                              & vci_energies    )
   
-  call print_line(frequency)
-  
   ! Calculate the thermodynamic variables for the core VCI states equilibrated
   !    with the shell effective harmonic states.
   output = calculate_core_shell_thermodynamics( &
@@ -167,7 +165,7 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
   if (pc<0.99_dp) then
     if (full_effective%energy < core_effective%energy) then
       call print_line(ERROR//': Harmonic U outside of core region is less &
-         &than that for the whole system. Please increase the number of &
+         &than that within this region. Please increase the number of &
          &states.')
       call print_line('FH: '//full_harmonic%energy)
       call print_line('CH: '//core_harmonic%energy)

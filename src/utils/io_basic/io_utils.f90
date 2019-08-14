@@ -190,10 +190,11 @@ subroutine mkdir(dirname)
   formatted_dirname = format_path(dirname)
   
   result_code = system_call('if [ ! -e '//formatted_dirname//' ]; &
-                           &then mkdir '//formatted_dirname//'; &
-                           &fi'                                   )
+                           &then mkdir '//formatted_dirname//'; exit $?; &
+                           &fi; exit 0' )
   if (result_code/=0) then
     call print_line(ERROR//': failed to make directory: '//formatted_dirname)
+    call print_line('mkdir return code: '//result_code)
     call err()
   endif
 end subroutine

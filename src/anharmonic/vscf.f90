@@ -123,6 +123,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
   solver = PulaySolver( pre_pulay_iterations, &
                       & pre_pulay_damping,    &
                       & max_pulay_iterations, &
+                      & energy_convergence,   &
                       & coefficients          )
   
   ! Run Pulay scheme.
@@ -190,7 +191,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
     ! Print progress.
     call print_line('VSCF self-consistency step '//i//'.')
     call print_line( 'Self-consistency error  : '        // &
-                   & l2_norm(coefficients-old_coefficients) )
+                   & l2_norm(coefficients-old_coefficients)//' (Ha)' )
     call print_line( 'Free energy, F          : ' // &
                    & free_energies(i)//' (Ha)'       )
     if (i>1) then

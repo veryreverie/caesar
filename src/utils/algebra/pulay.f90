@@ -3,6 +3,11 @@
 !    subject to f(x)=x.
 ! ======================================================================
 ! See the example function at the bottom of this file for how to use.
+! Since the Pulay scheme is invariant under the ordering of its inputs,
+!    only the last max_pulay_iterations are stored, and the arrays are
+!    continually overwritten in a sequential 1,2,...,n,1,2,...,n,1,... manner.
+! This is acheived by tracking i_, and taking modulo(i_,max_pulay_iterations)
+!    to identify where each iteration should be stored.
 module pulay_module
   use precision_module
   use abstract_module
@@ -21,6 +26,7 @@ module pulay_module
     integer,  private :: pre_pulay_iterations_
     real(dp), private :: pre_pulay_damping_
     integer,  private :: max_pulay_iterations_
+    real(dp), private :: gradient_descent_energy_
     logical,  private :: bound_at_zero_
     
     ! The current set of x, f(x) and the free energy F(x).
@@ -48,13 +54,15 @@ module pulay_module
   end interface
 contains
 
-function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping, &
-   & max_pulay_iterations,initial_x,bound_at_zero) result(this)
+function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping,           &
+   & max_pulay_iterations,gradient_descent_energy,initial_x,bound_at_zero) &
+   & result(this)
   implicit none
   
   integer,  intent(in)           :: pre_pulay_iterations
   real(dp), intent(in)           :: pre_pulay_damping
   integer,  intent(in)           :: max_pulay_iterations
+  real(dp), intent(in)           :: gradient_descent_energy
   real(dp), intent(in)           :: initial_x(:)
   logical,  intent(in), optional :: bound_at_zero
   type(PulaySolver)              :: this
@@ -72,6 +80,7 @@ function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping, &
   this%pre_pulay_iterations_ = pre_pulay_iterations
   this%pre_pulay_damping_ = pre_pulay_damping
   this%max_pulay_iterations_ = max_pulay_iterations
+  this%gradient_descent_energy_ = gradient_descent_energy
   if (present(bound_at_zero)) then
     this%bound_at_zero_ = bound_at_zero
   else
@@ -142,9 +151,21 @@ subroutine set_f(this,f,free_energy)
   else
     ! The Pulay scheme.
     if (this%i_<=this%max_pulay_iterations_) then
-      this%xs_(this%i()) = pulay(this%xs_(:this%i_-1), this%fs_(:this%i_-1))
+      ! If i_ is less than max_pulay_iterations, only the first i_-1 iterations
+      !    are used, as these are all that are available.
+      this%xs_(this%i()) = pulay( this%xs_(:this%i_-1),            &
+                                & this%fs_(:this%i_-1),            &
+                                & this%free_energies_(:this%i_-1), &
+                                & this%gradient_descent_energy_    )
     else
-      this%xs_(this%i()) = pulay(this%xs_, this%fs_)
+      ! Otherwise, the last max_pulay_iterations are used.
+      ! N.B. the pulay scheme is invariant under re-ordering of iterations,
+      !    so it does not matter that the latest entries may be in the middle
+      !    of the arrays.
+      this%xs_(this%i()) = pulay( this%xs_,                     &
+                                & this%fs_,                     &
+                                & this%free_energies_,          &
+                                & this%gradient_descent_energy_ )
     endif
   endif
   
@@ -157,13 +178,16 @@ subroutine set_f(this,f,free_energy)
 end subroutine
 
 ! A Pulay scheme to find self-consistent solution to f(x)=x.
-! N.B. The routine will fail if the error matrix has less than full rank.
-! In this case, the output will be an empty array.
-function pulay(xs,fs) result(output)
+! If the Pulay scheme is ill-conditioned (i.e. there is a subspace of
+!    self-consistent solutions) then a gradient-descent scheme will be run
+!    within the self-consistent subspace.
+function pulay(xs,fs,free_energies,gradient_descent_energy) result(output)
   implicit none
   
   type(RealVector), intent(in) :: xs(:)
   type(RealVector), intent(in) :: fs(:)
+  real(dp),         intent(in) :: free_energies(:)
+  real(dp),         intent(in) :: gradient_descent_energy
   type(RealVector)             :: output
   
   type(Realvector), allocatable :: errors(:)
@@ -229,21 +253,37 @@ function pulay(xs,fs) result(output)
   lagrange_vector = [(0.0_dp,i=1,n), 1.0_dp]
   
   ! Diagonalise the error matrix.
-  ! Each eigenvector has length n+1, where the first n components are
-  !    coefficients, and the final compontent is a weight.
-  ! The contribution of each eigenvector to the output is c*w/l,
-  !    where c is the vector of coefficients,
-  !    w is the weight,
-  !    and l is the eigenvalue.
+  ! The i'th eigenvector is (c_i1,c_i2,...,c_in,w_i), where:
+  !    - c_ij are coefficients,
+  !    - w_i is a weight.
+  ! If l>0, the contribution is defined by the Pulay scheme as c_ij*w_i/l_i,
+  !    where:
+  !    - c_ij and w_i are as above,
+  !    - l_i is the i'th eigenvalue.
+  ! If l=0, the contribution is defined by the gradient descent scheme as
+  !    c_ij*(sum_j c_ij F(P_j) / E), where:
+  !    - c_ij is as above,
+  !    - F(P_j) is the j'th free energy,
+  !    - E is the gradient descent energy.
   estuff = diagonalise_symmetric(error_matrix)
   
   coefficients = [(0.0_dp, i=1, n)]
   do i=1,n+1
     if (abs(estuff(i)%evec(n+1))<abs(estuff(i)%eval)*100) then
+      ! The self-consistency scheme defines the position along the i'th
+      !    eigenvector of the error matrix.
       coefficients = coefficients        &
                  & + estuff(i)%evec(:n)  &
                  & * estuff(i)%evec(n+1) &
                  & / estuff(i)%eval
+    else
+      ! The self-consistency scheme does not define the position along the i'th
+      !    eigenvector. Instead, the gradient descent scheme is called.
+      coefficients = coefficients              &
+                 & + estuff(i)%evec(:n)        &
+                 & * ( vec(estuff(i)%evec(:n)) &
+                 &   * vec(free_energies)      &
+                 &   / gradient_descent_energy )
     endif
   enddo
   
@@ -316,13 +356,15 @@ function example_free_energy(input) result(output)
   output = sum(input)
 end function
 
-! Finds x such that example_function(x)=x.
+! Finds x which mimises example_free_energy(x),
+!    subject to the condition that example_function(x)=x.
 subroutine pulay_solver_example()
   implicit none
   
   integer               :: pre_pulay_iterations
   real(dp)              :: pre_pulay_damping
   integer               :: max_pulay_iterations
+  real(dp)              :: gradient_descent_energy
   real(dp), allocatable :: initial_x(:)
   
   type(PulaySolver) :: solver
@@ -331,20 +373,54 @@ subroutine pulay_solver_example()
   real(dp), allocatable :: f(:)
   real(dp)              :: free_energy
   
+  real(dp) :: convergence_threshold
+  integer  :: no_converged_calculations
+  
   integer :: i
   
-  pre_pulay_iterations = 2
-  pre_pulay_damping    = 0.9_dp
-  max_pulay_iterations = 20
+  ! ------------------------------
+  ! Initialise variables.
+  ! ------------------------------
   
+  ! The number of damped iterative calculations performed before switching to
+  !    the Pulay scheme.
+  pre_pulay_iterations    = 2
+  
+  ! The damping of the damped iterative calculations.
+  ! 0 is undamped, 1 is fully damped.
+  pre_pulay_damping       = 0.9_dp
+  
+  ! The total number of previous iterations to keep in memory.
+  max_pulay_iterations    = 20
+  
+  ! How sensitive the gradient descent is to energy differences.
+  ! Approximately, if energy differences are within gradient_descent_energy
+  !    then the scheme will interpolate,
+  !    and otherwise the scheme will extrapolate.
+  gradient_descent_energy = 1
+  
+  ! The initial configuration of x.
   initial_x = [0.5_dp, 0.3_dp, 0.7_dp]
   
-  ! Initialise solver.
-  solver = PulaySolver( pre_pulay_iterations, &
-                      & pre_pulay_damping,    &
-                      & max_pulay_iterations, &
-                      & initial_x             )
+  ! The threshold to which |f(x)-x| and energy(x) must converge.
+  convergence_threshold     = 1e-10_dp
   
+  ! The number of instances of energy(x) which will be compared to check for
+  !    convergence.
+  no_converged_calculations = 5
+  
+  ! ------------------------------
+  ! Initialise solver.
+  ! ------------------------------
+  solver = PulaySolver( pre_pulay_iterations,    &
+                      & pre_pulay_damping,       &
+                      & max_pulay_iterations,    &
+                      & gradient_descent_energy, &
+                      & initial_x                )
+  
+  ! ------------------------------
+  ! Run Pulay scheme.
+  ! ------------------------------
   i = 0
   do
     ! Get x from the solver.
@@ -359,12 +435,10 @@ subroutine pulay_solver_example()
     
     ! Print progress.
     i = i+1
-    call print_line('Step '//left_pad(i,'aaaaaa')//', &
-                     &x= '//x//', &
-                     &f= '//f)
+    call print_line('Step '//i//': x= '//x//', f= '//f//', F= '//free_energy)
     
     ! Check for convergence.
-    if (l2_norm(vec(f-x))<1e-10_dp) then
+    if (solver%converged(1e-10_dp, 5)) then
       call print_line('Converged')
       exit
     endif

@@ -405,6 +405,7 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   solver = PulaySolver( pre_pulay_iterations,                            &
                       & pre_pulay_damping,                               &
                       & max_pulay_iterations,                            &
+                      & energy_convergence,                              &
                       & qpoint_potential%coefficients( this%frequency,   &
                       &                                anharmonic_data ) )
   
