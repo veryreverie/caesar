@@ -103,6 +103,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
                                                     & subspaces,       &
                                                     & subspace_bases,  &
                                                     & subspace_states, &
+                                                    & thermal_energy,  &
                                                     & anharmonic_data  )
   
   ! Construct a single vector of coefficients from the subspace potentials.
@@ -167,6 +168,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
                                                       & subspaces,       &
                                                       & subspace_bases,  &
                                                       & subspace_states, &
+                                                      & thermal_energy,  &
                                                       & anharmonic_data  )
     
     ! Update the Pulay scheme.

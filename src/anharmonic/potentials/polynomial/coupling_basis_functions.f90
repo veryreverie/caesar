@@ -233,11 +233,13 @@ impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
 end subroutine
 
 impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
-   & states,subspace,subspace_basis,whole_subspace,anharmonic_data)
+   & states,thermal_energy,subspace,subspace_basis,whole_subspace,          &
+   & anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
   class(BasisStates),            intent(in)           :: states
+  real(dp),                      intent(in)           :: thermal_energy
   type(DegenerateSubspace),      intent(in)           :: subspace
   class(SubspaceBasis),          intent(in)           :: subspace_basis
   logical,                       intent(in), optional :: whole_subspace
@@ -256,6 +258,7 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
     ! Integrate across the basis function, and simplify it.
     do j=1,size(this)
       call this%basis_functions_(j)%braket( states,         &
+                                          & thermal_energy, &
                                           & subspace,       &
                                           & subspace_basis, &
                                           & anharmonic_data )

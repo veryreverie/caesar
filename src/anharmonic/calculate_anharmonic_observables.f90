@@ -382,13 +382,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! --------------------------------------------------
     
     if (i==1) then
-      vscha_basis = HarmonicBasis( subspaces%id,         &
-                                 & starting_frequencies, &
-                                 & thermal_energies(i)   )
+      vscha_basis = HarmonicBasis( subspaces%id,        &
+                                 & starting_frequencies )
     else
-      vscha_basis = HarmonicBasis( subspaces%id,             &
-                                 & vscha_frequencies(:,i-1), &
-                                 & thermal_energies(i)       )
+      vscha_basis = HarmonicBasis( subspaces%id,            &
+                                 & vscha_frequencies(:,i-1) )
     endif
     
     call print_line('Running VSCHA.')
@@ -487,11 +485,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       ! Use VSCF states to generate single-subspace stresses.
       call print_line('Generating single-subspaces stresses &
          &and stress prefactors.')
-      subspace_stresses = generate_subspace_stresses( stress,          &
-                                                    & subspaces,       &
-                                                    & vscf_basis,      &
-                                                    & subspace_states, &
-                                                    & anharmonic_data  )
+      subspace_stresses = generate_subspace_stresses( stress,              &
+                                                    & subspaces,           &
+                                                    & vscf_basis,          &
+                                                    & subspace_states,     &
+                                                    & thermal_energies(i), &
+                                                    & anharmonic_data      )
       
       vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data( &
                              &           thermal_energies(i),   &

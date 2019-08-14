@@ -25,6 +25,7 @@ module wavevector_basis_module
   
   public :: harmonic_thermodynamics
   public :: harmonic_expectation
+  public :: integrate
   
   type, extends(Stringsable) :: WavevectorBasis
     integer                                          :: maximum_power
@@ -76,6 +77,10 @@ module wavevector_basis_module
   
   interface harmonic_expectation
     module procedure harmonic_expectation_WavevectorBasis
+  end interface
+  
+  interface integrate
+    module procedure integrate_ComplexMonomial_WavevectorBases
   end interface
 contains
 
@@ -917,6 +922,32 @@ function harmonic_expectation_WavevectorBasis(bases,potential, &
   endif
   
   output = ThermodynamicData(thermal_energy, energy, free_energy, entropy)
+end function
+
+! Integrate a monomial between sets of states.
+function integrate_ComplexMonomial_WavevectorBases(bases,states, &
+   & thermal_energy,monomial,anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in) :: bases(:)
+  type(WavevectorStates),   intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
+  type(ComplexMonomial),    intent(in) :: monomial
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(ComplexMonomial)                :: output
+  
+  ! TODO
+  type(WavevectorState) :: ground_state
+  
+  integer :: i
+  
+  ground_state = states%states(minloc(states%energies,1))
+  
+  i = first(bases%wavevector==ground_state%wavevector)
+  
+  output = bases(i)%braket( bra             = ground_state,   &
+                          & monomial        = monomial,       &
+                          & anharmonic_data = anharmonic_data )
 end function
 
 ! ----------------------------------------------------------------------

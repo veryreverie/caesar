@@ -271,12 +271,13 @@ subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
   ! This likely just involves calling braket on the constituent parts of this.
 end subroutine
 
-subroutine braket_BasisStates_PotentialDataExample(this,states,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data)
+subroutine braket_BasisStates_PotentialDataExample(this,states, &
+   & thermal_energy,subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
   class(BasisStates),          intent(in)           :: states
+  real(dp),                    intent(in)           :: thermal_energy
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
   logical,                     intent(in), optional :: whole_subspace

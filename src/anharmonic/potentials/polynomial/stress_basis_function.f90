@@ -391,17 +391,22 @@ subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
   call this%elements_%braket(bra,ket,subspace,subspace_basis,anharmonic_data)
 end subroutine
 
-subroutine braket_BasisStates_StressBasisFunction(this,states,subspace, &
-   & subspace_basis,anharmonic_data)
+subroutine braket_BasisStates_StressBasisFunction(this,states,thermal_energy, &
+   & subspace,subspace_basis,anharmonic_data)
   implicit none
   
-  class(StressBasisFunction), intent(inout)        :: this
-  class(BasisStates),         intent(in)           :: states
-  type(DegenerateSubspace),   intent(in)           :: subspace
-  class(SubspaceBasis),       intent(in)           :: subspace_basis
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  class(StressBasisFunction), intent(inout) :: this
+  class(BasisStates),         intent(in)    :: states
+  real(dp),                   intent(in)    :: thermal_energy
+  type(DegenerateSubspace),   intent(in)    :: subspace
+  class(SubspaceBasis),       intent(in)    :: subspace_basis
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
   
-  call this%elements_%braket(states,subspace,subspace_basis,anharmonic_data)
+  call this%elements_%braket( states,         &
+                            & thermal_energy, &
+                            & subspace,       &
+                            & subspace_basis, &
+                            & anharmonic_data )
 end subroutine
 
 ! ----------------------------------------------------------------------

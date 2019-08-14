@@ -18,7 +18,6 @@ module harmonic_basis_module
   type, extends(SubspaceBasis) :: HarmonicBasis
     integer  :: subspace_id
     real(dp) :: frequency
-    real(dp) :: thermal_energy
   contains
     procedure, public, nopass :: representation => representation_HarmonicBasis
     
@@ -78,18 +77,16 @@ impure elemental function representation_HarmonicBasis() result(output)
 end function
 
 ! Constructor.
-impure elemental function new_HarmonicBasis(subspace_id,frequency, &
-   & thermal_energy) result(this)
+impure elemental function new_HarmonicBasis(subspace_id,frequency) &
+   & result(this)
   implicit none
   
   integer,  intent(in) :: subspace_id
   real(dp), intent(in) :: frequency
-  real(dp), intent(in) :: thermal_energy
   type(HarmonicBasis)  :: this
   
   this%subspace_id = subspace_id
   this%frequency = frequency
-  this%thermal_energy = thermal_energy
 end function
 
 ! Calculate states.
@@ -304,11 +301,12 @@ impure elemental function wavefunctions_HarmonicBasis(this,states, &
 end function
 
 impure elemental function integrate_ComplexMonomial_HarmonicBasis(this, &
-   & states,monomial,subspace,anharmonic_data) result(output)
+   & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicBasis),     intent(in) :: this
   class(BasisStates),       intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
   type(ComplexMonomial),    intent(in) :: monomial
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
@@ -336,7 +334,7 @@ impure elemental function integrate_ComplexMonomial_HarmonicBasis(this, &
   coefficient = monomial%coefficient                           &
             & * product(integrated_modes%harmonic_expectation( &
             &             harmonic_states%frequency,           &
-            &             this%thermal_energy,                 &
+            &             thermal_energy,                      &
             &             anharmonic_data%anharmonic_supercell ))
   
   output = ComplexMonomial( coefficient = coefficient,       &
@@ -352,14 +350,12 @@ subroutine read_HarmonicBasis(this,input)
   
   integer  :: subspace_id
   real(dp) :: frequency
-  real(dp) :: thermal_energy
   
   select type(this); type is(HarmonicBasis)
     subspace_id = int(token(input(1),3))
     frequency = dble(token(input(2),3))
-    thermal_energy = dble(token(input(3),4))
     
-    this = HarmonicBasis(subspace_id, frequency, thermal_energy)
+    this = HarmonicBasis(subspace_id, frequency)
   class default
     call err()
   end select
@@ -372,9 +368,8 @@ function write_HarmonicBasis(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(HarmonicBasis)
-    output = [ 'Subspace       : '//this%subspace_id,   &
-             & 'Frequency      : '//this%frequency,     &
-             & 'Thermal energy : '//this%thermal_energy ]
+    output = [ 'Subspace  : '//this%subspace_id, &
+             & 'Frequency : '//this%frequency    ]
   class default
     call err()
   end select

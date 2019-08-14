@@ -1,4 +1,6 @@
 ! ======================================================================
+! A set of states in a wavevector basis.
+! See wavevector_basis.f90 for more details.
 ! ======================================================================
 module wavevector_states_module
   use common_module

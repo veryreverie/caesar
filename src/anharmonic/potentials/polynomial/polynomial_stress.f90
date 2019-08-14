@@ -25,6 +25,7 @@ module polynomial_stress_module
                                & representation_PolynomialStress
     
     procedure, public :: zero_stress => zero_stress_PolynomialStress
+    procedure, public :: add_constant => add_constant_PolynomialStress
     
     procedure, public :: stress_RealModeDisplacement => &
                        & stress_RealModeDisplacement_PolynomialStress
@@ -93,6 +94,16 @@ impure elemental subroutine zero_stress_PolynomialStress(this)
   class(PolynomialStress), intent(inout) :: this
   
   this%reference_stress_ = this%reference_stress_ - this%undisplaced_stress()
+end subroutine
+
+! Add a constant to the stress.
+impure elemental subroutine add_constant_PolynomialStress(this,input)
+  implicit none
+  
+  class(PolynomialStress), intent(inout) :: this
+  type(RealMatrix),        intent(in)    :: input
+  
+  this%reference_stress_ = this%reference_stress_ + input
 end subroutine
 
 ! Calculate the stress at a given displacement.
@@ -197,12 +208,13 @@ subroutine braket_BasisState_PolynomialStress(this,bra,ket,subspace, &
   endif
 end subroutine
 
-subroutine braket_BasisStates_PolynomialStress(this,states,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data)
+subroutine braket_BasisStates_PolynomialStress(this,states,thermal_energy, &
+   & subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(PolynomialStress),  intent(inout)        :: this
   class(BasisStates),       intent(in)           :: states
+  real(dp),                 intent(in)           :: thermal_energy
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   logical,                  intent(in), optional :: whole_subspace
@@ -213,6 +225,7 @@ subroutine braket_BasisStates_PolynomialStress(this,states,subspace, &
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
     call this%basis_functions_(i)%braket( states,         &
+                                        & thermal_energy, &
                                         & subspace,       &
                                         & subspace_basis, &
                                         & whole_subspace, &

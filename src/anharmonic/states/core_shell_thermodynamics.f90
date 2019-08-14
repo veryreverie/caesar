@@ -83,46 +83,16 @@ function core_shell_thermodynamics(thermal_energy,frequency,no_modes,bases, &
   core_vci_thermodynamics = ThermodynamicData( thermal_energy, &
                                              & vci_energies    )
   
-  ! TODO
-  !if ( full_effective_thermodynamics%energy &
-  ! & < core_effective_thermodynamics%energy ) then
-  !  call print_line(ERROR//': Harmonic U outside of core region is less than &
-  !     &that inside the core region. Please increase the number of states.')
-  !  call print_line('FE: '//full_effective_thermodynamics%energy)
-  !  call print_line('CE: '//core_effective_thermodynamics%energy)
-  !  call print_line('T : '//thermal_energy)
-  !  call print_lines(potential)
-  !  call err()
-  !endif
-  !
-  !! Calculate the thermodynamic variables for the core VCI states equilibrated
-  !!    with the shell effective harmonic states.
-  !call print_line('')
-  !output = calculate_core_shell_thermodynamics( &
-  !             & full_harmonic_thermodynamics,  &
-  !             & core_harmonic_thermodynamics,  &
-  !             & full_effective_thermodynamics, &
-  !             & core_effective_thermodynamics, &
-  !             & core_vci_thermodynamics        )
-  !call print_line('FH '//(full_harmonic_thermodynamics%free_energy-output%free_energy))
-  !call print_line('CH '//(core_harmonic_thermodynamics%free_energy-output%free_energy))
-  !call print_line('FE '//(full_effective_thermodynamics%free_energy-output%free_energy))
-  !call print_line('CE '//(core_effective_thermodynamics%free_energy-output%free_energy))
-  !call print_line('CV '//(core_vci_thermodynamics%free_energy-output%free_energy))
-  !call print_line(output%free_energy)
-  !
-  !if (output%free_energy<-100_dp) then
-  !  call print_line(ERROR)
-  !call print_line('FH '//full_harmonic_thermodynamics%free_energy)
-  !call print_line('CH '//core_harmonic_thermodynamics%free_energy)
-  !call print_line('FE '//full_effective_thermodynamics%free_energy)
-  !call print_line('CE '//core_effective_thermodynamics%free_energy)
-  !call print_line('CV '//core_vci_thermodynamics%free_energy)
-  !call quit()
-  !endif
+  call print_line(frequency)
   
-  ! TODO: remove this DEBUG statement.
-  output = core_vci_thermodynamics
+  ! Calculate the thermodynamic variables for the core VCI states equilibrated
+  !    with the shell effective harmonic states.
+  output = calculate_core_shell_thermodynamics( &
+               & full_harmonic_thermodynamics,  &
+               & core_harmonic_thermodynamics,  &
+               & full_effective_thermodynamics, &
+               & core_effective_thermodynamics, &
+               & core_vci_thermodynamics        )
 end function
 
 ! Calculate the thermodynamic variables for the core VCI states equilibrated
@@ -155,7 +125,6 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
   !    case.
   if (core_harmonic%free_energy<=full_harmonic%free_energy) then
     output = min([full_effective, core_effective, core_vci])
-    call print_line('core har <= full har')
     return
   endif
   
@@ -165,7 +134,6 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
   if ( full_effective%free_energy-core_vci%free_energy &
    & > thermal_energy*690                              ) then
     output = core_vci
-    call print_line('full eff - core vci >> T')
     return
   endif
   
@@ -182,7 +150,6 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
           &   - core_harmonic%free_energy ) &
           & / thermal_energy                )
     ps = 1-pc
-    call print_line('normal T')
   else
     ! High-temperature regime. O(((F-Fc)/T)^2) < 1e-20,
     !    is below numerical error.
@@ -190,7 +157,25 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
          & / thermal_energy
     ps = (core_harmonic%free_energy-full_harmonic%free_energy) &
      & / thermal_energy
-    call print_line('high T')
+  endif
+  
+  ! Check that F in the core effective region is greater than that in the
+  !    whole region.
+  ! N.B. this comparison can be swamped by numerical error if the core
+  !    region covers most of the thermally accessible space, which is checked
+  !    by the first comparison.
+  if (pc<0.99_dp) then
+    if (full_effective%energy < core_effective%energy) then
+      call print_line(ERROR//': Harmonic U outside of core region is less &
+         &than that for the whole system. Please increase the number of &
+         &states.')
+      call print_line('FH: '//full_harmonic%energy)
+      call print_line('CH: '//core_harmonic%energy)
+      call print_line('FE: '//full_effective%energy)
+      call print_line('CE: '//core_effective%energy)
+      call print_line('T : '//thermal_energy)
+      call err()
+    endif
   endif
   
   ! Calculate the thermodynamics of the shell basis under the effective
@@ -220,12 +205,6 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
                                      & energy,         &
                                      & free_energy,    &
                                      & entropy         )
-  
-  call print_line('T  '//thermal_energy)
-  call print_line('dF '//(core_effective%free_energy-full_effective%free_energy))
-  call print_line('pc '//pc)
-  call print_line('ps '//ps)
-  call print_line('SE '//shell_effective)
   
   ! Equilibrate the vci core with the effective harmonic shell.
   output = add_subsystems(core_vci, shell_effective)

@@ -797,12 +797,13 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   endif
 end subroutine
 
-subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data)
+subroutine braket_BasisStates_PolynomialPotential(this,states,thermal_energy, &
+   & subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
   class(BasisStates),         intent(in)           :: states
+  real(dp),                   intent(in)           :: thermal_energy
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   logical,                    intent(in), optional :: whole_subspace
@@ -813,6 +814,7 @@ subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
     call this%basis_functions_(i)%braket( states,         &
+                                        & thermal_energy, &
                                         & subspace,       &
                                         & subspace_basis, &
                                         & whole_subspace, &

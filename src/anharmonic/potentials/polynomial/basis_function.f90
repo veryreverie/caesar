@@ -492,11 +492,12 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
 end subroutine
 
 impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
-   & subspace,subspace_basis,anharmonic_data)
+   & thermal_energy,subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(BasisFunction),     intent(inout) :: this
   class(BasisStates),       intent(in)    :: states
+  real(dp),                 intent(in)    :: thermal_energy
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
@@ -522,6 +523,7 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   ! Perform integration in complex co-ordinates.
   this%complex_representation_ = subspace_basis%integrate( &
                            & states,                       &
+                           & thermal_energy,               &
                            & this%complex_representation_, &
                            & subspace,                     &
                            & anharmonic_data               )

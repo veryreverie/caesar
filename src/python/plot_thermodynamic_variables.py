@@ -27,15 +27,17 @@ def main():
   # Read in data.
   names  = ['Interpolated effective harmonic', 'VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
   fnames = ['interpolated_vscha_', 'vscf_', '', 'vscha_', 'vscha_vscf_']
-  dashes = [[5,1], [6,0], [6,0], [3,1,1,1], [1,2,1,2]]
+  dashes = [[8,2], [10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
+  widths = [2,1,1,2,2]
   
   data = []
-  for name,fname,dash in zip(names,fnames,dashes):
+  for name,fname,dash,width in zip(names,fnames,dashes,widths):
     file_name = fname+'thermodynamic_variables.dat'
     if os.path.isfile(file_name):
       data.append({'name':name})
       variables_file = [line.rstrip('\n').split() for line in open(file_name)]
       data[-1]['dashes'] = dash
+      data[-1]['width']  = width
       data[-1]['thermal energies'] = []
       data[-1]['energies'] = []
       data[-1]['free energies'] = []
@@ -71,17 +73,17 @@ def main():
   for datum in data:
     axes['energy']['l'].plot(datum['thermal energies'],
                              datum['energies'],
-                             linewidth=2,
+                             linewidth=datum['width'],
                              dashes=datum['dashes'],
                              color=colours['turquoise'])
     axes['energy']['r'].plot(datum['thermal energies'],
                              datum['free energies'],
-                             linewidth=2,
+                             linewidth=datum['width'],
                              dashes=datum['dashes'],
                              color=colours['orange'])
     axes['entropy']['l'].plot(datum['thermal energies'],
                               datum['entropies'],
-                              linewidth=2,
+                              linewidth=datum['width'],
                               dashes=datum['dashes'],
                               color=colours['purple'])
     if xmin_hartree == None:

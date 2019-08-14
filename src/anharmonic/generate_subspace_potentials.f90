@@ -39,13 +39,14 @@ contains
 !    corresponding to each interval over the states in the other interval.
 ! This method takes O(n.log(n)) operations.
 function generate_subspace_potentials(potential,subspaces,subspace_bases, &
-   & subspace_states,anharmonic_data) result(output)
+   & subspace_states,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(PotentialData),     intent(in) :: potential
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   class(SubspaceBasis),     intent(in) :: subspace_bases(:)
   class(BasisStates),       intent(in) :: subspace_states(:)
+  real(dp),                 intent(in) :: thermal_energy
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(PotentialPointer), allocatable  :: output(:)
   
@@ -105,6 +106,7 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
         do j=s,maxs_in(i)
           call output(mins_in(i))%braket(            &
              & states          = subspace_states(j), &
+             & thermal_energy  = thermal_energy,     &
              & subspace        = subspaces(j),       &
              & subspace_basis  = subspace_bases(j),  &
              & anharmonic_data = anharmonic_data     )
@@ -112,6 +114,7 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
         do j=mins_in(i),s-1
           call output(s)%braket(                     &
              & states          = subspace_states(j), &
+             & thermal_energy  = thermal_energy,     &
              & subspace        = subspaces(j),       &
              & subspace_basis  = subspace_bases(j),  &
              & anharmonic_data = anharmonic_data     )
@@ -129,6 +132,7 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
   integrated_potential = output(1)
   
   call integrated_potential%braket( states          = subspace_states(1), &
+                                  & thermal_energy  = thermal_energy,     &
                                   & subspace        = subspaces(1),       &
                                   & subspace_basis  = subspace_bases(1),  &
                                   & anharmonic_data = anharmonic_data     )
@@ -144,13 +148,14 @@ end function
 !    in a manner analogous to generate_subspace_potentials.
 ! ----------------------------------------------------------------------
 function generate_subspace_stresses(stress,subspaces,subspace_bases, &
-   & subspace_states,anharmonic_data) result(output)
+   & subspace_states,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(StressData),        intent(in) :: stress
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   class(SubspaceBasis),     intent(in) :: subspace_bases(:)
   class(BasisStates),       intent(in) :: subspace_states(:)
+  real(dp),                 intent(in) :: thermal_energy
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(StressPointer), allocatable     :: output(:)
   
@@ -162,6 +167,10 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
   
   ! The half-way point of each interval.
   integer :: s
+  
+  ! The correction stress, -<S>(n-1)/n
+  type(StressPointer) :: integrated_stress
+  type(RealMatrix)    :: correction_stress
   
   integer :: i,j,ialloc
   
@@ -205,6 +214,7 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
         do j=s,maxs_in(i)
           call output(mins_in(i))%braket(            &
              & states          = subspace_states(j), &
+             & thermal_energy  = thermal_energy,     &
              & subspace        = subspaces(j),       &
              & subspace_basis  = subspace_bases(j),  &
              & anharmonic_data = anharmonic_data     )
@@ -212,6 +222,7 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
         do j=mins_in(i),s-1
           call output(s)%braket(                     &
              & states          = subspace_states(j), &
+             & thermal_energy  = thermal_energy,     &
              & subspace        = subspaces(j),       &
              & subspace_basis  = subspace_bases(j),  &
              & anharmonic_data = anharmonic_data     )
@@ -223,9 +234,20 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
     maxs_in = maxs_out
   enddo
   
-  ! Set the constant term to zero.
-  do i=1,size(output)
-    call output(i)%zero_stress()
-  enddo
+  ! Calculate the fully-integrated potential,
+  !    <V> = (prod_i<i|)V(prod_i|i>).
+  ! Use this to correct for the overcounting of terms.
+  integrated_stress = output(1)
+  
+  call integrated_stress%braket( states          = subspace_states(1), &
+                               & thermal_energy  = thermal_energy,     &
+                               & subspace        = subspaces(1),       &
+                               & subspace_basis  = subspace_bases(1),  &
+                               & anharmonic_data = anharmonic_data     )
+  
+  correction_stress = integrated_stress%undisplaced_stress() &
+                  & * (1.0_dp-size(subspaces))/size(subspaces)
+  
+  call output%add_constant(correction_stress)
 end function
 end module

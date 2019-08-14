@@ -355,19 +355,15 @@ impure elemental function inner_product_FullSubspaceBasis(this,bra,ket, &
   integer :: i
   
   full_bra = WavevectorState(bra)
+  if (present(ket)) then
+    full_ket = WavevectorState(ket)
+  endif
   
   i = first(this%wavevectors%wavevector == full_bra%wavevector)
   
-  if (present(ket)) then
-    full_ket = WavevectorState(ket)
-    output = this%wavevectors(i)%inner_product( full_bra,       &
-                                              & full_ket,       &
-                                              & anharmonic_data )
-  else
-    output = this%wavevectors(i)%inner_product( &
-            & bra             = full_bra,       &
-            & anharmonic_data = anharmonic_data )
-  endif
+  output = this%wavevectors(i)%inner_product( full_bra,       &
+                                            & full_ket,       &
+                                            & anharmonic_data )
 end function
 
 impure elemental function braket_ComplexMonomial_FullSubspaceBasis(this, &
@@ -388,21 +384,16 @@ impure elemental function braket_ComplexMonomial_FullSubspaceBasis(this, &
   integer :: i
   
   full_bra = WavevectorState(bra)
+  if (present(ket)) then
+    full_ket = WavevectorState(ket)
+  endif
   
   i = first(this%wavevectors%wavevector == full_bra%wavevector)
   
-  if (present(ket)) then
-    full_ket = WavevectorState(ket)
-    output = this%wavevectors(i)%braket( full_bra,       &
-                                       & monomial,       &
-                                       & full_ket,       &
-                                       & anharmonic_data )
-  else
-    output = this%wavevectors(i)%braket(   &
-       & bra             = full_bra,       &
-       & monomial        = monomial,       &
-       & anharmonic_data = anharmonic_data )
-  endif
+  output = this%wavevectors(i)%braket( full_bra,       &
+                                     & monomial,       &
+                                     & full_ket,       &
+                                     & anharmonic_data )
 end function
 
 impure elemental function kinetic_energy_FullSubspaceBasis(this,bra,ket, &
@@ -422,19 +413,15 @@ impure elemental function kinetic_energy_FullSubspaceBasis(this,bra,ket, &
   integer :: i
   
   full_bra = WavevectorState(bra)
+  if (present(ket)) then
+    full_ket = WavevectorState(ket)
+  endif
   
   i = first(this%wavevectors%wavevector == full_bra%wavevector)
   
-  if (present(ket)) then
-    full_ket = WavevectorState(ket)
-    output = this%wavevectors(i)%kinetic_energy( full_bra,       &
-                                               & full_ket,       &
-                                               & anharmonic_data )
-  else
-    output = this%wavevectors(i)%kinetic_energy( &
-             & bra             = full_bra,       &
-             & anharmonic_data = anharmonic_data )
-  endif
+  output = this%wavevectors(i)%kinetic_energy( full_bra,       &
+                                             & full_ket,       &
+                                             & anharmonic_data )
 end function
 
 impure elemental function harmonic_potential_energy_FullSubspaceBasis( &
@@ -454,19 +441,15 @@ impure elemental function harmonic_potential_energy_FullSubspaceBasis( &
   integer :: i
   
   full_bra = WavevectorState(bra)
+  if (present(ket)) then
+    full_ket = WavevectorState(ket)
+  endif
   
   i = first(this%wavevectors%wavevector == full_bra%wavevector)
   
-  if (present(ket)) then
-    full_ket = WavevectorState(ket)
-    output = this%wavevectors(i)%harmonic_potential_energy( full_bra,       &
-                                                          & full_ket,       &
-                                                          & anharmonic_data )
-  else
-    output = this%wavevectors(i)%harmonic_potential_energy( &
-                        & bra             = full_bra,       &
-                        & anharmonic_data = anharmonic_data )
-  endif
+  output = this%wavevectors(i)%harmonic_potential_energy( full_bra,       &
+                                                        & full_ket,       &
+                                                        & anharmonic_data )
 end function
 
 impure elemental function kinetic_stress_FullSubspaceBasis(this,bra,ket, &
@@ -487,21 +470,16 @@ impure elemental function kinetic_stress_FullSubspaceBasis(this,bra,ket, &
   integer :: i
   
   full_bra = WavevectorState(bra)
+  if (present(ket)) then
+    full_ket = WavevectorState(ket)
+  endif
   
   i = first(this%wavevectors%wavevector == full_bra%wavevector)
   
-  if (present(ket)) then
-    full_ket = WavevectorState(ket)
-    output = this%wavevectors(i)%kinetic_stress( full_bra,          &
-                                               & full_ket,          &
-                                               & stress_prefactors, &
-                                               & anharmonic_data    )
-  else
-    output = this%wavevectors(i)%kinetic_stress( &
-        & bra               = full_bra,          &
-        & stress_prefactors = stress_prefactors, &
-        & anharmonic_data   = anharmonic_data    )
-  endif
+  output = this%wavevectors(i)%kinetic_stress( full_bra,          &
+                                             & full_ket,          &
+                                             & stress_prefactors, &
+                                             & anharmonic_data    )
 end function
 
 ! Thermodynamic data. Energy, entropy, free energy etc.
@@ -617,29 +595,26 @@ end function
 
 ! Integrate a monomial.
 impure elemental function integrate_ComplexMonomial_FullSubspaceBasis(this, &
-   & states,monomial,subspace,anharmonic_data) result(output)
+   & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in) :: this
   class(BasisStates),       intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
   type(ComplexMonomial),    intent(in) :: monomial
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(ComplexMonomial)                :: output
   
   type(WavevectorStates) :: full_states
-  type(WavevectorState)  :: ground_state
   
   full_states = WavevectorStates(states)
   
-  ! Identify the ground state.
-  ground_state = full_states%states(minloc(full_states%energies,1))
-  
-  ! Braket the monomial between the ground state.
-  output = this%braket( bra             = ground_state,   &
-                      & monomial        = monomial,       &
-                      & subspace        = subspace,       &
-                      & anharmonic_data = anharmonic_data )
+  output = integrate( this%wavevectors, &
+                    & full_states,      &
+                    & thermal_energy,   &
+                    & monomial,         &
+                    & anharmonic_data   )
 end function
 
 ! ----------------------------------------------------------------------
