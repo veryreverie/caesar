@@ -11,6 +11,7 @@ module anharmonic_common_module
   use anharmonic_data_module
   use subspace_wavefunctions_module
   use stress_prefactors_module
+  use sparse_monomial_module
   use subspace_state_module
   use basis_state_module
   use basis_states_module
