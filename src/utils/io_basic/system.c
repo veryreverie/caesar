@@ -6,12 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
 
-int system_c(const char* input)
-{
-  return system(input);
-}
-
+// --------------------------------------------------
+// Functions which inquire about directory and system properties.
+// --------------------------------------------------
 bool get_cwd_c(const int* result_size, char* cwd)
 {
   char buffer[*result_size];
@@ -122,5 +123,29 @@ bool get_flag_c
       strcpy(output,optarg);
     }
     return true;
+  }
+}
+
+// --------------------------------------------------
+// Functions which run system commands.
+// --------------------------------------------------
+int system_c(const char* input)
+{
+  return system(input);
+}
+
+int mkdir_c(const char* input)
+{
+  int return_code = mkdir(input, 0777);
+  if (return_code==0)
+  {
+    return 0;
+  }
+  else if (errno==EEXIST) {
+    return 0;
+  }
+  else
+  {
+    return errno;
   }
 }

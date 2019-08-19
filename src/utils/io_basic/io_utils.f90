@@ -68,17 +68,6 @@ module io_utils_module
     module procedure call_caesar_String
   end interface
   
-  ! C system call interface.
-  interface
-    function system_c(input) bind(c) result(return_code)
-      use, intrinsic :: iso_c_binding
-      implicit none
-      
-      character(kind=c_char), intent(in) :: input(*)
-      integer(kind=c_int)                :: return_code
-    end function
-  end interface
-  
   ! C getcwd call interface.
   interface
     function get_cwd_c(result_size, cwd) bind(c) result(success)
@@ -127,6 +116,28 @@ module io_utils_module
       character(kind=c_char), intent(out)   :: flag
       character(kind=c_char), intent(out)   :: output(*)
       logical(kind=c_bool)                  :: success
+    end function
+  end interface
+  
+  ! C system call interface.
+  interface
+    function system_c(input) bind(c) result(return_code)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      character(kind=c_char), intent(in) :: input(*)
+      integer(kind=c_int)                :: return_code
+    end function
+  end interface
+  
+  ! C mkdir interface.
+  interface
+    function mkdir_c(input) bind(c) result(return_code)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      
+      character(kind=c_char), intent(in) :: input(*)
+      integer(kind=c_int)                :: return_code
     end function
   end interface
 contains
@@ -189,9 +200,8 @@ subroutine mkdir(dirname)
   
   formatted_dirname = format_path(dirname)
   
-  result_code = system_call('if [ ! -e '//formatted_dirname//' ]; &
-                           &then mkdir '//formatted_dirname//'; exit $?; &
-                           &fi; exit 0' )
+  result_code = mkdir_c(char(formatted_dirname)//char(0))
+  
   if (result_code/=0) then
     call print_line(ERROR//': failed to make directory: '//formatted_dirname)
     call print_line('mkdir return code: '//result_code)
