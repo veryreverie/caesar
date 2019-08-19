@@ -180,24 +180,24 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
     enddo
     call solver%set_f(coefficients, free_energies(i))
     
+    ! Print progress.
+    call print_line('Self-consistency step '//i//'.')
+    call print_line( 'Self-consistency error : '        // &
+                   & l2_norm(coefficients-old_coefficients)//' (Ha)' )
+    call print_line( 'Free energy, F         : ' // &
+                   & free_energies(i)//' (Ha)'       )
+    if (i>1) then
+      call print_line( 'F minus previous F     : '           // &
+                     & (free_energies(i)-free_energies(i-1)) // &
+                     & ' (Ha)'                                  )
+    endif
+    
     ! Check for convergence.
     if (solver%converged( energy_convergence,       &
                         & no_converged_calculations )) then
       output = VscfOutput(subspace_potentials, subspace_states)
       call print_line('Convergence reached.')
       return
-    endif
-    
-    ! Print progress.
-    call print_line('VSCF self-consistency step '//i//'.')
-    call print_line( 'Self-consistency error  : '        // &
-                   & l2_norm(coefficients-old_coefficients)//' (Ha)' )
-    call print_line( 'Free energy, F          : ' // &
-                   & free_energies(i)//' (Ha)'       )
-    if (i>1) then
-      call print_line( 'F minus previous min(F) : '                   // &
-                     & (free_energies(i)-minval(free_energies(:i-1))) // &
-                     & ' (Ha)'                                           )
     endif
     
     ! Increment the loop counter.
