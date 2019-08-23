@@ -141,6 +141,13 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
                   & * (1.0_dp-size(subspaces))/size(subspaces)
   
   call output%add_constant(correction_energy)
+  
+  ! Process the subspace potentials if necessary.
+  output = subspace_bases%process_subspace_potential( output,          &
+                                                    & subspace_states, &
+                                                    & subspaces,       &
+                                                    & thermal_energy,  &
+                                                    & anharmonic_data  )
 end function
 
 ! ----------------------------------------------------------------------
@@ -249,5 +256,12 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
                   & * (1.0_dp-size(subspaces))/size(subspaces)
   
   call output%add_constant(correction_stress)
+  
+  ! Process the subspace stresses if necessary.
+  output = subspace_bases%process_subspace_stress( output,          &
+                                                 & subspace_states, &
+                                                 & subspaces,       &
+                                                 & thermal_energy,  &
+                                                 & anharmonic_data  )
 end function
 end module

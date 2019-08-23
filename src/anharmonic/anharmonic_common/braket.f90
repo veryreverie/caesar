@@ -4,18 +4,27 @@
 module braket_module
   use common_module
   
-  use basis_state_module
   use subspace_state_module
+  use basis_state_module
+  use basis_states_module
   use anharmonic_data_module
   use stress_prefactors_module
   use abstract_classes_module
+  use sparse_monomial_module
   implicit none
   
   private
   
+  public :: integrate
   public :: potential_energy
   public :: potential_stress
   public :: effective_harmonic_observables
+  
+  interface integrate
+    module procedure integrate_SubspaceState
+    module procedure integrate_BasisState
+    module procedure integrate_BasisStates
+  end interface
   
   interface potential_energy
     module procedure potential_energy_BasisState
@@ -31,6 +40,94 @@ module braket_module
     module procedure potential_stress_SubspaceState_SubspaceState
   end interface
 contains
+
+! Integrate a ComplexMonomial.
+impure elemental function integrate_SubspaceState(bra,monomial,ket, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceState),  intent(in)           :: bra
+  type(ComplexMonomial), intent(in)           :: monomial
+  class(SubspaceState),  intent(in), optional :: ket
+  type(AnharmonicData),  intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                       :: output
+  
+  type(ComplexUnivariate), allocatable :: integrated_modes(:)
+  type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
+  
+  integrated_modes = monomial%modes( ids        = bra%mode_ids(),       &
+                                   & paired_ids = bra%paired_mode_ids() )
+  
+  unintegrated_modes = monomial%modes(exclude_ids = bra%mode_ids())
+  
+  output = ComplexMonomial( coefficient = monomial%coefficient,   &
+       &                    modes       = unintegrated_modes    ) &
+       & * bra%integrate( SparseMonomial(integrated_modes),       &
+       &                  ket,                                    &
+       &                  anharmonic_data )
+end function
+
+impure elemental function integrate_BasisState(bra,monomial,ket,subspace, &
+   & basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(BasisState),        intent(in)           :: bra
+  type(ComplexMonomial),    intent(in)           :: monomial
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  type(ComplexUnivariate), allocatable :: integrated_modes(:)
+  type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
+  
+  integrated_modes = monomial%modes(                                &
+     & ids        = basis%mode_ids(subspace,anharmonic_data),       &
+     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
+  
+  unintegrated_modes = monomial%modes(                        &
+     & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
+  
+  output = ComplexMonomial( coefficient = monomial%coefficient,   &
+       &                    modes       = unintegrated_modes    ) &
+       & * basis%integrate( bra,                                  &
+       &                    SparseMonomial(integrated_modes),     &
+       &                    ket,                                  &
+       &                    subspace,                             &
+       &                    anharmonic_data )
+end function
+
+impure elemental function integrate_BasisStates(states,thermal_energy, &
+   & monomial,subspace,basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(BasisStates),       intent(in)           :: states
+  real(dp),                 intent(in)           :: thermal_energy
+  type(ComplexMonomial),    intent(in)           :: monomial
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ComplexMonomial)                          :: output
+  
+  type(ComplexUnivariate), allocatable :: integrated_modes(:)
+  type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
+  
+  integrated_modes = monomial%modes(                                &
+     & ids        = basis%mode_ids(subspace,anharmonic_data),       &
+     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
+  
+  unintegrated_modes = monomial%modes(                        &
+     & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
+  
+  output = ComplexMonomial( coefficient = monomial%coefficient,   &
+       &                    modes       = unintegrated_modes    ) &
+       & * basis%integrate( states,                               &
+       &                    thermal_energy,                       &
+       &                    SparseMonomial(integrated_modes),     &
+       &                    subspace,                             &
+       &                    anharmonic_data )
+end function
 
 ! ----------------------------------------------------------------------
 ! The bra-ket of an arbitrary potential.

@@ -405,6 +405,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                            & pre_pulay_iterations,               &
                            & pre_pulay_damping,                  &
                            & anharmonic_data,                    &
+                           & random_generator,                   &
                            & starting_configuration=vscha_output )
     vscha_states = [( HarmonicStates(vscha_output(i)%states), &
                     & i=1,                                    &
@@ -470,6 +471,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                           & pre_pulay_iterations,              &
                           & pre_pulay_damping,                 &
                           & anharmonic_data,                   &
+                          & random_generator,                  &
                           & starting_configuration=vscf_output )
     
     subspace_potentials = [(vscf_output(j)%potential, j=1, size(vscf_output))]

@@ -14,6 +14,7 @@ module pulay_module
   use io_module
   use linear_algebra_module
   use hermitian_eigenstuff_module
+  use random_module
   implicit none
   
   private
@@ -23,11 +24,13 @@ module pulay_module
   
   type, extends(NoDefaultConstructor) :: PulaySolver
     ! Starting parameters.
-    integer,  private :: pre_pulay_iterations_
-    real(dp), private :: pre_pulay_damping_
-    integer,  private :: max_pulay_iterations_
-    real(dp), private :: gradient_descent_energy_
-    logical,  private :: bound_at_zero_
+    integer,          private :: pre_pulay_iterations_
+    real(dp),         private :: pre_pulay_damping_
+    integer,          private :: max_pulay_iterations_
+    real(dp),         private :: convergence_threshold_
+    integer,          private :: no_converged_calculations_
+    type(RandomReal), private :: random_generator_
+    logical,          private :: bound_at_zero_
     
     ! The current set of x, f(x) and the free energy F(x).
     type(RealVector), allocatable, private :: xs_(:)
@@ -43,6 +46,10 @@ module pulay_module
     ! This also calculates x_{i+1}.
     procedure, public :: set_f
     
+    ! Errors for printing progress.
+    procedure, public :: self_consistency_error
+    procedure, public :: free_energy_change
+    
     ! Check if the Pulay scheme has converged.
     procedure, public :: converged
     
@@ -55,17 +62,19 @@ module pulay_module
 contains
 
 function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping,           &
-   & max_pulay_iterations,gradient_descent_energy,initial_x,bound_at_zero) &
-   & result(this)
+   & max_pulay_iterations,convergence_threshold,no_converged_calculations, &
+   & random_generator,initial_x,bound_at_zero) result(this)
   implicit none
   
-  integer,  intent(in)           :: pre_pulay_iterations
-  real(dp), intent(in)           :: pre_pulay_damping
-  integer,  intent(in)           :: max_pulay_iterations
-  real(dp), intent(in)           :: gradient_descent_energy
-  real(dp), intent(in)           :: initial_x(:)
-  logical,  intent(in), optional :: bound_at_zero
-  type(PulaySolver)              :: this
+  integer,          intent(in)           :: pre_pulay_iterations
+  real(dp),         intent(in)           :: pre_pulay_damping
+  integer,          intent(in)           :: max_pulay_iterations
+  real(dp),         intent(in)           :: convergence_threshold
+  integer,          intent(in)           :: no_converged_calculations
+  type(RandomReal), intent(in)           :: random_generator
+  real(dp),         intent(in)           :: initial_x(:)
+  logical,          intent(in), optional :: bound_at_zero
+  type(PulaySolver)                      :: this
   
   integer :: ialloc
   
@@ -80,7 +89,9 @@ function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping,           &
   this%pre_pulay_iterations_ = pre_pulay_iterations
   this%pre_pulay_damping_ = pre_pulay_damping
   this%max_pulay_iterations_ = max_pulay_iterations
-  this%gradient_descent_energy_ = gradient_descent_energy
+  this%convergence_threshold_ = convergence_threshold
+  this%no_converged_calculations_ = no_converged_calculations
+  this%random_generator_ = random_generator
   if (present(bound_at_zero)) then
     this%bound_at_zero_ = bound_at_zero
   else
@@ -103,6 +114,16 @@ function i(this,offset) result(output)
   class(PulaySolver), intent(in)           :: this
   integer,            intent(in), optional :: offset
   integer                                  :: output
+  
+  if (present(offset)) then
+    if (offset>0) then
+      call print_line(CODE_ERROR//': offset > 0.')
+      call err()
+    elseif (this%i_+offset<1) then
+      call print_line(CODE_ERROR//': i+offset <= 0.')
+      call err()
+    endif
+  endif
   
   if (present(offset)) then
     output = modulo(this%i_+offset-1,this%max_pulay_iterations_)+1
@@ -156,16 +177,20 @@ subroutine set_f(this,f,free_energy)
       this%xs_(this%i()) = pulay( this%xs_(:this%i_-1),            &
                                 & this%fs_(:this%i_-1),            &
                                 & this%free_energies_(:this%i_-1), &
-                                & this%gradient_descent_energy_    )
+                                & this%convergence_threshold_,     &
+                                & this%i(-1),                      &
+                                & this%random_generator_           )
     else
       ! Otherwise, the last max_pulay_iterations are used.
       ! N.B. the pulay scheme is invariant under re-ordering of iterations,
       !    so it does not matter that the latest entries may be in the middle
       !    of the arrays.
-      this%xs_(this%i()) = pulay( this%xs_,                     &
-                                & this%fs_,                     &
-                                & this%free_energies_,          &
-                                & this%gradient_descent_energy_ )
+      this%xs_(this%i()) = pulay( this%xs_,                    &
+                                & this%fs_,                    &
+                                & this%free_energies_,         &
+                                & this%convergence_threshold_, &
+                                & this%i(-1),                  &
+                                & this%random_generator_       )
     endif
   endif
   
@@ -181,25 +206,41 @@ end subroutine
 ! If the Pulay scheme is ill-conditioned (i.e. there is a subspace of
 !    self-consistent solutions) then a gradient-descent scheme will be run
 !    within the self-consistent subspace.
-function pulay(xs,fs,free_energies,gradient_descent_energy) result(output)
+function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
+   & random_generator) result(output)
   implicit none
   
   type(RealVector), intent(in) :: xs(:)
   type(RealVector), intent(in) :: fs(:)
   real(dp),         intent(in) :: free_energies(:)
-  real(dp),         intent(in) :: gradient_descent_energy
+  real(dp),         intent(in) :: convergence_threshold
+  integer,          intent(in) :: last_guess
+  type(RandomReal), intent(in) :: random_generator
   type(RealVector)             :: output
   
-  type(Realvector), allocatable :: errors(:)
+  type(RealVector), allocatable :: errors(:)
   real(dp),         allocatable :: error_matrix(:,:)
   real(dp),         allocatable :: lagrange_vector(:)
   real(dp),         allocatable :: coefficients(:)
   
+  type(RealVector) :: x_projection
+  real(dp)         :: x_projection_norm
+  
+  type(RealVector) :: projection
+  real(dp)         :: projection_norm
+  
+  real(dp) :: prefactor
+  
+  type(SymmetricEigenstuff), allocatable :: unsorted_estuff(:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
   integer :: m,n
   
   integer :: i,j,ialloc
+  
+  integer :: first,last
+  
+  type(RealVector), allocatable :: previous_vectors(:)
   
   ! Each input vector x_i produces an output vector f(x_i) = x_i + e_i.
   ! The aim is to construct x_{n+1} such that e_{n+1}=0.
@@ -265,64 +306,127 @@ function pulay(xs,fs,free_energies,gradient_descent_energy) result(output)
   !    - c_ij is as above,
   !    - F(P_j) is the j'th free energy,
   !    - E is the gradient descent energy.
-  estuff = diagonalise_symmetric(error_matrix)
+  unsorted_estuff = diagonalise_symmetric(error_matrix)
   
-  coefficients = [(0.0_dp, i=1, n)]
+  ! Sort eigenvectors in descending order of |eval|.
+  allocate(estuff(size(unsorted_estuff)), stat=ialloc); call err(ialloc)
+  first = 1
+  last  = n+1
   do i=1,n+1
-    if (abs(estuff(i)%evec(n+1))<abs(estuff(i)%eval)*100) then
-      ! The self-consistency scheme defines the position along the i'th
-      !    eigenvector of the error matrix.
-      coefficients = coefficients        &
-                 & + estuff(i)%evec(:n)  &
-                 & * estuff(i)%evec(n+1) &
-                 & / estuff(i)%eval
+    if (abs(estuff(first)%eval)>abs(estuff(last)%eval)) then
+      estuff(i) = unsorted_estuff(first)
+      first = first+1
     else
-      ! The self-consistency scheme does not define the position along the i'th
-      !    eigenvector. Instead, the gradient descent scheme is called.
-      coefficients = coefficients              &
-                 & + estuff(i)%evec(:n)        &
-                 & * ( vec(estuff(i)%evec(:n)) &
-                 &   * vec(free_energies)      &
-                 &   / gradient_descent_energy )
+      estuff(i) = unsorted_estuff(last)
+      last = last-1
     endif
   enddo
   
-  ! Construct output frequencies as x_n = sum_{i=1}^n a_i x_i.
-  output = sum(coefficients(:n)*(0.99_dp*xs+0.01_dp*fs))
+  coefficients = [(0.0_dp, i=1, n)]
+  allocate(previous_vectors(0), stat=ialloc); call err(ialloc)
+  do i=1,n+1
+    
+    x_projection = sum(estuff(i)%evec(:n)*xs)
+    do j=1,size(previous_vectors)
+      x_projection = x_projection &
+                 & - (x_projection*previous_vectors(j))*previous_vectors(j)
+    enddo
+    x_projection_norm = l2_norm(x_projection)
+    
+    projection = sum(estuff(i)%evec(:n)*errors)
+    projection_norm = l2_norm(projection)
+    
+    if (projection_norm > 1e-10_dp) then
+      ! The self-consistency scheme defines the position along the i'th
+      !    eigenvector of the error matrix.
+      prefactor = estuff(i)%evec(n+1)/estuff(i)%eval
+      previous_vectors = [previous_vectors, x_projection/x_projection_norm]
+    elseif (x_projection_norm > 1e-5_dp) then
+      ! The self-consistency scheme does not define the position along the i'th
+      !    eigenvector. Instead, the gradient descent scheme is called.
+      prefactor = -(vec(estuff(i)%evec(:n))*vec(free_energies)) &
+              & / 10.0_dp*convergence_threshold
+      previous_vectors = [previous_vectors, x_projection/x_projection_norm]
+    else
+      ! The vector is not a true degree of freedom, but cause by the space of
+      !    xs being degenerate.
+      prefactor = 0
+    endif
+    
+    prefactor = max(-0.01_dp,min(prefactor,0.01_dp))
+    
+    coefficients = coefficients + prefactor*estuff(i)%evec(:n)
+  enddo
+  
+  coefficients = max(-2.0_dp,min(coefficients,2.0_dp))
+  
+  ! Construct output frequencies as x_n = sum_{i=1}^n a_i x_i,
+  !    plus a small component of a_i f_i.
+  !output = 0.8_dp*xs(last_guess) + 0.2_dp*fs(last_guess)
+  output = sum(coefficients*(0.8_dp*xs+0.2_dp*fs)) &
+       & + (1-sum(coefficients))*(0.8_dp*xs(last_guess)+0.2_dp*fs(last_guess))
+  
+  output = output                                                      &
+       & + 2e-1_dp                                                     &
+       & * vec( (random_generator%random_numbers(size(output))-0.5_dp) &
+       &      * dble(output-xs(last_guess))                            )
 end function
 
-! Check for convergence.
-function converged(this,energy_convergence,no_converged_calculations) &
-   & result(output)
+! Errors for printing progress.
+function self_consistency_error(this) result(output)
   implicit none
   
   class(PulaySolver), intent(in) :: this
-  real(dp),           intent(in) :: energy_convergence
-  integer,            intent(in) :: no_converged_calculations
+  real(dp)                       :: output
+  
+  output = maxval(abs(dble( this%fs_(this%i(offset=-1)) &
+                        & - this%xs_(this%i(offset=-1)) )))
+end function
+
+function free_energy_change(this) result(output)
+  implicit none
+  
+  class(PulaySolver), intent(in) :: this
+  real(dp)                       :: output
+  
+  output = this%free_energies_(this%i(offset=-1)) &
+       & - this%free_energies_(this%i(offset=-2))
+end function
+
+! Check for convergence.
+function converged(this) result(output)
+  implicit none
+  
+  class(PulaySolver), intent(in) :: this
   logical                        :: output
   
   integer :: i
   
-  if (this%i_<=no_converged_calculations) then
+  if (this%i_<=this%no_converged_calculations_) then
     output = .false.
     return
   endif
   
-  do i=2,no_converged_calculations
+  if (abs(this%free_energy_change())>1) then
+    call print_line(ERROR//': DF > 1')
+    call print_line('free energy: '//this%free_energies_(this%i(offset=-1)))
+    call print_line('DF         : '//(this%free_energies_(this%i(offset=-1)) &
+       & -this%free_energies_(this%i(offset=-2))))
+  endif
+  
+  if (this%self_consistency_error()>this%convergence_threshold_) then
+    output = .false.
+    return
+  endif
+  
+  do i=2,this%no_converged_calculations_
     if ( abs( this%free_energies_(this%i(offset=-i))   &
      &      - this%free_energies_(this%i(offset=-1)) ) &
-     & > energy_convergence                            ) then
+     & > this%convergence_threshold_                   ) then
       output = .false.
       return
     endif
   enddo
-  
-  if (any( abs(dble( this%fs_(this%i(offset=-1))    &
-       &           - this%xs_(this%i(offset=-1)) )) &
-       & > energy_convergence                       )) then
-    output = .false.
-    return
-  endif
   
   output = .true.
 end function
@@ -364,7 +468,9 @@ subroutine pulay_solver_example()
   integer               :: pre_pulay_iterations
   real(dp)              :: pre_pulay_damping
   integer               :: max_pulay_iterations
-  real(dp)              :: gradient_descent_energy
+  real(dp)              :: convergence_threshold
+  integer               :: no_converged_calculations
+  type(RandomReal)      :: random_generator
   real(dp), allocatable :: initial_x(:)
   
   type(PulaySolver) :: solver
@@ -373,8 +479,6 @@ subroutine pulay_solver_example()
   real(dp), allocatable :: f(:)
   real(dp)              :: free_energy
   
-  real(dp) :: convergence_threshold
-  integer  :: no_converged_calculations
   
   integer :: i
   
@@ -393,15 +497,6 @@ subroutine pulay_solver_example()
   ! The total number of previous iterations to keep in memory.
   max_pulay_iterations    = 20
   
-  ! How sensitive the gradient descent is to energy differences.
-  ! Approximately, if energy differences are within gradient_descent_energy
-  !    then the scheme will interpolate,
-  !    and otherwise the scheme will extrapolate.
-  gradient_descent_energy = 1
-  
-  ! The initial configuration of x.
-  initial_x = [0.5_dp, 0.3_dp, 0.7_dp]
-  
   ! The threshold to which |f(x)-x| and energy(x) must converge.
   convergence_threshold     = 1e-10_dp
   
@@ -409,14 +504,22 @@ subroutine pulay_solver_example()
   !    convergence.
   no_converged_calculations = 5
   
+  ! The initial configuration of x.
+  initial_x = [0.5_dp, 0.3_dp, 0.7_dp]
+  
+  ! A random number generator.
+  random_generator = RandomReal()
+  
   ! ------------------------------
   ! Initialise solver.
   ! ------------------------------
-  solver = PulaySolver( pre_pulay_iterations,    &
-                      & pre_pulay_damping,       &
-                      & max_pulay_iterations,    &
-                      & gradient_descent_energy, &
-                      & initial_x                )
+  solver = PulaySolver( pre_pulay_iterations,      &
+                      & pre_pulay_damping,         &
+                      & max_pulay_iterations,      &
+                      & convergence_threshold,     &
+                      & no_converged_calculations, &
+                      & random_generator,          &
+                      & initial_x                  )
   
   ! ------------------------------
   ! Run Pulay scheme.
@@ -430,7 +533,7 @@ subroutine pulay_solver_example()
     f = example_function(x)
     free_energy = example_free_energy(x)
     
-    ! Feed f(x) into the solver.
+    ! Feed f(x) and F(x) into the solver.
     call solver%set_f(f, free_energy)
     
     ! Print progress.
@@ -438,7 +541,7 @@ subroutine pulay_solver_example()
     call print_line('Step '//i//': x= '//x//', f= '//f//', F= '//free_energy)
     
     ! Check for convergence.
-    if (solver%converged(1e-10_dp, 5)) then
+    if (solver%converged()) then
       call print_line('Converged')
       exit
     endif

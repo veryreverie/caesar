@@ -11,7 +11,33 @@ module test_module
   private
   
   public :: startup_test
+  
+  type :: T1
+  contains
+    procedure, public :: print => print_T1
+  end type
+  
+  type, extends(T1) :: T2
+  contains
+    procedure, public :: print => print_T2
+  end type
 contains
+
+subroutine print_T1(this)
+  implicit none
+  
+  class(T1), intent(in) :: this
+  
+  call print_line('T1')
+end subroutine
+
+subroutine print_T2(this)
+  implicit none
+  
+  class(T2), intent(in) :: this
+  
+  call print_line('T2')
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Generates keywords and helptext.
@@ -40,16 +66,10 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
+  type(T1) :: t_1
+  type(T2) :: t_2
   
-  logical, allocatable :: a
-  
-  call print_line(set_default(a,.true.))
-  call print_line(set_default(a,.false.))
-  a = .true.
-  call print_line(set_default(a,.true.))
-  call print_line(set_default(a,.false.))
-  a = .false.
-  call print_line(set_default(a,.true.))
-  call print_line(set_default(a,.false.))
+  call t_1%print()
+  call t_2%print()
 end subroutine
 end module

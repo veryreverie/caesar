@@ -23,9 +23,9 @@ module monomial_state_complex_module
     procedure, public, nopass :: representation => &
                                & representation_MonomialStateComplex
     
-    procedure, public :: modes => modes_MonomialStateComplex
-    
-    procedure, public :: set_frequency => set_frequency_MonomialStateComplex
+    procedure, public :: mode_ids => mode_ids_MonomialStateComplex
+    procedure, public :: paired_mode_ids => &
+                       & paired_mode_ids_MonomialStateComplex
     
     procedure, public :: occupation => occupation_MonomialStateComplex
     
@@ -37,8 +37,7 @@ module monomial_state_complex_module
     
     procedure, public :: inner_product => &
                        & inner_product_MonomialStateComplex
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_MonomialStateComplex
+    procedure, public :: integrate => integrate_MonomialStateComplex
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_MonomialStateComplex
     procedure, public :: harmonic_potential_energy => &
@@ -120,26 +119,23 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns the modes spanned by the state.
 ! ----------------------------------------------------------------------
-function modes_MonomialStateComplex(this) result(output)
+function mode_ids_MonomialStateComplex(this) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in) :: this
   integer, allocatable                    :: output(:)
   
-  output = [this%modes_%id(), this%modes_%paired_id()]
+  output = this%modes_%id()
 end function
 
-! ----------------------------------------------------------------------
-! Set the frequency.
-! ----------------------------------------------------------------------
-impure elemental subroutine set_frequency_MonomialStateComplex(this,frequency)
+function paired_mode_ids_MonomialStateComplex(this) result(output)
   implicit none
   
-  class(MonomialStateComplex), intent(inout) :: this
-  real(dp),                    intent(in)    :: frequency
+  class(MonomialStateComplex), intent(in) :: this
+  integer, allocatable                    :: output(:)
   
-  this%frequency = frequency
-end subroutine
+  output = this%modes_%paired_id()
+end function
 
 ! ----------------------------------------------------------------------
 ! Returns the total power of a given state.
@@ -252,25 +248,19 @@ impure elemental function inner_product_MonomialStateComplex(this, &
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_MonomialStateComplex(this, &
+impure elemental function integrate_MonomialStateComplex(this, &
    & monomial,ket,anharmonic_data) result(output)
   implicit none
   
   class(MonomialStateComplex), intent(in)           :: this
-  type(ComplexMonomial),       intent(in)           :: monomial
+  type(SparseMonomial),        intent(in)           :: monomial
   class(SubspaceState),        intent(in), optional :: ket
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                             :: output
+  complex(dp)                                       :: output
   
   type(MonomialStateComplex) :: monomial_ket
   
-  type(ComplexUnivariate), allocatable :: monomial_modes(:)
-  complex(dp)                          :: coefficient
-  
   integer :: i
-  
-  monomial_modes = monomial%modes( ids        = this%modes_%id(),       &
-                                 & paired_ids = this%modes_%paired_id() )
   
   ! Calculate the coefficient of <bra|X|ket>,
   !    up to the factor of 1/sqrt(2Nw)^n.
@@ -279,26 +269,19 @@ impure elemental function braket_ComplexMonomial_MonomialStateComplex(this, &
   !    - n is the power of the modes in the monomial which are integrated.
   if (present(ket)) then
     monomial_ket = MonomialStateComplex(ket)
-    coefficient = monomial%coefficient                             &
-              & * product(this%modes_%braket( monomial_ket%modes_, &
-              &                               monomial_modes       ))
+    output = product(this%modes_%braket( monomial_ket%modes_, &
+                                       & monomial%modes       ))
   else
-    coefficient = monomial%coefficient                       &
-              & * product(this%modes_%braket( this%modes_,   &
-              &                               monomial_modes ))
+    output = product(this%modes_%braket( this%modes_,   &
+                                       & monomial%modes ))
   endif
   
   ! Include the factor of (2Nw)^(n/2).
-  coefficient = coefficient                                          &
-           &  / sqrt( 2.0_dp                                         &
-           &        * anharmonic_data%anharmonic_supercell%sc_size   &
-           &        * this%frequency                               ) &
-           & ** sum(monomial_modes%total_power())
-  
-  ! Construct the output, from the coefficient and the un-integrated modes.
-  output = ComplexMonomial(                                       &
-     & coefficient = coefficient,                                 &
-     & modes       = monomial%modes(exclude_ids=this%modes_%id()) )
+  output = output                                          &
+      &  / sqrt( 2.0_dp                                         &
+      &        * anharmonic_data%anharmonic_supercell%sc_size   &
+      &        * this%frequency                               ) &
+      & ** sum(monomial%modes%total_power())
 end function
 
 impure elemental function kinetic_energy_MonomialStateComplex(this,ket, &

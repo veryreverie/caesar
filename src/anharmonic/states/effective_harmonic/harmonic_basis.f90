@@ -23,15 +23,16 @@ module harmonic_basis_module
     
     procedure, public :: initial_states => initial_states_HarmonicBasis
     procedure, public :: calculate_states => calculate_states_HarmonicBasis
-    procedure, public :: modes => modes_HarmonicBasis
+    procedure, public :: mode_ids => mode_ids_HarmonicBasis
+    procedure, public :: paired_mode_ids => paired_mode_ids_HarmonicBasis
     
     ! Procedures involving individual states.
     ! N.B. these are all left blank, as individual harmonic states are
     !    currently treated under a different framework.
     procedure, public :: inner_product => &
                        & inner_product_HarmonicBasis
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_HarmonicBasis
+    procedure, public :: integrate_BasisState => &
+                       & integrate_BasisState_HarmonicBasis
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_HarmonicBasis
     procedure, public :: harmonic_potential_energy => &
@@ -44,8 +45,8 @@ module harmonic_basis_module
                        & thermodynamic_data_HarmonicBasis
     procedure, public :: wavefunctions => &
                        & wavefunctions_HarmonicBasis
-    procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_HarmonicBasis
+    procedure, public :: integrate_BasisStates => &
+                       & integrate_BasisStates_HarmonicBasis
     
     ! I/O.
     procedure, public :: read  => read_HarmonicBasis
@@ -164,7 +165,7 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,   &
   output = BasisStatesPointer(HarmonicStates(this%subspace_id, frequency))
 end function
 
-function modes_HarmonicBasis(this,subspace,anharmonic_data) result(output)
+function mode_ids_HarmonicBasis(this,subspace,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicBasis),     intent(in) :: this
@@ -172,7 +173,31 @@ function modes_HarmonicBasis(this,subspace,anharmonic_data) result(output)
   type(AnharmonicData),     intent(in) :: anharmonic_data
   integer, allocatable                 :: output(:)
   
-  output = subspace%mode_ids
+  type(ComplexMode), allocatable :: modes(:)
+  
+  modes = subspace%modes(anharmonic_data%complex_modes)
+  
+  modes = modes(filter(modes%id<=modes%paired_id))
+  
+  output = modes%id
+end function
+
+function paired_mode_ids_HarmonicBasis(this,subspace,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(HarmonicBasis),     intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  integer, allocatable                 :: output(:)
+  
+  type(ComplexMode), allocatable :: modes(:)
+  
+  modes = subspace%modes(anharmonic_data%complex_modes)
+  
+  modes = modes(filter(modes%id<=modes%paired_id))
+  
+  output = modes%paired_id
 end function
 
 ! Procedures involving individual states.
@@ -194,17 +219,17 @@ impure elemental function inner_product_HarmonicBasis(this,bra,ket, &
   call err()
 end function
 
-impure elemental function braket_ComplexMonomial_HarmonicBasis(this, &
+impure elemental function integrate_BasisState_HarmonicBasis(this, &
    & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicBasis),     intent(in)           :: this
   class(BasisState),        intent(in)           :: bra
-  type(ComplexMonomial),    intent(in)           :: monomial
+  type(SparseMonomial),     intent(in)           :: monomial
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                          :: output
+  complex(dp)                                    :: output
   
   call print_line(CODE_ERROR//': Procedures involving individual states have &
      &not been implemented for HarmonicBasis.')
@@ -300,45 +325,26 @@ impure elemental function wavefunctions_HarmonicBasis(this,states, &
   call err()
 end function
 
-impure elemental function integrate_ComplexMonomial_HarmonicBasis(this, &
+impure elemental function integrate_BasisStates_HarmonicBasis(this, &
    & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicBasis),     intent(in) :: this
   class(BasisStates),       intent(in) :: states
   real(dp),                 intent(in) :: thermal_energy
-  type(ComplexMonomial),    intent(in) :: monomial
+  type(SparseMonomial),     intent(in) :: monomial
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(ComplexMonomial)                :: output
+  complex(dp)                          :: output
   
   type(HarmonicStates) :: harmonic_states
   
-  type(ComplexMode),       allocatable :: modes(:)
-  type(ComplexUnivariate), allocatable :: integrated_modes(:)
-  type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
-  complex(dp)                          :: coefficient
-  
   harmonic_states = HarmonicStates(states)
   
-  modes = subspace%modes(anharmonic_data%complex_modes)
-  modes = modes(filter(modes%id<=modes%paired_id))
-  
-  ! Separate the monomial into modes to be integrated and modes which will
-  !    be left untouched.
-  integrated_modes = monomial%modes( ids        = modes%id,       &
-                                   & paired_ids = modes%paired_id )
-  unintegrated_modes = monomial%modes(exclude_ids=modes%id)
-  
-  ! Integrate the modes to be integrated.
-  coefficient = monomial%coefficient                           &
-            & * product(integrated_modes%harmonic_expectation( &
-            &             harmonic_states%frequency,           &
-            &             thermal_energy,                      &
-            &             anharmonic_data%anharmonic_supercell ))
-  
-  output = ComplexMonomial( coefficient = coefficient,       &
-                          & modes       = unintegrated_modes )
+  output = product(monomial%modes%harmonic_expectation( &
+                 & harmonic_states%frequency,           &
+                 & thermal_energy,                      &
+                 & anharmonic_data%anharmonic_supercell ))
 end function
 
 ! I/O.

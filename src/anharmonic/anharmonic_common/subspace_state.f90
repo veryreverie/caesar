@@ -7,6 +7,7 @@ module subspace_state_module
   
   use stress_prefactors_module
   use anharmonic_data_module
+  use sparse_monomial_module
   implicit none
   
   private
@@ -21,11 +22,10 @@ module subspace_state_module
        & representation
     procedure, public :: startup => startup_SubspaceState
     
-    ! Return a list of modes across which the state is defined.
-    procedure(modes_SubspaceState), public, deferred :: modes
-    
-    ! Set the frequency of the state.
-    procedure(set_frequency_SubspaceState), public, deferred :: set_frequency
+    ! Return the id of the modes across which the state is defined.
+    procedure(mode_ids_SubspaceState), public, deferred :: mode_ids
+    procedure(paired_mode_ids_SubspaceState), public, deferred :: &
+       & paired_mode_ids
     
     ! Returns the occupation of the state.
     procedure(occupation_SubspaceState), public, deferred :: occupation
@@ -37,15 +37,8 @@ module subspace_state_module
     procedure(inner_product_SubspaceState), public, deferred :: inner_product
     
     ! Integrals of the form <i|V|j>
-    generic, public :: braket =>                 &
-                     & braket_ComplexMonomial,   &
-                     & braket_ComplexPolynomial
     ! Either <this|V|this> or <this|V|ket>, where V is a ComplexMonomial.
-    procedure(braket_ComplexMonomial_SubspaceState), public, deferred :: &
-       & braket_ComplexMonomial
-    ! Either <this|V|this> or <this|V|ket>, where V is a ComplexPolynomial.
-    procedure, public :: braket_ComplexPolynomial => &
-                       & braket_ComplexPolynomial_SubspaceState
+    procedure(integrate_SubspaceState), public, deferred :: integrate
     
     ! Either <this|T|this> or <this|T|ket>, where T is the kinetic energy.
     procedure(kinetic_energy_SubspaceState), public, deferred :: &
@@ -73,9 +66,10 @@ module subspace_state_module
     
     procedure, public :: state => state_SubspaceStatePointer
     
-    procedure, public :: modes => modes_SubspaceStatePointer
-    
-    procedure, public :: set_frequency => set_frequency_SubspaceStatePointer
+    procedure, public :: mode_ids => &
+                       & mode_ids_SubspaceStatePointer
+    procedure, public :: paired_mode_ids => &
+                       & paired_mode_ids_SubspaceStatePointer
     
     procedure, public :: occupation => occupation_SubspaceStatePointer
     
@@ -84,8 +78,8 @@ module subspace_state_module
     procedure, public :: inner_product => &
                        & inner_product_SubspaceStatePointer
     
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_SubspaceStatePointer
+    procedure, public :: integrate => &
+                       & integrate_SubspaceStatePointer
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_SubspaceStatePointer
     procedure, public :: harmonic_potential_energy => &
@@ -111,7 +105,7 @@ module subspace_state_module
       type(String) :: output
     end function
     
-    function modes_SubspaceState(this) result(output)
+    function mode_ids_SubspaceState(this) result(output)
       import SubspaceState
       implicit none
       
@@ -119,14 +113,13 @@ module subspace_state_module
       integer, allocatable             :: output(:)
     end function
     
-    impure elemental subroutine set_frequency_SubspaceState(this,frequency)
+    function paired_mode_ids_SubspaceState(this) result(output)
       import SubspaceState
-      import dp
       implicit none
       
-      class(SubspaceState), intent(inout) :: this
-      real(dp),             intent(in)    :: frequency
-    end subroutine
+      class(SubspaceState), intent(in) :: this
+      integer, allocatable             :: output(:)
+    end function
     
     impure elemental function occupation_SubspaceState(this) result(output)
       import SubspaceState
@@ -163,18 +156,19 @@ module subspace_state_module
       real(dp)                                   :: output
     end function
     
-    impure elemental function braket_ComplexMonomial_SubspaceState(this, &
-       & monomial,ket,anharmonic_data) result(output)
+    impure elemental function integrate_SubspaceState(this,monomial,ket, &
+       & anharmonic_data) result(output)
       import SubspaceState
-      import ComplexMonomial
+      import SparseMonomial
       import AnharmonicData
+      import dp
       implicit none
       
-      class(SubspaceState),     intent(in)           :: this
-      type(ComplexMonomial),    intent(in)           :: monomial
-      class(SubspaceState),     intent(in), optional :: ket
-      type(AnharmonicData),     intent(in)           :: anharmonic_data
-      type(ComplexMonomial)                          :: output
+      class(SubspaceState), intent(in)           :: this
+      type(SparseMonomial), intent(in)           :: monomial
+      class(SubspaceState), intent(in), optional :: ket
+      type(AnharmonicData), intent(in)           :: anharmonic_data
+      complex(dp)                                :: output
     end function
     
     impure elemental function kinetic_energy_SubspaceState(this,ket, &
@@ -303,7 +297,7 @@ end function
 ! --------------------------------------------------
 ! SubspaceStatePointer wrappers for SubspaceState methods.
 ! --------------------------------------------------
-function modes_SubspaceStatePointer(this) result(output)
+function mode_ids_SubspaceStatePointer(this) result(output)
   implicit none
   
   class(SubspaceStatePointer), intent(in) :: this
@@ -311,19 +305,19 @@ function modes_SubspaceStatePointer(this) result(output)
   
   call this%check()
   
-  output = this%state_%modes()
+  output = this%state_%mode_ids()
 end function
 
-impure elemental subroutine set_frequency_SubspaceStatePointer(this,frequency)
+function paired_mode_ids_SubspaceStatePointer(this) result(output)
   implicit none
   
-  class(SubspaceStatePointer), intent(inout) :: this
-  real(dp),                    intent(in)    :: frequency
+  class(SubspaceStatePointer), intent(in) :: this
+  integer, allocatable                    :: output(:)
   
   call this%check()
   
-  call this%state_%set_frequency(frequency)
-end subroutine
+  output = this%state_%paired_mode_ids()
+end function
 
 impure elemental function occupation_SubspaceStatePointer(this) result(output)
   implicit none
@@ -363,19 +357,19 @@ impure elemental function inner_product_SubspaceStatePointer(this,ket, &
   output = this%state_%inner_product(ket, anharmonic_data)
 end function
 
-impure elemental function braket_ComplexMonomial_SubspaceStatePointer(this, &
-   & monomial,ket,anharmonic_data) result(output)
+impure elemental function integrate_SubspaceStatePointer(this,monomial,ket, &
+   & anharmonic_data) result(output)
   implicit none
   
   class(SubspaceStatePointer), intent(in)           :: this
-  type(ComplexMonomial),       intent(in)           :: monomial
+  type(SparseMonomial),        intent(in)           :: monomial
   class(SubspaceState),        intent(in), optional :: ket
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                             :: output
+  complex(dp)                                       :: output
   
   call this%check()
   
-  output = this%state_%braket(monomial, ket, anharmonic_data)
+  output = this%state_%integrate(monomial, ket, anharmonic_data)
 end function
 
 impure elemental function kinetic_energy_SubspaceStatePointer(this,ket, &
@@ -419,25 +413,6 @@ impure elemental function kinetic_stress_SubspaceStatePointer(this,ket, &
   call this%check()
   
   output = this%state_%kinetic_stress(ket, stress_prefactors, anharmonic_data)
-end function
-
-! --------------------------------------------------
-! Concrete BasisState methods.
-! --------------------------------------------------
-impure elemental function braket_ComplexPolynomial_SubspaceState(this, &
-   & polynomial,ket,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceState),     intent(in)           :: this
-  type(ComplexPolynomial),  intent(in)           :: polynomial
-  class(SubspaceState),     intent(in), optional :: ket
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexPolynomial)                        :: output
-  
-  type(ComplexMonomial), allocatable :: monomials(:)
-  
-  monomials = this%braket(polynomial%terms, ket, anharmonic_data)
-  output = ComplexPolynomial(monomials)
 end function
 
 ! --------------------------------------------------

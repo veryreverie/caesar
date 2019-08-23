@@ -36,14 +36,11 @@ module wavevector_basis_module
     type(SubspaceStatePointer), allocatable, private :: harmonic_states_(:)
     type(CoupledStates),        allocatable, private :: harmonic_couplings_(:)
   contains
-    ! Set the frequency of the basis.
-    procedure, public :: set_frequency => set_frequency_WavevectorBasis
-    
     ! State procedures.
     procedure, public :: inner_product => &
                        & inner_product_WavevectorBasis
-    procedure, public :: braket => &
-                       & braket_WavevectorBasis
+    procedure, public :: integrate => &
+                       & integrate_WavevectorBasis
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_WavevectorBasis
     procedure, public :: harmonic_potential_energy => &
@@ -58,6 +55,10 @@ module wavevector_basis_module
                        & initial_states_WavevectorBasis
     procedure, public :: calculate_states => &
                        & calculate_states_WavevectorBasis
+    
+    ! Mode IDs.
+    procedure, public :: mode_ids => mode_ids_WavevectorBasis
+    procedure, public :: paired_mode_ids => paired_mode_ids_WavevectorBasis
     
     ! I/O.
     procedure, public :: read  => read_WavevectorBasis
@@ -111,22 +112,6 @@ function new_WavevectorBasis(maximum_power,expansion_order,subspace_id, &
   this%harmonic_states_    = harmonic_states
   this%harmonic_couplings_ = harmonic_couplings
 end function
-
-! Set the frequency of the basis.
-impure elemental subroutine set_frequency_WavevectorBasis(this,frequency)
-  implicit none
-  
-  class(WavevectorBasis), intent(inout) :: this
-  real(dp),               intent(in)    :: frequency
-  
-  integer :: i
-  
-  this%frequency = frequency
-  
-  do i=1,size(this%harmonic_states_)
-    call this%harmonic_states_(i)%set_frequency(frequency)
-  enddo
-end subroutine
 
 ! ----------------------------------------------------------------------
 ! Generates states in a given subspace, up to a given power.
@@ -578,43 +563,39 @@ impure elemental function inner_product_WavevectorBasis(this,bra,ket, &
   endif
 end function
 
-impure elemental function braket_WavevectorBasis(this,bra,monomial,ket, &
+impure elemental function integrate_WavevectorBasis(this,bra,monomial,ket, &
    & anharmonic_data) result(output)
   implicit none
   
   class(WavevectorBasis), intent(in)           :: this
   type(WavevectorState),  intent(in)           :: bra
-  type(ComplexMonomial),  intent(in)           :: monomial
+  type(SparseMonomial),   intent(in)           :: monomial
   type(WavevectorState),  intent(in), optional :: ket
   type(AnharmonicData),   intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                        :: output
+  complex(dp)                                  :: output
   
-  type(ComplexMonomial) :: term
+  complex(dp) :: term
   
   integer :: i,j,k
   
+  output = 0.0_dp
   do i=1,size(this%harmonic_states_)
     do j=1,size(this%harmonic_couplings_(i))
       k = this%harmonic_couplings_(i)%id(j)
-      term = this%harmonic_states_(i)%braket( monomial,                 &
-                                            & this%harmonic_states_(k), &
-                                            & anharmonic_data           )
-      
-      if (i==1 .and. j==1) then
-        output = term
-        output%coefficient = 0
-      endif
+      term = this%harmonic_states_(i)%integrate( monomial,                 &
+                                               & this%harmonic_states_(k), &
+                                               & anharmonic_data           )
       
       if (present(ket)) then
-        output%coefficient = output%coefficient  &
-                         & + bra%coefficients(i) &
-                         & * term%coefficient    &
-                         & * ket%coefficients(k)
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * ket%coefficients(k)
       else
-        output%coefficient = output%coefficient  &
-                         & + bra%coefficients(i) &
-                         & * term%coefficient    &
-                         & * bra%coefficients(k)
+        output = output              &
+             & + bra%coefficients(i) &
+             & * term                &
+             & * bra%coefficients(k)
       endif
     enddo
   enddo
@@ -929,12 +910,12 @@ function integrate_ComplexMonomial_WavevectorBases(bases,states, &
    & thermal_energy,monomial,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis),   intent(in) :: bases(:)
-  type(WavevectorStates),   intent(in) :: states
-  real(dp),                 intent(in) :: thermal_energy
-  type(ComplexMonomial),    intent(in) :: monomial
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(ComplexMonomial)                :: output
+  class(WavevectorBasis), intent(in) :: bases(:)
+  type(WavevectorStates), intent(in) :: states
+  real(dp),               intent(in) :: thermal_energy
+  type(SparseMonomial),   intent(in) :: monomial
+  type(AnharmonicData),   intent(in) :: anharmonic_data
+  complex(dp)                        :: output
   
   ! TODO
   type(WavevectorState) :: ground_state
@@ -945,9 +926,28 @@ function integrate_ComplexMonomial_WavevectorBases(bases,states, &
   
   i = first(bases%wavevector==ground_state%wavevector)
   
-  output = bases(i)%braket( bra             = ground_state,   &
-                          & monomial        = monomial,       &
-                          & anharmonic_data = anharmonic_data )
+  output = bases(i)%integrate( bra             = ground_state,   &
+                             & monomial        = monomial,       &
+                             & anharmonic_data = anharmonic_data )
+end function
+
+! Mode IDs.
+function mode_ids_WavevectorBasis(this) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%harmonic_states_(1)%mode_ids()
+end function
+
+function paired_mode_ids_WavevectorBasis(this) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: this
+  integer, allocatable               :: output(:)
+  
+  output = this%harmonic_states_(1)%paired_mode_ids()
 end function
 
 ! ----------------------------------------------------------------------

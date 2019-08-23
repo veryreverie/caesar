@@ -897,10 +897,9 @@ function coefficients_PolynomialPotential(this,frequency,anharmonic_data) &
   
   integer :: i
   
-  output = [ this%reference_energy_,                              &
-           & [( this%basis_functions_(i)%coefficients(frequency), &
-           &    i=1,                                              &
-           &    size(this%basis_functions_)                       )] ]
+  output = [( this%basis_functions_(i)%coefficients(frequency), &
+            & i=1,                                              &
+            & size(this%basis_functions_)                       )]
 end function
 
 subroutine set_coefficients_PolynomialPotential(this,coefficients,frequency, &
@@ -914,9 +913,7 @@ subroutine set_coefficients_PolynomialPotential(this,coefficients,frequency, &
   
   integer :: i,j
   
-  this%reference_energy_ = coefficients(1)
-  
-  j = 1
+  j = 0
   do i=1,size(this%basis_functions_)
     call this%basis_functions_(i)%set_coefficients(          &
        & coefficients(j+1:j+size(this%basis_functions_(i))), &

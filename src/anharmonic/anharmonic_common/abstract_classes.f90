@@ -27,6 +27,7 @@ module abstract_classes_module
   use subspace_state_module
   use basis_state_module
   use basis_states_module
+  use sparse_monomial_module
   implicit none
   
   private
@@ -58,21 +59,27 @@ module abstract_classes_module
     procedure(calculate_states_SubspaceBasis), public, deferred :: &
        & calculate_states
     
-    procedure(modes_SubspaceBasis), public, deferred :: modes
+    procedure, public :: process_subspace_potential => &
+                       & process_subspace_potential_SubspaceBasis
+    procedure, public :: process_subspace_stress => &
+                       & process_subspace_stress_SubspaceBasis
+    
+    procedure(mode_ids_SubspaceBasis), public, deferred :: mode_ids
+    procedure(paired_mode_ids_SubspaceBasis), public, deferred :: &
+       & paired_mode_ids
     
     ! If ket is not given, <this|this>, otherwise <this|ket>.
     procedure(inner_product_SubspaceBasis), public, deferred :: inner_product
     
     ! Integrals of the form <i|V|j>
-    generic, public :: braket =>                 &
-                     & braket_ComplexMonomial,   &
-                     & braket_ComplexPolynomial
     ! Either <this|V|this> or <this|V|ket>, where V is a ComplexMonomial.
-    procedure(braket_ComplexMonomial_SubspaceBasis), public, deferred :: &
-       & braket_ComplexMonomial
-    ! Either <this|V|this> or <this|V|ket>, where V is a ComplexPolynomial.
-    procedure, public :: braket_ComplexPolynomial => &
-                       & braket_ComplexPolynomial_SubspaceBasis
+    generic, public :: integrate =>          &
+                     & integrate_BasisState, &
+                     & integrate_BasisStates
+    procedure(integrate_BasisState_SubspaceBasis), public, deferred :: &
+       & integrate_BasisState
+    procedure(integrate_BasisStates_SubspaceBasis), public, deferred :: &
+       & integrate_BasisStates
     
     ! Either <this|T|this> or <this|T|ket>, where T is the kinetic energy.
     procedure(kinetic_energy_SubspaceBasis), public, deferred :: &
@@ -93,14 +100,6 @@ module abstract_classes_module
        & thermodynamic_data
     procedure(wavefunctions_SubspaceBasis),      public, deferred :: &
        & wavefunctions
-    
-    generic, public :: integrate =>               &
-                     & integrate_ComplexMonomial, &
-                     & integrate_ComplexPolynomial
-    procedure(integrate_ComplexMonomial_SubspaceBasis), public, deferred :: &
-       & integrate_ComplexMonomial
-    procedure, public :: integrate_ComplexPolynomial => &
-                       & integrate_ComplexPolynomial_SubspaceBasis
   end type
   
   type, extends(SubspaceBasis) :: SubspaceBasisPointer
@@ -118,12 +117,19 @@ module abstract_classes_module
     procedure, public :: calculate_states => &
                        & calculate_states_SubspaceBasisPointer
     
-    procedure, public :: modes => modes_SubspaceBasisPointer
+    procedure, public :: process_subspace_potential => &
+                       & process_subspace_potential_SubspaceBasisPointer
+    procedure, public :: process_subspace_stress => &
+                       & process_subspace_stress_SubspaceBasisPointer
+    
+    procedure, public :: mode_ids => mode_ids_SubspaceBasisPointer
+    procedure, public :: paired_mode_ids => &
+                       & paired_mode_ids_SubspaceBasisPointer
     
     procedure, public :: inner_product => &
                        & inner_product_SubspaceBasisPointer
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_SubspaceBasisPointer
+    procedure, public :: integrate_BasisState => &
+                       & integrate_BasisState_SubspaceBasisPointer
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_SubspaceBasisPointer
     procedure, public :: harmonic_potential_energy => &
@@ -134,8 +140,8 @@ module abstract_classes_module
     procedure, public :: thermodynamic_data => &
                        & thermodynamic_data_SubspaceBasisPointer
     procedure, public :: wavefunctions => wavefunctions_SubspaceBasisPointer
-    procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_SubspaceBasisPointer
+    procedure, public :: integrate_BasisStates => &
+                       & integrate_BasisStates_SubspaceBasisPointer
     
     ! I/O.
     procedure, public :: read  => read_SubspaceBasisPointer
@@ -393,7 +399,21 @@ module abstract_classes_module
       type(BasisStatesPointer)             :: output
     end function
     
-    function modes_SubspaceBasis(this,subspace,anharmonic_data) result(output)
+    function mode_ids_SubspaceBasis(this,subspace,anharmonic_data) &
+       & result(output)
+      import SubspaceBasis
+      import DegenerateSubspace
+      import AnharmonicData
+      implicit none
+      
+      class(SubspaceBasis),     intent(in) :: this
+      type(DegenerateSubspace), intent(in) :: subspace
+      type(AnharmonicData),     intent(in) :: anharmonic_data
+      integer, allocatable                 :: output(:)
+    end function
+    
+    function paired_mode_ids_SubspaceBasis(this,subspace,anharmonic_data) &
+       & result(output)
       import SubspaceBasis
       import DegenerateSubspace
       import AnharmonicData
@@ -422,22 +442,23 @@ module abstract_classes_module
       real(dp)                                       :: output
     end function
     
-    impure elemental function braket_ComplexMonomial_SubspaceBasis(this, &
+    impure elemental function integrate_BasisState_SubspaceBasis(this, &
        & bra,monomial,ket,subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisState
-      import ComplexMonomial
+      import SparseMonomial
       import DegenerateSubspace
       import AnharmonicData
+      import dp
       implicit none
       
       class(SubspaceBasis),     intent(in)           :: this
       class(BasisState),        intent(in)           :: bra
-      type(ComplexMonomial),    intent(in)           :: monomial
+      type(SparseMonomial),     intent(in)           :: monomial
       class(BasisState),        intent(in), optional :: ket
       type(DegenerateSubspace), intent(in)           :: subspace
       type(AnharmonicData),     intent(in)           :: anharmonic_data
-      type(ComplexMonomial)                          :: output
+      complex(dp)                                    :: output
     end function
     
     impure elemental function kinetic_energy_SubspaceBasis(this,bra,ket, &
@@ -534,13 +555,13 @@ module abstract_classes_module
       type(SubspaceWavefunctionsPointer)   :: output
     end function
     
-    impure elemental function integrate_ComplexMonomial_SubspaceBasis(this, &
-       & states,thermal_energy,monomial,subspace,anharmonic_data)           &
+    impure elemental function integrate_BasisStates_SubspaceBasis(this, &
+       & states,thermal_energy,monomial,subspace,anharmonic_data)       &
        & result(output)
       import SubspaceBasis
       import BasisStates
       import dp
-      import ComplexMonomial
+      import SparseMonomial
       import DegenerateSubspace
       import QpointData
       import AnharmonicData
@@ -549,10 +570,10 @@ module abstract_classes_module
       class(SubspaceBasis),     intent(in) :: this
       class(BasisStates),       intent(in) :: states
       real(dp),                 intent(in) :: thermal_energy
-      type(ComplexMonomial),    intent(in) :: monomial
+      type(SparseMonomial),     intent(in) :: monomial
       type(DegenerateSubspace), intent(in) :: subspace
       type(AnharmonicData),     intent(in) :: anharmonic_data
-      type(ComplexMonomial)                :: output
+      complex(dp)                          :: output
     end function
     
     ! PotentialData procedures.
@@ -1075,7 +1096,50 @@ impure elemental function calculate_states_SubspaceBasisPointer(this,     &
                                        & anharmonic_data            )
 end function
 
-function modes_SubspaceBasisPointer(this,subspace,anharmonic_data) &
+impure elemental function process_subspace_potential_SubspaceBasisPointer( &
+   & this,potential,states,subspace,thermal_energy,anharmonic_data)        &
+   & result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in) :: this
+  class(PotentialData),        intent(in) :: potential
+  class(BasisStates),          intent(in) :: states
+  type(DegenerateSubspace),    intent(in) :: subspace
+  real(dp),                    intent(in) :: thermal_energy
+  type(AnharmonicData),        intent(in) :: anharmonic_data
+  type(PotentialPointer)                  :: output
+  
+  call this%check()
+  
+  output = this%basis_%process_subspace_potential( potential,      &
+                                                 & states,         &
+                                                 & subspace,       &
+                                                 & thermal_energy, &
+                                                 & anharmonic_data )
+end function
+
+impure elemental function process_subspace_stress_SubspaceBasisPointer(this, &
+   & stress,states,subspace,thermal_energy,anharmonic_data) result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in) :: this
+  class(stressData),           intent(in) :: stress
+  class(BasisStates),          intent(in) :: states
+  type(DegenerateSubspace),    intent(in) :: subspace
+  real(dp),                    intent(in) :: thermal_energy
+  type(AnharmonicData),        intent(in) :: anharmonic_data
+  type(stressPointer)                     :: output
+  
+  call this%check()
+  
+  output = this%basis_%process_subspace_stress( stress,         &
+                                              & states,         &
+                                              & subspace,       &
+                                              & thermal_energy, &
+                                              & anharmonic_data )
+end function
+
+function mode_ids_SubspaceBasisPointer(this,subspace,anharmonic_data) &
    & result(output)
   implicit none
   
@@ -1086,7 +1150,21 @@ function modes_SubspaceBasisPointer(this,subspace,anharmonic_data) &
   
   call this%check()
   
-  output = this%basis_%modes(subspace,anharmonic_data)
+  output = this%basis_%mode_ids(subspace,anharmonic_data)
+end function
+
+function paired_mode_ids_SubspaceBasisPointer(this,subspace,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(SubspaceBasisPointer), intent(in) :: this
+  type(DegenerateSubspace),    intent(in) :: subspace
+  type(AnharmonicData),        intent(in) :: anharmonic_data
+  integer, allocatable                    :: output(:)
+  
+  call this%check()
+  
+  output = this%basis_%paired_mode_ids(subspace,anharmonic_data)
 end function
 
 impure elemental function inner_product_SubspaceBasisPointer(this,bra,ket, &
@@ -1108,25 +1186,25 @@ impure elemental function inner_product_SubspaceBasisPointer(this,bra,ket, &
                                     & anharmonic_data )
 end function
 
-impure elemental function braket_ComplexMonomial_SubspaceBasisPointer(this, &
-   & bra,monomial,ket,subspace,anharmonic_data) result(output)
+impure elemental function integrate_BasisState_SubspaceBasisPointer( &
+   & this,bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in)           :: this
   class(BasisState),           intent(in)           :: bra
-  type(ComplexMonomial),       intent(in)           :: monomial
+  type(SparseMonomial),        intent(in)           :: monomial
   class(BasisState),           intent(in), optional :: ket
   type(DegenerateSubspace),    intent(in)           :: subspace
   type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                             :: output
+  complex(dp)                                       :: output
   
   call this%check()
   
-  output = this%basis_%braket( bra,            &
-                             & monomial,       &
-                             & ket,            &
-                             & subspace,       &
-                             & anharmonic_data )
+  output = this%basis_%integrate( bra,            &
+                                & monomial,       &
+                                & ket,            &
+                                & subspace,       &
+                                & anharmonic_data )
 end function
 
 impure elemental function kinetic_energy_SubspaceBasisPointer(this,bra,ket, &
@@ -1231,18 +1309,18 @@ impure elemental function wavefunctions_SubspaceBasisPointer(this,states, &
                                     & anharmonic_data )
 end function
 
-impure elemental function integrate_ComplexMonomial_SubspaceBasisPointer( &
-   & this,states,thermal_energy,monomial,subspace,anharmonic_data)        &
+impure elemental function integrate_BasisStates_SubspaceBasisPointer( &
+   & this,states,thermal_energy,monomial,subspace,anharmonic_data)    &
    & result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in) :: this
   class(BasisStates),          intent(in) :: states
   real(dp),                    intent(in) :: thermal_energy
-  type(ComplexMonomial),       intent(in) :: monomial
+  type(SparseMonomial),        intent(in) :: monomial
   type(DegenerateSubspace),    intent(in) :: subspace
   type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(ComplexMonomial)                   :: output
+  complex(dp)                             :: output
   
   call this%check()
   
@@ -1915,50 +1993,35 @@ end function
 ! ----------------------------------------------------------------------
 ! Concrete methods of abstract classes.
 ! ----------------------------------------------------------------------
-! BasisState methods.
-impure elemental function braket_ComplexPolynomial_SubspaceBasis(this, &
-   & bra,polynomial,ket,subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasis),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  type(ComplexPolynomial),  intent(in)           :: polynomial
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexPolynomial)                        :: output
-  
-  type(ComplexMonomial), allocatable :: monomials(:)
-  
-  monomials = this%braket( bra,              &
-                         & polynomial%terms, &
-                         & ket,              &
-                         & subspace,         &
-                         & anharmonic_data   )
-  output = ComplexPolynomial(monomials)
-end function
-
-! BasisStates methods.
-impure elemental function integrate_ComplexPolynomial_SubspaceBasis(this, &
-   & states,thermal_energy,polynomial,subspace,anharmonic_data) result(output)
+! SubspaceBasis methods.
+impure elemental function process_subspace_potential_SubspaceBasis(this, &
+   & potential,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasis),     intent(in) :: this
+  class(PotentialData),     intent(in) :: potential
   class(BasisStates),       intent(in) :: states
-  real(dp),                 intent(in) :: thermal_energy
-  type(ComplexPolynomial),  intent(in) :: polynomial
   type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: thermal_energy
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(ComplexPolynomial)              :: output
+  type(PotentialPointer)               :: output
   
-  type(ComplexMonomial), allocatable :: monomials(:)
+  output = PotentialPointer(potential)
+end function
+
+impure elemental function process_subspace_stress_SubspaceBasis(this,stress, &
+   & states,subspace,thermal_energy,anharmonic_data) result(output)
+  implicit none
   
-  monomials = this%integrate( states,           &
-                            & thermal_energy,   &
-                            & polynomial%terms, &
-                            & subspace,         &
-                            & anharmonic_data   )
-  output = ComplexPolynomial(monomials)
+  class(SubspaceBasis),     intent(in) :: this
+  class(stressData),        intent(in) :: stress
+  class(BasisStates),       intent(in) :: states
+  type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: thermal_energy
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(stressPointer)                  :: output
+  
+  output = stressPointer(stress)
 end function
 
 ! PotentialData methods.
@@ -1973,9 +2036,7 @@ function undisplaced_energy(this) result(output)
   output = this%energy(RealModeDisplacement(zero_displacement))
 end function
 
-! ----------------------------------------------------------------------
 ! StressData methods.
-! ----------------------------------------------------------------------
 function undisplaced_stress(this) result(output)
   implicit none
   

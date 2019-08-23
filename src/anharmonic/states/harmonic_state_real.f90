@@ -25,9 +25,8 @@ module harmonic_state_real_module
     procedure, public, nopass :: representation => &
                                & representation_HarmonicStateReal
     
-    procedure, public :: modes => modes_HarmonicStateReal
-    
-    procedure, public :: set_frequency => set_frequency_HarmonicStateReal
+    procedure, public :: mode_ids => mode_ids_HarmonicStateReal
+    procedure, public :: paired_mode_ids => paired_mode_ids_HarmonicStateReal
     
     procedure, public :: change_modes => change_modes_HarmonicStateReal
     
@@ -39,8 +38,7 @@ module harmonic_state_real_module
     
     procedure, public :: inner_product => &
                        & inner_product_HarmonicStateReal
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_HarmonicStateReal
+    procedure, public :: integrate => integrate_HarmonicStateReal
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_HarmonicStateReal
     procedure, public :: harmonic_potential_energy => &
@@ -72,7 +70,9 @@ function prod_real(lhs,rhs) result(output)
   type(HarmonicStateReal), intent(in) :: rhs
   type(HarmonicStateReal)             :: output
   
-  output = HarmonicStateReal(lhs%subspace_id, lhs%frequency, [lhs%modes_,rhs%modes_])
+  output = HarmonicStateReal( lhs%subspace_id,        &
+                            & lhs%frequency,          &
+                            & [lhs%modes_,rhs%modes_] )
 end function
 
 ! Startup procedure.
@@ -132,7 +132,7 @@ end function
 ! ----------------------------------------------------------------------
 ! Returns the modes spanned by the state.
 ! ----------------------------------------------------------------------
-function modes_HarmonicStateReal(this) result(output)
+function mode_ids_HarmonicStateReal(this) result(output)
   implicit none
   
   class(HarmonicStateReal), intent(in) :: this
@@ -141,17 +141,14 @@ function modes_HarmonicStateReal(this) result(output)
   output = this%modes_%id()
 end function
 
-! ----------------------------------------------------------------------
-! Set the frequency.
-! ----------------------------------------------------------------------
-impure elemental subroutine set_frequency_HarmonicStateReal(this,frequency)
+function paired_mode_ids_HarmonicStateReal(this) result(output)
   implicit none
   
-  class(HarmonicStateReal), intent(inout) :: this
-  real(dp),                 intent(in)    :: frequency
+  class(HarmonicStateReal), intent(in) :: this
+  integer, allocatable                 :: output(:)
   
-  this%frequency = frequency
-end subroutine
+  output = this%modes_%id()
+end function
 
 ! ----------------------------------------------------------------------
 ! Returns the total occupation of a given state.
@@ -240,29 +237,19 @@ impure elemental function inner_product_HarmonicStateReal(this, &
   endif
 end function
 
-impure elemental function braket_ComplexMonomial_HarmonicStateReal(this, &
+impure elemental function integrate_HarmonicStateReal(this, &
    & monomial,ket,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicStateReal), intent(in)           :: this
-  type(ComplexMonomial),    intent(in)           :: monomial
+  type(SparseMonomial),     intent(in)           :: monomial
   class(SubspaceState),     intent(in), optional :: ket
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                          :: output
+  complex(dp)                                    :: output
   
   type(HarmonicStateReal) :: harmonic_ket
   
-  type(ComplexUnivariate), allocatable :: integrated_modes(:)
-  type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
-  complex(dp)                          :: coefficient
-  
   integer :: i
-  
-  ! Separate the monomial into modes to be integrated and modes which will
-  !    be left untouched.
-  integrated_modes = monomial%modes( ids        = this%modes_%id(), &
-                                   & paired_ids = this%modes_%id()  )
-  unintegrated_modes = monomial%modes(exclude_ids=this%modes_%id())
   
   ! Calculate the coefficient of <bra|X|ket>,
   !    up to the factor of 1/sqrt(2Nw)^n.
@@ -271,25 +258,19 @@ impure elemental function braket_ComplexMonomial_HarmonicStateReal(this, &
   !    - n is the occupation of the modes in the monomial which are integrated.
   if (present(ket)) then
     harmonic_ket = HarmonicStateReal(ket)
-    coefficient = monomial%coefficient                             &
-              & * product(this%modes_%braket( harmonic_ket%modes_, &
-              &                               integrated_modes     ))
+    output = product(this%modes_%braket( harmonic_ket%modes_, &
+                                       & monomial%modes        ))
   else
-    coefficient = monomial%coefficient                         &
-              & * product(this%modes_%braket( this%modes_,     &
-              &                               integrated_modes ))
+    output = product(this%modes_%braket( this%modes_,   &
+                                       & monomial%modes ))
   endif
   
   ! Include the factor of (2Nw)^(n/2).
-  coefficient = coefficient                                          &
-           &  / sqrt( 2.0_dp                                         &
-           &        * anharmonic_data%anharmonic_supercell%sc_size   &
-           &        * this%frequency                               ) &
-           & ** sum(integrated_modes%total_power())
-  
-  ! Construct the output, from the coefficient and the un-integrated modes.
-  output = ComplexMonomial( coefficient = coefficient,       &
-                          & modes       = unintegrated_modes )
+  output = output                                               &
+      &  / sqrt( 2.0_dp                                         &
+      &        * anharmonic_data%anharmonic_supercell%sc_size   &
+      &        * this%frequency                               ) &
+      & ** sum(monomial%modes%total_power())
 end function
 
 impure elemental function kinetic_energy_HarmonicStateReal(this,ket, &

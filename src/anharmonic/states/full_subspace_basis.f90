@@ -39,9 +39,6 @@ module full_subspace_basis_module
     procedure, public, nopass :: representation => &
                                & representation_FullSubspaceBasis
     
-    ! Set the frequency of the basis.
-    procedure, public :: set_frequency => set_frequency_FullSubspaceBasis
-    
     ! Print the harmonic ground-state wavefunction of the basis.
     procedure, public :: ground_state_wavefunction
     
@@ -52,13 +49,14 @@ module full_subspace_basis_module
     procedure, public :: calculate_states => calculate_states_FullSubspaceBasis
     
     ! Return the modes spanned by this basis.
-    procedure, public :: modes => modes_FullSubspaceBasis
+    procedure, public :: mode_ids => mode_ids_FullSubspaceBasis
+    procedure, public :: paired_mode_ids => paired_mode_ids_FullSubspaceBasis
     
     ! Procedures involving individual states.
     procedure, public :: inner_product => &
                        & inner_product_FullSubspaceBasis
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_FullSubspaceBasis
+    procedure, public :: integrate_BasisState => &
+                       & integrate_BasisState_FullSubspaceBasis
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_FullSubspaceBasis
     procedure, public :: harmonic_potential_energy => &
@@ -71,8 +69,8 @@ module full_subspace_basis_module
     procedure, public :: thermodynamic_data => &
                        & thermodynamic_data_FullSubspaceBasis
     procedure, public :: wavefunctions => wavefunctions_FullSubspaceBasis
-    procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_FullSubspaceBasis
+    procedure, public :: integrate_BasisStates => &
+                       & integrate_BasisStates_FullSubspaceBasis
     
     ! I/O.
     procedure, public :: read  => read_FullSubspaceBasis
@@ -145,17 +143,6 @@ impure elemental function representation_FullSubspaceBasis() result(output)
   
   output = 'full_subspace'
 end function
-
-! Set the frequency of the basis.
-impure elemental subroutine set_frequency_FullSubspaceBasis(this,frequency)
-  implicit none
-  
-  class(FullSubspaceBasis), intent(inout) :: this
-  real(dp),                 intent(in)    :: frequency
-  
-  this%frequency = frequency
-  call this%wavevectors%set_frequency(frequency)
-end subroutine
 
 ! Generates states up to a given power, spanning the whole subspace.
 function new_FullSubspaceBasis_subspace(subspace,frequency,modes,qpoints, &
@@ -327,7 +314,8 @@ impure elemental function wavefunction_FullSubspaceBasis(this,state, &
   output = ''
 end function
 
-function modes_FullSubspaceBasis(this,subspace,anharmonic_data) result(output)
+function mode_ids_FullSubspaceBasis(this,subspace,anharmonic_data) &
+   & result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in) :: this
@@ -335,7 +323,19 @@ function modes_FullSubspaceBasis(this,subspace,anharmonic_data) result(output)
   type(AnharmonicData),     intent(in) :: anharmonic_data
   integer, allocatable                 :: output(:)
   
-  output = subspace%mode_ids
+  output = this%wavevectors(1)%mode_ids()
+end function
+
+function paired_mode_ids_FullSubspaceBasis(this,subspace,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(FullSubspaceBasis), intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  integer, allocatable                 :: output(:)
+  
+  output = this%wavevectors(1)%paired_mode_ids()
 end function
 
 impure elemental function inner_product_FullSubspaceBasis(this,bra,ket, &
@@ -366,17 +366,17 @@ impure elemental function inner_product_FullSubspaceBasis(this,bra,ket, &
                                             & anharmonic_data )
 end function
 
-impure elemental function braket_ComplexMonomial_FullSubspaceBasis(this, &
+impure elemental function integrate_BasisState_FullSubspaceBasis(this, &
    & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in)           :: this
   class(BasisState),        intent(in)           :: bra
-  type(ComplexMonomial),    intent(in)           :: monomial
+  type(SparseMonomial),     intent(in)           :: monomial
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                          :: output
+  complex(dp)                                    :: output
   
   type(WavevectorState) :: full_bra
   type(WavevectorState) :: full_ket
@@ -390,10 +390,10 @@ impure elemental function braket_ComplexMonomial_FullSubspaceBasis(this, &
   
   i = first(this%wavevectors%wavevector == full_bra%wavevector)
   
-  output = this%wavevectors(i)%braket( full_bra,       &
-                                     & monomial,       &
-                                     & full_ket,       &
-                                     & anharmonic_data )
+  output = this%wavevectors(i)%integrate( full_bra,       &
+                                        & monomial,       &
+                                        & full_ket,       &
+                                        & anharmonic_data )
 end function
 
 impure elemental function kinetic_energy_FullSubspaceBasis(this,bra,ket, &
@@ -594,17 +594,17 @@ impure elemental function wavefunctions_FullSubspaceBasis(this,states, &
 end function
 
 ! Integrate a monomial.
-impure elemental function integrate_ComplexMonomial_FullSubspaceBasis(this, &
+impure elemental function integrate_BasisStates_FullSubspaceBasis(this, &
    & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in) :: this
   class(BasisStates),       intent(in) :: states
   real(dp),                 intent(in) :: thermal_energy
-  type(ComplexMonomial),    intent(in) :: monomial
+  type(SparseMonomial),     intent(in) :: monomial
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(ComplexMonomial)                :: output
+  complex(dp)                          :: output
   
   type(WavevectorStates) :: full_states
   

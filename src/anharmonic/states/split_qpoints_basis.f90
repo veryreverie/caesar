@@ -59,9 +59,6 @@ module split_qpoints_basis_module
     procedure, public, nopass :: representation => &
                                & representation_SplitQpointsBasis
     
-    ! Set the frequency of the basis.
-    procedure, public :: set_frequency => set_frequency_SplitQpointsBasis
-    
     ! Print the harmonic ground-state wavefunction of the basis.
     procedure, public :: ground_state_wavefunction
     
@@ -71,14 +68,23 @@ module split_qpoints_basis_module
     ! Generate the eigenstates of a single-subspace potential.
     procedure, public :: calculate_states => calculate_states_SplitQpointsBasis
     
+    ! Process a subspace potential or stress.
+    ! For a SplitQpointsBasis, this converts the single-subspace object
+    !    into a single-q-point object.
+    procedure, public :: process_subspace_potential => &
+                       & process_subspace_potential_SplitQpointsBasis
+    procedure, public :: process_subspace_stress => &
+                       & process_subspace_stress_SplitQpointsBasis
+    
     ! Return the modes spanned by this basis.
-    procedure, public :: modes => modes_SplitQpointsBasis
+    procedure, public :: mode_ids => mode_ids_SplitQpointsBasis
+    procedure, public :: paired_mode_ids => paired_mode_ids_SplitQpointsBasis
     
     ! Procedures involving individual states.
     procedure, public :: inner_product => &
                        & inner_product_SplitQpointsBasis
-    procedure, public :: braket_ComplexMonomial => &
-                       & braket_ComplexMonomial_SplitQpointsBasis
+    procedure, public :: integrate_BasisState => &
+                       & integrate_BasisState_SplitQpointsBasis
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_SplitQpointsBasis
     procedure, public :: harmonic_potential_energy => &
@@ -91,8 +97,8 @@ module split_qpoints_basis_module
     procedure, public :: thermodynamic_data => &
                        & thermodynamic_data_SplitQpointsBasis
     procedure, public :: wavefunctions => wavefunctions_SplitQpointsBasis
-    procedure, public :: integrate_ComplexMonomial => &
-                       & integrate_ComplexMonomial_SplitQpointsBasis
+    procedure, public :: integrate_BasisStates => &
+                       & integrate_BasisStates_SplitQpointsBasis
     
     ! I/O.
     procedure, public :: read  => read_SplitQpointsBasis
@@ -100,7 +106,6 @@ module split_qpoints_basis_module
     
     ! Private helper functions.
     procedure, private :: integrate_potential
-    procedure, private :: calculate_qpoint_states
   end type
   
   interface SplitQpointsBasis
@@ -186,17 +191,6 @@ impure elemental function representation_SplitQpointsBasis() result(output)
   
   output = 'split q-points basis'
 end function
-
-! Set the frequency of the basis.
-impure elemental subroutine set_frequency_SplitQpointsBasis(this,frequency)
-  implicit none
-  
-  class(SplitQpointsBasis), intent(inout) :: this
-  real(dp),                 intent(in)    :: frequency
-  
-  this%frequency = frequency
-  call this%wavevectors%set_frequency(frequency)
-end subroutine
 
 ! Generates states up to a given power, spanning the whole subspace.
 function new_SplitQpointsBasis_subspace(subspace,frequency,modes,qpoints, &
@@ -365,123 +359,54 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  type(PulaySolver) :: solver
+  type(WavevectorStates)             :: wavevector_states
+  type(WavevectorState), allocatable :: states(:)
+  real(dp),              allocatable :: energies(:)
   
-  type(PotentialPointer)        :: qpoint_potential
-  type(WavevectorStates)        :: qpoint_states
+  integer :: i,ialloc
   
-  type(ThermodynamicData) :: thermodynamic_data
-  real(dp), allocatable   :: free_energies(:)
-  
-  integer :: first_pulay_step
-  
-  integer :: i,j,ialloc
-  
-  ! If there is only one q-point in the subspace, there is no need for
-  !    self-consistency between q-points. Simply return the states which
-  !    diagonalise the potential.
-  if (size(this%qpoints)==1) then
-    qpoint_states = this%calculate_qpoint_states( subspace,           &
-                                                & subspace_potential, &
-                                                & anharmonic_data     )
-    output = BasisStatesPointer(qpoint_states)
-    return
-  endif
-  
-  call print_line('Running inter-subspace VSCF in subspace '//subspace%id)
-  
-  ! Generate initial single-q-point states,
-  !    and use these states to generate initial single-q-point potential.
-  qpoint_states = WavevectorStates(this%initial_states( subspace,       &
-                                                      & anharmonic_data ))
-  
-  qpoint_potential = this%integrate_potential( subspace_potential, &
-                                             & qpoint_states,      &
-                                             & thermal_energy,     &
-                                             & subspace,           &
-                                             & anharmonic_data     )
-  
-  ! Initialise Pulay solver.
-  solver = PulaySolver( pre_pulay_iterations,                            &
-                      & pre_pulay_damping,                               &
-                      & max_pulay_iterations,                            &
-                      & energy_convergence,                              &
-                      & qpoint_potential%coefficients( this%frequency,   &
-                      &                                anharmonic_data ) )
-  
-  ! Run Pulay scheme.
-  i = 1
-  free_energies = [real(dp)::]
-  do
-    ! Generate single-q-point potential from Pulay scheme.
-    call qpoint_potential%set_coefficients( solver%get_x(), &
-                                          & this%frequency, &
-                                          & anharmonic_data )
-    
-    ! Use single-q-point potential to calculate new single-q-point states.
-    qpoint_states = this%calculate_qpoint_states( subspace,         &
-                                                & qpoint_potential, &
-                                                & anharmonic_data   )
-    
-    ! Calculate the free energy from the potentials and states.
-    thermodynamic_data = this%thermodynamic_data( &
-                           & thermal_energy, &
-                           & qpoint_states, &
-                           & subspace, &
-                           & subspace_potential, &
-                           & anharmonic_data=anharmonic_data )
-    free_energies = [free_energies, thermodynamic_data%free_energy]
-    
-    ! Use single-q-point states to calculate new single-q-point potentials.
-    qpoint_potential = this%integrate_potential( subspace_potential, &
-                                               & qpoint_states,      &
-                                               & thermal_energy,     &
-                                               & subspace,           &
-                                               & anharmonic_data     )
-    
-    ! Update the Pulay scheme.
-    call solver%set_f( qpoint_potential%coefficients( this%frequency,    &
-                     &                                anharmonic_data ), &
-                     & free_energies(i)                                  )
-    
-    ! Check for convergence.
-    if (solver%converged( energy_convergence,       &
-                        & no_converged_calculations )) then
-      output = BasisStatesPointer(qpoint_states)
-      return
-    endif
-    
-    ! Increment the loop counter.
-    i = i+1
+  allocate( states(0),   &
+          & energies(0), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%wavevectors)
+    wavevector_states = this%wavevectors(i)%calculate_states( &
+                                        & subspace_potential, &
+                                        & anharmonic_data     )
+    states = [states, wavevector_states%states]
+    energies = [energies, wavevector_states%energies]
   enddo
+  
+  output = BasisStatesPointer(WavevectorStates(subspace%id, states, energies))
 end function
 
 ! Integrates the potential over all but the first q-point in the subspace.
-function integrate_potential(this,potential,states,thermal_energy,subspace, &
-   & anharmonic_data) result(output)
+impure elemental function process_subspace_potential_SplitQpointsBasis(this, &
+   & potential,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in) :: this
   class(PotentialData),     intent(in) :: potential
-  type(WavevectorStates),   intent(in) :: states
-  real(dp),                 intent(in) :: thermal_energy
+  class(BasisStates),       intent(in) :: states
   type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: thermal_energy
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(PotentialPointer)               :: output
   
   type(SplitQpointsBasis) :: basis
-  
-  type(WavevectorState) :: state
   
   type(PotentialPointer) :: integrated_potential
   real(dp)               :: correction_energy
   
   integer :: i
   
-  basis = this
-  
   ! Calculate (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
   output = PotentialPointer(potential)
+  
+  if (size(this%qpoints)==1) then
+    return
+  endif
+  
+  basis = this
   
   basis%qpoints_to_integrate_ = [(i,i=2,size(this%qpoints))]
   
@@ -510,51 +435,114 @@ function integrate_potential(this,potential,states,thermal_energy,subspace, &
   call output%add_constant(correction_energy)
 end function
 
-! Calculates states at the first q-point in the subspace,
-!    using the potential after the potential has been integrated
-!    over all other q-points in the subspace.
-impure elemental function calculate_qpoint_states(this,subspace, &
-   & subspace_potential,anharmonic_data) result(output)
+impure elemental function process_subspace_stress_SplitQpointsBasis(this, &
+   & stress,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in) :: this
+  class(StressData),        intent(in) :: stress
+  class(BasisStates),       intent(in) :: states
   type(DegenerateSubspace), intent(in) :: subspace
-  class(PotentialData),     intent(in) :: subspace_potential
+  real(dp),                 intent(in) :: thermal_energy
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(WavevectorStates)               :: output
+  type(StressPointer)                  :: output
   
-  type(WavevectorState)              :: state
-  type(WavevectorState), allocatable :: states(:)
-  real(dp),              allocatable :: energies(:)
+  type(SplitQpointsBasis) :: basis
   
-  type(WavevectorStates) :: wavevector_states
+  type(StressPointer) :: integrated_stress
+  type(RealMatrix)    :: correction_stress
   
-  integer :: i,j,ialloc
+  integer :: i
   
-  allocate( states(0),   &
-          & energies(0), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this%wavevectors)
-    wavevector_states = this%wavevectors(i)%calculate_states( &
-                                        & subspace_potential, &
-                                        & anharmonic_data     )
-    states = [states, wavevector_states%states]
-    energies = [energies, wavevector_states%energies]
-  enddo
+  ! Calculate (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
+  output = StressPointer(stress)
   
-  output = WavevectorStates(subspace%id, states, energies)
+  if (size(this%qpoints)==1) then
+    return
+  endif
+  
+  basis = this
+  
+  basis%qpoints_to_integrate_ = [(i,i=2,size(this%qpoints))]
+  
+  call output%braket( states,                           &
+                    & subspace        = subspace,       &
+                    & thermal_energy  = thermal_energy, &
+                    & subspace_basis  = basis,          &
+                    & whole_subspace  = .false.,        &
+                    & anharmonic_data = anharmonic_data )
+  
+  ! Calculate (prod_i<i|)V(prod_i|i>), and use this to correct for
+  !    over-counting. See main vscf method for details.
+  integrated_stress = output
+  
+  basis%qpoints_to_integrate_ = [1]
+  
+  call integrated_stress%braket( states,                           &
+                               & subspace        = subspace,       &
+                               & thermal_energy  = thermal_energy, &
+                               & subspace_basis  = basis,          &
+                               & anharmonic_data = anharmonic_data )
+  
+  correction_stress = integrated_stress%undisplaced_stress() &
+                  & * (1.0_dp-size(this%qpoints))/size(this%qpoints)
+  
+  call output%add_constant(correction_stress)
 end function
 
-impure elemental function steps_converged(this,that,energy_convergence) &
-   & result(output)
+function integrate_potential(this,potential,states,thermal_energy,subspace, &
+   & anharmonic_data) result(output)
   implicit none
   
-  type(RealVector), intent(in) :: this
-  type(RealVector), intent(in) :: that
-  real(dp),         intent(in) :: energy_convergence
-  logical                      :: output
+  class(SplitQpointsBasis), intent(in) :: this
+  class(PotentialData),     intent(in) :: potential
+  type(WavevectorStates),   intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(PotentialPointer)               :: output
   
-  output = all(abs(dble(this-that)) < energy_convergence)
+  type(SplitQpointsBasis) :: basis
+  
+  type(PotentialPointer) :: integrated_potential
+  real(dp)               :: correction_energy
+  
+  integer :: i
+  
+  basis = this
+  
+  ! Calculate (prod_{j/=i}<j|)V(prod_{j/=i}|j>).
+  output = PotentialPointer(potential)
+  
+  if (size(this%qpoints)==1) then
+    return
+  endif
+  
+  basis%qpoints_to_integrate_ = [(i,i=2,size(this%qpoints))]
+  
+  call output%braket( states,                           &
+                    & subspace        = subspace,       &
+                    & thermal_energy  = thermal_energy, &
+                    & subspace_basis  = basis,          &
+                    & whole_subspace  = .false.,        &
+                    & anharmonic_data = anharmonic_data )
+  
+  ! Calculate (prod_i<i|)V(prod_i|i>), and use this to correct for
+  !    over-counting. See main vscf method for details.
+  integrated_potential = output
+  
+  basis%qpoints_to_integrate_ = [1]
+  
+  call integrated_potential%braket( states,                           &
+                                  & subspace        = subspace,       &
+                                  & thermal_energy  = thermal_energy, &
+                                  & subspace_basis  = basis,          &
+                                  & anharmonic_data = anharmonic_data )
+  
+  correction_energy = integrated_potential%undisplaced_energy() &
+                  & * (1.0_dp-size(this%qpoints))/size(this%qpoints)
+  
+  call output%add_constant(correction_energy)
 end function
 
 impure elemental function wavefunction_SplitQpointsBasis(this,state, &
@@ -570,7 +558,8 @@ impure elemental function wavefunction_SplitQpointsBasis(this,state, &
   output = ''
 end function
 
-function modes_SplitQpointsBasis(this,subspace,anharmonic_data) result(output)
+function mode_ids_SplitQpointsBasis(this,subspace,anharmonic_data) &
+   & result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in) :: this
@@ -582,21 +571,27 @@ function modes_SplitQpointsBasis(this,subspace,anharmonic_data) result(output)
   
   integer :: i
   
-  if (size(this%qpoints_to_integrate_)==0) then
-    output = [integer::]
-    return
-  endif
+  output = [( this%qpoints(this%qpoints_to_integrate_(i))%mode_ids, &
+            & i=1,                                                  &
+            & size(this%qpoints_to_integrate_)                      )]
+end function
+
+function paired_mode_ids_SplitQpointsBasis(this,subspace,anharmonic_data) &
+   & result(output)
+  implicit none
   
-  qpoints = this%qpoints(this%qpoints_to_integrate_)
+  class(SplitQpointsBasis), intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  integer, allocatable                 :: output(:)
   
-  if (qpoints(1)%mode_ids(1)==qpoints(1)%paired_mode_ids(1)) then
-    output = [(qpoints(i)%mode_ids, i=1, size(qpoints))]
-  else
-    output = [ [(qpoints(i)%mode_ids, i=1, size(qpoints))],       &
-             & [(qpoints(i)%paired_mode_ids, i=1, size(qpoints))] ]
-    
-    output = output(sort(output))
-  endif
+  type(QpointModeIDs), allocatable :: qpoints(:)
+  
+  integer :: i
+  
+  output = [( this%qpoints(this%qpoints_to_integrate_(i))%paired_mode_ids, &
+            & i=1,                                                         &
+            & size(this%qpoints_to_integrate_)                             )]
 end function
 
 impure elemental function inner_product_SplitQpointsBasis(this,bra,ket, &
@@ -629,24 +624,22 @@ impure elemental function inner_product_SplitQpointsBasis(this,bra,ket, &
   output = output * size(this%qpoints_to_integrate_)
 end function
 
-impure elemental function braket_ComplexMonomial_SplitQpointsBasis(this, &
+impure elemental function integrate_BasisState_SplitQpointsBasis(this, &
    & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in)           :: this
   class(BasisState),        intent(in)           :: bra
-  type(ComplexMonomial),    intent(in)           :: monomial
+  type(SparseMonomial),     intent(in)           :: monomial
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                          :: output
+  complex(dp)                                    :: output
   
   type(WavevectorState)              :: split_bra
   type(WavevectorState), allocatable :: split_ket
   
-  type(ComplexMonomial), allocatable :: monomials(:)
-  
-  type(ComplexMonomial) :: qpoint_monomial
+  type(SparseMonomial), allocatable :: monomials(:)
   
   integer :: i,j
   
@@ -663,66 +656,45 @@ impure elemental function braket_ComplexMonomial_SplitQpointsBasis(this, &
   monomials = split_monomial(this,monomial)
   
   ! Integrate across all q-points to be integrated.
-  output = monomials(size(monomials))
-  do j=1,size(this%qpoints_to_integrate_)
-    qpoint_monomial = this%wavevectors(i)%braket( split_bra,       &
-                                                & monomials(j),    &
+  output = product(this%wavevectors(i)%integrate( split_bra,       &
+                                                & monomials,       &
                                                 & split_ket,       &
-                                                & anharmonic_data  )
-    output%coefficient = output%coefficient * qpoint_monomial%coefficient
-  enddo
+                                                & anharmonic_data  ))
 end function
 
 ! Helper function. Takes a monomial, and splits into an array of monomials,
-!    where the first n monomials correspond to each of this%qpoints in turn,
-!    and the n+1 monomial is everything else.
+!    where the output monomials correspond to each of this%qpoints in turn.
 ! Transforms each monomial so it appears to be at the first q-point.
+! Integrating this monomial at the first q-point is equivalent to
+!    integrating the input monomial in the basis of states at the
+!    selected q-point, but is much more efficient.
 function split_monomial(this,monomial) result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in) :: this
-  type(ComplexMonomial),    intent(in) :: monomial
-  type(ComplexMonomial), allocatable   :: output(:)
+  type(SparseMonomial),     intent(in) :: monomial
+  type(SparseMonomial), allocatable    :: output(:)
   
   type(QpointModeIDs), allocatable :: qpoints(:)
-  integer,             allocatable :: mode_ids(:)
   
-  type(ComplexUnivariate), allocatable :: qpoint_modes(:)
-  type(ComplexUnivariate), allocatable :: transformed_qpoint_modes(:)
-  type(ComplexUnivariate), allocatable :: non_qpoint_modes(:)
-  type(ComplexMonomial)                :: qpoint_monomial
+  integer :: modes_per_qpoint
   
   integer :: i,ialloc
   
   qpoints = this%qpoints(this%qpoints_to_integrate_)
   
-  allocate(output(size(qpoints)+1), stat=ialloc); call err(ialloc)
+  modes_per_qpoint = size(monomial%modes)/size(qpoints)
   
-  mode_ids = [integer::]
+  allocate(output(size(qpoints)), stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    mode_ids = [mode_ids, qpoints(i)%mode_ids]
-    
-    qpoint_modes = monomial%modes( ids        = qpoints(i)%mode_ids,       &
-                                 & paired_ids = qpoints(i)%paired_mode_ids )
-    
-    ! Construct a monomial with the terms of qpoint_modes, but transformed to
-    !    the q-point at which the states are stored.
-    ! Integrating this monomial at the first q-point is equivalent to
-    !    integrating the input monomial in the basis of states at the
-    !    selected q-point, but is much more efficient.
-    transformed_qpoint_modes = ComplexUnivariate(   &
-       & id           = qpoints(i)%mode_ids,        &
-       & paired_id    = qpoints(i)%paired_mode_ids, &
-       & power        = qpoint_modes%power,         &
-       & paired_power = qpoint_modes%paired_power   )
-    
-    output(i) = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
-                               & modes       = transformed_qpoint_modes )
+    ! Separate off the modes at each q-point.
+    output(i) = SparseMonomial(                           &
+       & modes=monomial%modes( (i-1)*modes_per_qpoint+1   &
+       &                     :  i   *modes_per_qpoint   ) )
+    ! Transform each mode to be at the first q-point.
+    output(i)%modes%id = this%qpoints(1)%mode_ids
+    output(i)%modes%paired_id = this%qpoints(1)%paired_mode_ids
   enddo
-  
-  output(size(qpoints)+1) = ComplexMonomial(                &
-     & coefficient = monomial%coefficient,                  &
-     & modes       = monomial%modes(exclude_ids = mode_ids) )
 end function
 
 impure elemental function kinetic_energy_SplitQpointsBasis(this,bra,ket, &
@@ -837,8 +809,6 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   
   type(WavevectorStates) :: split_states
   
-  type(PotentialPointer) :: potential
-  
   type(RealMatrix), allocatable :: stress(:)
   
   type(ThermodynamicData) :: full_harmonic_thermodynamics
@@ -857,15 +827,7 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   
   split_states = WavevectorStates(states)
   
-  ! Calculate single-q-point potential.
-  potential = this%integrate_potential( subspace_potential, &
-                                      & split_states,       &
-                                      & thermal_energy,     &
-                                      & subspace,           &
-                                      & anharmonic_data     )
-  
   ! Calculate stress.
-  ! TODO: integrate_stress
   if (present(subspace_stress)) then
     allocate( stress(size(split_states%states)), &
             & stat=ialloc); call err(ialloc)
@@ -891,7 +853,7 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
      & this%frequency,                    &
      & size(subspace)/size(this%qpoints), &
      & this%wavevectors,                  &
-     & potential,                         &
+     & subspace_potential,                &
      & split_states%energies,             &
      & anharmonic_data                    )
   
@@ -943,23 +905,21 @@ impure elemental function wavefunctions_SplitQpointsBasis(this,states, &
 end function
 
 ! Integrate a monomial.
-impure elemental function integrate_ComplexMonomial_SplitQpointsBasis(this, &
+impure elemental function integrate_BasisStates_SplitQpointsBasis(this, &
    & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SplitQpointsBasis),  intent(in) :: this
   class(BasisStates),        intent(in) :: states
   real(dp),                  intent(in) :: thermal_energy
-  type(ComplexMonomial),     intent(in) :: monomial
+  type(SparseMonomial),      intent(in) :: monomial
   type(DegenerateSubspace),  intent(in) :: subspace
   type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(ComplexMonomial)                 :: output
+  complex(dp)                           :: output
   
   type(WavevectorStates)  :: split_states
   
-  type(ComplexMonomial), allocatable :: monomials(:)
-  
-  type(ComplexMonomial) :: qpoint_monomial
+  type(SparseMonomial), allocatable :: monomials(:)
   
   integer :: i
   
@@ -970,14 +930,14 @@ impure elemental function integrate_ComplexMonomial_SplitQpointsBasis(this, &
   monomials = split_monomial(this,monomial)
   
   ! Integrate across all q-points to be integrated.
-  output = monomials(size(monomials))
+  output = 1.0_dp
   do i=1,size(this%qpoints_to_integrate_)
-    qpoint_monomial = integrate( this%wavevectors, &
-                               & split_states,     &
-                               & thermal_energy,   &
-                               & monomials(i),     &
-                               & anharmonic_data   )
-    output%coefficient = output%coefficient * qpoint_monomial%coefficient
+    output = output                       &
+         & * integrate( this%wavevectors, &
+         &              split_states,     &
+         &              thermal_energy,   &
+         &              monomials(i),     &
+         &              anharmonic_data   )
   enddo
 end function
 

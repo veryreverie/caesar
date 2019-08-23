@@ -386,13 +386,12 @@ impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
    & anharmonic_data)
   implicit none
   
-  class(BasisFunction),     intent(inout)        :: this
-  class(SubspaceState),     intent(in)           :: bra
-  class(SubspaceState),     intent(in), optional :: ket
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  class(BasisFunction), intent(inout)        :: this
+  class(SubspaceState), intent(in)           :: bra
+  class(SubspaceState), intent(in), optional :: ket
+  type(AnharmonicData), intent(in)           :: anharmonic_data
   
-  integer,              allocatable :: integrated_modes(:)
-  
+  integer,              allocatable :: integrated_mode_ids(:)
   type(ComplexMatrix)               :: complex_to_real_conversion
   complex(dp),          allocatable :: complex_coefficients(:)
   real(dp),             allocatable :: real_coefficients(:)
@@ -401,7 +400,7 @@ impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
   
   integer :: i,j
   
-  integrated_modes = bra%modes()
+  integrated_mode_ids = bra%mode_ids()
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &
@@ -410,9 +409,11 @@ impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
                         & include_coefficients = .false.      )
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_ = bra%braket( this%complex_representation_, &
-                                           & ket,                          &
-                                           & anharmonic_data               )
+  this%complex_representation_%terms = integrate( &
+            & bra,                                &
+            & this%complex_representation_%terms, &
+            & ket,                                &
+            & anharmonic_data                     )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
@@ -424,9 +425,9 @@ impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
   ! Remove modes in real representation which have been integrated over.
   do i=1,size(this%real_representation_)
     real_modes = this%real_representation_%terms(i)%modes()
-    mode_integrated = [( any(real_modes(j)%id==integrated_modes), &
-                       & j=1,                                     &
-                       & size(real_modes)                         )]
+    mode_integrated = [( any(real_modes(j)%id==integrated_mode_ids), &
+                       & j=1,                                        &
+                       & size(real_modes)                            )]
     real_modes = real_modes(filter(.not.mode_integrated))
     this%real_representation_%terms(i) = RealMonomial(                &
        & modes       = real_modes,                                    &
@@ -445,8 +446,7 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   
-  integer, allocatable :: integrated_modes(:)
-  
+  integer,              allocatable :: integrated_mode_ids(:)
   type(ComplexMatrix)               :: complex_to_real_conversion
   complex(dp),          allocatable :: complex_coefficients(:)
   real(dp),             allocatable :: real_coefficients(:)
@@ -455,7 +455,7 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   
   integer :: i,j
   
-  integrated_modes = subspace_basis%modes(subspace,anharmonic_data)
+  integrated_mode_ids = subspace_basis%mode_ids(subspace,anharmonic_data)
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &
@@ -464,12 +464,13 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
                         & include_coefficients = .false.      )
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_ = subspace_basis%braket( &
-                        & bra,                          &
-                        & this%complex_representation_, &
-                        & ket,                          &
-                        & subspace,                     &
-                        & anharmonic_data               )
+  this%complex_representation_%terms = integrate( &
+            & bra,                                &
+            & this%complex_representation_%terms, &
+            & ket,                                &
+            & subspace,                           &
+            & subspace_basis,                     &
+            & anharmonic_data                     )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
@@ -481,9 +482,9 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   ! Remove modes in real representation which have been integrated over.
   do i=1,size(this%real_representation_)
     real_modes = this%real_representation_%terms(i)%modes()
-    mode_integrated = [( any(real_modes(j)%id==integrated_modes), &
-                       & j=1,                                     &
-                       & size(real_modes)                         )]
+    mode_integrated = [( any(real_modes(j)%id==integrated_mode_ids), &
+                       & j=1,                                        &
+                       & size(real_modes)                            )]
     real_modes = real_modes(filter(.not.mode_integrated))
     this%real_representation_%terms(i) = RealMonomial(                &
        & modes       = real_modes,                                    &
@@ -502,8 +503,7 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   
-  integer, allocatable :: integrated_modes(:)
-  
+  integer,              allocatable :: integrated_mode_ids(:)
   type(ComplexMatrix)               :: complex_to_real_conversion
   complex(dp),          allocatable :: complex_coefficients(:)
   real(dp),             allocatable :: real_coefficients(:)
@@ -512,7 +512,7 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   
   integer :: i,j
   
-  integrated_modes = subspace_basis%modes(subspace,anharmonic_data)
+  integrated_mode_ids = subspace_basis%mode_ids(subspace,anharmonic_data)
   
   ! Generate conversion between complex and real representation.
   complex_to_real_conversion = coefficient_conversion_matrix( &
@@ -521,12 +521,13 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
                         & include_coefficients = .false.      )
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_ = subspace_basis%integrate( &
-                           & states,                       &
-                           & thermal_energy,               &
-                           & this%complex_representation_, &
-                           & subspace,                     &
-                           & anharmonic_data               )
+  this%complex_representation_%terms = integrate( &
+            & states,                             &
+            & thermal_energy,                     &
+            & this%complex_representation_%terms, &
+            & subspace,                           &
+            & subspace_basis,                     &
+            & anharmonic_data                     )
   
   ! Use calculated complex coefficients and conversion to generate new
   !    coefficients for real representation.
@@ -538,9 +539,9 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   ! Remove modes in real representation which have been integrated over.
   do i=1,size(this%real_representation_)
     real_modes = this%real_representation_%terms(i)%modes()
-    mode_integrated = [( any(real_modes(j)%id==integrated_modes), &
-                       & j=1,                                     &
-                       & size(real_modes)                         )]
+    mode_integrated = [( any(real_modes(j)%id==integrated_mode_ids), &
+                       & j=1,                                        &
+                       & size(real_modes)                            )]
     real_modes = real_modes(filter(.not.mode_integrated))
     this%real_representation_%terms(i) = RealMonomial(                &
        & modes       = real_modes,                                    &

@@ -56,7 +56,7 @@ end function
 function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
    & energy_convergence,frequencies,no_converged_calculations,       &
    & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,    &
-   & anharmonic_data,starting_configuration) result(output)
+   & anharmonic_data,random_generator,starting_configuration) result(output)
   implicit none
   
   class(PotentialData),     intent(in)           :: potential
@@ -70,6 +70,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
   integer,                  intent(in)           :: pre_pulay_iterations
   real(dp),                 intent(in)           :: pre_pulay_damping
   type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RandomReal),         intent(in)           :: random_generator
   type(VscfOutput),         intent(in), optional :: starting_configuration(:)
   type(VscfOutput), allocatable                  :: output(:)
   
@@ -81,7 +82,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
   integer,  allocatable :: first_coefficient(:)
   integer,  allocatable :: last_coefficient(:)
   real(dp), allocatable :: coefficients(:)
-  real(dp), allocatable :: old_coefficients(:)
+  real(dp)              :: free_energy
   
   ! The Pulay scheme solver.
   type(PulaySolver) :: solver
@@ -120,11 +121,13 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
   enddo
   
   ! Initialise Pulay solver.
-  solver = PulaySolver( pre_pulay_iterations, &
-                      & pre_pulay_damping,    &
-                      & max_pulay_iterations, &
-                      & energy_convergence,   &
-                      & coefficients          )
+  solver = PulaySolver( pre_pulay_iterations,      &
+                      & pre_pulay_damping,         &
+                      & max_pulay_iterations,      &
+                      & energy_convergence,        &
+                      & no_converged_calculations, &
+                      & random_generator,          &
+                      & coefficients               )
   
   ! Run Pulay scheme.
   i = 1
@@ -159,9 +162,6 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
                           & subspaces,                      &
                           & subspace_potentials,            &
                           & anharmonic_data=anharmonic_data )
-    free_energies = [ free_energies,                                 &
-                    &   sum(thermodynamic_data%free_energy)          &
-                    & / anharmonic_data%anharmonic_supercell%sc_size ]
     
     ! Use single-subspace states to calculate new single-subspace potentials.
     call print_line('Generating single-subspace potentials.')
@@ -173,28 +173,29 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
                                                       & anharmonic_data  )
     
     ! Update the Pulay scheme.
-    old_coefficients = coefficients
     do j=1,size(subspaces)
       coefficients(first_coefficient(j):last_coefficient(j)) = &
          & subspace_potentials(j)%coefficients(frequencies(j), anharmonic_data)
     enddo
-    call solver%set_f(coefficients, free_energies(i))
+    
+    free_energy = sum(thermodynamic_data%free_energy) &
+              & / anharmonic_data%anharmonic_supercell%sc_size
+    
+    call solver%set_f(coefficients, free_energy)
     
     ! Print progress.
-    call print_line('Self-consistency step '//i//'.')
-    call print_line( 'Self-consistency error : '        // &
-                   & l2_norm(coefficients-old_coefficients)//' (Ha)' )
-    call print_line( 'Free energy, F         : ' // &
-                   & free_energies(i)//' (Ha)'       )
     if (i>1) then
-      call print_line( 'F minus previous F     : '           // &
-                     & (free_energies(i)-free_energies(i-1)) // &
-                     & ' (Ha)'                                  )
+      call print_line('Self-consistency step '//i//'.')
+      call print_line( 'Self-consistency error : '     // &
+                     & solver%self_consistency_error() // &
+                     & ' (Ha)'                            )
+      call print_line( 'Change in free energy  : '  // &
+                     & solver%free_energy_change()  // &
+                     & ' (Ha)'                         )
     endif
     
     ! Check for convergence.
-    if (solver%converged( energy_convergence,       &
-                        & no_converged_calculations )) then
+    if (solver%converged()) then
       output = VscfOutput(subspace_potentials, subspace_states)
       call print_line('Convergence reached.')
       return
