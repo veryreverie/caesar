@@ -36,6 +36,8 @@ module basis_function_module
     
     procedure, public :: simplify => simplify_BasisFunction
     
+    procedure, public :: finalise => finalise_BasisFunction
+    
     generic,   public  :: energy =>                                  &
                         & energy_RealModeDisplacement_BasisFunction, &
                         & energy_ComplexModeDisplacement_BasisFunction
@@ -327,6 +329,51 @@ impure elemental subroutine simplify_BasisFunction(this)
   call this%real_representation_%simplify()
   call this%complex_representation_%simplify()
 end subroutine
+
+function finalise_BasisFunction(this,subspace,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(BasisFunction),     intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(BasisFunction), allocatable     :: output(:)
+  
+  integer, allocatable :: real_powers(:)
+  integer, allocatable :: complex_powers(:)
+  integer, allocatable :: powers(:)
+  
+  type(RealPolynomial)    :: real_representation
+  type(ComplexPolynomial) :: complex_representation
+  
+  integer :: i,ialloc
+  
+  if (size(this%complex_representation_%terms)==0) then
+    allocate(output(0), stat=ialloc); call err(ialloc)
+    return
+  endif
+  
+  real_powers = this%real_representation_%terms%total_power()
+  complex_powers = this%complex_representation_%terms%total_power()
+  
+  powers = complex_powers
+  powers = powers(set(powers))
+  powers = powers(sort(powers))
+  
+  if (powers(1)==0) then
+    powers = powers(2:)
+  endif
+  
+  allocate(output(size(powers)), stat=ialloc); call err(ialloc)
+  do i=1,size(powers)
+    real_representation = RealPolynomial(                                &
+       & this%real_representation_%terms(filter(real_powers==powers(i))) )
+    complex_representation = ComplexPolynomial( &
+       & this%complex_representation_%terms(    &
+       &    filter(complex_powers==powers(i)) ) )
+    output(i) = BasisFunction(real_representation, complex_representation)
+  enddo
+end function
 
 ! ----------------------------------------------------------------------
 ! Evaluate the energy and forces due to the basis function.
@@ -627,8 +674,9 @@ function internal_coefficient(this,frequency) result(output)
   
   integer ::  i
   
-  output = sum( abs(this%real_representation_%terms%coefficient)           &
-            & * frequency ** this%real_representation_%terms%total_power() )
+  output = sum( abs(this%real_representation_%terms%coefficient)       &
+           &  / frequency                                              &
+           & ** (0.5_dp*this%real_representation_%terms%total_power()) )
   
   i = first(abs(this%real_representation_%terms%coefficient)>0, default=0)
   if (i/=0) then

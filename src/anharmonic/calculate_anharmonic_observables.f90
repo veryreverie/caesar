@@ -159,10 +159,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(StressPointer) :: stress
   
   ! VSCHA basis and states.
-  type(HarmonicBasis),  allocatable :: vscha_basis(:)
-  type(VscfOutput),     allocatable :: vscha_output(:)
-  type(HarmonicStates), allocatable :: vscha_states(:)
-  real(dp),             allocatable :: vscha_frequencies(:,:)
+  type(HarmonicBasis),    allocatable :: vscha_basis(:)
+  type(VscfOutput),       allocatable :: vscha_output(:)
+  type(HarmonicStates),   allocatable :: vscha_states(:)
+  type(PotentialPointer), allocatable :: vscha_potentials(:)
+  real(dp),               allocatable :: vscha_frequencies(:,:)
   
   ! VSCF basis, states and potential.
   type(SubspaceBasisPointer), allocatable :: vscf_basis(:)
@@ -407,6 +408,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                            & anharmonic_data,                    &
                            & random_generator,                   &
                            & starting_configuration=vscha_output )
+    vscha_potentials = [(vscha_output(j)%potential, j=1, size(vscha_output))]
     vscha_states = [( HarmonicStates(vscha_output(i)%states), &
                     & i=1,                                    &
                     & size(vscha_output)                      )]
@@ -629,11 +631,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
          & / (1.0_dp*supercell%sc_size)
       
       vscha2_thermodynamics(j,i) = effective_harmonic_observables(   &
-                               &       thermal_energies(i),          &
-                               &       subspace_potentials(j),       &
-                               &       vscha_frequencies(j,i),       &
-                               &       size(subspaces(j)),           &
-                               &       anharmonic_data             ) &
+                               &           thermal_energies(i),      &
+                               &           vscha_potentials(j),      &
+                               &           vscha_frequencies(j,i),   &
+                               &           size(subspaces(j)),       &
+                               &           anharmonic_data         ) &
                                & / supercell%sc_size
     enddo
   enddo

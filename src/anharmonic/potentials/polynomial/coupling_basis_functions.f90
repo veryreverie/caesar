@@ -24,6 +24,8 @@ module coupling_basis_functions_module
     procedure, public :: basis_functions => &
                        & basis_functions_CouplingBasisFunctions
     
+    procedure, public :: finalise => finalise_CouplingBasisFunctions
+    
     generic,   public  :: energy =>                                           &
                         & energy_RealModeDisplacement_CouplingBasisFunctions, &
                         & energy_ComplexModeDisplacement_CouplingBasisFunctions
@@ -112,6 +114,33 @@ function basis_functions_CouplingBasisFunctions(this) result(output)
   
   output = this%basis_functions_
 end function
+
+impure elemental subroutine finalise_CouplingBasisFunctions(this,subspace, &
+   & anharmonic_data)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  type(DegenerateSubspace),      intent(in)    :: subspace
+  type(AnharmonicData),          intent(in)    :: anharmonic_data
+  
+  integer :: i
+  
+  if (size(this%coupling%ids)/=1) then
+    call print_line(CODE_ERROR//': Calling finalise_subspace_potential &
+       &on a potential with coupled subspaces.')
+    call err()
+  elseif (this%coupling%ids(1)/=subspace%id) then
+    call print_line(CODE_ERROR//': Calling finalise_subspace_potential &
+       &with the wrong subspace.')
+    call err()
+  endif
+  
+  ! Remove constant terms and split basis functions by power.
+  this%basis_functions_ = [(                                        &
+     & this%basis_functions_(i)%finalise(subspace,anharmonic_data), &
+     & i=1,                                                         &
+     & size(this%basis_functions_)                                  )]
+end subroutine
 
 impure elemental function energy_RealModeDisplacement_CouplingBasisFunctions( &
    & this,displacement) result(output)

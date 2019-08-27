@@ -44,6 +44,9 @@ module polynomial_potential_module
     procedure, public :: zero_energy => zero_energy_PolynomialPotential
     procedure, public :: add_constant => add_constant_PolynomialPotential
     
+    procedure, public :: finalise_subspace_potential => &
+                       & finalise_subspace_potential_PolynomialPotential
+    
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PolynomialPotential
     procedure, public :: energy_ComplexModeDisplacement => &
@@ -669,6 +672,28 @@ impure elemental subroutine add_constant_PolynomialPotential(this,input)
   real(dp),                   intent(in)    :: input
   
   this%reference_energy_ = this%reference_energy_ + input
+end subroutine
+
+! Finalise a subspace potential.
+! Re-arranges basis functions to remove duplicates and separate all monomials.
+impure elemental subroutine finalise_subspace_potential_PolynomialPotential( &
+   & this,subspace,anharmonic_data)
+  implicit none
+  
+  class(PolynomialPotential), intent(inout) :: this
+  type(DegenerateSubspace),   intent(in)    :: subspace
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  
+  if (size(this%basis_functions_)/=1) then
+    call print_line(CODE_ERROR//': Calling finalise_subspace_potential &
+       &on a potential with more than one coupling.')
+    call err()
+  endif
+  
+  this%reference_energy_ = this%reference_energy_ &
+                       & + this%basis_functions_(1)%undisplaced_energy()
+  
+  call this%basis_functions_(1)%finalise(subspace,anharmonic_data)
 end subroutine
 
 ! Calculate the energy at a given displacement.

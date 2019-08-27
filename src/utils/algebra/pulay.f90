@@ -242,6 +242,8 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   
   type(RealVector), allocatable :: previous_vectors(:)
   
+  integer :: a(4)
+  
   ! Each input vector x_i produces an output vector f(x_i) = x_i + e_i.
   ! The aim is to construct x_{n+1} such that e_{n+1}=0.
   ! If x_{n+1} = sum_{i=1}^n a_i x_i, it can be approximated that
@@ -324,6 +326,7 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   
   coefficients = [(0.0_dp, i=1, n)]
   allocate(previous_vectors(0), stat=ialloc); call err(ialloc)
+  a = [0,0,0,m]
   do i=1,n+1
     
     x_projection = sum(estuff(i)%evec(:n)*xs)
@@ -336,27 +339,33 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
     projection = sum(estuff(i)%evec(:n)*errors)
     projection_norm = l2_norm(projection)
     
-    if (projection_norm > 1e-10_dp) then
+    if (x_projection_norm < 1e-10_dp) then
+      ! The vector has no independent projection in the input space.
+      ! It exists only because the number of input vectors is greater than
+      !    the number of degrees of freedom.
+      prefactor = 0
+      a(1) = a(1)+1
+    elseif (projection_norm > 1e-10_dp) then
       ! The self-consistency scheme defines the position along the i'th
       !    eigenvector of the error matrix.
       prefactor = estuff(i)%evec(n+1)/estuff(i)%eval
       previous_vectors = [previous_vectors, x_projection/x_projection_norm]
-    elseif (x_projection_norm > 1e-5_dp) then
+      prefactor = max(-0.1_dp,min(prefactor,0.1_dp))
+      a(2) = a(2)+1
+    else
       ! The self-consistency scheme does not define the position along the i'th
       !    eigenvector. Instead, the gradient descent scheme is called.
       prefactor = -(vec(estuff(i)%evec(:n))*vec(free_energies)) &
               & / 10.0_dp*convergence_threshold
       previous_vectors = [previous_vectors, x_projection/x_projection_norm]
-    else
-      ! The vector is not a true degree of freedom, but cause by the space of
-      !    xs being degenerate.
-      prefactor = 0
+      prefactor = max(-0.01_dp,min(prefactor,0.01_dp))
+      a(3) = a(3)+1
     endif
-    
-    prefactor = max(-0.01_dp,min(prefactor,0.01_dp))
     
     coefficients = coefficients + prefactor*estuff(i)%evec(:n)
   enddo
+  
+  call print_line(a)
   
   coefficients = max(-2.0_dp,min(coefficients,2.0_dp))
   
@@ -366,6 +375,8 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   output = sum(coefficients*(0.8_dp*xs+0.2_dp*fs)) &
        & + (1-sum(coefficients))*(0.8_dp*xs(last_guess)+0.2_dp*fs(last_guess))
   
+  ! Add in a small random component, to help break out of linearly-dependent
+  !    subspaces.
   output = output                                                      &
        & + 2e-1_dp                                                     &
        & * vec( (random_generator%random_numbers(size(output))-0.5_dp) &

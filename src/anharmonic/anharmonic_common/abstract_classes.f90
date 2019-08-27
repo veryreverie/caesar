@@ -181,6 +181,10 @@ module abstract_classes_module
     procedure(zero_energy_PotentialData), public, deferred :: zero_energy
     procedure(add_constant_PotentialData), public, deferred :: add_constant
     
+    ! Finalise the subspace potential.
+    procedure, public :: finalise_subspace_potential => &
+                       & finalise_subspace_potential_PotentialData
+    
     ! Return the energy and force at a given real or complex displacement.
     generic, public :: energy =>                    &
                      & energy_RealModeDisplacement, &
@@ -241,6 +245,9 @@ module abstract_classes_module
     
     procedure, public :: zero_energy => zero_energy_PotentialPointer
     procedure, public :: add_constant => add_constant_PotentialPointer
+    
+    procedure, public :: finalise_subspace_potential => &
+                       & finalise_subspace_potential_PotentialPointer
     
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PotentialPointer
@@ -1541,6 +1548,19 @@ impure elemental subroutine add_constant_PotentialPointer(this,input)
   call this%potential_%add_constant(input)
 end subroutine
 
+impure elemental subroutine finalise_subspace_potential_PotentialPointer( &
+   & this,subspace,anharmonic_data)
+  implicit none
+  
+  class(PotentialPointer),  intent(inout) :: this
+  type(DegenerateSubspace), intent(in)    :: subspace
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  
+  call this%check()
+  
+  call this%potential_%finalise_subspace_potential(subspace,anharmonic_data)
+end subroutine
+
 impure elemental function energy_RealModeDisplacement_PotentialPointer(this, &
    & displacement) result(output)
   implicit none
@@ -2035,6 +2055,17 @@ function undisplaced_energy(this) result(output)
   
   output = this%energy(RealModeDisplacement(zero_displacement))
 end function
+
+impure elemental subroutine finalise_subspace_potential_PotentialData(this, &
+   & subspace,anharmonic_data)
+  implicit none
+  
+  class(PotentialData),     intent(inout) :: this
+  type(DegenerateSubspace), intent(in)    :: subspace
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  
+  ! By default this doesn't do anything.
+end subroutine
 
 ! StressData methods.
 function undisplaced_stress(this) result(output)
