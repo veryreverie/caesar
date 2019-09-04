@@ -214,7 +214,8 @@ subroutine map_anharmonic_modes_subroutine(arguments)
     ! Sample the model potential.
     mode_maps(i) = ModeMap( scaled_displacements, &
                           & real_modes(i),        &
-                          & potential             )
+                          & potential,            &
+                          & anharmonic_data       )
   enddo
   
   ! --------------------------------------------------
@@ -271,15 +272,17 @@ subroutine map_anharmonic_modes_subroutine(arguments)
           electronic_structure = calculation_reader%read_calculation( &
                                                    & displacement_dir )
           
-          sampled_energies(k) = electronic_structure%energy() &
-                            & / supercell%sc_size
+          sampled_energies(k) = electronic_structure%energy()
           sampled_force = RealModeForce( electronic_structure%forces(), &
                                        & supercell,                     &
                                        & real_modes,                    &
                                        & qpoints                        )
           sampled_forces(k) = sampled_force%force(mode)
         enddo
-        sampled_energies = sampled_energies - potential%undisplaced_energy()
+        sampled_energies = sampled_energies               &
+                       & / supercell%sc_size              &
+                       & - potential%undisplaced_energy() &
+                       & / anharmonic_supercell%sc_size
         mode_maps(qpoint_modes(j))%sampled_energies = sampled_energies
         mode_maps(qpoint_modes(j))%sampled_forces   = sampled_forces
         

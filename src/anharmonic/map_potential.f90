@@ -305,8 +305,7 @@ subroutine map_potential_subroutine(arguments)
             electronic_structure = calculation_reader%read_calculation( &
                                                      & displacement_dir )
             
-            sampled_energy(l,k) = electronic_structure%energy() &
-                              & / supercell%sc_size
+            sampled_energy(l,k) = electronic_structure%energy()
           endif
         enddo
       enddo

@@ -16,6 +16,7 @@ module basis_function_module
   
   public :: BasisFunction
   public :: generate_basis_functions
+  public :: finalise
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
@@ -35,8 +36,6 @@ module basis_function_module
     procedure, public :: complex_representation
     
     procedure, public :: simplify => simplify_BasisFunction
-    
-    procedure, public :: finalise => finalise_BasisFunction
     
     generic,   public  :: energy =>                                  &
                         & energy_RealModeDisplacement_BasisFunction, &
@@ -81,6 +80,10 @@ module basis_function_module
   
   interface generate_basis_functions
     module procedure generate_basis_functions_SubspaceMonomial
+  end interface
+  
+  interface finalise
+    module procedure finalise_BasisFunctions
   end interface
   
   interface operator(*)
@@ -330,48 +333,145 @@ impure elemental subroutine simplify_BasisFunction(this)
   call this%complex_representation_%simplify()
 end subroutine
 
-function finalise_BasisFunction(this,subspace,anharmonic_data) &
+function finalise_BasisFunctions(input,subspace,anharmonic_data) &
    & result(output)
   implicit none
   
-  class(BasisFunction),     intent(in) :: this
+  type(BasisFunction),      intent(in) :: input(:)
   type(DegenerateSubspace), intent(in) :: subspace
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisFunction), allocatable     :: output(:)
   
-  integer, allocatable :: real_powers(:)
-  integer, allocatable :: complex_powers(:)
-  integer, allocatable :: powers(:)
+  integer :: order
+  
+  type(RealPolynomial),    allocatable :: real_polynomials(:)
+  type(ComplexPolynomial), allocatable :: complex_polynomials(:)
   
   type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
   
-  integer :: i,ialloc
+  type(RealMonomial)    :: no_real_monomials(0)
+  type(ComplexMonomial) :: no_complex_monomials(0)
   
-  if (size(this%complex_representation_%terms)==0) then
-    allocate(output(0), stat=ialloc); call err(ialloc)
-    return
-  endif
+  type(ComplexMatrix) :: complex_to_real_conversion
   
-  real_powers = this%real_representation_%terms%total_power()
-  complex_powers = this%complex_representation_%terms%total_power()
+  type(ComplexMonomial) :: conjugate
   
-  powers = complex_powers
-  powers = powers(set(powers))
-  powers = powers(sort(powers))
+  logical, allocatable :: mode_found(:)
   
-  if (powers(1)==0) then
-    powers = powers(2:)
-  endif
+  complex(dp) :: coefficient
   
-  allocate(output(size(powers)), stat=ialloc); call err(ialloc)
-  do i=1,size(powers)
-    real_representation = RealPolynomial(                                &
-       & this%real_representation_%terms(filter(real_powers==powers(i))) )
-    complex_representation = ComplexPolynomial( &
-       & this%complex_representation_%terms(    &
-       &    filter(complex_powers==powers(i)) ) )
-    output(i) = BasisFunction(real_representation, complex_representation)
+  integer :: i,j,i2,j2,k,ialloc
+  
+  order = anharmonic_data%potential_expansion_order
+  
+  ! Collate the input into an array of polynomials, one for each power.
+  ! N.B. the terms with power=0 are dropped as they have already been
+  !    accounted for in the reference energy.
+  real_polynomials = [( RealPolynomial(no_real_monomials), &
+                      & i=1,                               &
+                      & order                              )]
+  complex_polynomials = [( ComplexPolynomial(no_complex_monomials), &
+                         & i=1,                                     &
+                         & order                                    )]
+  do i=1,size(input)
+    do j=1,size(input(i)%real_representation_%terms)
+      associate (term => input(i)%real_representation_%terms(j))
+        if (term%total_power()>0) then
+          real_polynomials(term%total_power()) =      &
+             &   real_polynomials(term%total_power()) &
+             & + term
+        endif
+      end associate
+    enddo
+    
+    do j=1,size(input(i)%complex_representation_%terms)
+      associate (term => input(i)%complex_representation_%terms(j))
+        if (term%total_power()>0) then
+          complex_polynomials(term%total_power()) =      &
+             &   complex_polynomials(term%total_power()) &
+             & + term
+        endif
+      end associate
+    enddo
+  enddo
+  
+  ! Split the polynomials into basis functions, one for each monomial in
+  !    each complex polynomial.
+  allocate( output(sum( [(size(complex_polynomials(i)), i=1, order)] )), &
+          & stat=ialloc); call err(ialloc)
+  k = 0
+  do i=1,order
+    complex_to_real_conversion = coefficient_conversion_matrix( &
+                               & real_polynomials(i)%terms,     &
+                               & complex_polynomials(i)%terms,  &
+                               & include_coefficients = .false. )
+    mode_found = [(.false., j=1,size(complex_polynomials(i)%terms))]
+    do j=1,size(complex_polynomials(i)%terms)
+      if (mode_found(j)) then
+        cycle
+      endif
+      
+      conjugate = conjg(complex_polynomials(i)%terms(j))
+      
+      j2 = 0
+      do i2=j,size(complex_polynomials(i)%terms)
+        if (compare_complex_monomials(         &
+           & complex_polynomials(i)%terms(i2), &
+           & conjugate                         )) then
+          j2 = i2
+          exit
+        endif
+      enddo
+      if (j2==0) then
+        call err()
+      endif
+      
+      mode_found(j) = .true.
+      mode_found(j2) = .true.
+      
+      if (j2==j) then
+        coefficient = complex_polynomials(i)%terms(j)%coefficient
+        complex_representation = ComplexPolynomial( &
+                & [complex_polynomials(i)%terms(j)] )
+        real_representation = real_polynomials(i)
+        real_representation%terms%coefficient =            &
+           &   cmplx(complex_to_real_conversion%column(j)) &
+           & * coefficient
+        real_representation%terms = real_representation%terms(filter(abs(real_representation%terms%coefficient)>1e-10_dp**i))
+        k = k+1
+        output(k) = BasisFunction(real_representation,complex_representation)
+      else
+        coefficient = ( complex_polynomials(i)%terms(j)%coefficient    &
+                    & + complex_polynomials(i)%terms(j2)%coefficient ) &
+                    & / 2
+        complex_representation = ComplexPolynomial(    &
+                & [ complex_polynomials(i)%terms(j),   &
+                &   complex_polynomials(i)%terms(j2) ] )
+        complex_representation%terms%coefficient = coefficient
+        real_representation = real_polynomials(i)
+        real_representation%terms%coefficient =                 &
+           &   ( cmplx(complex_to_real_conversion%column(j))    &
+           &   + cmplx(complex_to_real_conversion%column(j2)) ) &
+           & * coefficient
+        real_representation%terms = real_representation%terms(filter(abs(real_representation%terms%coefficient)>1e-10_dp**i))
+        k = k+1
+        output(k) = BasisFunction(real_representation,complex_representation)
+        
+        coefficient = ( complex_polynomials(i)%terms(j)%coefficient    &
+                    & - complex_polynomials(i)%terms(j2)%coefficient ) &
+                    & / 2
+        complex_representation%terms%coefficient = [coefficient, -coefficient]
+        real_representation = real_polynomials(i)
+        real_representation%terms%coefficient =                 &
+           &   ( cmplx(complex_to_real_conversion%column(j))    &
+           &   - cmplx(complex_to_real_conversion%column(j2)) ) &
+           & * coefficient
+        real_representation%terms = real_representation%terms(filter(abs(real_representation%terms%coefficient)>1e-10_dp**i))
+        k = k+1
+        output(k) = BasisFunction(real_representation,complex_representation)
+      endif
+    enddo
   enddo
 end function
 

@@ -66,12 +66,14 @@ function new_ModeMap(mode_id,harmonic_frequency,displacements,                &
   endif
 end function
 
-function new_ModeMap_potential(displacements,mode,potential) result(this)
+function new_ModeMap_potential(displacements,mode,potential,anharmonic_data) &
+   & result(this)
   implicit none
   
   real(dp),             intent(in) :: displacements(:)
   type(RealMode),       intent(in) :: mode
   class(PotentialData), intent(in) :: potential
+  type(AnharmonicData), intent(in) :: anharmonic_data
   type(ModeMap)                    :: this
   
   ! Output variables.
@@ -103,10 +105,12 @@ function new_ModeMap_potential(displacements,mode,potential) result(this)
                      & * displacements(i)
     
     displacement = RealModeDisplacement([mode],[displacements(i)])
-    anharmonic_energies(i) = potential%energy(displacement) &
-                           - potential%undisplaced_energy()
+    anharmonic_energies(i) = ( potential%energy(displacement)   &
+                         &   - potential%undisplaced_energy() ) &
+                         & / anharmonic_data%anharmonic_supercell%sc_size
     anharmonic_force = potential%force(displacement)
-    anharmonic_forces(i) = anharmonic_force%force(mode)
+    anharmonic_forces(i) = anharmonic_force%force(mode) &
+                       & / anharmonic_data%anharmonic_supercell%sc_size
   enddo
   
   this = ModeMap( mode%id,             &

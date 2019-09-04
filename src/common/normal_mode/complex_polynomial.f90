@@ -5,6 +5,11 @@ module complex_polynomial_module
   use utils_module
   use structure_module
   
+  use real_mode_module
+  use real_single_mode_displacement_module
+  use real_single_mode_force_module
+  use real_mode_displacement_module
+  use real_mode_force_module
   use complex_mode_module
   use complex_single_mode_displacement_module
   use complex_single_mode_force_module
@@ -70,8 +75,15 @@ module complex_polynomial_module
     procedure, public :: wavevector => &
                        & wavevector_ComplexUnivariate
     
-    procedure, public :: energy => energy_ComplexUnivariate
-    procedure, public :: force  => force_ComplexUnivariate
+    procedure, private :: energy_real => &
+                        & energy_RealSingleDisplacement_ComplexUnivariate
+    procedure, private :: energy_complex => &
+                        & energy_ComplexSingleDisplacement_ComplexUnivariate
+    
+    procedure, private :: force_real => &
+                        & force_RealSingleDisplacement_ComplexUnivariate
+    procedure, private :: force_complex => &
+                        & force_ComplexSingleDisplacement_ComplexUnivariate
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_ComplexUnivariate
@@ -113,8 +125,17 @@ module complex_polynomial_module
     
     procedure, public :: wavevector => wavevector_ComplexMonomial
     
-    procedure, public :: energy => energy_ComplexMonomial
-    procedure, public :: force  => force_ComplexMonomial
+    generic,   public  :: energy =>                                    &
+                        & energy_RealModeDisplacement_ComplexMonomial, &
+                        & energy_ComplexModeDisplacement_ComplexMonomial
+    procedure, private :: energy_RealModeDisplacement_ComplexMonomial
+    procedure, private :: energy_ComplexModeDisplacement_ComplexMonomial
+    
+    generic,   public  :: force =>                                    &
+                        & force_RealModeDisplacement_ComplexMonomial, &
+                        & force_ComplexModeDisplacement_ComplexMonomial
+    procedure, private :: force_RealModeDisplacement_ComplexMonomial
+    procedure, private :: force_ComplexModeDisplacement_ComplexMonomial
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_ComplexMonomial
@@ -140,8 +161,17 @@ module complex_polynomial_module
     procedure, public :: wavevector => &
                        & wavevector_ComplexPolynomial
     
-    procedure, public :: energy => energy_ComplexPolynomial
-    procedure, public :: force  => force_ComplexPolynomial
+    generic,   public  :: energy =>                                      &
+                        & energy_RealModeDisplacement_ComplexPolynomial, &
+                        & energy_ComplexModeDisplacement_ComplexPolynomial
+    procedure, private :: energy_RealModeDisplacement_ComplexPolynomial
+    procedure, private :: energy_ComplexModeDisplacement_ComplexPolynomial
+    
+    generic,   public  :: force =>                                      &
+                        & force_RealModeDisplacement_ComplexPolynomial, &
+                        & force_ComplexModeDisplacement_ComplexPolynomial
+    procedure, private :: force_RealModeDisplacement_ComplexPolynomial
+    procedure, private :: force_ComplexModeDisplacement_ComplexPolynomial
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_ComplexPolynomial
@@ -856,74 +886,224 @@ end function
 
 ! Evaluate the contribution to the energy from
 !    a univariate, monomial or polynomial at a given displacement.
-impure elemental function energy_ComplexUnivariate(this,displacement) &
-   & result(output)
+impure elemental function energy_RealSingleDisplacement_ComplexUnivariate( &
+   & this,displacement,paired_displacement) result(output)
   implicit none
   
-  class(ComplexUnivariate),         intent(in) :: this
-  class(ComplexSingleDisplacement), intent(in) :: displacement
-  complex(dp)                                  :: output
+  class(ComplexUnivariate),     intent(in)           :: this
+  type(RealSingleDisplacement), intent(in), optional :: displacement
+  type(RealSingleDisplacement), intent(in), optional :: paired_displacement
+  complex(dp)                                        :: output
   
-  if (displacement%id==this%id) then
-    output = displacement%magnitude**this%power
-  elseif (displacement%id==this%paired_id) then
-    output = displacement%magnitude**this%paired_power
-  else
-    call print_line(CODE_ERROR//': Trying to evaluate a univariate at an &
-       &incompatible displacement.')
+  complex(dp) :: magnitude
+  complex(dp) :: paired_magnitude
+  
+  if (.not. (present(displacement) .or. present(paired_displacement))) then
+    call print_line(CODE_ERROR//': Neither displacement passed.')
     call err()
+  elseif (present(paired_displacement) .and. this%id==this%paired_id) then
+    call print_line(CODE_ERROR//': paired displacement passed to &
+       &univariate with id=paired_id.')
+    call err()
+  endif
+  
+  ! Convert from real to complex co-ordinates.
+  ! x_+ = (x_c + ix_s) / sqrt(2)
+  ! x_- = (x_c - ix_s) / sqrt(2)
+  magnitude = 0
+  paired_magnitude = 0
+  if (present(displacement)) then
+    ! x_+ : x_c / sqrt(2)
+    magnitude = magnitude &
+            & + displacement%magnitude &
+            & / sqrt(2.0_dp)
+    ! x_- : x_c / sqrt(2)
+    paired_magnitude = paired_magnitude &
+                   & + displacement%magnitude &
+                   & / sqrt(2.0_dp)
+  endif
+  if (present(paired_displacement)) then
+    ! x_+ : ix_s / sqrt(2)
+    magnitude = magnitude &
+            & + paired_displacement%magnitude &
+            & * cmplx(0,1,dp) / sqrt(2.0_dp)
+    ! x_- : - ix_s / sqrt(2)
+    paired_magnitude = paired_magnitude &
+                   & - paired_displacement%magnitude &
+                   & * cmplx(0,1,dp) / sqrt(2.0_dp)
+  endif
+  
+  output = magnitude**this%power
+  if (this%id/=this%paired_id) then
+    output = output + paired_magnitude**this%paired_power
   endif
 end function
 
-impure elemental function energy_ComplexMonomial(this,displacement) &
-   & result(output)
+impure elemental function energy_ComplexSingleDisplacement_ComplexUnivariate( &
+   & this,displacement,paired_displacement) result(output)
   implicit none
   
-  class(ComplexMonomial),         intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                                :: output
+  class(ComplexUnivariate),         intent(in)           :: this
+  class(ComplexSingleDisplacement), intent(in), optional :: displacement
+  class(ComplexSingleDisplacement), intent(in), optional :: paired_displacement
+  complex(dp)                                            :: output
   
-  integer, allocatable :: ids(:)
+  if (.not. (present(displacement) .or. present(paired_displacement))) then
+    call print_line(CODE_ERROR//': Neither displacement passed.')
+    call err()
+  elseif (present(paired_displacement) .and. this%id==this%paired_id) then
+    call print_line(CODE_ERROR//': paired displacement passed to &
+       &univariate with id=paired_id.')
+    call err()
+  endif
+  
+  output = 1.0_dp
+  
+  if (present(displacement)) then
+    output = output * displacement%magnitude**this%power
+  endif
+  
+  if (present(paired_displacement)) then
+    output = output * paired_displacement%magnitude**this%paired_power
+  endif
+end function
+
+impure elemental function energy_RealModeDisplacement_ComplexMonomial(this, &
+   & displacement) result(output)
+  implicit none
+  
+  class(ComplexMonomial),     intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  complex(dp)                            :: output
   
   integer :: i,j,k
   
   output = this%coefficient
   
+  ! Loop over the modes in this monomial,
+  !    find the mode (and paired mode if relevant) in the displacement
+  !    corresponding to each mode,
+  !    and calculate the energy term by term.
   do i=1,size(this)
-    ! Find the mode in the displacement which matches that in the monomial.
-    if (this%modes_(i)%id==this%modes_(i)%paired_id) then
-      if (this%modes_(i)%power/=0) then
-        ids = [this%modes_(i)%id]
+    associate (mode => this%modes_(i))
+      if (mode%id==mode%paired_id) then
+        if (mode%power/=0) then
+          j = first(displacement%vectors%id==mode%id, default=0)
+          
+          if (j==0) then
+            ! If the mode is not present in the displacement,
+            !    then the displacement along that mode is zero.
+            ! As such, the monomial is zero. (0^n=0 if n>0).
+            output = 0
+            return
+          else
+            output = output &
+                 & * mode%energy_real(displacement=displacement%vectors(j))
+          endif
+        endif
+      else
+        if (mode%power/=0 .or. mode%paired_power/=0) then
+          j = first(displacement%vectors%id==mode%id, default=0)
+          k = first(displacement%vectors%id==mode%paired_id, default=0)
+          
+          if (j==0 .and. k==0) then
+            ! If both modes are not present in the displacement,
+            !    then the displacement along that mode is zero.
+            ! As such, the monomial is zero. (0^n=0 if n>0).
+            output = 0
+            return
+          elseif (j==0) then
+            output = output * mode%energy_real(              &
+               & paired_displacement=displacement%vectors(k) )
+          elseif (k==0) then
+            output = output * mode%energy_real(       &
+               & displacement=displacement%vectors(j) )
+          else
+            output = output * mode%energy_real(              &
+               & displacement=displacement%vectors(j),       &
+               & paired_displacement=displacement%vectors(k) )
+          endif
+        endif
       endif
-    else
-      if (this%modes_(i)%power/=0) then
-        ids = [this%modes_(i)%id]
-      endif
-      if (this%modes_(i)%paired_power/=0) then
-        ids = [this%modes_(i)%paired_id]
-      endif
-    endif
-    
-    do j=1,size(ids)
-      k = first(displacement%vectors%id==ids(j), default=0) 
-      
-      ! If the mode is not present in the displacement,
-      !    then the displacement along that mode is zero.
-      ! As such, the monomial is zero. (0^n=0 if n>0).
-      if (k==0) then
-        output = 0.0_dp
-        return
-      endif
-      
-      ! If the mode is present in both,
-      !    evaluate the univariate at the displacement.
-      output = output * this%modes_(i)%energy(displacement%vectors(k))
-    enddo
+    end associate
   enddo
 end function
 
-impure elemental function energy_ComplexPolynomial(this,displacement) &
-   & result(output)
+impure elemental function energy_ComplexModeDisplacement_ComplexMonomial( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(ComplexMonomial),        intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                               :: output
+  
+  integer :: i,j,k
+  
+  output = this%coefficient
+  
+  ! Loop over the modes in this monomial,
+  !    find the mode (and paired mode if relevant) in the displacement
+  !    corresponding to each mode,
+  !    and calculate the energy term by term.
+  do i=1,size(this)
+    associate (mode => this%modes_(i))
+      if (mode%id==mode%paired_id) then
+        if (mode%power/=0) then
+          j = first(displacement%vectors%id==mode%id, default=0)
+          
+          if (j==0) then
+            ! If the mode is not present in the displacement,
+            !    then the displacement along that mode is zero.
+            ! As such, the monomial is zero. (0^n=0 if n>0).
+            output = 0
+            return
+          else
+            output = output * mode%energy_complex(    &
+               & displacement=displacement%vectors(j) )
+          endif
+        endif
+      else
+        if (mode%power/=0 .or. mode%paired_power/=0) then
+          j = first(displacement%vectors%id==mode%id, default=0)
+          k = first(displacement%vectors%id==mode%paired_id, default=0)
+          
+          if (      (j==0 .and. mode%power/=0)        &
+             & .or. (k==0 .and. mode%paired_power/=0) ) then
+            ! If either mode is not present in the displacement,
+            !    then the displacement along that mode is zero.
+            ! As such, the monomial is zero. (0^n=0 if n>0).
+            output = 0
+            return
+          elseif (j==0) then
+            output = output * mode%energy_complex(           &
+               & paired_displacement=displacement%vectors(k) )
+          elseif (k==0) then
+            output = output * mode%energy_complex(    &
+               & displacement=displacement%vectors(j) )
+          else
+            output = output * mode%energy_complex(           &
+               & displacement=displacement%vectors(j),       &
+               & paired_displacement=displacement%vectors(k) )
+          endif
+        endif
+      endif
+    end associate
+  enddo
+end function
+
+impure elemental function energy_RealModeDisplacement_ComplexPolynomial( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(ComplexPolynomial),    intent(in) :: this
+  class(RealModeDisplacement), intent(in) :: displacement
+  complex(dp)                             :: output
+  
+  output = sum(this%terms%energy(displacement))
+end function
+
+impure elemental function energy_ComplexModeDisplacement_ComplexPolynomial( &
+   & this,displacement) result(output)
   implicit none
   
   class(ComplexPolynomial),       intent(in) :: this
@@ -936,181 +1116,490 @@ end function
 ! Evaluate the contribution to the force from
 !    a univariate, monomial or polynomial at a given displacement.
 ! -d/d{u_i} ({u_i}^n) evaluated at u_i=U is -n*U^{n-1}
-impure elemental function force_ComplexUnivariate(this,displacement) &
-   & result(output)
+function force_RealSingleDisplacement_ComplexUnivariate(this,displacement, &
+   & paired_displacement) result(output)
   implicit none
   
-  class(ComplexUnivariate),         intent(in) :: this
-  class(ComplexSingleDisplacement), intent(in) :: displacement
-  type(ComplexSingleForce)                     :: output
+  class(ComplexUnivariate),     intent(in)           :: this
+  type(RealSingleDisplacement), intent(in), optional :: displacement
+  type(RealSingleDisplacement), intent(in), optional :: paired_displacement
+  complex(dp), allocatable                           :: output(:)
   
-  complex(dp) :: force
+  complex(dp) :: magnitude
+  complex(dp) :: paired_magnitude
   
-  if (displacement%id==this%id) then
-    if (this%power==0) then
-      force = 0.0_dp
-    elseif (this%power==1) then
-      force = -1.0_dp
-    else
-      force = -this%power * displacement%magnitude**(this%power-1)
-    endif
-    output = ComplexSingleForce(id=this%id, magnitude=force)
-  elseif (displacement%id==this%paired_id) then
-    if (this%paired_power==0) then
-      force = 0.0_dp
-    elseif (this%paired_power==1) then
-      force = -1.0_dp
-    else
-      force = -this%paired_power &
-          & * displacement%magnitude**(this%paired_power-1)
-    endif
-    output = ComplexSingleForce(id=this%paired_id, magnitude=force)
-  else
-    call print_line(CODE_ERROR//': Trying to take the derivative of a &
-       & univariate at an incompatible displacement.')
+  complex(dp) :: values(2)
+  complex(dp) :: derivatives(2)
+  
+  if (.not. (present(displacement) .or. present(paired_displacement))) then
+    call print_line(CODE_ERROR//': Neither displacement passed.')
+    call err()
+  elseif (present(paired_displacement) .and. this%id==this%paired_id) then
+    call print_line(CODE_ERROR//': paired displacement passed to &
+       &univariate with id=paired_id.')
     call err()
   endif
+  
+  ! Convert from real to complex co-ordinates.
+  ! x_+ = (x_c + ix_s) / sqrt(2)
+  ! x_- = (x_c - ix_s) / sqrt(2)
+  magnitude = 0
+  paired_magnitude = 0
+  if (present(displacement)) then
+    ! x_+ : x_c / sqrt(2)
+    magnitude = magnitude &
+            & + displacement%magnitude &
+            & / sqrt(2.0_dp)
+    ! x_- : x_c / sqrt(2)
+    paired_magnitude = paired_magnitude &
+                   & + displacement%magnitude &
+                   & / sqrt(2.0_dp)
+  endif
+  if (present(paired_displacement)) then
+    ! x_+ : ix_s / sqrt(2)
+    magnitude = magnitude &
+            & + paired_displacement%magnitude &
+            & * cmplx(0,1,dp) / sqrt(2.0_dp)
+    ! x_- : - ix_s / sqrt(2)
+    paired_magnitude = paired_magnitude &
+                   & - paired_displacement%magnitude &
+                   & * cmplx(0,1,dp) / sqrt(2.0_dp)
+  endif
+  
+  if (this%power>1) then
+    values(1) = magnitude**this%power
+    derivatives(1) = this%power * magnitude**(this%power-1)
+  elseif (this%power==1) then
+    values(1) = magnitude
+    derivatives(1) = 1
+  else
+    values(1) = 1
+    derivatives(1) = 0
+  endif
+  
+  if (this%id==this%paired_id) then
+    output = [-derivatives(1)]
+    return
+  endif
+  
+  if (this%paired_power>1) then
+    values(2) = paired_magnitude**this%paired_power
+    derivatives(2) = this%paired_power &
+                 & * paired_magnitude**(this%paired_power-1)
+  elseif (this%paired_power==1) then
+    values(2) = paired_magnitude
+    derivatives(2) = 1
+  else
+    values(2) = 1
+    derivatives(2) = 0
+  endif
+  
+  ! Construct the output in complex co-ordinates...
+  output = [-derivatives(1)*values(2), -derivatives(2)*values(1)]
+  ! ... then convert back to real co-ordinates.
+  ! f_c = (f_+ + f_-) / sqrt(2)
+  ! f_s = (f_+ - f_-) / sqrt(2)i
+  output = [ (output(1)+output(2))/sqrt(2.0_dp),            &
+           & (output(1)-output(2))/cmplx(0,sqrt(2.0_dp),dp) ]
+end function
+
+function force_ComplexSingleDisplacement_ComplexUnivariate(this, &
+   & displacement,paired_displacement) result(output)
+  implicit none
+  
+  class(ComplexUnivariate),        intent(in)           :: this
+  type(ComplexSingleDisplacement), intent(in), optional :: displacement
+  type(ComplexSingleDisplacement), intent(in), optional :: paired_displacement
+  complex(dp), allocatable                              :: output(:)
+  
+  complex(dp) :: magnitude
+  complex(dp) :: paired_magnitude
+  
+  complex(dp) :: values(2)
+  complex(dp) :: derivatives(2)
+  
+  if (.not. (present(displacement) .or. present(paired_displacement))) then
+    call print_line(CODE_ERROR//': Neither displacement passed.')
+    call err()
+  elseif (present(paired_displacement) .and. this%id==this%paired_id) then
+    call print_line(CODE_ERROR//': paired displacement passed to &
+       &univariate with id=paired_id.')
+    call err()
+  endif
+  
+  if (present(displacement)) then
+    magnitude = displacement%magnitude
+  else
+    magnitude = 0
+  endif
+  
+  if (this%power>1) then
+    values(1) = magnitude**this%power
+    derivatives(1) = this%power * magnitude**(this%power-1)
+  elseif (this%power==1) then
+    values(1) = magnitude
+    derivatives(1) = 1
+  else
+    values(1) = 1
+    derivatives(1) = 0
+  endif
+  
+  if (this%id==this%paired_id) then
+    output = [-derivatives(1)]
+    return
+  endif
+  
+  if (present(paired_displacement)) then
+    paired_magnitude = paired_displacement%magnitude
+  else
+    paired_magnitude = 0
+  endif
+  
+  if (this%paired_power>1) then
+    values(2) = paired_magnitude**this%paired_power
+    derivatives(2) = this%paired_power &
+                 & * paired_magnitude**(this%paired_power-1)
+  elseif (this%paired_power==1) then
+    values(2) = paired_magnitude
+    derivatives(2) = 1
+  else
+    values(2) = 1
+    derivatives(2) = 0
+  endif
+  
+  output = [-derivatives(1)*values(2), -derivatives(2)*values(1)]
 end function
 
 ! -d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is
 !    -c*prod_{j/=i}[ {U_j}^{n_j} ] * n_i * {U_i}^{n_i-1}
-impure elemental function force_ComplexMonomial(this,displacement) &
-   & result(output)
+impure elemental function force_RealModeDisplacement_ComplexMonomial(this, &
+   & displacement) result(output)
   implicit none
   
-  class(ComplexMonomial),         intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexModeForce)                     :: output
+  class(ComplexMonomial),     intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                    :: output
   
-  integer, allocatable :: id(:)
-  integer, allocatable :: power(:)
+  integer, allocatable :: no_forces(:)
+  logical, allocatable :: value_is_zero(:)
+  logical, allocatable :: force_is_zero(:)
   
-  integer                  :: displacement_id
+  type(RealSingleDisplacement), allocatable :: displacements(:)
+  type(RealSingleDisplacement), allocatable :: paired_displacements(:)
+  
   complex(dp)              :: energy
-  type(ComplexSingleForce) :: force
+  integer,     allocatable :: ids(:)
+  complex(dp), allocatable :: forces(:)
   
-  integer,                  allocatable :: powers(:)
-  integer,                  allocatable :: displacement_ids(:)
-  complex(dp),              allocatable :: energies(:)
-  type(ComplexSingleForce), allocatable :: forces(:)
+  integer :: i,j,k,ialloc
   
-  type(ComplexSingleForce), allocatable :: components(:)
+  integer :: no_modes
   
-  integer :: i,j,ialloc
-  
-  ! Match the components of the displacement along each mode with the
-  !    univariates making up the monomial.
-  ! Evaluate and take the derivative of each univariate at the one-mode
-  !    component of the vector.
-  allocate( powers(0),           &
-          & displacement_ids(0), &
-          & energies(0),         &
-          & forces(0),           &
+  ! Match each mode in the monomial with the matching mode(s)
+  !    in the displacement.
+  allocate( displacements(size(this)),        &
+          & paired_displacements(size(this)), &
+          & value_is_zero(size(this)),        &
+          & force_is_zero(size(this)),        &
           & stat=ialloc); call err(ialloc)
+  no_modes = 0
   do i=1,size(this)
-    allocate( id(0),    &
-            & power(0), &
-            & stat=ialloc); call err(ialloc)
-    if (this%modes_(i)%id==this%modes_(i)%paired_id) then
-      if (this%modes_(i)%power>0) then
-        id = [id, this%modes_(i)%id]
-        power = [power, this%modes_(i)%power]
-      endif
-    else
-      if (this%modes_(i)%power>0) then
-        id = [id, this%modes_(i)%id]
-        power = [power, this%modes_(i)%power]
-      endif
-      
-      if (this%modes_(i)%paired_power>0) then
-        id = [id, this%modes_(i)%paired_id]
-        power = [power, this%modes_(i)%paired_power]
-      endif
-    endif
-    
-    do j=1,size(id)
-      ! Identify the vector corresponding to each mode.
-      ! If vector_ids(i)=0 then U_i=0.
-      displacement_id = first( displacement%vectors%id==id(j), &
-                             & default=0)
-      
-      ! Calculate {U_i}^{n_i}
-      if (displacement_id==0) then
-        energy = 0.0_dp
+    associate (mode => this%modes_(i))
+      j = first(displacement%vectors%id==mode%id, default=0)
+      if (j/=0) then
+        displacements(i) = displacement%vectors(j)
       else
-        energy = this%modes_(i)%energy(            &
-           & displacement%vectors(displacement_id) )
+        displacements(i) = RealSingleDisplacement(mode%id, 0.0_dp)
       endif
-      
-      ! Calculate -d/d{u_i} ({u_i}^{n_i}) evaluated at U_i.
-      if (displacement_id==0) then
-        if (power(j)==1) then
-          force = ComplexSingleForce(             &
-             & id=id(j),                          &
-             & magnitude=cmplx(-1.0_dp,0.0_dp,dp) )
-        else
-          force = ComplexSingleForce(            &
-             & id=id(j),                         &
-             & magnitude=cmplx(0.0_dp,0.0_dp,dp) )
+      if (mode%id==mode%paired_id) then
+        value_is_zero(i) = j==0 .and. mode%power/=0
+        force_is_zero(i) = j==0 .and. mode%power/=1
+        if (.not. force_is_zero(i)) then
+          no_modes = no_modes+1
         endif
       else
-        force = this%modes_(i)%force(              &
-           & displacement%vectors(displacement_id) )
+        k = first(displacement%vectors%id==mode%paired_id, default=0)
+        if (k/=0) then
+          paired_displacements(i) = displacement%vectors(k)
+        else
+          paired_displacements(i) = RealSingleDisplacement( mode%paired_id, &
+                                                          & 0.0_dp          )
+        endif
+        value_is_zero(i) = (j==0 .and. mode%power/=0) &
+                    & .or. (k==0 .and. mode%paired_power/=0)
+        force_is_zero(i) = (j==0 .and. mode%power/=1) &
+                   & .and. (k==0 .and. mode%paired_power/=1)
+        if (.not. force_is_zero(i)) then
+          no_modes = no_modes+2
+        endif
       endif
-      
-      powers = [powers, power(j)]
-      displacement_ids = [displacement_ids, displacement_id]
-      energies = [energies, energy]
-      forces = [forces, force]
-    enddo
-    
-    deallocate(id, power, stat=ialloc); call err(ialloc)
+    end associate
   enddo
   
-  ! Use the Univariate terms to calculate forces along each mode.
-  if (count(displacement_ids==0)>1) then
+  if (count(value_is_zero)>1) then
     ! If U_i is zero for more than one i, then
     !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
     !    so all derivatives are zero.
-    allocate(components(0), stat=ialloc); call err(ialloc)
-  elseif (count(displacement_ids==0)==1) then
-    i = first(displacement_ids==0, default=0)
-    if (powers(i)>1) then
-      ! If n_i>1, then the derivative along u_i is also zero.
-      allocate(components(0), stat=ialloc); call err(ialloc)
-    else
-      ! If n_i=1, then the derivative is simply c*prod_{j/=i}[ {U_j}^{n_j}
-      components = [ this%coefficient                       &
-                 & * product( energies,                     &
-                 &            dim=1,                        &
-                 &            mask=[(j/=i,j=1,size(this))]) &
-                 & * forces(i)                              &
-                 & ]
-    endif
+    allocate( ids(0),    &
+            & forces(0), &
+            & stat=ialloc); call err(ialloc)
   else
-    ! If no U_i are zero, then the monomial has non-zero derivatives along
-    !    each of its modes.
-    allocate(components(size(forces)), stat=ialloc); call err(ialloc)
-    do i=1,size(forces)
-      components(i) = this%coefficient                       &
-                  & * product( energies,                     &
-                  &            dim=1,                        &
-                  &            mask=[(j/=i,j=1,size(this))]) &
-                  & * forces(i)
-    enddo
+    i = first(value_is_zero, default=0)
+    if (i/=0) then
+      ! Only one U_i is zero.
+      if (force_is_zero(i)) then
+        ! The derivative is also zero along mode i.
+        allocate( ids(0),    &
+                & forces(0), &
+                & stat=ialloc); call err(ialloc)
+      else
+        ! The derivative is not zero along mode i.
+        associate (mode => this%modes_(i))
+        if (mode%id==mode%paired_id) then
+          ids = [mode%id]
+          forces = mode%force_real(displacements(i))
+        else
+          ids = [mode%id, mode%paired_id]
+          forces = mode%force_real(displacements(i), paired_displacements(i))
+        endif
+        end associate
+        do j=1,size(this)
+          if (j/=i) then
+            associate (mode => this%modes_(j))
+              if (mode%id==mode%paired_id) then
+                forces = forces &
+                     & * mode%energy_real(displacements(j))
+              else
+                forces = forces                                    &
+                     & * mode%energy_real( displacements(j),       &
+                     &                     paired_displacements(j) )
+              endif
+            end associate
+          endif
+        enddo
+      endif
+    else
+      ! The force is non-zero along multiple modes.
+      allocate( ids(no_modes),    &
+              & forces(no_modes), &
+              & stat=ialloc); call err(ialloc)
+      forces = 1.0_dp
+      j = 0
+      do i=1,size(this)
+        associate (mode => this%modes_(i))
+          if (mode%id==mode%paired_id) then
+            energy = mode%energy_real(displacements(i))
+          else
+            energy = mode%energy_real( displacements(i),       &
+                                     & paired_displacements(i) )
+          endif
+          
+          if (force_is_zero(i)) then
+            forces = forces * energy
+          else
+            if (mode%id==mode%paired_id) then
+              j = j+1
+              ids(j) = mode%id
+              forces(j:j) = forces(j:j) * mode%force_real(displacements(i))
+              forces(:j-1) = forces(:j-1) * energy
+              forces(j+1:) = forces(j+1:) * energy
+            else
+              j = j+2
+              ids(j-1) = mode%id
+              ids(j) = mode%paired_id
+              forces(j-1:j) = mode%force_real( displacements(i),       &
+                                             & paired_displacements(i) )
+              forces(:j-2) = forces(:j-2) * energy
+              forces(j+1:) = forces(j+1:) * energy
+            endif
+          endif
+        end associate
+      enddo
+    endif
   endif
   
   ! Construct output from components along each mode.
-  output = ComplexModeForce(components)
+  output = RealModeForce(RealSingleForce(ids, real(forces*this%coefficient)))
 end function
 
-impure elemental function force_ComplexPolynomial(this,displacement) &
-   & result(output)
+impure elemental function force_ComplexModeDisplacement_ComplexMonomial( &
+   & this,displacement) result(output)
   implicit none
   
-  class(ComplexPolynomial),       intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexModeForce)                     :: output
+  class(ComplexMonomial),        intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                    :: output
+  
+  integer, allocatable :: no_forces(:)
+  logical, allocatable :: value_is_zero(:)
+  logical, allocatable :: force_is_zero(:)
+  
+  type(ComplexSingleDisplacement), allocatable :: displacements(:)
+  type(ComplexSingleDisplacement), allocatable :: paired_displacements(:)
+  
+  complex(dp)              :: energy
+  integer,     allocatable :: ids(:)
+  complex(dp), allocatable :: forces(:)
+  
+  integer :: i,j,k,ialloc
+  
+  integer :: no_modes
+  
+  ! Match each mode in the monomial with the matching mode(s)
+  !    in the displacement.
+  allocate( displacements(size(this)),        &
+          & paired_displacements(size(this)), &
+          & value_is_zero(size(this)),        &
+          & force_is_zero(size(this)),        &
+          & stat=ialloc); call err(ialloc)
+  no_modes = 0
+  do i=1,size(this)
+    associate (mode => this%modes_(i))
+      j = first(displacement%vectors%id==mode%id, default=0)
+      if (j/=0) then
+        displacements(i) = displacement%vectors(j)
+      else
+        displacements(i) = ComplexSingleDisplacement( &
+                            & mode%id,                &
+                            & cmplx(0.0_dp,0.0_dp,dp) )
+      endif
+      if (mode%id==mode%paired_id) then
+        value_is_zero(i) = j==0 .and. mode%power/=0
+        force_is_zero(i) = j==0 .and. mode%power/=1
+        if (.not. force_is_zero(i)) then
+          no_modes = no_modes+1
+        endif
+      else
+        k = first(displacement%vectors%id==mode%paired_id, default=0)
+        if (k/=0) then
+          paired_displacements(i) = displacement%vectors(k)
+        else
+          paired_displacements(i) = ComplexSingleDisplacement( &
+                                     & mode%paired_id,         &
+                                     & cmplx(0.0_dp,0.0_dp,dp) )
+        endif
+        value_is_zero(i) = (j==0 .and. mode%power/=0) &
+                    & .or. (k==0 .and. mode%paired_power/=0)
+        force_is_zero(i) = (j==0 .and. mode%power/=1) &
+                   & .and. (k==0 .and. mode%paired_power/=1)
+        if (.not. force_is_zero(i)) then
+          no_modes = no_modes+2
+        endif
+      endif
+    end associate
+  enddo
+  
+  if (count(value_is_zero)>1) then
+    ! If U_i is zero for more than one i, then
+    !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
+    !    so all derivatives are zero.
+    allocate( ids(0),    &
+            & forces(0), &
+            & stat=ialloc); call err(ialloc)
+  else
+    i = first(value_is_zero, default=0)
+    if (i/=0) then
+      ! Only one U_i is zero.
+      if (force_is_zero(i)) then
+        ! The derivative is also zero along mode i.
+        allocate( ids(0),    &
+                & forces(0), &
+                & stat=ialloc); call err(ialloc)
+      else
+        ! The derivative is not zero along mode i.
+        associate (mode => this%modes_(i))
+        if (mode%id==mode%paired_id) then
+          ids = [mode%id]
+          forces = mode%force_complex(displacements(i))
+        else
+          ids = [mode%id, mode%paired_id]
+          forces = mode%force_complex( displacements(i),       &
+                                     & paired_displacements(i) )
+        endif
+        end associate
+        do j=1,size(this)
+          if (j/=i) then
+            associate (mode => this%modes_(j))
+              if (mode%id==mode%paired_id) then
+                forces = forces &
+                     & * mode%energy_complex(displacements(j))
+              else
+                forces = forces &
+                     & * mode%energy_complex( displacements(j),       &
+                     &                        paired_displacements(j) )
+              endif
+            end associate
+          endif
+        enddo
+      endif
+    else
+      ! The force is non-zero along multiple modes.
+      allocate( ids(no_modes),    &
+              & forces(no_modes), &
+              & stat=ialloc); call err(ialloc)
+      forces = 1.0_dp
+      j = 0
+      do i=1,size(this)
+        associate (mode => this%modes_(i))
+          if (mode%id==mode%paired_id) then
+            energy = mode%energy_complex(displacements(i))
+          else
+            energy = mode%energy_complex( displacements(i),       &
+                                        & paired_displacements(i) )
+          endif
+          
+          if (force_is_zero(i)) then
+            forces = forces * energy
+          else
+            if (mode%id==mode%paired_id) then
+              j = j+1
+              ids(j) = mode%id
+              forces(j:j) = forces(j:j) * mode%force_complex(displacements(i))
+              forces(:j-1) = forces(:j-1) * energy
+              forces(j+1:) = forces(j+1:) * energy
+            else
+              j = j+2
+              ids(j-1) = mode%id
+              ids(j) = mode%paired_id
+              forces(j-1:j) = mode%force_complex( displacements(i),       &
+                                                & paired_displacements(i) )
+              forces(:j-2) = forces(:j-2) * energy
+              forces(j+1:) = forces(j+1:) * energy
+            endif
+          endif
+        end associate
+      enddo
+    endif
+  endif
+  
+  ! Construct output from components along each mode.
+  output = ComplexModeForce(ComplexSingleForce(ids, forces*this%coefficient))
+end function
+
+impure elemental function force_RealModeDisplacement_ComplexPolynomial(this, &
+   & displacement) result(output)
+  implicit none
+  
+  class(ComplexPolynomial),   intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                    :: output
+  
+  type(RealSingleForce) :: zero_force(0)
+  
+  if (size(this)==0) then
+    output = RealModeForce(zero_force)
+  else
+    output = sum(this%terms%force(displacement))
+  endif
+end function
+
+impure elemental function force_ComplexModeDisplacement_ComplexPolynomial( &
+   & this,displacement) result(output)
+  implicit none
+  
+  class(ComplexPolynomial),      intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                    :: output
   
   type(ComplexSingleForce) :: zero_force(0)
   

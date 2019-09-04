@@ -247,8 +247,6 @@ impure elemental function integrate_HarmonicStateReal(this, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   complex(dp)                                    :: output
   
-  type(HarmonicStateReal) :: harmonic_ket
-  
   integer :: i
   
   ! Calculate the coefficient of <bra|X|ket>,
@@ -256,10 +254,26 @@ impure elemental function integrate_HarmonicStateReal(this, &
   !    - N is the number of primitive cells in the anharmonic supercell.
   !    - w is the frequency of the modes in the subspace.
   !    - n is the occupation of the modes in the monomial which are integrated.
+  
+  ! N.B. this function is called many times, and so uses
+  !    SubspaceStatePointer%state_ directly rather than calling
+  !    HarmonicStateReal(ket), in order to improve runtimes.
   if (present(ket)) then
-    harmonic_ket = HarmonicStateReal(ket)
-    output = product(this%modes_%braket( harmonic_ket%modes_, &
-                                       & monomial%modes        ))
+    select type(ket); type is(SubspaceStatePointer)
+      associate(ket2=>ket%state_)
+        select type(ket2); type is(HarmonicStateReal)
+          output = product(this%modes_%braket( ket2%modes_,   &
+                                             & monomial%modes ))
+        class default
+          call err()
+        end select
+      end associate
+    type is(HarmonicStateReal)
+      output = product(this%modes_%braket( ket%modes_,    &
+                                         & monomial%modes ))
+    class default
+      call err()
+    end select
   else
     output = product(this%modes_%braket( this%modes_,   &
                                        & monomial%modes ))

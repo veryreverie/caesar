@@ -57,7 +57,9 @@ module subspace_state_module
   
   type, extends(SubspaceState) :: SubspaceStatePointer
     type(String),                      private :: representation_
-    class(SubspaceState), allocatable, private :: state_
+    ! N.B. state_ should never be modified.
+    ! It is public for performance reasons only.
+    class(SubspaceState), allocatable, public :: state_
   contains
     procedure, private :: check => check_SubspaceStatePointer
     

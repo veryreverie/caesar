@@ -258,10 +258,26 @@ impure elemental function integrate_HarmonicStateComplex(this, &
   !    - N is the number of primitive cells in the anharmonic supercell.
   !    - w is the frequency of the modes in the subspace.
   !    - n is the occupation of the modes in the monomial which are integrated.
+  
+  ! N.B. this function is called many times, and so uses
+  !    SubspaceStatePointer%state_ directly rather than calling
+  !    HarmonicStateReal(ket), in order to improve runtimes.
   if (present(ket)) then
-    harmonic_ket = HarmonicStateComplex(ket)
-    output = product(this%modes_%braket( harmonic_ket%modes_, &
-                                       & monomial%modes       ))
+    select type(ket); type is(SubspaceStatePointer)
+      associate(ket2=>ket%state_)
+        select type(ket2); type is(HarmonicStateComplex)
+          output = product(this%modes_%braket( ket2%modes_,   &
+                                             & monomial%modes ))
+        class default
+          call err()
+        end select
+      end associate
+    type is(HarmonicStateComplex)
+      output = product(this%modes_%braket( ket%modes_,    &
+                                         & monomial%modes ))
+    class default
+      call err()
+    end select
   else
     output = product(this%modes_%braket( this%modes_,   &
                                        & monomial%modes ))
@@ -381,7 +397,7 @@ impure elemental function harmonic_potential_energy_HarmonicStateComplex( &
          & * sum(bra_modes%braket(bra_modes,harmonic_potential))
   endif
   
-  output = output*anharmonic_data%anharmonic_supercell%sc_size
+  output = output
 end function
 
 impure elemental function kinetic_stress_HarmonicStateComplex(this,ket, &

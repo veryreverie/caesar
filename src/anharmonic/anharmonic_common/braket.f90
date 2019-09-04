@@ -339,11 +339,10 @@ impure elemental function effective_harmonic_observables(thermal_energy, &
   ! N.B. <V> for the effective harmonic potential is just <T+V>/2.
   ! N.B. the kinetic energy and entropy do not change.
   harmonic_expectation = output%energy/2
-  potential_expectation = potential%harmonic_expectation(   &
-                      &                   frequency,        &
-                      &                   thermal_energy,   &
-                      &                   anharmonic_data ) &
-                      & * anharmonic_data%anharmonic_supercell%sc_size
+  potential_expectation = potential%harmonic_expectation( &
+                                        & frequency,      &
+                                        & thermal_energy, &
+                                        & anharmonic_data )
   
   output%energy = output%energy        &
               & - harmonic_expectation &

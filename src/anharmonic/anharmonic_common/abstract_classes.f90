@@ -1558,7 +1558,8 @@ impure elemental subroutine finalise_subspace_potential_PotentialPointer( &
   
   call this%check()
   
-  call this%potential_%finalise_subspace_potential(subspace,anharmonic_data)
+  call this%potential_%finalise_subspace_potential( subspace,        &
+                                                  & anharmonic_data  )
 end subroutine
 
 impure elemental function energy_RealModeDisplacement_PotentialPointer(this, &

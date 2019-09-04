@@ -157,8 +157,8 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,   &
       call print_line(WARNING//': Newton-Raphson scheme taking a long time to &
          &converge.')
       call print_line('Iteration   : '//i)
-      call print_line('Frequency   : '//frequencies(2))
-      call print_line('Free energy : '//observables(2)%free_energy)
+      call print_line('Frequency   : '//frequencies)
+      call print_line('Free energy : '//observables%free_energy)
     endif
   enddo
   

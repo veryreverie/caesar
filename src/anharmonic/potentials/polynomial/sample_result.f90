@@ -2,10 +2,13 @@
 ! The energy and force from a sampling_points calculation.
 ! ======================================================================
 ! The energy and force are averaged over several VSCF R-vectors.
-! The energy is normalised to be per primitive cell,
+! The energy is normalised to be per anharmonic supercell,
 !    and the force is transformed into real mode co-ordinates.
+! N.B. normal-mode forces are extensive.
 module sample_result_module
   use common_module
+  
+  use anharmonic_common_module
   
   use vscf_rvectors_module
   implicit none
@@ -72,42 +75,44 @@ end function
 
 ! Construct a SampleResult from an electronic structure.
 function new_SampleResult_calculation(calculation,supercell,real_modes, &
-   & qpoints) result(this)
+   & qpoints,anharmonic_data) result(this)
   implicit none
   
   type(ElectronicStructure), intent(in) :: calculation
   type(StructureData),       intent(in) :: supercell
   type(RealMode),            intent(in) :: real_modes(:)
   type(QpointData),          intent(in) :: qpoints(:)
+  type(AnharmonicData),      intent(in) :: anharmonic_data
   type(SampleResult)                    :: this
   
   ! Output variables.
-  real(dp)            :: energy
-  type(RealModeForce) :: force
-  type(RealMatrix)    :: stress
+  real(dp)                      :: energy
+  type(RealModeForce)           :: force
+  type(RealMatrix), allocatable :: stress
   
-  ! Normalise the energy by the number of unit cells in the supercell.
-  energy = calculation%energy() / supercell%sc_size
+  ! Normalise the energy to be per anharmonic supercell.
+  energy = (calculation%energy() / supercell%sc_size) &
+       & * anharmonic_data%anharmonic_supercell%sc_size
   
   ! Transform the forces into normal mode co-ordinates.
-  force = RealModeForce( calculation%forces(), &
-                       & supercell,            &
-                       & real_modes,           &
-                       & qpoints               )
+  force = RealModeForce( calculation%forces(),  &
+      &                 supercell,              &
+      &                 real_modes,             &
+      &                 qpoints               ) &
+      & * real(anharmonic_data%anharmonic_supercell%sc_size,dp)
   
   ! Construct output.
   if (calculation%has_stress()) then
     stress = calculation%stress()
-    this = SampleResult(energy,force,stress)
-  else
-    this = SampleResult(energy,force)
   endif
+  
+  this = SampleResult(energy,force,stress)
 end function
 
 ! Construct a SampleResult from a set of VSCF R-vectors and the electronic
 !    structure at each.
 function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
-   & real_modes,qpoints) result(this)
+   & real_modes,qpoints,anharmonic_data) result(this)
   implicit none
   
   type(VscfRvectors),        intent(in) :: vscf_rvectors(:)
@@ -115,6 +120,7 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
   type(StructureData),       intent(in) :: supercell
   type(RealMode),            intent(in) :: real_modes(:)
   type(QpointData),          intent(in) :: qpoints(:)
+  type(AnharmonicData),      intent(in) :: anharmonic_data
   type(SampleResult)                    :: this
   
   type(SampleResult), allocatable :: results(:)
@@ -133,7 +139,8 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
     results(i) = SampleResult( calculations(i), &
                              & supercell,       &
                              & real_modes,      &
-                             & qpoints          )
+                             & qpoints,         &
+                             & anharmonic_data  )
     
     ! Reverse the VSCF R-vector transformation.
     results(i)%force = vscf_rvectors(i)%inverse_transform( results(i)%force,  &

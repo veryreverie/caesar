@@ -81,7 +81,7 @@ module wavevector_basis_module
   end interface
   
   interface integrate
-    module procedure integrate_ComplexMonomial_WavevectorBases
+    module procedure integrate_SparseMonomial_WavevectorBases
   end interface
 contains
 
@@ -582,20 +582,27 @@ impure elemental function integrate_WavevectorBasis(this,bra,monomial,ket, &
   do i=1,size(this%harmonic_states_)
     do j=1,size(this%harmonic_couplings_(i))
       k = this%harmonic_couplings_(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
       term = this%harmonic_states_(i)%integrate( monomial,                 &
                                                & this%harmonic_states_(k), &
                                                & anharmonic_data           )
       
       if (present(ket)) then
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * ket%coefficients(k)
+        term = bra%coefficients(i) * term * ket%coefficients(k)
       else
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * bra%coefficients(k)
+        term = bra%coefficients(i) * term * bra%coefficients(k)
+      endif
+      
+      if (k==i) then
+        output = output + term
+      else
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
       endif
     enddo
   enddo
@@ -777,8 +784,7 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
                      & + potential_energy( bra,                &
                      &                     potential,          &
                      &                     ket,                &
-                     &                     anharmonic_data )   &
-                     & * anharmonic_data%anharmonic_supercell%sc_size
+                     &                     anharmonic_data )
     enddo
   enddo
   
@@ -866,7 +872,6 @@ function harmonic_expectation_WavevectorBasis(bases,potential, &
      &    size(bases(i)%harmonic_states_)                 )], &
      & i=1,                                                   &
      & size(bases)                                            )]
-  energies = energies * anharmonic_data%anharmonic_supercell%sc_size
   
   ! Identify the ground state.
   ground_state = minloc(kinetic_energies, 1)
@@ -906,7 +911,7 @@ function harmonic_expectation_WavevectorBasis(bases,potential, &
 end function
 
 ! Integrate a monomial between sets of states.
-function integrate_ComplexMonomial_WavevectorBases(bases,states, &
+function integrate_SparseMonomial_WavevectorBases(bases,states, &
    & thermal_energy,monomial,anharmonic_data) result(output)
   implicit none
   

@@ -136,10 +136,9 @@ impure elemental subroutine finalise_CouplingBasisFunctions(this,subspace, &
   endif
   
   ! Remove constant terms and split basis functions by power.
-  this%basis_functions_ = [(                                        &
-     & this%basis_functions_(i)%finalise(subspace,anharmonic_data), &
-     & i=1,                                                         &
-     & size(this%basis_functions_)                                  )]
+  this%basis_functions_ = finalise( this%basis_functions_, &
+                                  & subspace,              &
+                                  & anharmonic_data        )
 end subroutine
 
 impure elemental function energy_RealModeDisplacement_CouplingBasisFunctions( &

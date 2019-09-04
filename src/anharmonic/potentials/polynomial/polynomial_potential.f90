@@ -617,7 +617,8 @@ impure elemental function read_sample_results(sampling_points, &
                                     & calculations,               &
                                     & supercell,                  &
                                     & anharmonic_data%real_modes, &
-                                    & anharmonic_data%qpoints     )
+                                    & anharmonic_data%qpoints,    &
+                                    & anharmonic_data             )
     
     deallocate(calculations, stat=ialloc); call err(ialloc)
   enddo
@@ -652,7 +653,8 @@ function read_equilibrium_sample_result(equilibrium_sampling_point, &
   output = SampleResult( electronic_structure,       &
                        & anharmonic_data%structure,  &
                        & anharmonic_data%real_modes, &
-                       & anharmonic_data%qpoints     )
+                       & anharmonic_data%qpoints,    &
+                       & anharmonic_data             )
 end function
 
 ! Set the undisplaced energy to zero.
@@ -693,7 +695,8 @@ impure elemental subroutine finalise_subspace_potential_PolynomialPotential( &
   this%reference_energy_ = this%reference_energy_ &
                        & + this%basis_functions_(1)%undisplaced_energy()
   
-  call this%basis_functions_(1)%finalise(subspace,anharmonic_data)
+  call this%basis_functions_(1)%finalise( subspace,        &
+                                        & anharmonic_data  )
 end subroutine
 
 ! Calculate the energy at a given displacement.

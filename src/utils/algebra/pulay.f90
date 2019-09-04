@@ -229,20 +229,18 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   type(RealVector) :: projection
   real(dp)         :: projection_norm
   
+  type(RealVector), allocatable :: previous_vectors(:)
+  
   real(dp) :: prefactor
   
   type(SymmetricEigenstuff), allocatable :: unsorted_estuff(:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
+  integer :: first,last
+  
   integer :: m,n
   
   integer :: i,j,ialloc
-  
-  integer :: first,last
-  
-  type(RealVector), allocatable :: previous_vectors(:)
-  
-  integer :: a(4)
   
   ! Each input vector x_i produces an output vector f(x_i) = x_i + e_i.
   ! The aim is to construct x_{n+1} such that e_{n+1}=0.
@@ -326,7 +324,6 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   
   coefficients = [(0.0_dp, i=1, n)]
   allocate(previous_vectors(0), stat=ialloc); call err(ialloc)
-  a = [0,0,0,m]
   do i=1,n+1
     
     x_projection = sum(estuff(i)%evec(:n)*xs)
@@ -344,28 +341,23 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
       ! It exists only because the number of input vectors is greater than
       !    the number of degrees of freedom.
       prefactor = 0
-      a(1) = a(1)+1
     elseif (projection_norm > 1e-10_dp) then
       ! The self-consistency scheme defines the position along the i'th
       !    eigenvector of the error matrix.
       prefactor = estuff(i)%evec(n+1)/estuff(i)%eval
       previous_vectors = [previous_vectors, x_projection/x_projection_norm]
       prefactor = max(-0.1_dp,min(prefactor,0.1_dp))
-      a(2) = a(2)+1
     else
       ! The self-consistency scheme does not define the position along the i'th
       !    eigenvector. Instead, the gradient descent scheme is called.
       prefactor = -(vec(estuff(i)%evec(:n))*vec(free_energies)) &
               & / 10.0_dp*convergence_threshold
       previous_vectors = [previous_vectors, x_projection/x_projection_norm]
-      prefactor = max(-0.01_dp,min(prefactor,0.01_dp))
-      a(3) = a(3)+1
+      prefactor = max(-0.001_dp,min(prefactor,0.001_dp))
     endif
     
     coefficients = coefficients + prefactor*estuff(i)%evec(:n)
   enddo
-  
-  call print_line(a)
   
   coefficients = max(-2.0_dp,min(coefficients,2.0_dp))
   
