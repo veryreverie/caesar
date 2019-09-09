@@ -149,7 +149,9 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
                                                     & thermal_energy,  &
                                                     & anharmonic_data  )
   
-  call output%finalise_subspace_potential(subspaces, anharmonic_data)
+  call output%finalise_subspace_potential( subspaces,      &
+                                         & subspace_bases, &
+                                         & anharmonic_data )
 end function
 
 ! ----------------------------------------------------------------------

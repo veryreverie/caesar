@@ -15,6 +15,7 @@ module basis_function_module
   private
   
   public :: BasisFunction
+  public :: BasisFunctionsAndMonomials
   public :: generate_basis_functions
   public :: finalise
   public :: operator(*)
@@ -23,16 +24,12 @@ module basis_function_module
   public :: operator(-)
   
   type, extends(Stringsable) :: BasisFunction
-    ! The basis function in real co-ordinates.
-    type(RealPolynomial), private :: real_representation_
-    
     ! The basis function in complex co-ordinates.
     type(ComplexPolynomial), private :: complex_representation_
     
     ! A leading coefficient.
     real(dp), private :: coefficient_
   contains
-    procedure, public :: real_representation
     procedure, public :: complex_representation
     
     procedure, public :: simplify => simplify_BasisFunction
@@ -64,12 +61,17 @@ module basis_function_module
     
     procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
-    procedure, private :: internal_coefficient
     procedure, public  :: coefficient => coefficient_BasisFunction
     procedure, public  :: set_coefficient => set_coefficient_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
+  end type
+  
+  ! Return type for generate_basis_functions
+  type :: BasisFunctionsAndMonomials
+    type(BasisFunction), allocatable :: basis_functions(:)
+    type(RealMonomial),  allocatable :: unique_terms(:)
   end type
   
   interface BasisFunction
@@ -109,15 +111,13 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_BasisFunction(real_representation,complex_representation) &
+impure elemental function new_BasisFunction(complex_representation) &
    & result(this)
   implicit none
   
-  type(RealPolynomial),    intent(in) :: real_representation
   type(ComplexPolynomial), intent(in) :: complex_representation
   type(BasisFunction)                 :: this
   
-  this%real_representation_    = real_representation
   this%complex_representation_ = complex_representation
   this%coefficient_            = 1.0_dp
 end function
@@ -125,15 +125,6 @@ end function
 ! ----------------------------------------------------------------------
 ! Getters.
 ! ----------------------------------------------------------------------
-impure elemental function real_representation(this) result(output)
-  implicit none
-  
-  class(BasisFunction), intent(in) :: this
-  type(RealPolynomial)             :: output
-  
-  output = this%coefficient_*this%real_representation_
-end function
-
 impure elemental function complex_representation(this) result(output)
   implicit none
   
@@ -160,7 +151,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
   logical,                  intent(in)    :: vscf_basis_functions_only
   type(OFile),              intent(inout) :: logfile
-  type(BasisFunction), allocatable        :: output(:)
+  type(BasisFunctionsAndMonomials)        :: output
   
   ! Monomials, in complex and real representations.
   type(ComplexMonomial), allocatable :: complex_monomials(:)
@@ -181,11 +172,18 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   complex(dp),               allocatable :: complex_coefficients(:)
   
   ! Variables for constructing the output.
-  type(RealPolynomial)    :: real_representation
-  type(ComplexPolynomial) :: complex_representation
+  type(RealPolynomial),    allocatable :: real_representations(:)
+  type(ComplexPolynomial), allocatable :: complex_representations(:)
+  
+  type(BasisFunction), allocatable :: basis_functions(:)
+  type(RealMonomial),  allocatable :: unique_terms(:)
+  
+  integer            :: unique_term_id
+  integer            :: matching_term_location
+  type(RealMonomial) :: matching_term
   
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i,j,ialloc
   
   if (sum(subspace_monomial%powers)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
@@ -209,7 +207,10 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
       & conserve_subspace_momentum=vscf_basis_functions_only )
   
   if (size(complex_monomials)==0) then
-    allocate(output(0), stat=ialloc); call err(ialloc)
+    allocate( basis_functions(0), &
+            & unique_terms(0),    &
+            & stat=ialloc); call err(ialloc)
+     output = BasisFunctionsAndMonomials(basis_functions, unique_terms)
     return
   endif
   
@@ -271,21 +272,59 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
   
   ! Construct basis functions from the coefficients.
-  allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
+  allocate( real_representations(size(estuff)),    &
+          & complex_representations(size(estuff)), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     real_coefficients = estuff(i)%evec
+    real_representations(i) = RealPolynomial( real_coefficients &
+                                          & * real_monomials    )
+    call real_representations(i)%simplify()
+    
     complex_coefficients = cmplx( real_to_complex_conversion &
                               & * vec(real_coefficients)     )
-    
-    real_representation = RealPolynomial( real_coefficients &
-                                      & * real_monomials    )
-    complex_representation = ComplexPolynomial( complex_coefficients &
-                                            & * complex_monomials    )
-    
-    output(i) = BasisFunction( real_representation,   &
-                             & complex_representation )
-    call output(i)%simplify()
+    complex_representations(i) = ComplexPolynomial( complex_coefficients &
+                                                & * complex_monomials    )
+    call complex_representations(i)%simplify()
   enddo
+  
+  ! Take linear combinations of basis functions such that each basis function
+  !    contains at least one term which is in no other basis function.
+  allocate( unique_terms(size(estuff)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(estuff)
+    ! Identify the largest term in basis function i.
+    unique_term_id = maxloc(abs(real_representations(i)%terms%coefficient), 1)
+    unique_terms(i) = real_representations(i)%terms(unique_term_id)
+    
+    ! Subtract a multiple of basis function i from all other basis functions,
+    !    such that the coefficient of unique_term_id(i) in all other basis
+    !    functions is zero.
+    do j=1,size(basis_functions)
+      if (j/=i) then
+        matching_term_location = first_equivalent( &
+                  & real_representations(j)%terms, &
+                  & unique_terms(i),               &
+                  & compare_real_monomials,        &
+                  & default=0                      )
+        if (matching_term_location/=0) then
+          matching_term = real_representations(j)%terms(matching_term_location)
+          real_representations(j) = real_representations(j)   &
+                                & - real_representations(i)   &
+                                & * matching_term%coefficient &
+                                & / unique_terms(i)%coefficient
+          complex_representations(j) = complex_representations(j)   &
+                                   & - complex_representations(i)   &
+                                   & * matching_term%coefficient &
+                                   & / unique_terms(i)%coefficient
+        endif
+      endif
+    enddo
+  enddo
+  
+  basis_functions = BasisFunction(complex_representations)
+  
+  output = BasisFunctionsAndMonomials(basis_functions, unique_terms)
 end function
 
 ! Given a unitary matrix U, s.t. U^n=I, returns the matrix
@@ -329,37 +368,35 @@ impure elemental subroutine simplify_BasisFunction(this)
   
   class(BasisFunction), intent(inout) :: this
   
-  call this%real_representation_%simplify()
   call this%complex_representation_%simplify()
 end subroutine
 
-function finalise_BasisFunctions(input,subspace,anharmonic_data) &
-   & result(output)
+function finalise_BasisFunctions(input,subspace,subspace_basis, &
+   & anharmonic_data) result(output)
   implicit none
   
   type(BasisFunction),      intent(in) :: input(:)
   type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisFunction), allocatable     :: output(:)
   
   integer :: order
   
-  type(RealPolynomial),    allocatable :: real_polynomials(:)
   type(ComplexPolynomial), allocatable :: complex_polynomials(:)
   
-  type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
   
   type(RealMonomial)    :: no_real_monomials(0)
   type(ComplexMonomial) :: no_complex_monomials(0)
-  
-  type(ComplexMatrix) :: complex_to_real_conversion
   
   type(ComplexMonomial) :: conjugate
   
   logical, allocatable :: mode_found(:)
   
   complex(dp) :: coefficient
+  
+  real(dp) :: energy_scale
   
   integer :: i,j,i2,j2,k,ialloc
   
@@ -368,23 +405,10 @@ function finalise_BasisFunctions(input,subspace,anharmonic_data) &
   ! Collate the input into an array of polynomials, one for each power.
   ! N.B. the terms with power=0 are dropped as they have already been
   !    accounted for in the reference energy.
-  real_polynomials = [( RealPolynomial(no_real_monomials), &
-                      & i=1,                               &
-                      & order                              )]
   complex_polynomials = [( ComplexPolynomial(no_complex_monomials), &
                          & i=1,                                     &
                          & order                                    )]
   do i=1,size(input)
-    do j=1,size(input(i)%real_representation_%terms)
-      associate (term => input(i)%real_representation_%terms(j))
-        if (term%total_power()>0) then
-          real_polynomials(term%total_power()) =      &
-             &   real_polynomials(term%total_power()) &
-             & + term
-        endif
-      end associate
-    enddo
-    
     do j=1,size(input(i)%complex_representation_%terms)
       associate (term => input(i)%complex_representation_%terms(j))
         if (term%total_power()>0) then
@@ -398,14 +422,15 @@ function finalise_BasisFunctions(input,subspace,anharmonic_data) &
   
   ! Split the polynomials into basis functions, one for each monomial in
   !    each complex polynomial.
+  ! If the mode is real, it becomes its own basis function.
+  ! If the mode is complex, it and its conjugate are paired into a u+u*
+  !    and a i(u-u*) basis function, with a real coefficient.
   allocate( output(sum( [(size(complex_polynomials(i)), i=1, order)] )), &
           & stat=ialloc); call err(ialloc)
   k = 0
   do i=1,order
-    complex_to_real_conversion = coefficient_conversion_matrix( &
-                               & real_polynomials(i)%terms,     &
-                               & complex_polynomials(i)%terms,  &
-                               & include_coefficients = .false. )
+    energy_scale = subspace_basis%frequency**(0.5_dp*i)
+    
     mode_found = [(.false., j=1,size(complex_polynomials(i)%terms))]
     do j=1,size(complex_polynomials(i)%terms)
       if (mode_found(j)) then
@@ -431,45 +456,34 @@ function finalise_BasisFunctions(input,subspace,anharmonic_data) &
       mode_found(j2) = .true.
       
       if (j2==j) then
-        coefficient = complex_polynomials(i)%terms(j)%coefficient
+        coefficient = complex_polynomials(i)%terms(j)%coefficient / energy_scale
         complex_representation = ComplexPolynomial( &
                 & [complex_polynomials(i)%terms(j)] )
-        real_representation = real_polynomials(i)
-        real_representation%terms%coefficient =            &
-           &   cmplx(complex_to_real_conversion%column(j)) &
-           & * coefficient
-        real_representation%terms = real_representation%terms(filter(abs(real_representation%terms%coefficient)>1e-10_dp**i))
+        complex_representation%terms%coefficient = energy_scale
         k = k+1
-        output(k) = BasisFunction(real_representation,complex_representation)
+        output(k) = BasisFunction(complex_representation)
+        output(k)%coefficient_ = real(coefficient)
       else
         coefficient = ( complex_polynomials(i)%terms(j)%coefficient    &
                     & + complex_polynomials(i)%terms(j2)%coefficient ) &
-                    & / 2
+                    & / energy_scale
         complex_representation = ComplexPolynomial(    &
                 & [ complex_polynomials(i)%terms(j),   &
                 &   complex_polynomials(i)%terms(j2) ] )
-        complex_representation%terms%coefficient = coefficient
-        real_representation = real_polynomials(i)
-        real_representation%terms%coefficient =                 &
-           &   ( cmplx(complex_to_real_conversion%column(j))    &
-           &   + cmplx(complex_to_real_conversion%column(j2)) ) &
-           & * coefficient
-        real_representation%terms = real_representation%terms(filter(abs(real_representation%terms%coefficient)>1e-10_dp**i))
+        complex_representation%terms%coefficient = 0.5_dp*energy_scale
         k = k+1
-        output(k) = BasisFunction(real_representation,complex_representation)
+        output(k) = BasisFunction(complex_representation)
+        output(k)%coefficient_ = real(coefficient)
         
         coefficient = ( complex_polynomials(i)%terms(j)%coefficient    &
                     & - complex_polynomials(i)%terms(j2)%coefficient ) &
-                    & / 2
-        complex_representation%terms%coefficient = [coefficient, -coefficient]
-        real_representation = real_polynomials(i)
-        real_representation%terms%coefficient =                 &
-           &   ( cmplx(complex_to_real_conversion%column(j))    &
-           &   - cmplx(complex_to_real_conversion%column(j2)) ) &
-           & * coefficient
-        real_representation%terms = real_representation%terms(filter(abs(real_representation%terms%coefficient)>1e-10_dp**i))
+                    & / cmplx(0.0_dp,0.5_dp*energy_scale,dp)
+        complex_representation%terms%coefficient = [1,-1]                  &
+                                               & * cmplx(0.0_dp,0.5_dp,dp) &
+                                               & * energy_scale
         k = k+1
-        output(k) = BasisFunction(real_representation,complex_representation)
+        output(k) = BasisFunction(complex_representation)
+        output(k)%coefficient_ = real(coefficient)
       endif
     enddo
   enddo
@@ -487,7 +501,7 @@ impure elemental function energy_RealModeDisplacement_BasisFunction(this, &
   real(dp)                                :: output
   
   output = this%coefficient_ &
-       & * this%real_representation_%energy(displacement)
+       & * this%complex_representation_%energy(displacement)
 end function
 
 impure elemental function energy_ComplexModeDisplacement_BasisFunction(this, &
@@ -511,7 +525,7 @@ impure elemental function force_RealModeDisplacement_BasisFunction(this, &
   type(RealModeForce)                     :: output
   
   output = this%coefficient_ &
-       & * this%real_representation_%force(displacement)
+       & * this%complex_representation_%force(displacement)
 end function
 
 impure elemental function force_ComplexModeDisplacement_BasisFunction(this, &
@@ -538,48 +552,12 @@ impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
   class(SubspaceState), intent(in), optional :: ket
   type(AnharmonicData), intent(in)           :: anharmonic_data
   
-  integer,              allocatable :: integrated_mode_ids(:)
-  type(ComplexMatrix)               :: complex_to_real_conversion
-  complex(dp),          allocatable :: complex_coefficients(:)
-  real(dp),             allocatable :: real_coefficients(:)
-  type(RealUnivariate), allocatable :: real_modes(:)
-  logical,              allocatable :: mode_integrated(:)
-  
-  integer :: i,j
-  
-  integrated_mode_ids = bra%mode_ids()
-  
-  ! Generate conversion between complex and real representation.
-  complex_to_real_conversion = coefficient_conversion_matrix( &
-                        & this%real_representation_%terms,    &
-                        & this%complex_representation_%terms, &
-                        & include_coefficients = .false.      )
-  
   ! Perform integration in complex co-ordinates.
   this%complex_representation_%terms = integrate( &
             & bra,                                &
             & this%complex_representation_%terms, &
             & ket,                                &
             & anharmonic_data                     )
-  
-  ! Use calculated complex coefficients and conversion to generate new
-  !    coefficients for real representation.
-  complex_coefficients = this%complex_representation_%terms%coefficient
-  real_coefficients = real(cmplx( complex_to_real_conversion &
-                              & * vec(complex_coefficients)  ))
-  this%real_representation_%terms%coefficient = real_coefficients
-  
-  ! Remove modes in real representation which have been integrated over.
-  do i=1,size(this%real_representation_)
-    real_modes = this%real_representation_%terms(i)%modes()
-    mode_integrated = [( any(real_modes(j)%id==integrated_mode_ids), &
-                       & j=1,                                        &
-                       & size(real_modes)                            )]
-    real_modes = real_modes(filter(.not.mode_integrated))
-    this%real_representation_%terms(i) = RealMonomial(                &
-       & modes       = real_modes,                                    &
-       & coefficient = this%real_representation_%terms(i)%coefficient )
-  enddo
 end subroutine
 
 impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
@@ -593,23 +571,6 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   
-  integer,              allocatable :: integrated_mode_ids(:)
-  type(ComplexMatrix)               :: complex_to_real_conversion
-  complex(dp),          allocatable :: complex_coefficients(:)
-  real(dp),             allocatable :: real_coefficients(:)
-  type(RealUnivariate), allocatable :: real_modes(:)
-  logical,              allocatable :: mode_integrated(:)
-  
-  integer :: i,j
-  
-  integrated_mode_ids = subspace_basis%mode_ids(subspace,anharmonic_data)
-  
-  ! Generate conversion between complex and real representation.
-  complex_to_real_conversion = coefficient_conversion_matrix( &
-                        & this%real_representation_%terms,    &
-                        & this%complex_representation_%terms, &
-                        & include_coefficients = .false.      )
-  
   ! Perform integration in complex co-ordinates.
   this%complex_representation_%terms = integrate( &
             & bra,                                &
@@ -618,25 +579,6 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
             & subspace,                           &
             & subspace_basis,                     &
             & anharmonic_data                     )
-  
-  ! Use calculated complex coefficients and conversion to generate new
-  !    coefficients for real representation.
-  complex_coefficients = this%complex_representation_%terms%coefficient
-  real_coefficients = real(cmplx( complex_to_real_conversion &
-                              & * vec(complex_coefficients)  ))
-  this%real_representation_%terms%coefficient = real_coefficients
-  
-  ! Remove modes in real representation which have been integrated over.
-  do i=1,size(this%real_representation_)
-    real_modes = this%real_representation_%terms(i)%modes()
-    mode_integrated = [( any(real_modes(j)%id==integrated_mode_ids), &
-                       & j=1,                                        &
-                       & size(real_modes)                            )]
-    real_modes = real_modes(filter(.not.mode_integrated))
-    this%real_representation_%terms(i) = RealMonomial(                &
-       & modes       = real_modes,                                    &
-       & coefficient = this%real_representation_%terms(i)%coefficient )
-  enddo
 end subroutine
 
 impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
@@ -650,23 +592,6 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   
-  integer,              allocatable :: integrated_mode_ids(:)
-  type(ComplexMatrix)               :: complex_to_real_conversion
-  complex(dp),          allocatable :: complex_coefficients(:)
-  real(dp),             allocatable :: real_coefficients(:)
-  type(RealUnivariate), allocatable :: real_modes(:)
-  logical,              allocatable :: mode_integrated(:)
-  
-  integer :: i,j
-  
-  integrated_mode_ids = subspace_basis%mode_ids(subspace,anharmonic_data)
-  
-  ! Generate conversion between complex and real representation.
-  complex_to_real_conversion = coefficient_conversion_matrix( &
-                        & this%real_representation_%terms,    &
-                        & this%complex_representation_%terms, &
-                        & include_coefficients = .false.      )
-  
   ! Perform integration in complex co-ordinates.
   this%complex_representation_%terms = integrate( &
             & states,                             &
@@ -675,25 +600,6 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
             & subspace,                           &
             & subspace_basis,                     &
             & anharmonic_data                     )
-  
-  ! Use calculated complex coefficients and conversion to generate new
-  !    coefficients for real representation.
-  complex_coefficients = this%complex_representation_%terms%coefficient
-  real_coefficients = real(cmplx( complex_to_real_conversion &
-                              & * vec(complex_coefficients)  ))
-  this%real_representation_%terms%coefficient = real_coefficients
-  
-  ! Remove modes in real representation which have been integrated over.
-  do i=1,size(this%real_representation_)
-    real_modes = this%real_representation_%terms(i)%modes()
-    mode_integrated = [( any(real_modes(j)%id==integrated_mode_ids), &
-                       & j=1,                                        &
-                       & size(real_modes)                            )]
-    real_modes = real_modes(filter(.not.mode_integrated))
-    this%real_representation_%terms(i) = RealMonomial(                &
-       & modes       = real_modes,                                    &
-       & coefficient = this%real_representation_%terms(i)%coefficient )
-  enddo
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -737,54 +643,23 @@ end function
 !    real representation coefficient.
 ! These methods allow for simpler linear algebra with basis functions.
 ! ----------------------------------------------------------------------
-impure elemental function coefficient_BasisFunction(this,frequency) &
-   & result(output)
+impure elemental function coefficient_BasisFunction(this) result(output)
   implicit none
   
   class(BasisFunction), intent(in) :: this
-  real(dp),             intent(in) :: frequency
   real(dp)                         :: output
   
-  output = this%coefficient_ * this%internal_coefficient(frequency)
+  output = this%coefficient_
 end function
 
-impure elemental subroutine set_coefficient_BasisFunction(this,coefficient, &
-   & frequency)
+impure elemental subroutine set_coefficient_BasisFunction(this,coefficient)
   implicit none
   
   class(BasisFunction), intent(inout) :: this
   real(dp),             intent(in)    :: coefficient
-  real(dp),             intent(in)    :: frequency
   
-  real(dp) :: internal_coefficient
-  
-  internal_coefficient = this%internal_coefficient(frequency)
-  
-  if (abs(internal_coefficient)>1.0e-300_dp) then
-    this%coefficient_ = coefficient / internal_coefficient
-  endif
+  this%coefficient_ = coefficient
 end subroutine
-
-function internal_coefficient(this,frequency) result(output)
-  implicit none
-  
-  class(BasisFunction), intent(in) :: this
-  real(dp),             intent(in) :: frequency
-  real(dp)                         :: output
-  
-  integer ::  i
-  
-  output = sum( abs(this%real_representation_%terms%coefficient)       &
-           &  / frequency                                              &
-           & ** (0.5_dp*this%real_representation_%terms%total_power()) )
-  
-  i = first(abs(this%real_representation_%terms%coefficient)>0, default=0)
-  if (i/=0) then
-    if (this%real_representation_%terms(i)%coefficient<0) then
-      output = -output
-    endif
-  endif
-end function
 
 ! ----------------------------------------------------------------------
 ! Arithmetic.
@@ -831,7 +706,6 @@ impure elemental function add_BasisFunction_BasisFunction(this,that) &
   type(BasisFunction)             :: output
   
   output = BasisFunction(                                          &
-     & this%real_representation()+that%real_representation(),      &
      & this%complex_representation()+that%complex_representation() )
 end function
 
@@ -854,7 +728,6 @@ impure elemental function subtract_BasisFunction_BasisFunction(this,that) &
   type(BasisFunction)             :: output
   
   output = BasisFunction(                                          &
-     & this%real_representation()-that%real_representation(),      &
      & this%complex_representation()-that%complex_representation() )
 end function
 
@@ -869,13 +742,15 @@ subroutine read_BasisFunction(this,input)
   
   integer :: partition_line
   
-  type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
   
   integer :: i
   
   select type(this); type is(BasisFunction)
+    
     ! Locate the line between real terms and complex terms.
+    ! This is included for legacy reasons.
+    partition_line = 1
     do i=2,size(input)
       if (size(split_line(input(i)))>1) then
         partition_line = i
@@ -883,13 +758,10 @@ subroutine read_BasisFunction(this,input)
       endif
     enddo
     
-    real_representation = RealPolynomial(                 &
-       & join(input(2:partition_line-1), delimiter=' + ') )
     complex_representation = ComplexPolynomial(          &
        & join(input(partition_line+1:), delimiter=' + ') )
     
-    this = BasisFunction( real_representation    = real_representation,   &
-                        & complex_representation = complex_representation )
+    this = BasisFunction(complex_representation = complex_representation)
   class default
     call err()
   end select
@@ -901,15 +773,11 @@ function write_BasisFunction(this) result(output)
   class(BasisFunction), intent(in) :: this
   type(String), allocatable        :: output(:)
   
-  type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
   
   select type(this); type is(BasisFunction)
-    real_representation = this%real_representation()
     complex_representation = this%complex_representation()
-    output = [ str('Basis function in real co-ordinates:'),    &
-             & str(real_representation%terms),                 &
-             & str('Basis function in complex co-ordinates:'), &
+    output = [ str('Basis function in complex co-ordinates:'), &
              & str(complex_representation%terms)               ]
   class default
     call err()

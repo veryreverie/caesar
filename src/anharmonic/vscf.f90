@@ -114,9 +114,8 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
           & stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
     first_coefficient(i) = size(coefficients)+1
-    coefficients = [ coefficients,                                          &
-                   & subspace_potentials(i)%coefficients( frequencies(i),   &
-                   &                                      anharmonic_data ) ]
+    coefficients = [ coefficients,                                        &
+                   & subspace_potentials(i)%coefficients(anharmonic_data) ]
     last_coefficient(i) = size(coefficients)
   enddo
   
@@ -138,7 +137,6 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
     do j=1,size(subspaces)
       call subspace_potentials(j)%set_coefficients(                &
          & coefficients(first_coefficient(j):last_coefficient(j)), &
-         & frequencies(j),                                         &
          & anharmonic_data                                         )
     enddo
     
@@ -175,7 +173,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
     ! Update the Pulay scheme.
     do j=1,size(subspaces)
       coefficients(first_coefficient(j):last_coefficient(j)) = &
-         & subspace_potentials(j)%coefficients(frequencies(j), anharmonic_data)
+         & subspace_potentials(j)%coefficients(anharmonic_data)
     enddo
     
     free_energy = sum(thermodynamic_data%free_energy) &

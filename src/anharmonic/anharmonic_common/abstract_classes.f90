@@ -49,6 +49,7 @@ module abstract_classes_module
   !    other types.
   
   type, abstract, extends(Stringsable) :: SubspaceBasis
+    real(dp) :: frequency
   contains
     procedure(representation_SubspaceBasis), public, deferred, nopass :: &
        & representation
@@ -785,29 +786,27 @@ module abstract_classes_module
       real(dp)                         :: output
     end function
     
-    function coefficients_PotentialData(this,frequency,anharmonic_data) &
+    function coefficients_PotentialData(this,anharmonic_data) &
        & result(output)
       import PotentialData
-      import dp
       import AnharmonicData
+      import dp
       implicit none
       
       class(potentialData), intent(in) :: this
-      real(dp),             intent(in) :: frequency
       type(AnharmonicData), intent(in) :: anharmonic_data
       real(dp), allocatable            :: output(:)
     end function
     
-    subroutine set_coefficients_PotentialData(this,coefficients,frequency, &
+    subroutine set_coefficients_PotentialData(this,coefficients, &
        & anharmonic_data)
       import PotentialData
-      import dp
       import AnharmonicData
+      import dp
       implicit none
       
       class(PotentialData), intent(inout) :: this
       real(dp),             intent(in)    :: coefficients(:)
-      real(dp),             intent(in)    :: frequency
       type(AnharmonicData), intent(in)    :: anharmonic_data
     end subroutine
     
@@ -1023,6 +1022,7 @@ impure elemental function new_SubspaceBasisPointer(basis) result(this)
     this%representation_ = basis%representation()
     allocate( this%basis_, source=basis, &
             & stat=ialloc); call err(ialloc)
+    this%frequency = this%basis_%frequency
   end select
 end function
 
@@ -1549,16 +1549,18 @@ impure elemental subroutine add_constant_PotentialPointer(this,input)
 end subroutine
 
 impure elemental subroutine finalise_subspace_potential_PotentialPointer( &
-   & this,subspace,anharmonic_data)
+   & this,subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(PotentialPointer),  intent(inout) :: this
   type(DegenerateSubspace), intent(in)    :: subspace
+  class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   
   call this%check()
   
   call this%potential_%finalise_subspace_potential( subspace,        &
+                                                  & subspace_basis,  &
                                                   & anharmonic_data  )
 end subroutine
 
@@ -1691,33 +1693,30 @@ function harmonic_expectation_PotentialPointer(this,frequency, &
 end function
 
 ! Gets or sets the potential from a set of real coefficients.
-function coefficients_PotentialPointer(this,frequency,anharmonic_data) &
+function coefficients_PotentialPointer(this,anharmonic_data) &
    & result(output)
   implicit none
   
   class(PotentialPointer), intent(in) :: this
-  real(dp),                intent(in) :: frequency
   type(AnharmonicData),    intent(in) :: anharmonic_data
   real(dp), allocatable               :: output(:)
   
   call this%check()
   
-  output = this%potential_%coefficients(frequency, anharmonic_data)
+  output = this%potential_%coefficients(anharmonic_data)
 end function
 
-subroutine set_coefficients_PotentialPointer(this,coefficients,frequency, &
+subroutine set_coefficients_PotentialPointer(this,coefficients, &
    & anharmonic_data)
   implicit none
   
   class(PotentialPointer), intent(inout) :: this
   real(dp),                intent(in)    :: coefficients(:)
-  real(dp),                intent(in)    :: frequency
   type(AnharmonicData),    intent(in)    :: anharmonic_data
   
   call this%check()
   
   call this%potential_%set_coefficients( coefficients,   &
-                                       & frequency,      &
                                        & anharmonic_data )
 end subroutine
 
@@ -2058,11 +2057,12 @@ function undisplaced_energy(this) result(output)
 end function
 
 impure elemental subroutine finalise_subspace_potential_PotentialData(this, &
-   & subspace,anharmonic_data)
+   & subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(PotentialData),     intent(inout) :: this
   type(DegenerateSubspace), intent(in)    :: subspace
+  class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   
   ! By default this doesn't do anything.

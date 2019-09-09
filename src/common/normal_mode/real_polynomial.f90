@@ -702,35 +702,39 @@ impure elemental function energy_ComplexSingleDisplacement_RealUnivariate( &
     call err()
   endif
   
-  ! Convert from complex to real co-ordinates.
-  ! x_c = (x_+ + x_-) / sqrt(2)
-  ! x_s = (x_+ - x_-) / sqrt(2)i
-  magnitude = 0
-  paired_magnitude = 0
-  if (present(displacement)) then
-    ! x_c : x_+ / sqrt(2)
-    magnitude = magnitude &
-            & + displacement%magnitude &
-            & / sqrt(2.0_dp)
-    ! x_s : x_+ / sqrt(2)i
-    paired_magnitude = paired_magnitude       &
-                   & + displacement%magnitude &
-                   & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
-  endif
-  if (present(paired_displacement)) then
-    ! x_c : x_- / sqrt(2)
-    magnitude = magnitude &
-            & + paired_displacement%magnitude &
-            & / sqrt(2.0_dp)
-    ! x_s : - x_- / sqrt(2)i
-    paired_magnitude = paired_magnitude              &
-                   & - paired_displacement%magnitude &
-                   & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
+  if (this%id==this%paired_id) then
+    magnitude = displacement%magnitude
+  else
+    ! Convert from complex to real co-ordinates.
+    ! x_c = (x_+ + x_-) / sqrt(2)
+    ! x_s = (x_+ - x_-) / sqrt(2)i
+    magnitude = 0
+    paired_magnitude = 0
+    if (present(displacement)) then
+      ! x_c : x_+ / sqrt(2)
+      magnitude = magnitude &
+              & + displacement%magnitude &
+              & / sqrt(2.0_dp)
+      ! x_s : x_+ / sqrt(2)i
+      paired_magnitude = paired_magnitude       &
+                     & + displacement%magnitude &
+                     & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
+    endif
+    if (present(paired_displacement)) then
+      ! x_c : x_- / sqrt(2)
+      magnitude = magnitude &
+              & + paired_displacement%magnitude &
+              & / sqrt(2.0_dp)
+      ! x_s : - x_- / sqrt(2)i
+      paired_magnitude = paired_magnitude              &
+                     & - paired_displacement%magnitude &
+                     & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
+    endif
   endif
   
   output = magnitude**this%power
   if (this%id/=this%paired_id) then
-    output = output + paired_magnitude**this%paired_power
+    output = output * paired_magnitude**this%paired_power
   endif
 end function
 
@@ -973,30 +977,34 @@ function force_ComplexSingleDisplacement_RealUnivariate(this,displacement, &
     call err()
   endif
   
-  ! Convert from complex to real co-ordinates.
-  ! x_c = (x_+ + x_-) / sqrt(2)
-  ! x_s = (x_+ - x_-) / sqrt(2)i
-  magnitude = 0
-  paired_magnitude = 0
-  if (present(displacement)) then
-    ! x_c : x_+ / sqrt(2)
-    magnitude = magnitude &
-            & + displacement%magnitude &
-            & / sqrt(2.0_dp)
-    ! x_s : x_+ / sqrt(2)i
-    paired_magnitude = paired_magnitude       &
-                   & + displacement%magnitude &
-                   & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
-  endif
-  if (present(paired_displacement)) then
-    ! x_c : x_- / sqrt(2)
-    magnitude = magnitude &
-            & + paired_displacement%magnitude &
-            & / sqrt(2.0_dp)
-    ! x_s : - x_- / sqrt(2)i
-    paired_magnitude = paired_magnitude              &
-                   & - paired_displacement%magnitude &
-                   & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
+  if (this%id==this%paired_id) then
+    magnitude = displacement%magnitude
+  else
+    ! Convert from complex to real co-ordinates.
+    ! x_c = (x_+ + x_-) / sqrt(2)
+    ! x_s = (x_+ - x_-) / sqrt(2)i
+    magnitude = 0
+    paired_magnitude = 0
+    if (present(displacement)) then
+      ! x_c : x_+ / sqrt(2)
+      magnitude = magnitude &
+              & + displacement%magnitude &
+              & / sqrt(2.0_dp)
+      ! x_s : x_+ / sqrt(2)i
+      paired_magnitude = paired_magnitude       &
+                     & + displacement%magnitude &
+                     & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
+    endif
+    if (present(paired_displacement)) then
+      ! x_c : x_- / sqrt(2)
+      magnitude = magnitude &
+              & + paired_displacement%magnitude &
+              & / sqrt(2.0_dp)
+      ! x_s : - x_- / sqrt(2)i
+      paired_magnitude = paired_magnitude              &
+                     & - paired_displacement%magnitude &
+                     & / cmplx(0.0_dp,sqrt(2.0_dp),dp)
+    endif
   endif
   
   if (this%power>1) then
@@ -1030,10 +1038,10 @@ function force_ComplexSingleDisplacement_RealUnivariate(this,displacement, &
   ! Construct the output in real co-ordinates...
   output = [-derivatives(1)*values(2), -derivatives(2)*values(1)]
   ! ... then convert back to complex co-ordinates.
-  ! f_+ = (f_c + if_s) / sqrt(2)
-  ! f_- = (f_c - if_s) / sqrt(2)
-  output = [ (output(1)+output(2)*cmplx(0,1,dp))/sqrt(2.0_dp), &
-           & (output(1)-output(2)*cmplx(0,1,dp))/sqrt(2.0_dp)  ]
+  ! f_+ = (f_c - if_s) / sqrt(2)
+  ! f_- = (f_c + if_s) / sqrt(2)
+  output = [ (output(1)-output(2)*cmplx(0,1,dp))/sqrt(2.0_dp), &
+           & (output(1)+output(2)*cmplx(0,1,dp))/sqrt(2.0_dp)  ]
 end function
 
 ! -d/d{u_i} (c*prod_j[ {u_j}^{n_j} ]) evaluated at {u_i=U_i} is

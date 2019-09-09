@@ -119,7 +119,6 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   complex(dp),               allocatable :: complex_coefficients(:)
   
   ! Variables for constructing the output.
-  type(RealPolynomial)    :: real_representation
   type(ComplexPolynomial) :: complex_representation
   type(BasisFunction)     :: elements(3,3)
   
@@ -256,16 +255,14 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
     do j=1,9
       real_coefficients = estuff(i)%evec( size(real_monomials)*(j-1)+1 &
                                       & : size(real_monomials)*j       )
+      
       complex_coefficients = cmplx( real_to_complex_conversion &
                                 & * vec(real_coefficients)     )
       
-      real_representation = RealPolynomial( real_coefficients &
-                                        & * real_monomials    )
       complex_representation = ComplexPolynomial( complex_coefficients &
                                               & * complex_monomials    )
       
-      elements(x(j),y(j)) = BasisFunction( real_representation,   &
-                                         & complex_representation )
+      elements(x(j),y(j)) = BasisFunction(complex_representation)
       call elements(x(j),y(j))%simplify()
     enddo
     

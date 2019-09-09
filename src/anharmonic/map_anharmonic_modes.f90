@@ -201,6 +201,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   displacements =                                               &
      &   [(i,i=-no_single_mode_samples,no_single_mode_samples)] &
      & * anharmonic_data%maximum_weighted_displacement          &
+     & * 2.0_dp                                                 &
      & / no_single_mode_samples
   
   allocate(mode_maps(size(real_modes)), stat=ialloc); call err(ialloc)

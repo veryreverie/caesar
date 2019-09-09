@@ -540,20 +540,14 @@ function generate_constant_basis_function() result(output)
   
   type(BasisFunction) :: output
   
-  type(RealMonomial)    :: constant_real_monomial
   type(ComplexMonomial) :: constant_complex_monomial
   
-  type(RealUnivariate)    :: zero_real(0)
   type(ComplexUnivariate) :: zero_complex(0)
   
-  constant_real_monomial = RealMonomial( &
-      & coefficient = 1.0_dp,            &
-      & modes       = zero_real          )
   constant_complex_monomial = ComplexMonomial( &
          & coefficient = (1.0_dp,0.0_dp),      &
          & modes       = zero_complex          )
   output = BasisFunction(                                                     &
-     & real_representation = RealPolynomial([constant_real_monomial]),        &
      & complex_representation = ComplexPolynomial([constant_complex_monomial]))
 end function
 
@@ -679,11 +673,12 @@ end subroutine
 ! Finalise a subspace potential.
 ! Re-arranges basis functions to remove duplicates and separate all monomials.
 impure elemental subroutine finalise_subspace_potential_PolynomialPotential( &
-   & this,subspace,anharmonic_data)
+   & this,subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(DegenerateSubspace),   intent(in)    :: subspace
+  class(SubspaceBasis),       intent(in)    :: subspace_basis
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   
   if (size(this%basis_functions_)/=1) then
@@ -695,8 +690,9 @@ impure elemental subroutine finalise_subspace_potential_PolynomialPotential( &
   this%reference_energy_ = this%reference_energy_ &
                        & + this%basis_functions_(1)%undisplaced_energy()
   
-  call this%basis_functions_(1)%finalise( subspace,        &
-                                        & anharmonic_data  )
+  call this%basis_functions_(1)%finalise( subspace,       &
+                                        & subspace_basis, &
+                                        & anharmonic_data )
 end subroutine
 
 ! Calculate the energy at a given displacement.
@@ -914,38 +910,35 @@ function harmonic_expectation_PolynomialPotential(this,frequency, &
        &                                                   anharmonic_data ))
 end function
 
-function coefficients_PolynomialPotential(this,frequency,anharmonic_data) &
+function coefficients_PolynomialPotential(this,anharmonic_data) &
    & result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
-  real(dp),                   intent(in) :: frequency
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp), allocatable                  :: output(:)
   
   integer :: i
   
-  output = [( this%basis_functions_(i)%coefficients(frequency), &
-            & i=1,                                              &
-            & size(this%basis_functions_)                       )]
+  output = [( this%basis_functions_(i)%coefficients(), &
+            & i=1,                                     &
+            & size(this%basis_functions_)              )]
 end function
 
-subroutine set_coefficients_PolynomialPotential(this,coefficients,frequency, &
+subroutine set_coefficients_PolynomialPotential(this,coefficients, &
    & anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   real(dp),                   intent(in)    :: coefficients(:)
-  real(dp),                   intent(in)    :: frequency
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   
   integer :: i,j
   
   j = 0
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%set_coefficients(          &
-       & coefficients(j+1:j+size(this%basis_functions_(i))), &
-       & frequency                                           )
+    call this%basis_functions_(i)%set_coefficients(         &
+       & coefficients(j+1:j+size(this%basis_functions_(i))) )
     j = j+size(this%basis_functions_(i))
   enddo
 end subroutine

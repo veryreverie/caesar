@@ -52,61 +52,11 @@ function core_shell_thermodynamics(thermal_energy,frequency,no_modes,bases, &
   type(AnharmonicData),  intent(in) :: anharmonic_data
   type(ThermodynamicData)           :: output
   
-  type(ThermodynamicData) :: full_harmonic_thermodynamics
-  type(ThermodynamicData) :: core_harmonic_thermodynamics
-  type(ThermodynamicData) :: full_effective_thermodynamics
-  type(ThermodynamicData) :: core_effective_thermodynamics
-  type(ThermodynamicData) :: core_vci_thermodynamics
-  
-  ! Calculate the thermodynamic properties of the five combinations of
-  !    basis, states and potential described above.
-  full_harmonic_thermodynamics = ThermodynamicData( thermal_energy,   &
-                             &                      frequency       ) &
-                             & * no_modes
-  
-  core_harmonic_thermodynamics = harmonic_thermodynamics( bases,          &
-                                                        & thermal_energy, &
-                                                        & anharmonic_data )
-  
-  full_effective_thermodynamics = effective_harmonic_observables( &
-                                                & thermal_energy, &
-                                                & potential,      &
-                                                & frequency,      &
-                                                & no_modes,       &
-                                                & anharmonic_data  )
-  
-  core_effective_thermodynamics = harmonic_expectation( bases,          &
-                                                      & potential,      &
-                                                      & thermal_energy, &
-                                                      & anharmonic_data )
-  
-  core_vci_thermodynamics = ThermodynamicData( thermal_energy, &
-                                             & vci_energies    )
-  
-  ! Calculate the thermodynamic variables for the core VCI states equilibrated
-  !    with the shell effective harmonic states.
-  output = calculate_core_shell_thermodynamics( &
-               & full_harmonic_thermodynamics,  &
-               & core_harmonic_thermodynamics,  &
-               & full_effective_thermodynamics, &
-               & core_effective_thermodynamics, &
-               & core_vci_thermodynamics        )
-end function
-
-! Calculate the thermodynamic variables for the core VCI states equilibrated
-!    with the shell effective harmonic states.
-function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
-   & full_effective,core_effective,core_vci) result(output)
-  implicit none
-  
-  type(ThermodynamicData), intent(in) :: full_harmonic
-  type(ThermodynamicData), intent(in) :: core_harmonic
-  type(ThermodynamicData), intent(in) :: full_effective
-  type(ThermodynamicData), intent(in) :: core_effective
-  type(ThermodynamicData), intent(in) :: core_vci
-  type(ThermodynamicData)             :: output
-  
-  real(dp) :: thermal_energy
+  type(ThermodynamicData) :: full_harmonic
+  type(ThermodynamicData) :: core_harmonic
+  type(ThermodynamicData) :: full_effective
+  type(ThermodynamicData) :: core_effective
+  type(ThermodynamicData) :: core_vci
   
   real(dp) :: pc
   real(dp) :: ps
@@ -117,7 +67,33 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
   
   type(ThermodynamicData) :: shell_effective
   
-  thermal_energy = core_vci%thermal_energy
+  ! Calculate the thermodynamic properties of the five combinations of
+  !    basis, states and potential described above.
+  full_harmonic = ThermodynamicData( thermal_energy,   &
+              &                      frequency       ) &
+              & * no_modes
+  
+  core_harmonic = harmonic_thermodynamics( bases,          &
+                                         & thermal_energy, &
+                                         & anharmonic_data )
+  
+  full_effective = effective_harmonic_observables( &
+                                 & thermal_energy, &
+                                 & potential,      &
+                                 & frequency,      &
+                                 & no_modes,       &
+                                 & anharmonic_data  )
+  
+  core_effective = harmonic_expectation( bases,          &
+                                       & potential,      &
+                                       & thermal_energy, &
+                                       & anharmonic_data )
+  
+  core_vci = ThermodynamicData( thermal_energy, &
+                              & vci_energies    )
+  
+  ! Calculate the thermodynamic variables for the core VCI states equilibrated
+  !    with the shell effective harmonic states.
   
   ! Check for the case where the shell is completely unoccupied in the harmonic
   !    case.
@@ -167,6 +143,8 @@ function calculate_core_shell_thermodynamics(full_harmonic,core_harmonic, &
       call print_line(ERROR//': Harmonic U outside of core region is less &
          &than that within this region. Please increase the number of &
          &states.')
+      call print_line('V')
+      call print_lines(potential)
       call print_line('FH: '//full_harmonic%energy)
       call print_line('CH: '//core_harmonic%energy)
       call print_line('FE: '//full_effective%energy)

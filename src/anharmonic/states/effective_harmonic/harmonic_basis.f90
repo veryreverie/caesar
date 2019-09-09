@@ -17,7 +17,6 @@ module harmonic_basis_module
   
   type, extends(SubspaceBasis) :: HarmonicBasis
     integer  :: subspace_id
-    real(dp) :: frequency
   contains
     procedure, public, nopass :: representation => representation_HarmonicBasis
     

@@ -305,25 +305,23 @@ function harmonic_expectation_PotentialDataExample(this,frequency, &
   ! Code to calculate thermal harmonic expectation goes here.
 end function
 
-function coefficients_PotentialDataExample(this,frequency,anharmonic_data) &
+function coefficients_PotentialDataExample(this,anharmonic_data) &
    & result(output)
   implicit none
   
   class(PotentialDataExample), intent(in) :: this
-  real(dp),                    intent(in) :: frequency
   type(AnharmonicData),        intent(in) :: anharmonic_data
   real(dp), allocatable                   :: output(:)
   
   ! Code to convert the potential to an array of real coefficients goes here.
 end function
 
-subroutine set_coefficients_PotentialDataExample(this,coefficients,frequency, &
+subroutine set_coefficients_PotentialDataExample(this,coefficients, &
    & anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   real(dp),                    intent(in)    :: coefficients(:)
-  real(dp),                    intent(in)    :: frequency
   type(AnharmonicData),        intent(in)    :: anharmonic_data
   
   ! Code to convert the coefficients into the potential goes here.

@@ -116,14 +116,13 @@ function basis_functions_CouplingBasisFunctions(this) result(output)
 end function
 
 impure elemental subroutine finalise_CouplingBasisFunctions(this,subspace, &
-   & anharmonic_data)
+   & subspace_basis,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout) :: this
   type(DegenerateSubspace),      intent(in)    :: subspace
+  class(SubspaceBasis),          intent(in)    :: subspace_basis
   type(AnharmonicData),          intent(in)    :: anharmonic_data
-  
-  integer :: i
   
   if (size(this%coupling%ids)/=1) then
     call print_line(CODE_ERROR//': Calling finalise_subspace_potential &
@@ -138,6 +137,7 @@ impure elemental subroutine finalise_CouplingBasisFunctions(this,subspace, &
   ! Remove constant terms and split basis functions by power.
   this%basis_functions_ = finalise( this%basis_functions_, &
                                   & subspace,              &
+                                  & subspace_basis,        &
                                   & anharmonic_data        )
 end subroutine
 
@@ -334,18 +334,10 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
   
   type(SubspaceMonomial), allocatable :: subspace_monomials(:)
   
-  type(BasisFunction), allocatable :: basis_functions(:)
-  type(RealMonomial),  allocatable :: unique_terms(:)
+  type(BasisFunctionsAndMonomials) :: basis_functions
   
   type(BasisFunction), allocatable :: coupling_basis_functions(:)
   type(RealMonomial),  allocatable :: coupling_unique_terms(:)
-  
-  type(RealPolynomial) :: real_representation_j
-  type(RealPolynomial) :: real_representation_k
-  
-  integer            :: unique_term_id
-  integer            :: matching_term_location
-  type(RealMonomial) :: matching_term
   
   integer :: i,j,k,ialloc
   
@@ -373,43 +365,12 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
                                               & degenerate_symmetries,     &
                                               & vscf_basis_functions_only, &
                                               & logfile                    )
-    
-    ! Take linear combinations of basis functions such that each basis function
-    !    contains at least one term which is in no other basis function.
-    allocate( unique_terms(size(basis_functions)), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(unique_terms)
-      ! Identify the largest term in basis function i.
-      real_representation_j = basis_functions(j)%real_representation()
-      unique_term_id = maxloc(abs(real_representation_j%terms%coefficient), 1)
-      unique_terms(j) = real_representation_j%terms(unique_term_id)
-      
-      ! Subtract a multiple of basis function i from all other basis functions,
-      !    such that the coefficient of unique_term_id(i) in all other basis
-      !    functions is zero.
-      do k=1,size(basis_functions)
-        if (k/=j) then
-          real_representation_k = basis_functions(k)%real_representation()
-          matching_term_location = first_equivalent( &
-                      & real_representation_k%terms, &
-                      & unique_terms(j),             &
-                      & compare_real_monomials,      &
-                      & default=0                    )
-          if (matching_term_location/=0) then
-            matching_term = real_representation_k%terms(matching_term_location)
-            basis_functions(k) = basis_functions(k)        &
-                             & - basis_functions(j)        &
-                             & * matching_term%coefficient &
-                             & / unique_terms(j)%coefficient
-          endif
-        endif
-      enddo
-    enddo
 
     ! Concatenate the terms from each monomial together.
-    coupling_basis_functions = [coupling_basis_functions, basis_functions]
-    coupling_unique_terms = [coupling_unique_terms, unique_terms]
-    deallocate(unique_terms, stat=ialloc); call err(ialloc)
+    coupling_basis_functions = [ coupling_basis_functions,       &
+                               & basis_functions%basis_functions ]
+    coupling_unique_terms = [ coupling_unique_terms,       &
+                            & basis_functions%unique_terms ]
   enddo
   
   output = BasisFunctionsAndSamplingPoints(                                 &
@@ -437,29 +398,27 @@ impure elemental function undisplaced_energy_CouplingBasisFunctions(this) &
 end function
 
 ! Get and set basis function coefficients.
-function coefficients_CouplingBasisFunctions(this,frequency) result(output)
+function coefficients_CouplingBasisFunctions(this) result(output)
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
-  real(dp),                      intent(in) :: frequency
   real(dp), allocatable                     :: output(:)
   
-  output = this%basis_functions_%coefficient(frequency)
+  output = this%basis_functions_%coefficient()
 end function
 
-subroutine set_coefficients_CouplingBasisFunctions(this,coefficients,frequency)
+subroutine set_coefficients_CouplingBasisFunctions(this,coefficients)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout) :: this
   real(dp),                      intent(in)    :: coefficients(:)
-  real(dp),                      intent(in)    :: frequency
   
   if (size(this)/=size(coefficients)) then
     call print_line(CODE_ERROR//': Incorrect number of coefficients.')
     call err()
   endif
   
-  call this%basis_functions_%set_coefficient(coefficients,frequency)
+  call this%basis_functions_%set_coefficient(coefficients)
 end subroutine
 
 ! Append another CouplingBasisFunctions to this.

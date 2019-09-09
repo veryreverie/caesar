@@ -44,9 +44,8 @@ module split_qpoints_basis_module
     ! The expansion order of the potential.
     ! This is also the limit on coupling between states.
     integer :: expansion_order
-    ! The ID and frequency of the subspace.
+    ! The ID of the subspace.
     integer  :: subspace_id
-    real(dp) :: frequency
     ! The states, wavevector by wavevector.
     ! N.B. this only includes one wavevector from each symmetry-related set.
     type(WavevectorBasis), allocatable :: wavevectors(:)
