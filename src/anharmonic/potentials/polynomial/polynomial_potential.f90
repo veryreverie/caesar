@@ -935,6 +935,15 @@ subroutine set_coefficients_PolynomialPotential(this,coefficients, &
   
   integer :: i,j
   
+  if (    size(coefficients)                         &
+     & /= sum([( size(this%basis_functions_(i)),     &
+     &           i=1,                                &
+     &           size(this%basis_functions_)     )]) ) then
+    call print_line(CODE_ERROR//': Coefficients do not match basis &
+       &functions.')
+    call err()
+  endif
+  
   j = 0
   do i=1,size(this%basis_functions_)
     call this%basis_functions_(i)%set_coefficients(         &
