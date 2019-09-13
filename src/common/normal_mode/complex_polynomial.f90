@@ -752,14 +752,6 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
        & filter(this%terms,compare_complex_monomials,monomials(i)) )
     monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
   enddo
-  
-  !! Remove any monomials with coefficient less than 1e10 times smaller than
-  !!    the largest coefficient.
-  !max_coefficient = maxval(abs(monomials%coefficient))
-  !monomials = monomials(                                          &
-  !   & filter(abs(monomials%coefficient)>=max_coefficient/1e10_dp) )
-  !
-  !this%terms = monomials
 end subroutine
 
 ! Find the conjugate of a univariate or monomial.

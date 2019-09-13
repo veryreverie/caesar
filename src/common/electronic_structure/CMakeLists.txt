@@ -23,6 +23,9 @@ target_link_libraries(electronic_structure qe)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/vasp vasp/)
 target_link_libraries(electronic_structure vasp)
 
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/xyz xyz/)
+target_link_libraries(electronic_structure xyz)
+
 # Link against required modules.
 target_link_libraries(electronic_structure utils)
 target_link_libraries(electronic_structure structure)

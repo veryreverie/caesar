@@ -29,8 +29,7 @@ subroutine startup_snap_to_symmetry()
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
      &single-point energy calculations. Settings are: "castep", &
-     &"quantum_espresso", "caesar" and "xyz". Support for xyz files requires &
-     &Caesar to be linked against Quip.',                                     &
+     &"quantum_espresso", "caesar" and "xyz".',                               &
      &              default_value='castep'),                                  &
      & KeywordData( 'seedname',                                               &
      &              'seedname is the seedname from which file names are &

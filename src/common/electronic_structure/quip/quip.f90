@@ -19,9 +19,6 @@ module quip_module
   
   private
   
-  public :: make_input_filename_xyz
-  public :: read_input_file_xyz
-  public :: write_input_file_xyz
   public :: run_quip_on_structure
   
   public :: QUIP_LINKED
@@ -41,76 +38,8 @@ contains
 
 ! ----------------------------------------------------------------------
 ! Functionality involving Quip. Includes:
-!    - Reading and writing .xyz files.
 !    - Calculating electronic structure.
 ! ----------------------------------------------------------------------
-function make_input_filename_xyz(seedname) result(output)
-  implicit none
-  
-  type(String), intent(in) :: seedname
-  type(String)             :: output
-  
-  output = seedname//'.xyz'
-end function
-
-function read_input_file_xyz(filename) result(output)
-  implicit none
-  
-  type(String), intent(in)  :: filename
-  type(BasicStructure)      :: output
-  
-  type(Atoms) :: quip_structure
-  
-  integer :: ierr
-  
-  call print_line(ERROR//': Procedure to read .xyz files not yet implemented.')
-  call err()
-  !call read(quip_structure, char(filename), error=ierr)
-  !
-  !call print_line('Shape pos: '//shape(quip_structure%pos))
-  !call print_line('Shape mass: '//shape(quip_structure%mass))
-  !
-  !output = quip_structure
-end function
-
-subroutine write_input_file_xyz(structure,input_filename,output_filename)
-  implicit none
-  
-  type(BasicStructure), intent(in)           :: structure
-  type(String),         intent(in), optional :: input_filename
-  type(String),         intent(in)           :: output_filename
-  
-  type(IFile) :: input_file_in
-  type(IFile) :: output_file_in
-  type(OFile) :: output_file_out
-  
-  type(Atoms) :: quip_structure
-  
-  integer :: i
-  
-  call print_line(ERROR//': Procedure to write .xyz files not yet &
-     &implemented.')
-  call err()
-  
-  !quip_structure = structure
-  !call write(quip_structure, char(output_filename))
-  !
-  !! If an input file is given, replace the second line of the new output file
-  !!    with that from the input file.
-  !if (present(input_filename)) then
-  !  input_file_in = IFile(input_filename)
-  !  output_file_in = IFile(output_filename)
-  !  output_file_out = OFile(output_filename)
-  !  do i=1,size(output_file_in)
-  !    if (i==2) then
-  !      call output_file_out%print_line(input_file_in%line(i))
-  !    else
-  !      call output_file_out%print_line(output_file_in%line(i))
-  !    endif
-  !  enddo
-  !endif
-end subroutine
-
 function run_quip_on_structure(structure,seedname,use_forces,use_hessians, &
    & calculate_stress) result(output)
   implicit none

@@ -1,0 +1,7 @@
+5
+Lattice="4 0 0 0 4 0 0 0 4" Properties="species:S:1:pos:R:3:masses:R:1"
+Ca 0 0 0 40.078
+Ti 2 2 2 47.867
+O  2 0 0 15.999
+O  0 2 0 15.999
+O  0 0 2 15.999

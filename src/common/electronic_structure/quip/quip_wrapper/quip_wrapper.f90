@@ -2,7 +2,6 @@
 ! Interfaces to the QUIP library.
 ! ======================================================================
 ! Functionality includes:
-!    - Reading and writing .xyz files.
 !    - Calculating electronic structure.
 module quip_wrapper_module
   ! Use modules from QUIP itself.

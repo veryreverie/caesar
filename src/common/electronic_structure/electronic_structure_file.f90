@@ -12,6 +12,7 @@ module electronic_structure_file_module
   use castep_module
   use qe_module
   use vasp_module
+  use xyz_module
   implicit none
   
   private

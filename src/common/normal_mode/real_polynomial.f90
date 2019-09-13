@@ -617,14 +617,6 @@ impure elemental subroutine simplify_RealPolynomial(this)
        & filter(this%terms,compare_real_monomials,monomials(i)) )
     monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
   enddo
-  
-  !! Remove any monomials with coefficient less than 1e10 times smaller than
-  !!    the largest coefficient.
-  !max_coefficient = maxval(abs(monomials%coefficient))
-  !monomials = monomials(                                          &
-  !   & filter(abs(monomials%coefficient)>=max_coefficient/1e10_dp) )
-  !
-  !this%terms = monomials
 end subroutine
 
 ! The total power of a univariate or monomial.
