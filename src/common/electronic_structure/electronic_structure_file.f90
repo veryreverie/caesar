@@ -50,6 +50,14 @@ function make_input_filename(file_type,seedname) result(output)
   endif
 end function
 
+function make_input_filename_caesar() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'structure.dat'
+end function
+
 function make_output_filename(file_type,seedname) result(output)
   implicit none
   
@@ -57,16 +65,28 @@ function make_output_filename(file_type,seedname) result(output)
   type(String), intent(in) :: seedname
   type(String)             :: output
   
-  if (file_type == 'castep') then
+  if (file_type == 'caesar') then
+    output = make_output_filename_caesar()
+  elseif (file_type == 'castep') then
     output = make_output_filename_castep(seedname)
   elseif (file_type == 'vasp') then
     output = make_output_filename_vasp(seedname)
   elseif (file_type == 'quantum_espresso') then
     output = make_output_filename_qe(seedname)
+  elseif (file_type == 'xyz') then
+    output = make_output_filename_caesar()
   else
     call print_line('Unrecognised output file type: '//file_type)
     call err()
   endif
+end function
+
+function make_output_filename_caesar() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'electronic_structure.dat'
 end function
 
 ! Reads an input file, and constructs a StructureData.
@@ -140,11 +160,15 @@ function read_output_file(file_type,structure,directory,seedname, &
   logical,             intent(in) :: calculate_stress
   type(ElectronicStructure)       :: output
   
+  type(IFile)         :: electronic_structure_file
   type(IFile)         :: displaced_structure_file
   type(StructureData) :: displaced_structure
   
   if (calculation_type=='none') then
-    if (file_type=='castep') then
+    if (file_type=='caesar' .or. file_type=='xyz') then
+      electronic_structure_file = IFile(directory//'/electronic_structure.dat')
+      output = ElectronicStructure(electronic_structure_file%lines())
+    elseif (file_type=='castep') then
       output = read_output_file_castep( directory,       &
                                       & seedname,        &
                                       & structure,       &

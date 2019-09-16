@@ -9,18 +9,9 @@ module structure_file_module
   
   private
   
-  public :: make_input_filename_caesar
   public :: read_structure_file
   public :: write_structure_file
 contains
-
-function make_input_filename_caesar() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'structure.dat'
-end function
 
 function read_structure_file(filename) result(this)
   implicit none
