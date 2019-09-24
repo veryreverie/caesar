@@ -426,14 +426,19 @@ subroutine append_CouplingBasisFunctions(this,that)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout) :: this
-  class(CouplingBasisFunctions), intent(in)    :: that
+  type(CouplingBasisFunctions),  intent(in)    :: that
+  
+  type(BasisFunction), allocatable :: temp(:)
   
   if (this%coupling/=that%coupling) then
     call print_line(CODE_ERROR//': Appending incompatible basis functions.')
     call err()
   endif
   
-  this%basis_functions_ = [this%basis_functions_, that%basis_functions_]
+  ! WORKAROUND: combining the following two lines makes ifort crash,
+  !    as of version 19.0.4.227.
+  temp = [this%basis_functions_, that%basis_functions_]
+  this%basis_functions_ = temp
 end subroutine
 
 ! ----------------------------------------------------------------------

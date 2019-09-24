@@ -883,6 +883,7 @@ subroutine simplify_PolynomialPotential(this)
           call this%basis_functions_(j)%append( &
                      & this%basis_functions_(i) )
           to_remove(i) = .true.
+          exit
         endif
       enddo
     endif

@@ -72,7 +72,7 @@ subroutine startup_calculate_harmonic_observables()
      &              'no_dos_samples is the number of points in reciprocal &
      &space at which the normal modes are calculated when calculating the &
      &vibrational density of states.',                                        &
-     &              default_value='100000')                                   ]
+     &              default_value='10000')                                    ]
   mode%main_subroutine => calculate_harmonic_observables_subroutine
   
   call add_mode(mode)

@@ -143,8 +143,8 @@ def write_electronic_structure(filename,energy,forces=None,hessian=None,
         raise(ValueError('Stress in unexpected shape.'))
 
 if __name__=='__main__':
-  if len(sys.argv)==2 and (sys.argv[1]=='-h' or sys.argv[1]=='--help'):
-    print(sys.argv[0], 'file_type directory no_cores no_nodes seedname')
+  if len(sys.argv)>0 and sys.argv[1] in ['-h', '--help']:
+    print('{0} file_type directory no_cores no_nodes seedname'.format(sys.argv[0]))
     sys.exit()
   elif len(sys.argv)!=6:
     raise ValueError('Wrong number of arguments. Call -h or --help for help.')

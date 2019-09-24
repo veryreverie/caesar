@@ -410,8 +410,8 @@ function converged(this) result(output)
     return
   endif
   
-  if (abs(this%free_energy_change())>1) then
-    call print_line(ERROR//': DF > 1')
+  if (abs(this%free_energy_change())>100) then
+    call print_line(ERROR//': DF > 100. Maybe the system is unstable?')
     call print_line('free energy: '//this%free_energies_(this%i(offset=-1)))
     call print_line('DF         : '//(this%free_energies_(this%i(offset=-1)) &
        & -this%free_energies_(this%i(offset=-2))))
