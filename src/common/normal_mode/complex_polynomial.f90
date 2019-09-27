@@ -752,6 +752,8 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
        & filter(this%terms,compare_complex_monomials,monomials(i)) )
     monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
   enddo
+  
+  this%terms = monomials
 end subroutine
 
 ! Find the conjugate of a univariate or monomial.
@@ -2032,7 +2034,7 @@ function sum_ComplexPolynomialables(input) result(output)
   else
     output = input(1)%to_ComplexPolynomial()
     do i=2,size(input)
-      !output = output + input(i)
+      output = output + input(i)
     enddo
   endif
 end function

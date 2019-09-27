@@ -427,23 +427,11 @@ function parse_castep_input_file(filename) result(output)
     kpoints_block = lines(kpoints_block_start:kpoints_block_end)
   endif
   
-  ! Remove comment lines from blocks.
-  lattice_block = lattice_block(filter(                          &
-     & [( all(char(slice(lattice_block(i),1,1))/=['!','#',';']), &
-     &    i=1,                                                   &
-     &    size(lattice_block)                                    )]))
-  positions_block = positions_block(filter(                        &
-     & [( all(char(slice(positions_block(i),1,1))/=['!','#',';']), &
-     &    i=1,                                                     &
-     &    size(positions_block)                                    )]))
-  masses_block = masses_block(filter(                           &
-     & [( all(char(slice(masses_block(i),1,1))/=['!','#',';']), &
-     &    i=1,                                                  &
-     &    size(masses_block)                                    )]))
-  kpoints_block = kpoints_block(filter(                          &
-     & [( all(char(slice(kpoints_block(i),1,1))/=['!','#',';']), &
-     &    i=1,                                                   &
-     &    size(kpoints_block)                                    )]))
+  ! Remove blank lines and comment lines from blocks.
+  lattice_block = tidy_block(lattice_block)
+  positions_block = tidy_block(positions_block)
+  masses_block = tidy_block(masses_block)
+  kpoints_block = tidy_block(kpoints_block)
   
   ! Copy across remainder of file.
   allocate(remainder(0), stat=ialloc); call err(ialloc)
@@ -466,6 +454,30 @@ function parse_castep_input_file(filename) result(output)
                           & masses_block    = masses_block,    &
                           & kpoints_block   = kpoints_block,   &
                           & remainder       = remainder        )
+end function
+
+function tidy_block(input) result(output)
+  implicit none
+  
+  type(String), intent(in)  :: input(:)
+  type(String), allocatable :: output(:)
+  
+  integer :: i
+  
+  ! WORKAROUND: ifort segfaults below for empty blocks.
+  if (size(input)==0) then
+    output = input
+    return
+  endif
+  
+  ! Remove blank lines from block.
+  output = input(filter([(len(input(i))>0, i=1, size(input))]))
+  
+  ! Remove comment lines from block.
+  output = output(filter(                                 &
+     & [( all(char(slice(output(i),1,1))/=['!','#',';']), &
+     &    i=1,                                            &
+     &    size(output)                                    )]))
 end function
 
 function read_output_file_castep(directory,seedname,structure,use_forces, &

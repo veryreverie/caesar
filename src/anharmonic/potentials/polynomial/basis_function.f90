@@ -15,7 +15,7 @@ module basis_function_module
   private
   
   public :: BasisFunction
-  public :: BasisFunctionsAndMonomials
+  public :: BasisFunctionsAndUniqueTerms
   public :: generate_basis_functions
   public :: finalise
   public :: operator(*)
@@ -69,7 +69,7 @@ module basis_function_module
   end type
   
   ! Return type for generate_basis_functions
-  type :: BasisFunctionsAndMonomials
+  type :: BasisFunctionsAndUniqueTerms
     type(BasisFunction), allocatable :: basis_functions(:)
     type(RealMonomial),  allocatable :: unique_terms(:)
   end type
@@ -151,11 +151,13 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
   logical,                  intent(in)    :: vscf_basis_functions_only
   type(OFile),              intent(inout) :: logfile
-  type(BasisFunctionsAndMonomials)        :: output
+  type(BasisFunctionsAndUniqueTerms)      :: output
   
   ! Monomials, in complex and real representations.
   type(ComplexMonomial), allocatable :: complex_monomials(:)
   type(RealMonomial),    allocatable :: real_monomials(:)
+  
+  integer, allocatable :: conjugates(:)
   
   ! The conversion from the complex monomial basis to the real monomial basis,
   !    and vice-versa.
@@ -165,6 +167,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   ! Symmetry data.
   type(ComplexMatrix) :: symmetry
   type(ComplexMatrix) :: projection
+  type(RealMatrix)    :: basis_projection
   
   ! Polynomial coefficients, in both bases.
   type(SymmetricEigenstuff), allocatable :: estuff(:)
@@ -176,11 +179,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(ComplexPolynomial), allocatable :: complex_representations(:)
   
   type(BasisFunction), allocatable :: basis_functions(:)
-  type(RealMonomial),  allocatable :: unique_terms(:)
-  
-  integer            :: unique_term_id
-  integer            :: matching_term_location
-  type(RealMonomial) :: matching_term
+  integer,             allocatable :: unique_terms(:)
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -191,13 +190,8 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
     call err()
   endif
   
-  ! Generate the real monomials and complex monomials corresponding to the
-  !    subspace monomial, with coefficients such that symmetries are unitary.
-  real_monomials = generate_real_monomials( subspace_monomial, &
-                                          & subspaces,         &
-                                          & real_modes,        &
-                                          & qpoints            )
-  
+  ! Generate the complex monomials corresponding to the subspace monomial,
+  !    with coefficients such that symmetries are unitary.
   complex_monomials = generate_complex_monomials(            &
       & subspace_monomial,                                   &
       & subspaces,                                           &
@@ -205,25 +199,6 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
       & qpoints,                                             &
       & conserve_momentum=.true.,                            &
       & conserve_subspace_momentum=vscf_basis_functions_only )
-  
-  if (size(complex_monomials)==0) then
-    allocate( basis_functions(0), &
-            & unique_terms(0),    &
-            & stat=ialloc); call err(ialloc)
-     output = BasisFunctionsAndMonomials(basis_functions, unique_terms)
-    return
-  endif
-  
-  ! Identify the mappings between complex monomials and real monomials.
-  complex_to_real_conversion = basis_conversion_matrix( &
-                          & real_monomials,             &
-                          & complex_monomials,          &
-                          & include_coefficients=.true. )
-  
-  real_to_complex_conversion = basis_conversion_matrix( &
-                          & complex_monomials,          &
-                          & real_monomials,             &
-                          & include_coefficients=.true. )
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
@@ -242,26 +217,26 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
              & * projection_matrix( symmetry,                                &
              &                      structure%symmetries(i)%symmetry_order() )
   enddo
-  call check_hermitian( projection,               &
-                      & 'projection matrix',      &
-                      & logfile,                  &
-                      & ignore_threshold=1e-10_dp )
+  call check_hermitian( projection,                   &
+                      & 'monomial projection matrix', &
+                      & logfile,                      &
+                      & ignore_threshold=1e-10_dp     )
   
-  ! Transform the projection matrix into real co-ordinates,
-  !    and check that it is real and symmetric.
-  projection = complex_to_real_conversion &
-           & * projection                 &
-           & * real_to_complex_conversion
-  call check_real(projection,'projection matrix',logfile)
-  call check_symmetric( real(projection),         &
-                      & 'projection_matrix',      &
-                      & logfile,                  &
-                      & ignore_threshold=1e-10_dp )
+  ! Pair up each complex monomial with its complex conjugate.
+  conjugates = find_monomial_conjugates(complex_monomials)
+  basis_functions = pair_complex_monomials(complex_monomials, conjugates)
+  
+  ! Transform the projection matrix to basis functions rather than monomials.
+  basis_projection = make_basis_projection(projection, conjugates)
+  call check_symmetric( basis_projection,          &
+                      & 'basis projection matrix', &
+                      & logfile,                   &
+                      & ignore_threshold=1e-10_dp  )
   
   ! Diagonalise the projection matrix,
   !    check its eigenvalues are either 0 or 1,
   !    and select only the eigenvectors with eigenvalue 1.
-  estuff = diagonalise_symmetric(real(projection))
+  estuff = diagonalise_symmetric(basis_projection)
   if (any(abs(estuff%eval-1)>1e-2_dp .and. abs(estuff%eval)>1e-2_dp)) then
     call print_line(ERROR//': Projection matrix has eigenvalues which are &
        &neither 0 nor 1.')
@@ -271,60 +246,221 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   endif
   estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
   
-  ! Construct basis functions from the coefficients.
-  allocate( real_representations(size(estuff)),    &
-          & complex_representations(size(estuff)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(estuff)
-    real_coefficients = estuff(i)%evec
-    real_representations(i) = RealPolynomial( real_coefficients &
-                                          & * real_monomials    )
-    call real_representations(i)%simplify()
-    
-    complex_coefficients = cmplx( real_to_complex_conversion &
-                              & * vec(real_coefficients)     )
-    complex_representations(i) = ComplexPolynomial( complex_coefficients &
-                                                & * complex_monomials    )
-    call complex_representations(i)%simplify()
-  enddo
-  
   ! Take linear combinations of basis functions such that each basis function
   !    contains at least one term which is in no other basis function.
   allocate( unique_terms(size(estuff)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     ! Identify the largest term in basis function i.
-    unique_term_id = maxloc(abs(real_representations(i)%terms%coefficient), 1)
-    unique_terms(i) = real_representations(i)%terms(unique_term_id)
+    unique_terms(i) = maxloc(abs(estuff(i)%evec), 1)
     
     ! Subtract a multiple of basis function i from all other basis functions,
     !    such that the coefficient of unique_term_id(i) in all other basis
     !    functions is zero.
-    do j=1,size(basis_functions)
+    do j=1,size(estuff)
       if (j/=i) then
-        matching_term_location = first_equivalent( &
-                  & real_representations(j)%terms, &
-                  & unique_terms(i),               &
-                  & compare_real_monomials,        &
-                  & default=0                      )
-        if (matching_term_location/=0) then
-          matching_term = real_representations(j)%terms(matching_term_location)
-          real_representations(j) = real_representations(j)   &
-                                & - real_representations(i)   &
-                                & * matching_term%coefficient &
-                                & / unique_terms(i)%coefficient
-          complex_representations(j) = complex_representations(j)   &
-                                   & - complex_representations(i)   &
-                                   & * matching_term%coefficient &
-                                   & / unique_terms(i)%coefficient
+        estuff(j)%evec = estuff(j)%evec                  &
+                     & - estuff(i)%evec                  &
+                     & * estuff(j)%evec(unique_terms(i)) &
+                     & / estuff(i)%evec(unique_terms(i))
+      endif
+    enddo
+  enddo
+  
+  allocate( output%basis_functions(size(estuff)), &
+          & output%unique_terms(size(estuff)),    &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(estuff)
+    ! Construct a basis function from the eigenvectors.
+    output%basis_functions(i) = generate_basis_function( estuff(i)%evec,    &
+                                                       & complex_monomials, &
+                                                       & conjugates         )
+    
+    ! Construct a real monomial which stands in for the basis function.
+    output%unique_terms(i) = generate_unique_term( unique_terms(i),   &
+                                                 & complex_monomials, &
+                                                 & conjugates         )
+  enddo
+end function
+
+! Convert the projection matrix from the basis of complex monomials to
+!    the basis of basis functions.
+function make_basis_projection(projection,conjugates) result(output)
+  implicit none
+  
+  type(ComplexMatrix), intent(in) :: projection
+  integer,             intent(in) :: conjugates(:)
+  type(RealMatrix)                :: output
+  
+  real(dp), allocatable :: matrix(:,:)
+  
+  integer :: i,j,ialloc
+  
+  ! Construct the output matrix.
+  ! N.B. each time conjugates(x)<x, x and x' are the other way around,
+  !    e.g. when conjugates(j)<j, Pij=element(i,conjugate(j)) and
+  !    Pij'=element(i,j).
+  allocate( matrix(size(projection,1),size(projection,2)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(projection,1)
+    do j=1,size(projection,2)
+      if (conjugates(i)==i) then
+        if (conjugates(j)==j) then
+          ! ui = Pij uj
+          matrix(i,j) = real(projection%element(i,j))
+        elseif (conjugates(j)>j) then
+          ! ui = (Pij+Pij') (uj+uj')/2 + ...
+          matrix(i,j) = real( projection%element(i,j)             &
+                          & + projection%element(i,conjugates(j)) )
+        else
+          ! ... + i(Pij-Pij') (uj-uj')/2i
+          matrix(i,j) = -aimag( projection%element(i,conjugates(j)) &
+                            & - projection%element(i,j)             )
+        endif
+      elseif (conjugates(i)>i) then
+        if (conjugates(j)==j) then
+          ! (ui+ui')/2 = (Pij+Pi'j)/2 uj
+          matrix(i,j) = real( projection%element(i,j)             &
+                          & + projection%element(conjugates(i),j) )/2
+        elseif (conjugates(j)>j) then
+          ! (ui+ui')/2 = (Pij+Pij'+Pi'j+Pi'j')/2 (uj+uj')/2 + ...
+          matrix(i,j) = real(                                    &
+             &   projection%element(i,j)                         &
+             & + projection%element(i,conjugates(j))             &
+             & + projection%element(conjugates(i),j)             &
+             & + projection%element(conjugates(i),conjugates(j)) ) / 2
+        else
+          ! ... + i(Pij-Pij'+Pi'j-Pi'j')/2 (uj-uj')/2i
+          matrix(i,j) = -aimag(                                  &
+             &   projection%element(i,conjugates(j))             &
+             & - projection%element(i,j)                         &
+             & + projection%element(conjugates(i),conjugates(j)) &
+             & - projection%element(conjugates(i),j)             ) / 2
+        endif
+      else
+        if (conjugates(j)==j) then
+          ! (ui-ui')/2i = (Pij-Pi'j)/2i uj
+          matrix(i,j) = aimag( projection%element(conjugates(i),j) &
+                           & - projection%element(i,j)             )/2
+        elseif (conjugates(j)>j) then
+          ! (ui-ui')/2i = (Pij+Pij'-Pi'j-Pi'j')/2i (uj+uj')/2 + ...
+          matrix(i,j) = aimag(                                   &
+             &   projection%element(conjugates(i),j)             &
+             & + projection%element(conjugates(i),conjugates(j)) &
+             & - projection%element(i,j)                         &
+             & - projection%element(i,conjugates(j))             ) / 2
+        else
+          ! ... +  (Pij-Pij'-Pi'j+Pi'j')/2 (uj-uj')/2i
+          matrix(i,j) = real(                                    &
+             &   projection%element(conjugates(i),conjugates(j)) &
+             & - projection%element(conjugates(i),j)             &
+             & - projection%element(i,conjugates(j))             &
+             & + projection%element(i,j)                         ) / 2
         endif
       endif
     enddo
   enddo
   
-  basis_functions = BasisFunction(complex_representations)
+  output = mat(matrix)
+end function
+
+! Generate a basis function from an eigenvector.
+function generate_basis_function(evec,monomials,conjugates) result(output)
+  implicit none
   
-  output = BasisFunctionsAndMonomials(basis_functions, unique_terms)
+  real(dp),              intent(in) :: evec(:)
+  type(ComplexMonomial), intent(in) :: monomials(:)
+  integer,               intent(in) :: conjugates(:)
+  type(BasisFunction)               :: output
+  
+  real(dp) :: max_coeff
+  
+  integer, allocatable :: included_terms(:)
+  
+  type(ComplexMonomial), allocatable :: terms(:)
+  
+  integer :: i,j,k,ialloc
+  
+  max_coeff = maxval(abs(evec))
+  
+  included_terms = filter( abs(evec)>max_coeff/1e4_dp             &
+                    & .or. abs(evec(conjugates))>max_coeff/1e4_dp )
+  
+  allocate(terms(size(included_terms)), stat=ialloc); call err(ialloc)
+  do i=1,size(terms)
+    j = included_terms(i)
+    k = conjugates(j)
+    terms(i) = monomials(j)
+    if (j==k) then
+      ! The monomial is its own pair.
+      terms(i)%coefficient = evec(j)*monomials(j)%coefficient
+    elseif (j<k) then
+      ! The monomial looks like u+ = uc + i*us.
+      terms(i)%coefficient =                                          &
+         &                           evec(j)*monomials(j)%coefficient &
+         & + cmplx(0.0_dp,1.0_dp,dp)*evec(k)*monomials(k)%coefficient
+    else
+      ! The monomial looks like u- = uc - i*us.
+      terms(i)%coefficient =                                          &
+         &                           evec(k)*monomials(k)%coefficient &
+         & - cmplx(0.0_dp,1.0_dp,dp)*evec(j)*monomials(j)%coefficient
+    endif
+  enddo
+  
+  output = BasisFunction(ComplexPolynomial(terms))
+end function
+
+! Takes a complex polynomial, and generates a monomial which can be turned
+!    into a sampling point.
+! It doesn't matter overly much how this is done, as long as the mapping
+!    is unique and the resulting sampling points are distinct under symmetry.
+! Arbitrarily:
+!    -  u+^n * u-^m + u+^m * u-^n      ->   uc^max(m,n) * us^min(m,n)
+!    - (u+^n * u-^m - u+^m * u-^n)/i   ->   uc^min(m,n) * us^max(m,n)
+function generate_unique_term(id,monomials,conjugates) result(output)
+  implicit none
+  
+  integer,               intent(in) :: id
+  type(ComplexMonomial), intent(in) :: monomials(:)
+  integer,               intent(in) :: conjugates(:)
+  type(RealMonomial)                :: output
+  
+  associate (term => monomials(id))
+    if (conjugates(id)==id) then
+      ! The term is its own pair,
+      !    so the real monomial is the same as the complex monomial.
+      output = RealMonomial(                                           &
+         & coefficient = 1.0_dp,                                       &
+         & modes = RealUnivariate( id           = term%ids(),          &
+         &                         paired_id    = term%paired_ids(),   &
+         &                         power        = term%powers(),       &
+         &                         paired_power = term%paired_powers() ))
+    elseif (conjugates(id)>id) then
+      ! The term is a (x+x*)/2 sum of a complex term and its conjugate.
+      ! Construct an output with larger powers of uc than us.
+      output = RealMonomial(                              &
+         & coefficient = 1.0_dp,                          &
+         & modes = RealUnivariate(                        &
+         &    id           = term%ids(),                  &
+         &    paired_id    = term%paired_ids(),           &
+         &    power        = max( term%powers(),          &
+         &                        term%paired_powers() ), &
+         &    paired_power = min( term%powers(),          &
+         &                        term%paired_powers() )  ))
+    else
+      ! The term is a (x-x*)/2i sum of a complex term and its conjugate.
+      ! Construct an output with larger powers of us than uc.
+      output = RealMonomial(                              &
+         & coefficient = 1.0_dp,                          &
+         & modes = RealUnivariate(                        &
+         &    id           = term%ids(),                  &
+         &    paired_id    = term%paired_ids(),           &
+         &    power        = min( term%powers(),          &
+         &                        term%paired_powers() ), &
+         &    paired_power = max( term%powers(),          &
+         &                        term%paired_powers() )  ))
+    endif
+  end associate
 end function
 
 ! Given a unitary matrix U, s.t. U^n=I, returns the matrix
@@ -391,6 +527,7 @@ function finalise_BasisFunctions(input,subspace,subspace_basis, &
   type(ComplexMonomial) :: no_complex_monomials(0)
   
   type(ComplexMonomial) :: conjugate
+  integer, allocatable  :: conjugates(:)
   
   logical, allocatable :: mode_found(:)
   
@@ -420,72 +557,113 @@ function finalise_BasisFunctions(input,subspace,subspace_basis, &
     enddo
   enddo
   
-  ! Split the polynomials into basis functions, one for each monomial in
-  !    each complex polynomial.
-  ! If the mode is real, it becomes its own basis function.
-  ! If the mode is complex, it and its conjugate are paired into a u+u*
-  !    and a i(u-u*) basis function, with a real coefficient.
   allocate( output(sum( [(size(complex_polynomials(i)), i=1, order)] )), &
           & stat=ialloc); call err(ialloc)
   k = 0
   do i=1,order
     energy_scale = subspace_basis%frequency**(0.5_dp*i)
     
-    mode_found = [(.false., j=1,size(complex_polynomials(i)%terms))]
-    do j=1,size(complex_polynomials(i)%terms)
-      if (mode_found(j)) then
-        cycle
-      endif
-      
-      conjugate = conjg(complex_polynomials(i)%terms(j))
-      
-      j2 = 0
-      do i2=j,size(complex_polynomials(i)%terms)
-        if (compare_complex_monomials(         &
-           & complex_polynomials(i)%terms(i2), &
-           & conjugate                         )) then
-          j2 = i2
-          exit
-        endif
+    associate (terms => output(k+1:k+size(complex_polynomials(i)%terms)))
+      conjugates = find_monomial_conjugates(complex_polynomials(i)%terms)
+      terms = pair_complex_monomials(complex_polynomials(i)%terms, conjugates)
+      ! Multiply the monomial coefficients by energy_scale, and divide
+      !    the basis function coefficient by energy_scale.
+      ! This makes the monomials dimensionless and gives the basis function
+      !    coefficient units of energy.
+      terms%coefficient_ = terms%coefficient_ / energy_scale
+      do j=1,size(terms)
+        terms(j)%complex_representation_%terms%coefficient = &
+           & terms(j)%complex_representation_%terms%coefficient * energy_scale
       enddo
-      if (j2==0) then
-        call err()
-      endif
-      
-      mode_found(j) = .true.
-      mode_found(j2) = .true.
-      
-      if (j2==j) then
-        coefficient = complex_polynomials(i)%terms(j)%coefficient / energy_scale
-        complex_representation = ComplexPolynomial( &
-                & [complex_polynomials(i)%terms(j)] )
-        complex_representation%terms%coefficient = energy_scale
-        k = k+1
-        output(k) = BasisFunction(complex_representation)
-        output(k)%coefficient_ = real(coefficient)
-      else
-        coefficient = ( complex_polynomials(i)%terms(j)%coefficient    &
-                    & + complex_polynomials(i)%terms(j2)%coefficient ) &
-                    & / energy_scale
-        complex_representation = ComplexPolynomial(    &
-                & [ complex_polynomials(i)%terms(j),   &
-                &   complex_polynomials(i)%terms(j2) ] )
-        complex_representation%terms%coefficient = 0.5_dp*energy_scale
-        k = k+1
-        output(k) = BasisFunction(complex_representation)
-        output(k)%coefficient_ = real(coefficient)
-        
-        coefficient = ( complex_polynomials(i)%terms(j)%coefficient    &
-                    & - complex_polynomials(i)%terms(j2)%coefficient ) &
-                    & / cmplx(0.0_dp,0.5_dp*energy_scale,dp)
-        complex_representation%terms%coefficient = [1,-1]                  &
-                                               & * cmplx(0.0_dp,0.5_dp,dp) &
-                                               & * energy_scale
-        k = k+1
-        output(k) = BasisFunction(complex_representation)
-        output(k)%coefficient_ = real(coefficient)
+    end associate
+    
+    k = k+size(complex_polynomials(i)%terms)
+  enddo
+end function
+
+! Find the id of the monomial conjugates,
+!    s.t. conjg(input(i)) = input(output(i)).
+function find_monomial_conjugates(input) result(output)
+  implicit none
+  
+  type(ComplexMonomial), intent(in) :: input(:)
+  integer, allocatable              :: output(:)
+  
+  logical, allocatable :: conjugate_found(:)
+  
+  type(ComplexMonomial) :: conjugate
+  
+  integer :: i,j,ialloc
+  
+  output = [(0, i=1, size(input))]
+  conjugate_found = [(.false., i=1, size(input))]
+  do i=1,size(input)
+    if (conjugate_found(i)) then
+      cycle
+    endif
+    
+    conjugate = conjg(input(i))
+    do j=1,size(input)
+      if (compare_complex_monomials(input(j),conjugate)) then
+        output(i) = j
+        output(j) = i
+        conjugate_found(i) = .true.
+        conjugate_found(j) = .true.
+        exit
       endif
     enddo
+    
+    if (output(i)==0) then
+      call err()
+    endif
+  enddo
+end function
+
+! Recombine the complex monomials into real basis functions.
+! If the mode is real, it becomes its own basis function.
+! If the mode is complex, it and its conjugate are paired into a u+u*
+!    and a i(u-u*) basis function, both with real coefficients.
+function pair_complex_monomials(input,conjugates) result(output)
+  implicit none
+  
+  type(ComplexMonomial), intent(in) :: input(:)
+  integer,               intent(in) :: conjugates(:)
+  type(BasisFunction), allocatable  :: output(:)
+  
+  type(ComplexPolynomial) :: representation
+  
+  integer :: i,j,ialloc
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    j = conjugates(i)
+    if (j==i) then
+      ! If i==j the monomial is its own conjugate.
+      ! The basis function is simply the monomial.
+      ! The coefficient of the monomial is moved to that of the basis function.
+      representation = ComplexPolynomial([input(i)])
+      representation%terms%coefficient = 1.0_dp
+      output(i) = BasisFunction(representation)
+      output(i)%coefficient_ = real(input(i)%coefficient)
+    elseif (j>i) then
+      ! If i/=j then monomial i and monomial j are conjugates.
+      ! If i>j, construct (i+j)/2 basis function.
+      representation = ComplexPolynomial([input(i), input(j) ] )
+      representation%terms%coefficient = [0.5_dp, 0.5_dp]
+      output(i) = BasisFunction(representation)
+      output(i)%coefficient_ = real( input(i)%coefficient &
+                                 & + input(j)%coefficient )
+      
+    else
+      ! If i/=j then monomial i and monomial j are conjugates.
+      ! If i>j, construct (j-i)/2i basis function.
+      representation = ComplexPolynomial([input(j), input(i) ] )
+      representation%terms%coefficient = [1,-1] * cmplx(0.0_dp,0.5_dp,dp)
+      output(i) = BasisFunction(representation)
+      output(i)%coefficient_ = real( ( input(j)%coefficient    &
+                                 &   - input(i)%coefficient )  &
+                                 &   / cmplx(0.0_dp,1.0_dp,dp) )
+    endif
   enddo
 end function
 

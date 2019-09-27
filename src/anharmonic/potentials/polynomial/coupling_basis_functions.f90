@@ -334,7 +334,7 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
   
   type(SubspaceMonomial), allocatable :: subspace_monomials(:)
   
-  type(BasisFunctionsAndMonomials) :: basis_functions
+  type(BasisFunctionsAndUniqueTerms) :: basis_functions
   
   type(BasisFunction), allocatable :: coupling_basis_functions(:)
   type(RealMonomial),  allocatable :: coupling_unique_terms(:)
