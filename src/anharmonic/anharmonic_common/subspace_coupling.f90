@@ -140,6 +140,9 @@ function generate_coupled_subspaces(subspaces,maximum_coupling_order) &
   integer,                  intent(in) :: maximum_coupling_order
   type(SubspaceCoupling), allocatable  :: output(:)
   
+  type(SubspaceCoupling), allocatable :: temp1(:)
+  type(SubspaceCoupling), allocatable :: temp2(:)
+  
   integer :: coupling_order
   
   integer :: ialloc
@@ -155,11 +158,13 @@ function generate_coupled_subspaces(subspaces,maximum_coupling_order) &
   !    together.
   allocate(output(0), stat=ialloc); call err(ialloc)
   do coupling_order=1,maximum_coupling_order
-    output = [ output,                                                &
-           &   generate_coupled_subspaces_helper( SubspaceCoupling(), &
-           &                                      subspaces,          &
-           &                                      coupling_order)     &
-           & ]
+    ! WORKAROUND: this is done in three steps rather than one to avoid a
+    !    compiler bug in ifort 19.0.4.
+    temp1 = generate_coupled_subspaces_helper( SubspaceCoupling(), &
+                                             & subspaces,          &
+                                             & coupling_order      )
+    temp2 = [output, temp1]
+    output = temp2
   enddo
 end function
 

@@ -72,6 +72,8 @@ subroutine write_calculation(this,structure,directory)
   type(StructureData),      intent(in)    :: structure
   type(String),             intent(in)    :: directory
   
+  type(String), allocatable :: temp(:)
+  
   type(OFile) :: structure_file
   
   ! Check that the directory has not already been written to by this class.
@@ -95,6 +97,9 @@ subroutine write_calculation(this,structure,directory)
      & directory//'/'//this%input_filename_      )
   
   ! Record the directory.
-  this%directories_ = [this%directories_, directory]
+  ! WORKAROUND: this is done via a temp array to avoid a compiler bug with
+  !    ifort 19.0.4.
+  temp = [this%directories_, directory]
+  this%directories_ = temp
 end subroutine
 end module

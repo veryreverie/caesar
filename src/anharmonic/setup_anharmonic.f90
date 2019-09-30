@@ -250,6 +250,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Generate anharmonic q-point grid, and the supercell which has all
   !    anharmonic q-points as G-vectors.
+  call print_line('Generating anharmonic supercell.')
   anharmonic_supercell_matrix =                                &
      & mat([ qpoint_grid(1), 0             , 0            ,    &
      &       0             , qpoint_grid(2), 0            ,    &
@@ -306,12 +307,29 @@ subroutine setup_anharmonic_subroutine(arguments)
   enddo
   
   ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
+  call print_line('Generating couplings between subspaces.')
   subspace_coupling = generate_coupled_subspaces( degenerate_subspaces, &
                                                 & maximum_coupling_order)
+  
+  ! Load anharmonic data into container.
+  anharmonic_data = AnharmonicData( structure,                     &
+                                  & anharmonic_supercell,          &
+                                  & qpoints,                       &
+                                  & complex_modes,                 &
+                                  & real_modes,                    &
+                                  & degenerate_subspaces,          &
+                                  & degenerate_symmetries,         &
+                                  & subspace_coupling,             &
+                                  & maximum_coupling_order,        &
+                                  & potential_expansion_order,     &
+                                  & vscf_basis_functions_only,     &
+                                  & maximum_weighted_displacement, &
+                                  & frequency_of_max_displacement  )
   
   ! ----------------------------------------------------------------------
   ! Write out setup data common to all potential representations.
   ! ----------------------------------------------------------------------
+  call print_line('Writing common data.')
   ! Write out anharmonic supercell and q-points.
   anharmonic_supercell_file = OFile('anharmonic_supercell.dat')
   call anharmonic_supercell_file%print_lines(anharmonic_supercell)
@@ -337,6 +355,10 @@ subroutine setup_anharmonic_subroutine(arguments)
   symmetry_file = OFile('symmetries.dat')
   call symmetry_file%print_lines(degenerate_symmetries, separating_line='')
   
+  ! Write out anharmonic data.
+  anharmonic_data_file = OFile('anharmonic_data.dat')
+  call anharmonic_data_file%print_lines(anharmonic_data)
+  
   ! ----------------------------------------------------------------------
   ! Generate and write out sampling points.
   ! ----------------------------------------------------------------------
@@ -345,6 +367,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   call mkdir(sampling_points_dir)
   
   ! Initialise potential to the chosen representation.
+  call print_line('Initialising potential.')
   if (potential_representation=='polynomial') then
     potential = PotentialPointer(                       &
        & PolynomialPotential(potential_expansion_order) )
@@ -354,27 +377,9 @@ subroutine setup_anharmonic_subroutine(arguments)
     call err()
   endif
   
-  ! Load anharmonic data into container.
-  anharmonic_data = AnharmonicData( structure,                     &
-                                  & anharmonic_supercell,          &
-                                  & qpoints,                       &
-                                  & complex_modes,                 &
-                                  & real_modes,                    &
-                                  & degenerate_subspaces,          &
-                                  & degenerate_symmetries,         &
-                                  & subspace_coupling,             &
-                                  & maximum_coupling_order,        &
-                                  & potential_expansion_order,     &
-                                  & vscf_basis_functions_only,     &
-                                  & maximum_weighted_displacement, &
-                                  & frequency_of_max_displacement  )
-  
-  ! Write out anharmonic data.
-  anharmonic_data_file = OFile('anharmonic_data.dat')
-  call anharmonic_data_file%print_lines(anharmonic_data)
-  
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
+  call print_line('Generating sampling points.')
   logfile = OFile('setup_anharmonic_logfile.dat')
   call potential%generate_sampling_points( anharmonic_data,     &
                                          & use_forces,          &

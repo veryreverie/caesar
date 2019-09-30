@@ -208,6 +208,10 @@ subroutine generate_sampling_points_PolynomialPotential(this,  &
     ! Generate basis functions at each coupling,
     !    and the sampling points from which the basis function coefficients
     !    can be constructed.
+    if (modulo(i,max(size(anharmonic_data%subspace_couplings)/100,1))==0) then
+      call print_line('Generating sampling points in subspace coupling '// &
+         & i//' of '//size(anharmonic_data%subspace_couplings)//'.')
+    endif
     basis_functions_and_points = generate_basis_functions( &
           & anharmonic_data%subspace_couplings(i),         &
           & this%potential_expansion_order_,               &
@@ -236,6 +240,10 @@ subroutine generate_sampling_points_PolynomialPotential(this,  &
   
   ! Write out all other sampling points.
   do i=1,size(sampling_points)
+    if (modulo(i,max(size(anharmonic_data%subspace_couplings)/100,1))==0) then
+      call print_line('Generating calculations in subspace coupling '// &
+         & i//' of '//size(anharmonic_data%subspace_couplings)//'.')
+    endif
     ! Make a directory for each coupling.
     coupling_dir = sampling_points_dir// &
        & '/coupling_'//left_pad(i,str(size(sampling_points)))
