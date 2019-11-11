@@ -276,7 +276,7 @@ subroutine braket_BasisStates_PotentialDataExample(this,states, &
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
-  class(BasisStates),          intent(in)           :: states
+  class(BasisStates),          intent(inout)        :: states
   real(dp),                    intent(in)           :: thermal_energy
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis

@@ -184,6 +184,7 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   ! Temporary variables.
   integer :: i,j,ialloc
   
+  
   if (sum(subspace_monomial%powers)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
        &power less than 2.')
@@ -764,7 +765,7 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   implicit none
   
   class(BasisFunction),     intent(inout) :: this
-  class(BasisStates),       intent(in)    :: states
+  class(BasisStates),       intent(inout) :: states
   real(dp),                 intent(in)    :: thermal_energy
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: subspace_basis

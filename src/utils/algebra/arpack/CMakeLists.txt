@@ -3,7 +3,7 @@ include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
 include_guard(arpack)
 
 # Link to ARPACK, if required.
-if (NOT DEFINED LINK_TO_ARPACK OR LINK_TO_ARPACK)
+if (DEFINED LINK_TO_ARPACK AND LINK_TO_ARPACK)
   # Check that LAPACK has also been requested (ARPACK depends on BLAS).
   if (DEFINED LINK_TO_LAPACK AND NOT LINK_TO_LAPACK)
     MESSAGE(FATAL_ERROR "Linking to LAPACK has been disabled but linking to ARPACK has not. ARPACK requires LAPACK to run.")

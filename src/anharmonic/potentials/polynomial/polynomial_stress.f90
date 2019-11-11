@@ -213,7 +213,7 @@ subroutine braket_BasisStates_PolynomialStress(this,states,thermal_energy, &
   implicit none
   
   class(PolynomialStress),  intent(inout)        :: this
-  class(BasisStates),       intent(in)           :: states
+  class(BasisStates),       intent(inout)        :: states
   real(dp),                 intent(in)           :: thermal_energy
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis

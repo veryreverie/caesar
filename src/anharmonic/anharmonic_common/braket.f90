@@ -52,19 +52,24 @@ impure elemental function integrate_SubspaceState(bra,monomial,ket, &
   type(AnharmonicData),  intent(in)           :: anharmonic_data
   type(ComplexMonomial)                       :: output
   
-  type(ComplexUnivariate), allocatable :: integrated_modes(:)
   type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
-  
-  integrated_modes = monomial%modes( ids        = bra%mode_ids(),       &
-                                   & paired_ids = bra%paired_mode_ids() )
+  type(ComplexUnivariate), allocatable :: integrated_modes(:)
   
   unintegrated_modes = monomial%modes(exclude_ids = bra%mode_ids())
   
-  output = ComplexMonomial( coefficient = monomial%coefficient,   &
-       &                    modes       = unintegrated_modes    ) &
-       & * bra%integrate( SparseMonomial(integrated_modes),       &
-       &                  ket,                                    &
-       &                  anharmonic_data )
+  output = ComplexMonomial( coefficient = monomial%coefficient, &
+                          & modes       = unintegrated_modes    )
+  
+  integrated_modes = monomial%modes(      &
+     & ids        = bra%mode_ids(),       &
+     & paired_ids = bra%paired_mode_ids() )
+  
+  if (any(integrated_modes%total_power()/=0)) then
+    output = output                                           &
+         & * bra%integrate( SparseMonomial(integrated_modes), &
+         &                  ket,                              &
+         &                  anharmonic_data                   )
+  endif
 end function
 
 impure elemental function integrate_BasisState(bra,monomial,ket,subspace, &
@@ -79,54 +84,73 @@ impure elemental function integrate_BasisState(bra,monomial,ket,subspace, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(ComplexMonomial)                          :: output
   
-  type(ComplexUnivariate), allocatable :: integrated_modes(:)
   type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
+  type(ComplexUnivariate), allocatable :: integrated_modes(:)
+  
+  unintegrated_modes = monomial%modes(                        &
+     & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
+  
+  output = ComplexMonomial( coefficient = monomial%coefficient, &
+                          & modes       = unintegrated_modes    )
   
   integrated_modes = monomial%modes(                                &
      & ids        = basis%mode_ids(subspace,anharmonic_data),       &
      & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
   
-  unintegrated_modes = monomial%modes(                        &
-     & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
-  
-  output = ComplexMonomial( coefficient = monomial%coefficient,   &
-       &                    modes       = unintegrated_modes    ) &
-       & * basis%integrate( bra,                                  &
-       &                    SparseMonomial(integrated_modes),     &
-       &                    ket,                                  &
-       &                    subspace,                             &
-       &                    anharmonic_data )
+  if (any(integrated_modes%total_power()/=0)) then
+    output = output                                             &
+         & * basis%integrate( bra,                              &
+         &                    SparseMonomial(integrated_modes), &
+         &                    ket,                              &
+         &                    subspace,                         &
+         &                    anharmonic_data                   )
+  endif
 end function
 
 impure elemental function integrate_BasisStates(states,thermal_energy, &
    & monomial,subspace,basis,anharmonic_data) result(output)
   implicit none
   
-  class(BasisStates),       intent(in)           :: states
-  real(dp),                 intent(in)           :: thermal_energy
-  type(ComplexMonomial),    intent(in)           :: monomial
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                          :: output
+  class(BasisStates),       intent(inout) :: states
+  real(dp),                 intent(in)    :: thermal_energy
+  type(ComplexMonomial),    intent(in)    :: monomial
+  type(DegenerateSubspace), intent(in)    :: subspace
+  class(SubspaceBasis),     intent(in)    :: basis
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(ComplexMonomial)                   :: output
   
-  type(ComplexUnivariate), allocatable :: integrated_modes(:)
   type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
+  type(ComplexUnivariate), allocatable :: integrated_modes(:)
+  type(SparseMonomial)                 :: sparse
+  
+  integer     :: cache_location
+  complex(dp) :: expectation
+  
+  unintegrated_modes = monomial%modes(                        &
+     & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
+  
+  output = ComplexMonomial( coefficient = monomial%coefficient, &
+                          & modes       = unintegrated_modes    )
   
   integrated_modes = monomial%modes(                                &
      & ids        = basis%mode_ids(subspace,anharmonic_data),       &
      & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
   
-  unintegrated_modes = monomial%modes(                        &
-     & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
-  
-  output = ComplexMonomial( coefficient = monomial%coefficient,   &
-       &                    modes       = unintegrated_modes    ) &
-       & * basis%integrate( states,                               &
-       &                    thermal_energy,                       &
-       &                    SparseMonomial(integrated_modes),     &
-       &                    subspace,                             &
-       &                    anharmonic_data )
+  if (any(integrated_modes%total_power()/=0)) then
+    sparse = SparseMonomial(integrated_modes)
+    cache_location = states%expectation_cache%cached_location(sparse)
+    if (cache_location==0) then
+      expectation = basis%integrate( states,         &
+                                   & thermal_energy, &
+                                   & sparse,         &
+                                   & subspace,       &
+                                   & anharmonic_data )
+      call states%expectation_cache%cache(sparse, expectation)
+    else
+      expectation = states%expectation_cache%cached_expectation(cache_location)
+    endif
+    output = output * expectation
+  endif
 end function
 
 ! ----------------------------------------------------------------------

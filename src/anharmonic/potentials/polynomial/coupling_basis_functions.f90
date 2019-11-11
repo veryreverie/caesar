@@ -266,7 +266,7 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
-  class(BasisStates),            intent(in)           :: states
+  class(BasisStates),            intent(inout)        :: states
   real(dp),                      intent(in)           :: thermal_energy
   type(DegenerateSubspace),      intent(in)           :: subspace
   class(SubspaceBasis),          intent(in)           :: subspace_basis

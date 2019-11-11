@@ -19,6 +19,7 @@ module wavevector_states_module
   type, extends(BasisStates) :: WavevectorStates
     type(WavevectorState), allocatable :: states(:)
     real(dp),              allocatable :: energies(:)
+    real(dp),              allocatable :: weights(:)
   contains
     procedure, public, nopass :: representation => &
                                & representation_WavevectorStates
@@ -49,17 +50,20 @@ end subroutine
 ! WavevectorStates methods.
 ! ----------------------------------------------------------------------
 ! Constructors.
-function new_WavevectorStates(subspace_id,states,energies) result(this)
+function new_WavevectorStates(subspace_id,states,energies,weights) &
+   & result(this)
   implicit none
   
   integer,               intent(in) :: subspace_id
   type(WavevectorState), intent(in) :: states(:)
   real(dp),              intent(in) :: energies(:)
+  real(dp),              intent(in) :: weights(:)
   type(WavevectorStates)            :: this
   
   this%subspace_id = subspace_id
   this%states = states
   this%energies = energies
+  this%weights = weights
 end function
 
 recursive function new_WavevectorStates_BasisStates(input) result(this)
@@ -103,6 +107,7 @@ subroutine read_WavevectorStates(this,input)
   integer                            :: subspace_id
   type(WavevectorState), allocatable :: states(:)
   real(dp),              allocatable :: energies(:)
+  real(dp),              allocatable :: weights(:)
   
   integer :: i,ialloc
   
@@ -113,13 +118,15 @@ subroutine read_WavevectorStates(this,input)
     
     allocate( states(size(sections)),   &
             & energies(size(sections)), &
+            & weights(size(sections)),  &
             & stat=ialloc); call err(ialloc)
     do i=1,size(sections)
-      states(i) = WavevectorState(sections(i)%strings(:size(sections(i))-1))
+      states(i) = WavevectorState(sections(i)%strings(:size(sections(i))-2))
       
-      energies(i) = dble(token(sections(i)%strings(size(sections(i))), 3))
+      energies(i) = dble(token(sections(i)%strings(size(sections(i))-1), 3))
+      weights(i) = dble(token(sections(i)%strings(size(sections(i))), 3))
     enddo
-    this = WavevectorStates(subspace_id, states, energies)
+    this = WavevectorStates(subspace_id, states, energies, weights)
   class default
     call err()
   end select
@@ -136,10 +143,11 @@ function write_WavevectorStates(this) result(output)
   integer :: i
   
   select type(this); type is(WavevectorStates)
-    sections = [( StringArray([ str(this%states(i)),             &
-                &               'Energy : '//this%energies(i)]), &
-                & i=1,                                           &
-                & size(this%states)                              )]
+    sections = [( StringArray([ str(this%states(i)),               &
+                &               'Energy : '//this%energies(i),     &
+                &               'Weight : '//this%weights(i)   ]), &
+                & i=1,                                             &
+                & size(this%states)                                )]
     output = [ str('Subspace: '//this%subspace_id),          &
              & str(sections, separating_line=repeat('=',50)) ]
   class default

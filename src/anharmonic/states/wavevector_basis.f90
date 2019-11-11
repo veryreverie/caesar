@@ -608,6 +608,72 @@ impure elemental function integrate_WavevectorBasis(this,bra,monomial,ket, &
   enddo
 end function
 
+! Integrate a monomial between sets of states.
+function integrate_SparseMonomial_WavevectorBases(bases,states, &
+   & thermal_energy,monomial,anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis), intent(in) :: bases(:)
+  type(WavevectorStates), intent(in) :: states
+  real(dp),               intent(in) :: thermal_energy
+  type(SparseMonomial),   intent(in) :: monomial
+  type(AnharmonicData),   intent(in) :: anharmonic_data
+  complex(dp)                        :: output
+  
+  integer, allocatable :: at_wavevector(:)
+  
+  complex(dp) :: term
+  
+  integer :: i,j,k,l,m
+  
+  output = 0.0_dp
+  ! Loop over wavevector bases, summing the contribution from each.
+  do i=1,size(bases)
+    ! Filter the states to get only the states at this wavevector.
+    at_wavevector = filter(states%states%wavevector==bases(i)%wavevector)
+    
+    ! Perform a double loop across harmonic states, including only those
+    !   for which <j|X|l> can be non-zero.
+    do j=1,size(bases(i)%harmonic_states_)
+      do k=1,size(bases(i)%harmonic_couplings_(j))
+        l = bases(i)%harmonic_couplings_(j)%id(k)
+        
+        ! Ignore terms with l<j. These are added when j and l are reversed.
+        if (l<j) then
+          cycle
+        endif
+        
+        ! Calculate <j|X|l> in the harmonic basis.
+        term = bases(i)%harmonic_states_(j)%integrate( &
+                       & monomial,                     &
+                       & bases(i)%harmonic_states_(l), &
+                       & anharmonic_data               )
+        
+        ! Calculate the contribution to the thermal average of <X>
+        !    from <j|X|l>.
+        ! <X> = sum_m <m|X|m> * w(m), where {|m>} are the eigenstates,
+        !    and w(m) is the thermal weight of eigenstate m.
+        ! <X> = sum_m (sum_j U(m,j)<j|) X (sum_l U(m,l)|l>) w(m)
+        !     = sum_j sum_l ( <j|X|l> * sum_m(U(m,j) U(m,l) w(m)) )
+        ! U(m,j) is the j'th component of the m'th eigenvector.
+        term = term                                                     &
+           & * sum([(   states%states(at_wavevector(m))%coefficients(j) &
+           &          * states%states(at_wavevector(m))%coefficients(l) &
+           &          * states%weights(at_wavevector(m)),               &
+           &          m=1,                                              &
+           &          size(at_wavevector)                               )])
+        
+        ! If j==l, only include <j|X|j>, otherwise include <l|X|j> and <j|X|l>.
+        if (l==j) then
+          output = output + term
+        else
+          output = output + 2*term
+        endif
+      enddo
+    enddo
+  enddo
+end function
+
 impure elemental function kinetic_energy_WavevectorBasis(this,bra,ket, &
    & anharmonic_data) result(output)
   implicit none
@@ -738,25 +804,28 @@ impure elemental function initial_ground_state_WavevectorBasis(this) &
   output = WavevectorState(this%subspace_id,this%wavevector,coefficients)
 end function
 
-function initial_states_WavevectorBasis(this,anharmonic_data) &
+function initial_states_WavevectorBasis(this,thermal_energy,anharmonic_data) &
    & result(output)
   implicit none
   
   class(WavevectorBasis), intent(in) :: this
+  real(dp),               intent(in) :: thermal_energy
   type(AnharmonicData),   intent(in) :: anharmonic_data
   type(WavevectorStates)             :: output
   
-  output = WavevectorStates( this%subspace_id,              &
-                           & [this%initial_ground_state()], &
-                           & [0.0_dp]                       )
+  output = WavevectorStates( subspace_id = this%subspace_id,              &
+                           & states      = [this%initial_ground_state()], &
+                           & energies    = [0.0_dp],                      &
+                           & weights     = [1.0_dp]                       )
 end function
 
-function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
-   & result(output)
+function calculate_states_WavevectorBasis(this,potential,thermal_energy, &
+   & anharmonic_data) result(output)
   implicit none
   
   class(WavevectorBasis), intent(in) :: this
   class(PotentialData),   intent(in) :: potential
+  real(dp),               intent(in) :: thermal_energy
   type(AnharmonicData),   intent(in) :: anharmonic_data
   type(WavevectorStates)             :: output
   
@@ -796,7 +865,12 @@ function calculate_states_WavevectorBasis(this,potential,anharmonic_data) &
                       & i=1,                                   &
                       & size(estuff)                           )]
   
-  output = WavevectorStates(this%subspace_id, wavevector_states, estuff%eval)
+  ! N.B. there is not enough information at this stage to calculate weights.
+  ! These must be calculated once the states from each wavevector are collated.
+  output = WavevectorStates( subspace_id = this%subspace_id,           &
+                           & states      = wavevector_states,          &
+                           & energies    = estuff%eval,                &
+                           & weights     = [(0.0_dp,i=1,size(estuff))] )
 end function
 
 ! Calculate the harmonic expectation of the harmonic potential,
@@ -908,32 +982,6 @@ function harmonic_expectation_WavevectorBasis(bases,potential, &
   endif
   
   output = ThermodynamicData(thermal_energy, energy, free_energy, entropy)
-end function
-
-! Integrate a monomial between sets of states.
-function integrate_SparseMonomial_WavevectorBases(bases,states, &
-   & thermal_energy,monomial,anharmonic_data) result(output)
-  implicit none
-  
-  class(WavevectorBasis), intent(in) :: bases(:)
-  type(WavevectorStates), intent(in) :: states
-  real(dp),               intent(in) :: thermal_energy
-  type(SparseMonomial),   intent(in) :: monomial
-  type(AnharmonicData),   intent(in) :: anharmonic_data
-  complex(dp)                        :: output
-  
-  ! TODO
-  type(WavevectorState) :: ground_state
-  
-  integer :: i
-  
-  ground_state = states%states(minloc(states%energies,1))
-  
-  i = first(bases%wavevector==ground_state%wavevector)
-  
-  output = bases(i)%integrate( bra             = ground_state,   &
-                             & monomial        = monomial,       &
-                             & anharmonic_data = anharmonic_data )
 end function
 
 ! Mode IDs.

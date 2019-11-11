@@ -3,6 +3,7 @@
 ! ======================================================================
 module basis_states_module
   use common_module
+  use expectation_cache_module
   implicit none
   
   private
@@ -12,6 +13,8 @@ module basis_states_module
   
   type, abstract, extends(Stringsable) :: BasisStates
     integer :: subspace_id
+    
+    type(ExpectationCache) :: expectation_cache
   contains
     procedure(representation_BasisStates), public, deferred, nopass :: &
        & representation

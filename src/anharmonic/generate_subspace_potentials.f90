@@ -42,13 +42,13 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
    & subspace_states,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(PotentialData),     intent(in) :: potential
-  type(DegenerateSubspace), intent(in) :: subspaces(:)
-  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(BasisStates),       intent(in) :: subspace_states(:)
-  real(dp),                 intent(in) :: thermal_energy
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(PotentialPointer), allocatable  :: output(:)
+  class(PotentialData),     intent(in)    :: potential
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(PotentialPointer), allocatable     :: output(:)
   
   ! The minimum and maximum indices in each interval.
   integer, allocatable :: mins_in(:)
@@ -162,13 +162,13 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
    & subspace_states,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(StressData),        intent(in) :: stress
-  type(DegenerateSubspace), intent(in) :: subspaces(:)
-  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(BasisStates),       intent(in) :: subspace_states(:)
-  real(dp),                 intent(in) :: thermal_energy
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(StressPointer), allocatable     :: output(:)
+  class(StressData),        intent(in)    :: stress
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(StressPointer), allocatable        :: output(:)
   
   ! The minimum and maximum indices in each interval.
   integer, allocatable :: mins_in(:)

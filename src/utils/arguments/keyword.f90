@@ -40,7 +40,12 @@ module keyword_module
     type(String), private :: value_
     
     ! Dependencies on other keywords.
-    type(String), allocatable :: exclusive_with_(:)
+    type(String), allocatable, private :: exclusive_with_(:)
+    
+    ! If the keyword is a path and is set from a file, then relative paths
+    !    are taken to be relative to that file.
+    ! The file path must then be stored.
+    type(String), allocatable, private :: working_directory_
   contains
     ! Flag-related procedures.
     procedure, public :: has_flag            => has_flag_KeywordData
@@ -186,14 +191,18 @@ subroutine unset_KeywordData(this)
   this%is_set_ = .false.
 end subroutine
 
-subroutine set_KeywordData_character(this,value,only_update_if_unset)
+subroutine set_KeywordData_character(this,value,only_update_if_unset, &
+   & working_directory)
   implicit none
   
   class(KeywordData), intent(inout)        :: this
   character(*),       intent(in)           :: value
   logical,            intent(in), optional :: only_update_if_unset
+  type(String),       intent(in), optional :: working_directory
   
   logical :: only_update_if
+  
+  integer :: ialloc
   
   if (present(only_update_if_unset)) then
     only_update_if = only_update_if_unset
@@ -204,21 +213,27 @@ subroutine set_KeywordData_character(this,value,only_update_if_unset)
   if (.not. (only_update_if .and. this%is_set())) then
     this%is_set_ = .true.
     this%value_ = value
+    
+    if (present(working_directory)) then
+      this%working_directory_ = working_directory
+    else
+      if (allocated(this%working_directory_)) then
+        deallocate(this%working_directory_, stat=ialloc); call err(ialloc)
+      endif
+    endif
   endif
 end subroutine
 
-subroutine set_KeywordData_String(this,value,only_update_if_unset)
+subroutine set_KeywordData_String(this,value,only_update_if_unset, &
+   & working_directory)
   implicit none
   
   class(KeywordData), intent(inout)        :: this
   type(String),       intent(in)           :: value
   logical,            intent(in), optional :: only_update_if_unset
+  type(String),       intent(in), optional :: working_directory
   
-  if (present(only_update_if_unset)) then
-    call this%set(char(value),only_update_if_unset)
-  else
-    call this%set(char(value))
-  endif
+  call this%set(char(value),only_update_if_unset,working_directory)
 end subroutine
 
 subroutine append_KeywordData_character(this,value)
@@ -557,7 +572,7 @@ subroutine process_and_check(this)
   endif
   
   if (this%is_path_ .and. this%is_set()) then
-    this%value_ = format_path(this%value_)
+    this%value_ = format_path(this%value_, this%working_directory_)
   endif
 end subroutine
 

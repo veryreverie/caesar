@@ -60,9 +60,11 @@ For build systems where BLAS/LAPACK are bundled with the compiler and do not nee
 ----------------------------------------
 ARPACK
 ----------------------------------------
-By default Caesar will look for libarpack.a (or libarpack.so etc.) on LIB.
+If requested, Caesar will look for libarpack.a (or libarpack.so etc.) on LIB.
 
 If multiple distributions are present, the first found on LIB will be used.
+
+This is deprecated functionality, as Caesar does not currently use ARPACK for anything.
 
 ----------------------------------------
 Compiling without Spglib and BLAS/LAPACK
@@ -75,7 +77,11 @@ It is possible to suppress the requirement for any of Spglib, BLAS/LAPACK and AR
 
 N.B. ARPACK requires BLAS/LAPACK, so if LINK_TO_LAPACK is set to false then LINK_TO_ARPACK must also be set to false.
 
-This will disable symmetry finding, linear algebra and the Lanczos algorithm respectively. Symmetry finding (and thus spglib) is required for setup_harmonic, linear algebra (and thus BLAS/LAPACK) is required for most caesar modes not prfixed with run_ or plot_, and the Lanczos algorithm (and thus ARPACK) is required for calculate_states and calculate_anharmonic_observables.
+Disabling spglib will disable symmetry finding, which is required for setup_harmonic.
+
+Disabling BLAS/LAPACK will disable linear algebra, which is required for most Caesar modes which are not prefixed with run_ or plot_.
+
+Disabling ARPACK will disable the Lanczos algorithm, which is not currently used by Caesar.
 
 The 'run' modes, run_harmonic and run_anharmonic, do not require spglib or BLAS/LAPACK, so not linking to either can be useful if compiling Caesar on a cluster where they are not available, with the intention of running setup and processing steps elsewhere.
 
@@ -131,6 +137,8 @@ An example input file can be found in doc/input_files.
 In order to calculate energies, Caesar requires a run script. This script will be called repeatedly from the working directory, and will be passed a number of arguments on the command line each time it is called.
 The return code of the run script will be echoed to the output of Caesar after each run.
 An example run script can be found in doc/input_files.
+
+For inputs which are file paths, e.g. run_script, relative paths will be converted into absolute paths from the working directory, unless the argument is given in an input file, in which case relative paths will be converted into absolute paths from the directory in which the input file is found.
 
 ----------------------------------------
 Documentation

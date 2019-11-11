@@ -369,15 +369,17 @@ module abstract_classes_module
     end function
     
     impure elemental function initial_states_SubspaceBasis(this,subspace, &
-       & anharmonic_data) result(output)
+       & thermal_energy,anharmonic_data) result(output)
       import SubspaceBasis
       import DegenerateSubspace
+      import dp
       import AnharmonicData
       import BasisStatesPointer
       implicit none
       
       class(SubspaceBasis),     intent(in) :: this
       type(DegenerateSubspace), intent(in) :: subspace
+      real(dp),                 intent(in) :: thermal_energy
       type(AnharmonicData),     intent(in) :: anharmonic_data
       type(BasisStatesPointer)             :: output
     end function
@@ -764,7 +766,7 @@ module abstract_classes_module
       implicit none
       
       class(PotentialData),     intent(inout)        :: this
-      class(BasisStates),       intent(in)           :: states
+      class(BasisStates),       intent(inout)        :: states
       real(dp),                 intent(in)           :: thermal_energy
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
@@ -901,7 +903,7 @@ module abstract_classes_module
       implicit none
       
       class(StressData),        intent(inout)        :: this
-      class(BasisStates),       intent(in)           :: states
+      class(BasisStates),       intent(inout)        :: states
       real(dp),                 intent(in)           :: thermal_energy
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
@@ -1059,17 +1061,20 @@ function basis_SubspaceBasisPointer(this) result(output)
 end function
 
 impure elemental function initial_states_SubspaceBasisPointer(this,subspace, &
-   & anharmonic_data) result(output)
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in) :: this
   type(DegenerateSubspace),    intent(in) :: subspace
+  real(dp),                    intent(in) :: thermal_energy
   type(AnharmonicData),        intent(in) :: anharmonic_data
   type(BasisStatesPointer)                :: output
   
   call this%check()
   
-  output = this%basis_%initial_states(subspace, anharmonic_data)
+  output = this%basis_%initial_states( subspace,       &
+                                     & thermal_energy, &
+                                     & anharmonic_data )
 end function
 
 impure elemental function calculate_states_SubspaceBasisPointer(this,     &
@@ -1108,13 +1113,13 @@ impure elemental function process_subspace_potential_SubspaceBasisPointer( &
    & result(output)
   implicit none
   
-  class(SubspaceBasisPointer), intent(in) :: this
-  class(PotentialData),        intent(in) :: potential
-  class(BasisStates),          intent(in) :: states
-  type(DegenerateSubspace),    intent(in) :: subspace
-  real(dp),                    intent(in) :: thermal_energy
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(PotentialPointer)                  :: output
+  class(SubspaceBasisPointer), intent(in)    :: this
+  class(PotentialData),        intent(in)    :: potential
+  class(BasisStates),          intent(inout) :: states
+  type(DegenerateSubspace),    intent(in)    :: subspace
+  real(dp),                    intent(in)    :: thermal_energy
+  type(AnharmonicData),        intent(in)    :: anharmonic_data
+  type(PotentialPointer)                     :: output
   
   call this%check()
   
@@ -1129,13 +1134,13 @@ impure elemental function process_subspace_stress_SubspaceBasisPointer(this, &
    & stress,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceBasisPointer), intent(in) :: this
-  class(stressData),           intent(in) :: stress
-  class(BasisStates),          intent(in) :: states
-  type(DegenerateSubspace),    intent(in) :: subspace
-  real(dp),                    intent(in) :: thermal_energy
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(stressPointer)                     :: output
+  class(SubspaceBasisPointer), intent(in)    :: this
+  class(stressData),           intent(in)    :: stress
+  class(BasisStates),          intent(inout) :: states
+  type(DegenerateSubspace),    intent(in)    :: subspace
+  real(dp),                    intent(in)    :: thermal_energy
+  type(AnharmonicData),        intent(in)    :: anharmonic_data
+  type(stressPointer)                        :: output
   
   call this%check()
   
@@ -1658,7 +1663,7 @@ subroutine braket_BasisStates_PotentialPointer(this,states,thermal_energy, &
   implicit none
   
   class(PotentialPointer),  intent(inout)        :: this
-  class(BasisStates),       intent(in)           :: states
+  class(BasisStates),       intent(inout)        :: states
   real(dp),                 intent(in)           :: thermal_energy
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
@@ -1914,7 +1919,7 @@ subroutine braket_BasisStates_StressPointer(this,states,thermal_energy, &
   implicit none
   
   class(StressPointer),     intent(inout)        :: this
-  class(BasisStates),       intent(in)           :: states
+  class(BasisStates),       intent(inout)        :: states
   real(dp),                 intent(in)           :: thermal_energy
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
@@ -2018,13 +2023,13 @@ impure elemental function process_subspace_potential_SubspaceBasis(this, &
    & potential,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceBasis),     intent(in) :: this
-  class(PotentialData),     intent(in) :: potential
-  class(BasisStates),       intent(in) :: states
-  type(DegenerateSubspace), intent(in) :: subspace
-  real(dp),                 intent(in) :: thermal_energy
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(PotentialPointer)               :: output
+  class(SubspaceBasis),     intent(in)    :: this
+  class(PotentialData),     intent(in)    :: potential
+  class(BasisStates),       intent(inout) :: states
+  type(DegenerateSubspace), intent(in)    :: subspace
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(PotentialPointer)                  :: output
   
   output = PotentialPointer(potential)
 end function
@@ -2033,13 +2038,13 @@ impure elemental function process_subspace_stress_SubspaceBasis(this,stress, &
    & states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceBasis),     intent(in) :: this
-  class(stressData),        intent(in) :: stress
-  class(BasisStates),       intent(in) :: states
-  type(DegenerateSubspace), intent(in) :: subspace
-  real(dp),                 intent(in) :: thermal_energy
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(stressPointer)                  :: output
+  class(SubspaceBasis),     intent(in)    :: this
+  class(stressData),        intent(in)    :: stress
+  class(BasisStates),       intent(inout) :: states
+  type(DegenerateSubspace), intent(in)    :: subspace
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(stressPointer)                     :: output
   
   output = stressPointer(stress)
 end function

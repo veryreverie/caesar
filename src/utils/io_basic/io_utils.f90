@@ -408,20 +408,32 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Takes a directory name, and converts it into an absolute path
 !    in standard format (without a trailing '/').
+! If working_directory is specified, then relative paths are taken to be
+!    relative from working_directory. Otherwise, they are taken to be relative
+!    from Caesar's current working directory.
 ! ----------------------------------------------------------------------
-function format_path_character(path) result(output)
+function format_path_character(path,working_directory) result(output)
   implicit none
   
-  character(*), intent(in) :: path
-  type(String)             :: output
+  character(*), intent(in)           :: path
+  type(String), intent(in), optional :: working_directory
+  type(String)                       :: output
   
   integer :: length
+  
+  type(String) :: wd
   
   length = len(path)
   
   if (length==0) then
     call print_line(ERROR//': no path provided.')
     call err()
+  endif
+  
+  if (present(working_directory)) then
+    wd = working_directory
+  else
+    wd = CWD
   endif
   
   ! foo/ -> foo
@@ -435,13 +447,13 @@ function format_path_character(path) result(output)
       output = path(:1)
     elseif (path(:1)=='.') then
       ! . -> /current/working/directory
-      output = CWD
+      output = wd
     elseif (path(:1)=='~') then
       ! ~ -> /home/directory
       output = HOME
     else
       ! foo -> /current/working/directory/foo
-      output = CWD//'/'//path(:1)
+      output = wd//'/'//path(:1)
     endif
   else
     if (path(:1)=='/') then
@@ -449,24 +461,25 @@ function format_path_character(path) result(output)
       output = path(:length)
     elseif (path(:2)=='./') then
       ! ./foo -> /current/working/directory/foo
-      output = CWD//path(2:length)
+      output = wd//path(2:length)
     elseif (path(:2)=='~/') then
       ! ~/foo -> /home/directory/foo
       output = HOME//path(2:length)
     else
       ! foo -> /current/working/directory/foo
-      output = CWD//'/'//path(:length)
+      output = wd//'/'//path(:length)
     endif
   endif
 end function
 
-function format_path_String(path) result(output)
+function format_path_String(path,working_directory) result(output)
   implicit none
   
-  type(String), intent(in) :: path
-  type(String)             :: output
+  type(String), intent(in)           :: path
+  type(String), intent(in), optional :: working_directory
+  type(String)                       :: output
   
-  output = format_path(char(path))
+  output = format_path(char(path),working_directory)
 end function
 
 ! ----------------------------------------------------------------------
@@ -501,7 +514,6 @@ subroutine execute_python(filename, python_path, python_arguments)
   type(String), intent(in)           :: python_path
   type(String), intent(in), optional :: python_arguments(:)
   
-  type(String) :: working_directory
   type(String) :: command
   integer      :: result_code
   

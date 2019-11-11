@@ -99,6 +99,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
   call print_line('Generating initial states and potentials.')
   subspace_states = BasisStatesPointer(subspace_bases%initial_states( &
                                                     & subspaces,      &
+                                                    & thermal_energy, &
                                                     & anharmonic_data ))
   subspace_potentials = generate_subspace_potentials( potential,       &
                                                     & subspaces,       &

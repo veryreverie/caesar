@@ -13,6 +13,7 @@ module split_qpoints_basis_module
   use wavevector_basis_module
   use split_qpoints_wavefunctions_module
   use core_shell_thermodynamics_module
+  use calculate_weights_module
   implicit none
   
   private
@@ -297,11 +298,12 @@ end function
 
 ! Generate an initial guess at states.
 impure elemental function initial_states_SplitQpointsBasis(this,subspace, &
-   & anharmonic_data) result(output)
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(SplitQpointsBasis), intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: thermal_energy
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
@@ -313,9 +315,11 @@ impure elemental function initial_states_SplitQpointsBasis(this,subspace, &
   ground_state = initial_ground_state(this)
   
   ! Generate the set of states {|0>}.
-  output = BasisStatesPointer(WavevectorStates( subspace%id,    &
-                                              & [ground_state], &
-                                              & [0.0_dp]        ))
+  output = BasisStatesPointer(WavevectorStates( &
+                & subspace_id = subspace%id,    &
+                & states      = [ground_state], &
+                & energies    = [0.0_dp],       &
+                & weights     = [1.0_dp]        ))
 end function
 
 ! Generate initial guess. This is simply the basis state |0>, i.e. the
@@ -361,6 +365,7 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   type(WavevectorStates)             :: wavevector_states
   type(WavevectorState), allocatable :: states(:)
   real(dp),              allocatable :: energies(:)
+  real(dp),              allocatable :: weights(:)
   
   integer :: i,ialloc
   
@@ -370,12 +375,18 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   do i=1,size(this%wavevectors)
     wavevector_states = this%wavevectors(i)%calculate_states( &
                                         & subspace_potential, &
+                                        & thermal_energy,     &
                                         & anharmonic_data     )
     states = [states, wavevector_states%states]
     energies = [energies, wavevector_states%energies]
   enddo
   
-  output = BasisStatesPointer(WavevectorStates(subspace%id, states, energies))
+  weights = calculate_weights(energies, thermal_energy)
+  
+  output = BasisStatesPointer(WavevectorStates( subspace%id, &
+                                              & states,      &
+                                              & energies,    &
+                                              & weights      ))
 end function
 
 ! Integrates the potential over all but the first q-point in the subspace.
@@ -383,13 +394,13 @@ impure elemental function process_subspace_potential_SplitQpointsBasis(this, &
    & potential,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in) :: this
-  class(PotentialData),     intent(in) :: potential
-  class(BasisStates),       intent(in) :: states
-  type(DegenerateSubspace), intent(in) :: subspace
-  real(dp),                 intent(in) :: thermal_energy
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(PotentialPointer)               :: output
+  class(SplitQpointsBasis), intent(in)    :: this
+  class(PotentialData),     intent(in)    :: potential
+  class(BasisStates),       intent(inout) :: states
+  type(DegenerateSubspace), intent(in)    :: subspace
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(PotentialPointer)                  :: output
   
   type(SplitQpointsBasis) :: basis
   
@@ -438,13 +449,13 @@ impure elemental function process_subspace_stress_SplitQpointsBasis(this, &
    & stress,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in) :: this
-  class(StressData),        intent(in) :: stress
-  class(BasisStates),       intent(in) :: states
-  type(DegenerateSubspace), intent(in) :: subspace
-  real(dp),                 intent(in) :: thermal_energy
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(StressPointer)                  :: output
+  class(SplitQpointsBasis), intent(in)    :: this
+  class(StressData),        intent(in)    :: stress
+  class(BasisStates),       intent(inout) :: states
+  type(DegenerateSubspace), intent(in)    :: subspace
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(StressPointer)                     :: output
   
   type(SplitQpointsBasis) :: basis
   
@@ -493,13 +504,13 @@ function integrate_potential(this,potential,states,thermal_energy,subspace, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in) :: this
-  class(PotentialData),     intent(in) :: potential
-  type(WavevectorStates),   intent(in) :: states
-  real(dp),                 intent(in) :: thermal_energy
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(PotentialPointer)               :: output
+  class(SplitQpointsBasis), intent(in)    :: this
+  class(PotentialData),     intent(in)    :: potential
+  type(WavevectorStates),   intent(inout) :: states
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspace
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(PotentialPointer)                  :: output
   
   type(SplitQpointsBasis) :: basis
   
@@ -604,8 +615,8 @@ impure elemental function inner_product_SplitQpointsBasis(this,bra,ket, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(WavevectorState) :: split_bra
-  type(WavevectorState) :: split_ket
+  type(WavevectorState)              :: split_bra
+  type(WavevectorState), allocatable :: split_ket
   
   integer :: i
   
@@ -707,8 +718,8 @@ impure elemental function kinetic_energy_SplitQpointsBasis(this,bra,ket, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(WavevectorState) :: split_bra
-  type(WavevectorState) :: split_ket
+  type(WavevectorState)              :: split_bra
+  type(WavevectorState), allocatable :: split_ket
   
   integer :: i
   
@@ -737,8 +748,8 @@ impure elemental function harmonic_potential_energy_SplitQpointsBasis(this, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   real(dp)                                       :: output
   
-  type(WavevectorState) :: split_bra
-  type(WavevectorState) :: split_ket
+  type(WavevectorState)              :: split_bra
+  type(WavevectorState), allocatable :: split_ket
   
   integer :: i
   
@@ -768,8 +779,8 @@ impure elemental function kinetic_stress_SplitQpointsBasis(this,bra,ket, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(RealMatrix)                               :: output
   
-  type(WavevectorState) :: split_bra
-  type(WavevectorState) :: split_ket
+  type(WavevectorState)              :: split_bra
+  type(WavevectorState), allocatable :: split_ket
   
   integer :: i
   
@@ -826,25 +837,24 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   
   split_states = WavevectorStates(states)
   
-  ! Calculate stress.
-  if (present(subspace_stress)) then
-    allocate( stress(size(split_states%states)), &
-            & stat=ialloc); call err(ialloc)
-    do i=1,size(split_states%states)
-      stress(i) = potential_stress( split_states%states(i),        &
-              &                     subspace_stress,               &
-              &                     subspace,                      &
-              &                     this,                          &
-              &                     anharmonic_data              ) &
-              & + this%kinetic_stress(                             &
-              &        bra               = split_states%states(i), &
-              &        subspace          = subspace,               &
-              &        stress_prefactors = stress_prefactors,      &
-              &        anharmonic_data   = anharmonic_data         )
-    enddo
-  endif
-  
   ! TODO: include stress.
+  ! Calculate stress.
+  !if (present(subspace_stress)) then
+  !  allocate( stress(size(split_states%states)), &
+  !          & stat=ialloc); call err(ialloc)
+  !  do i=1,size(split_states%states)
+  !    stress(i) = potential_stress( split_states%states(i),        &
+  !            &                     subspace_stress,               &
+  !            &                     subspace,                      &
+  !            &                     this,                          &
+  !            &                     anharmonic_data              ) &
+  !            & + this%kinetic_stress(                             &
+  !            &        bra               = split_states%states(i), &
+  !            &        subspace          = subspace,               &
+  !            &        stress_prefactors = stress_prefactors,      &
+  !            &        anharmonic_data   = anharmonic_data         )
+  !  enddo
+  !endif
   
   ! Calculate the thermodynamic properties for one q-point in the system.
   output = core_shell_thermodynamics(     &
@@ -938,6 +948,7 @@ impure elemental function integrate_BasisStates_SplitQpointsBasis(this, &
          &              monomials(i),     &
          &              anharmonic_data   )
   enddo
+    
 end function
 
 ! ----------------------------------------------------------------------

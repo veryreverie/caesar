@@ -91,11 +91,12 @@ end function
 
 ! Calculate states.
 impure elemental function initial_states_HarmonicBasis(this,subspace, &
-   & anharmonic_data) result(output)
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicBasis),     intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: thermal_energy
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   

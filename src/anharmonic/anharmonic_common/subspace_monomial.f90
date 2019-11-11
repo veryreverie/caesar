@@ -589,7 +589,7 @@ function write_SubspaceMonomial(this) result(output)
   
   select type(this); type is(SubspaceMonomial)
     subspace_strings = [( '(s'//this%ids(i)//'^'//this%powers(i)//')', &
-                        & i=0,                                         &
+                        & i=1,                                         &
                         & size(this)                                   )]
     output = join(subspace_strings, delimiter='*')
   end select

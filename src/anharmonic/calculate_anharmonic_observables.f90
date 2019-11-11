@@ -483,8 +483,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! --------------------------------------------------
     ! Calculate thermodynamic quantities under VSCF.
     ! --------------------------------------------------
-    call print_line('Calculating thermodynamic observables under VSCHA.')
-    
     if (calculate_stress) then
       ! Use VSCF states to generate single-subspace stresses.
       call print_line('Generating single-subspaces stresses &
@@ -496,6 +494,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                                     & thermal_energies(i), &
                                                     & anharmonic_data      )
       
+      call print_line('Calculating thermodynamic observables under VSCF.')
       vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data( &
                              &           thermal_energies(i),   &
                              &           subspace_states,       &
@@ -506,6 +505,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                              &           anharmonic_data      ) &
                              & / supercell%sc_size
     else
+      call print_line('Calculating thermodynamic observables under VSCF.')
       vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data(       &
                              &      thermal_energies(i),              &
                              &      subspace_states,                  &

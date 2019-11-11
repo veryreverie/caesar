@@ -826,15 +826,27 @@ subroutine read_file_Dictionary_character(this, filename, &
   ! Files.
   type(IFile) :: dictionary_file
   
+  ! The directory where the file is.
+  type(String) :: file_directory
+  
   ! Temporary variables.
   integer                   :: i,j
   type(String), allocatable :: line(:)
   logical                   :: only_if_unset ! = only_update_if_unset
   
+  ! Set default value of only_update_if_unset.
   if (present(only_update_if_unset)) then
     only_if_unset = only_update_if_unset
   else
     only_if_unset = .false.
+  endif
+  
+  ! Parse the directory where the file is.
+  line = split_line(format_path(filename), '/')
+  if (size(line)<2) then
+    call err()
+  else
+    file_directory = '/'//join(line(1:size(line)-1),'/')
   endif
   
   ! Read file.
@@ -874,7 +886,9 @@ subroutine read_file_Dictionary_character(this, filename, &
            & 'has been specified without a value.' )
         call quit()
       else
-        call this%keywords_(j)%set(join(line(2:)),only_if_unset)
+        call this%keywords_(j)%set( value                = join(line(2:)), &
+                                  & only_update_if_unset = only_if_unset,  &
+                                  & working_directory    = file_directory  )
       endif
     endif
   enddo
