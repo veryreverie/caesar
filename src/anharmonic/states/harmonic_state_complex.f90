@@ -417,8 +417,8 @@ impure elemental function kinetic_stress_HarmonicStateComplex(this,ket, &
   integer :: i,j,ialloc
   
   ! |p> = product_i |p_i>
-  ! The kinetic energy is given by
-  !    S = -(1/N) sum_i (I_{i,i}d^2/d(u_i^2) + sum_{j/=i}I_{i,j}d^2/du_idu_j).
+  ! The kinetic stress is given by
+  !    S = -(1/NV) sum_i (I_{i,i}d^2/d(u_i^2) + sum_{j/=i}I_{i,j}d^2/du_idu_j).
   ! <p_i|d^2/d(u_i)^2|q_i> and <p_i|d^2/du_idu_j|q_i> are calculated up to
   !    a factor of 2Nw, so
   !    <p|S|q> = -2w * (
@@ -474,6 +474,9 @@ impure elemental function kinetic_stress_HarmonicStateComplex(this,ket, &
          &                                     this%modes_%id()) &
          &      * this%modes_%second_derivative(this%modes_)     )
   endif
+  
+  ! Divide by the volume.
+  output = output / anharmonic_data%structure%volume
 end function
 
 ! ----------------------------------------------------------------------

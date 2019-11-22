@@ -18,6 +18,7 @@ module braket_module
   public :: integrate
   public :: potential_energy
   public :: potential_stress
+  public :: harmonic_observables
   public :: effective_harmonic_observables
   
   interface integrate
@@ -337,31 +338,87 @@ recursive function potential_stress_SubspaceState_SubspaceState(bra,stress, &
   output = integrated_stress%undisplaced_stress()
 end function
 
-! Calculate <T+V> for effective harmonic states with
-!    effective harmonic weightings.
+! ----------------------------------------------------------------------
+! Thermodynamic quantities derived from arbitrary potentials and stresses.
+! ----------------------------------------------------------------------
+! Calculate observables for harmonic basis, using a harmonic potential.
+! N.B. the result is extensive, so will in general need to be normalised
+!    to be per unit cell or similar.
+impure elemental function harmonic_observables(thermal_energy,         &
+   & stress,stress_prefactor,frequency,num_dimensions,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  real(dp),             intent(in)           :: thermal_energy
+  class(StressData),    intent(in), optional :: stress
+  type(RealMatrix),     intent(in), optional :: stress_prefactor
+  real(dp),             intent(in)           :: frequency
+  integer,              intent(in)           :: num_dimensions
+  type(AnharmonicData), intent(in)           :: anharmonic_data
+  type(ThermodynamicData)                    :: output
+  
+  type(RealMatrix), allocatable :: potential_stress
+  real(dp),         allocatable :: volume
+  
+  if (present(stress).neqv.present(stress_prefactor)) then
+    call print_line(CODE_ERROR//': Either both or neither of stress and &
+       &stress_prefactor must be given.')
+    call err()
+  endif
+  
+  if (present(stress)) then
+    potential_stress = stress%harmonic_expectation( frequency,        &
+                   &                                thermal_energy,   &
+                   &                                anharmonic_data ) &
+                   & / num_dimensions
+    volume = anharmonic_data%structure%volume
+  endif
+  
+  output = ThermodynamicData( thermal_energy,     &
+       &                      frequency,          &
+       &                      stress_prefactor,   &
+       &                      potential_stress,   &
+       &                      volume            ) &
+       & * num_dimensions
+end function
+
+! Calculate observables for harmonic basis, using full potential.
 ! N.B. the result is extensive, so will in general need to be normalised
 !    to be per unit cell or similar.
 impure elemental function effective_harmonic_observables(thermal_energy, &
-   & potential,frequency,num_dimensions,anharmonic_data) result(output)
+   & potential,stress,stress_prefactor,frequency,num_dimensions,         &
+   & anharmonic_data) result(output)
   implicit none
   
-  real(dp),             intent(in) :: thermal_energy
-  class(PotentialData), intent(in) :: potential
-  real(dp),             intent(in) :: frequency
-  integer,              intent(in) :: num_dimensions
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  type(ThermodynamicData)          :: output
+  real(dp),             intent(in)           :: thermal_energy
+  class(PotentialData), intent(in)           :: potential
+  class(StressData),    intent(in), optional :: stress
+  type(RealMatrix),     intent(in), optional :: stress_prefactor
+  real(dp),             intent(in)           :: frequency
+  integer,              intent(in)           :: num_dimensions
+  type(AnharmonicData), intent(in)           :: anharmonic_data
+  type(ThermodynamicData)                    :: output
   
   real(dp) :: harmonic_expectation
   real(dp) :: potential_expectation
   
+  real(dp)         :: volume
+  type(RealMatrix) :: potential_stress
+  type(RealMatrix) :: kinetic_stress
+  real(dp)         :: pressure
+  
   ! Calculate <T+V> for the effective harmonic potential.
-  output = ThermodynamicData(thermal_energy, frequency) * num_dimensions
+  output = harmonic_observables( thermal_energy,   &
+                               & stress,           &
+                               & stress_prefactor, &
+                               & frequency,        &
+                               & num_dimensions,   &
+                               & anharmonic_data   )
   
   ! Subtract <V> for the effective harmonic potential,
   !    and add <V> for the input potential.
   ! N.B. <V> for the effective harmonic potential is just <T+V>/2.
-  ! N.B. the kinetic energy and entropy do not change.
+  ! N.B. the kinetic energy, entropy and stress do not change.
   harmonic_expectation = output%energy/2
   potential_expectation = potential%harmonic_expectation( &
                                         & frequency,      &
@@ -374,5 +431,13 @@ impure elemental function effective_harmonic_observables(thermal_energy, &
   output%free_energy = output%free_energy   &
                    & - harmonic_expectation &
                    & + potential_expectation
+  if (allocated(output%enthalpy)) then
+    output%enthalpy = output%enthalpy &
+                  & - harmonic_expectation &
+                  & + potential_expectation
+    output%gibbs = output%gibbs &
+               & - harmonic_expectation &
+               & + potential_expectation
+  endif
 end function
 end module

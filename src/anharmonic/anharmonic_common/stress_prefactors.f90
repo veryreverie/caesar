@@ -21,6 +21,8 @@ module stress_prefactors_module
                         & prefactor_StressPrefactors_ids
     procedure, private :: prefactor_StressPrefactors_modes
     procedure, private :: prefactor_StressPrefactors_ids
+    
+    procedure, public :: average_prefactor
   end type
   
   interface StressPrefactors
@@ -43,9 +45,7 @@ function new_StressPrefactors(subspace_id,mode_ids,prefactors) result(this)
   this%prefactors_  = prefactors
 end function
 
-! ----------------------------------------------------------------------
 ! Calculates the stress prefactors for the modes in the subspace.
-! ----------------------------------------------------------------------
 function new_StressPrefactors_subspace(subspace,modes) result(this)
   implicit none
   
@@ -80,9 +80,7 @@ function new_StressPrefactors_subspace(subspace,modes) result(this)
   this = StressPrefactors(subspace%id, subspace_modes%id, prefactors)
 end function
 
-! --------------------------------------------------
 ! Return the prefactor for a given pair of modes.
-! --------------------------------------------------
 impure elemental function prefactor_StressPrefactors_modes(this,mode1,mode2) &
    & result(output)
   implicit none
@@ -107,5 +105,22 @@ impure elemental function prefactor_StressPrefactors_ids(this,mode1,mode2) &
   
   output = this%prefactors_( first(this%mode_ids_==mode1), &
                            & first(this%mode_ids_==mode2)  )
+end function
+
+! Return the average prefactor.
+! Useful for harmonic calculations, where all modes are treated equally.
+impure elemental function average_prefactor(this) result(output)
+  implicit none
+  
+  class(StressPrefactors), intent(in) :: this
+  type(RealMatrix)                    :: output
+  
+  integer :: no_modes
+  
+  integer :: i
+  
+  no_modes = size(this%mode_ids_)
+  
+  output = sum([(this%prefactors_(i,i), i=1, no_modes)]) / no_modes
 end function
 end module

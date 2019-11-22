@@ -196,6 +196,7 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
   maxs_in = [size(subspace_states)]
   allocate(output(size(subspace_states)), stat=ialloc); call err(ialloc)
   output(1) = StressPointer(stress)
+  call output(1)%zero_stress()
   
   ! Loop over iteration until every interval contains exactly one subspace.
   do while (any(mins_in/=maxs_in))

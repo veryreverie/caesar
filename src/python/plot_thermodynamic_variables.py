@@ -25,10 +25,16 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in data.
-  names  = ['Interpolated effective harmonic', 'VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
-  fnames = ['interpolated_vscha_', 'vscf_', '', 'vscha_', 'vscha_vscf_']
-  dashes = [[8,2], [10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
-  widths = [2,1,1,2,2]
+  #names  = ['Interpolated effective harmonic', 'VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
+  #fnames = ['interpolated_vscha_', 'vscf_', '', 'vscha_', 'vscha_vscf_']
+  #dashes = [[8,2], [10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
+  #widths = [2,1,1,2,2]
+  names  = ['VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
+  fnames = ['vscf_', '', 'vscha_', 'vscha_vscf_']
+  dashes = [[10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
+  widths = [1,1,2,2]
+  
+  calculating_stress = False
   
   data = []
   for name,fname,dash,width in zip(names,fnames,dashes,widths):
@@ -36,22 +42,37 @@ def main():
     if os.path.isfile(file_name):
       data.append({'name':name})
       variables_file = [line.rstrip('\n').split() for line in open(file_name)]
+      if 'stress' in variables_file[0]:
+        calculating_stress = True
       data[-1]['dashes'] = dash
       data[-1]['width']  = width
       data[-1]['thermal energies'] = []
       data[-1]['energies'] = []
       data[-1]['free energies'] = []
       data[-1]['entropies'] = []
+      if calculating_stress:
+        data[-1]['stresses'] = []
+        data[-1]['pressures'] = []
+        data[-1]['volumes'] = []
+        data[-1]['enthalpies'] = []
+        data[-1]['gibbs free energies'] = []
       for line in variables_file[1:]:
         data[-1]['thermal energies'].append(float(line[0]))
         data[-1]['energies'].append(float(line[1]))
         data[-1]['free energies'].append(float(line[2]))
         data[-1]['entropies'].append(float(line[3]))
+        if calculating_stress:
+          stress = np.reshape([float(x) for x in line[4:13]],[3,3])
+          data[-1]['stresses'].append(stress)
+          data[-1]['pressures'].append(np.trace(stress)/3)
+          data[-1]['volumes'].append(float(line[13]))
+          data[-1]['enthalpies'].append(float(line[14]))
+          data[-1]['gibbs free energies'].append(float(line[15]))
   # Plot everything.
-  fig, ax_grid = plt.subplots(3,
+  fig, ax_grid = plt.subplots(4,
                               1,
                               sharex=True,
-                              gridspec_kw={'height_ratios':[3,3,1]})
+                              gridspec_kw={'height_ratios':[3,3,3,1]})
   
   axes = {'energy' : {'l':ax_grid[0],
                       'b':ax_grid[0],
@@ -61,7 +82,11 @@ def main():
                       'b':ax_grid[1],
                       'r':ax_grid[1].twinx(),
                       't':ax_grid[1].twiny()},
-          'legend':  ax_grid[2]}
+          'stress' : {'l':ax_grid[2],
+                      'b':ax_grid[2],
+                      'r':ax_grid[2].twinx(),
+                      't':ax_grid[2].twiny()},
+          'legend' :  ax_grid[3]}
   
   xmin_hartree = None
   xmax_hartree = None
@@ -85,25 +110,52 @@ def main():
                               datum['entropies'],
                               linewidth=datum['width'],
                               dashes=datum['dashes'],
-                              color=colours['purple'])
+                              color=colours['blue'])
+    if calculating_stress:
+      axes['energy']['l'].plot(datum['thermal energies'],
+                               datum['enthalpies'],
+                               linewidth=datum['width'],
+                               dashes=datum['dashes'],
+                               color=colours['grey'])
+      axes['energy']['r'].plot(datum['thermal energies'],
+                               datum['gibbs free energies'],
+                               linewidth=datum['width'],
+                               dashes=datum['dashes'],
+                               color=colours['purple'])
+      axes['stress']['l'].plot(datum['thermal energies'],
+                               datum['pressures'],
+                               linewidth=datum['width'],
+                               dashes=datum['dashes'],
+                               color=colours['green'])
     if xmin_hartree == None:
       xmin_hartree = datum['thermal energies'][0]
       xmax_hartree = datum['thermal energies'][-1]
       ymin_hartree = min(datum['free energies'])
       ymax_hartree = max(datum['energies'])
       ymax_shannon = max(datum['entropies'])
+      ymin_pressure = min(datum['pressures'])
+      ymax_pressure = max(datum['pressures'])
     else:
       xmin_hartree = min(xmin_hartree, datum['thermal energies'][0])
       xmax_hartree = max(xmax_hartree, datum['thermal energies'][-1])
       ymin_hartree = min(ymin_hartree, min(datum['free energies']))
       ymax_hartree = max(ymax_hartree, max(datum['energies']))
       ymax_shannon = max(ymax_shannon, max(datum['entropies']))
+      ymin_pressure = min(ymin_pressure, min(datum['pressures']))
+      ymax_pressure = max(ymax_pressure, max(datum['pressures']))
+    if calculating_stress:
+      ymin_hartree = min(ymin_hartree, min(datum['gibbs free energies']))
+      ymax_hartree = max(ymax_hartree, max(datum['enthalpies']))
   
   ydiff_hartree = ymax_hartree-ymin_hartree
   ymin_hartree = ymin_hartree-0.05*ydiff_hartree
   ymax_hartree = ymax_hartree+0.05*ydiff_hartree
   
   ymax_shannon = 1.1*ymax_shannon
+  
+  ydiff_pressure = ymax_pressure-ymin_pressure
+  ymin_pressure = ymin_pressure-0.05*ydiff_pressure
+  ymax_pressure = ymax_pressure+0.05*ydiff_pressure
   
   kb_in_ev_per_k = 8.6173303e-5
   ev_per_hartree = 27.21138602
@@ -113,34 +165,36 @@ def main():
   xmax_kelvin  = xmax_hartree/kb_in_au
   axes['energy']['b'].set_xlim(xmin_hartree,xmax_hartree)
   axes['energy']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
-  axes['energy']['l'].set_ylim(ymin_hartree,ymax_hartree)
-  axes['energy']['r'].set_ylim(ymin_hartree,ymax_hartree)
-  axes['energy']['t'].set_xlabel(r"Temperature, $T$, (K)")
-  axes['energy']['b'].tick_params(labelbottom='off')
+  axes['energy']['t'].set_xlabel(r"$T$ (K)")
+  axes['energy']['t'].tick_params(labelbottom=False,labeltop=True)
+  axes['energy']['b'].tick_params(labelbottom=False,labeltop=False)
   axes['entropy']['b'].set_xlim(xmin_hartree,xmax_hartree)
   axes['entropy']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
-  axes['entropy']['t'].tick_params(labeltop='off')
-  axes['entropy']['b'].set_xlabel(r"$k_BT$ (Ha)")
+  axes['entropy']['t'].tick_params(labelbottom=False,labeltop=False)
+  axes['entropy']['b'].tick_params(labelbottom=False,labeltop=False)
+  axes['stress']['b'].set_xlim(xmin_hartree,xmax_hartree)
+  axes['stress']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
+  axes['stress']['t'].tick_params(labelbottom=False,labeltop=False)
+  axes['stress']['b'].tick_params(labelbottom=True,labeltop=False)
+  axes['stress']['b'].set_xlabel(r"$k_BT$ (Ha)")
   
-  axes['energy']['l'].set_ylabel(r"Vibrational Energy per cell (Ha)")
-  axes['energy']['l'].tick_params(axis='y',
-                                  width=2,
-                                  color=colours['turquoise'])
-  axes['energy']['l'].spines['left'].set_color(colours['turquoise'])
-  axes['energy']['r'].set_ylabel(r"Vibrational Free Energy per cell (Ha)")
-  axes['energy']['r'].tick_params(axis='y',
-                                  width=2,
-                                  color=colours['orange'])
-  for _,ax in axes['energy'].items():
-    ax.spines['left'].set_color(colours['turquoise'])
-    ax.spines['right'].set_color(colours['orange'])
+  axes['energy']['l'].set_ylim(ymin_hartree,ymax_hartree)
+  axes['energy']['r'].set_ylim(ymin_hartree,ymax_hartree)
+  axes['energy']['l'].set_ylabel(r"(Ha/cell)")
+  axes['energy']['l'].tick_params(axis='y', width=2)
+  axes['energy']['r'].set_ylabel(r"(Ha/cell)")
+  axes['energy']['r'].tick_params(axis='y', width=2)
   
-  ymin_gibbs   = ymin_shannon * kb_in_au
-  ymax_gibbs   = ymax_shannon * kb_in_au
+  ymin_gibbs = ymin_shannon * kb_in_au
+  ymax_gibbs = ymax_shannon * kb_in_au
   axes['entropy']['l'].set_ylim(ymin_shannon,ymax_shannon)
-  axes['entropy']['l'].set_ylabel(r"Vibrational Shannon Entropy per cell, $S/k_B$, (arb. units)")
+  axes['entropy']['l'].set_ylabel(r"$S/k_B$ (arb. units/cell)")
   axes['entropy']['r'].set_ylim(ymin_gibbs,ymax_gibbs)
-  axes['entropy']['r'].set_ylabel(r"Vibrational Gibbs Entropy per cell, $S$, (Ha per K)")
+  axes['entropy']['r'].set_ylabel(r"$S$ (Ha/K/cell)")
+  
+  axes['stress']['l'].set_ylim(ymin_pressure,ymax_pressure)
+  axes['stress']['l'].set_ylabel(r"p (Ha/bohr$^3$)")
+  axes['stress']['r'].set_ylim(ymin_pressure,ymax_pressure)
   
   # Format legend.
   handles = []
@@ -148,7 +202,12 @@ def main():
   
   things = [('energy','turquoise'),
             ('free energy','orange'),
-            ('entropy','purple')]
+            ('enthalpy','grey'),
+            ('gibbs free energy','purple'),
+            ('entropy','blue'),
+            ('pressure','green')]
+  if not calculating_stress:
+    things = things[1,2,5]
   for label,colour in things:
     line = mlines.Line2D([],[],color=colours[colour])
     handles.append(line)

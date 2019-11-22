@@ -224,6 +224,12 @@ module abstract_classes_module
        & coefficients
     procedure(set_coefficients_PotentialData), public, deferred :: &
        & set_coefficients
+    
+    ! Interpolation of the potential.
+    procedure, public :: can_be_interpolated => &
+                       & can_be_interpolated_PotentialData
+    procedure, public :: calculate_interpolated_thermodynamics => &
+                       & calculate_interpolated_thermodynamics_PotentialData
   end type
   
   type, extends(PotentialData) :: PotentialPointer
@@ -273,6 +279,11 @@ module abstract_classes_module
                        & coefficients_PotentialPointer
     procedure, public :: set_coefficients => &
                        & set_coefficients_PotentialPointer
+    
+    procedure, public :: can_be_interpolated => &
+                       & can_be_interpolated_PotentialPointer
+    procedure, public :: calculate_interpolated_thermodynamics => &
+                       & calculate_interpolated_thermodynamics_PotentialPointer
     
     ! I/O.
     procedure, public :: read  => read_PotentialPointer
@@ -1725,6 +1736,41 @@ subroutine set_coefficients_PotentialPointer(this,coefficients, &
                                        & anharmonic_data )
 end subroutine
 
+function can_be_interpolated_PotentialPointer(this) result(output)
+  implicit none
+  
+  class(PotentialPointer), intent(in) :: this
+  logical                             :: output
+  
+  call this%check()
+  
+  output = this%potential_%can_be_interpolated()
+end function
+
+subroutine calculate_interpolated_thermodynamics_PotentialPointer(this, &
+   & thermal_energy,subspaces,subspace_potentials,subspace_bases,       &
+   & subspace_states,anharmonic_data)
+  implicit none
+  
+  class(PotentialPointer),  intent(in)    :: this
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(PotentialData),     intent(in)    :: subspace_potentials(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  
+  call this%check()
+  
+  call this%potential_%calculate_interpolated_thermodynamics( &
+                                       & thermal_energy,      &
+                                       & subspaces,           &
+                                       & subspace_potentials, &
+                                       & subspace_bases,      &
+                                       & subspace_states,     &
+                                       & anharmonic_data      )
+end subroutine
+
 ! I/O.
 subroutine read_PotentialPointer(this,input)
   implicit none
@@ -2071,6 +2117,34 @@ impure elemental subroutine finalise_subspace_potential_PotentialData(this, &
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   
   ! By default this doesn't do anything.
+end subroutine
+
+function can_be_interpolated_PotentialData(this) result(output)
+  implicit none
+  
+  class(PotentialData), intent(in) :: this
+  logical                          :: output
+  
+  output = .false.
+end function
+
+subroutine calculate_interpolated_thermodynamics_PotentialData(this, &
+   & thermal_energy,subspaces,subspace_potentials,subspace_bases,    &
+   & subspace_states,anharmonic_data)
+  implicit none
+  
+  class(PotentialData),     intent(in)    :: this
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(PotentialData),     intent(in)    :: subspace_potentials(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  
+  ! This should be gated behind can_be_interpolated.
+  call print_line(CODE_ERROR//': calculate_interpolated_thermodynamics not &
+     &implemented for this potential.')
+  call err()
 end subroutine
 
 ! StressData methods.

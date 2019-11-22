@@ -139,11 +139,12 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,   &
   do 
     frequencies = solver%get_inputs()
     
-    observables = effective_harmonic_observables( thermal_energy,     &
-                                                & subspace_potential, &
-                                                & frequencies,        &
-                                                & size(subspace),     &
-                                                & anharmonic_data     )
+    observables = effective_harmonic_observables( &
+          & thermal_energy  = thermal_energy,     &
+          & potential       = subspace_potential, &
+          & frequency       = frequencies,        &
+          & num_dimensions  = size(subspace),     &
+          & anharmonic_data = anharmonic_data     )
     
     call solver%set_outputs(observables%free_energy)
     
@@ -305,11 +306,12 @@ impure elemental function thermodynamic_data_HarmonicBasis(this,    &
   
   harmonic_states = HarmonicStates(states)
   
-  output = effective_harmonic_observables( thermal_energy,              &
-                                         & subspace_potential,          &
-                                         & harmonic_states%frequency,   &
-                                         & size(subspace),              &
-                                         & anharmonic_data              )
+  output = effective_harmonic_observables(            &
+     & thermal_energy  = thermal_energy,              &
+     & potential       = subspace_potential,          &
+     & frequency       = harmonic_states%frequency,   &
+     & num_dimensions  = size(subspace),              &
+     & anharmonic_data = anharmonic_data              )
 end function
 
 impure elemental function wavefunctions_HarmonicBasis(this,states, &

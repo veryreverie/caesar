@@ -21,26 +21,31 @@ module wavevector_basis_module
   
   private
   
+  public :: startup_wavevector_basis
+  
   public :: WavevectorBasis
   
-  public :: harmonic_thermodynamics
-  public :: harmonic_expectation
+  public :: core_harmonic_observables
+  public :: core_effective_harmonic_observables
+  public :: core_vci_observables
   public :: integrate
   
-  type, extends(Stringsable) :: WavevectorBasis
+  type, extends(SubspaceBasis) :: WavevectorBasis
     integer                                          :: maximum_power
     integer                                          :: expansion_order
     integer                                          :: subspace_id
-    real(dp)                                         :: frequency
     type(FractionVector)                             :: wavevector
     type(SubspaceStatePointer), allocatable, private :: harmonic_states_(:)
     type(CoupledStates),        allocatable, private :: harmonic_couplings_(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_WavevectorBasis
+    
     ! State procedures.
     procedure, public :: inner_product => &
                        & inner_product_WavevectorBasis
-    procedure, public :: integrate => &
-                       & integrate_WavevectorBasis
+    procedure, public :: integrate_BasisState => &
+                       & integrate_BasisState_WavevectorBasis
     procedure, public :: kinetic_energy => &
                        & kinetic_energy_WavevectorBasis
     procedure, public :: harmonic_potential_energy => &
@@ -63,6 +68,14 @@ module wavevector_basis_module
     ! I/O.
     procedure, public :: read  => read_WavevectorBasis
     procedure, public :: write => write_WavevectorBasis
+    
+    ! Inherited procedures which do not apply to this type.
+    procedure, public :: integrate_BasisStates => &
+                       & integrate_BasisStates_WavevectorBasis
+    procedure, public :: thermodynamic_data => &
+                       & thermodynamic_data_WavevectorBasis
+    procedure, public :: wavefunctions => &
+                       & wavefunctions_WavevectorBasis
   end type
   
   interface WavevectorBasis
@@ -72,18 +85,40 @@ module wavevector_basis_module
     module procedure new_WavevectorBasis_StringArray
   end interface
   
-  interface harmonic_thermodynamics
-    module procedure harmonic_thermodynamics_WavevectorBasis
+  interface core_harmonic_observables
+    module procedure core_harmonic_observables_WavevectorBasis
   end interface
   
-  interface harmonic_expectation
-    module procedure harmonic_expectation_WavevectorBasis
+  interface core_effective_harmonic_observables
+    module procedure core_effective_harmonic_observables_WavevectorBasis
+  end interface
+  
+  interface core_vci_observables
+    module procedure core_vci_observables_WavevectorBasis
   end interface
   
   interface integrate
     module procedure integrate_SparseMonomial_WavevectorBases
   end interface
 contains
+
+! Startup procedure.
+subroutine startup_wavevector_basis()
+  implicit none
+  
+  type(WavevectorBasis) :: basis
+  
+  call basis%startup()
+end subroutine
+
+! Type representation.
+impure elemental function representation_WavevectorBasis() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'wavevector basis'
+end function
 
 ! Constructor and size function.
 function new_WavevectorBasis(maximum_power,expansion_order,subspace_id, &
@@ -544,39 +579,57 @@ end function
 ! Operations involving WavevectorStates.
 ! ----------------------------------------------------------------------
 impure elemental function inner_product_WavevectorBasis(this,bra,ket, &
-   & anharmonic_data) result(output)
+   & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in)           :: this
-  type(WavevectorState),  intent(in)           :: bra
-  type(WavevectorState),  intent(in), optional :: ket
-  type(AnharmonicData),   intent(in)           :: anharmonic_data
-  real(dp)                                     :: output
+  class(WavevectorBasis),   intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(WavevectorState) :: bra_
+  type(WavevectorState) :: ket_
+  
+  bra_ = WavevectorState(bra)
   
   if (present(ket)) then
+    ket_ = WavevectorState(ket)
     ! The basis is orthonormal, so the dot product of the states is
     !    simply the dot product of the coefficients.
-    output = dot_product(bra%coefficients, ket%coefficients)
+    output = dot_product(bra_%coefficients, ket_%coefficients)
   else
     ! States are orthonormal, so <p|p>=1.
     output = 1.0_dp
   endif
 end function
 
-impure elemental function integrate_WavevectorBasis(this,bra,monomial,ket, &
-   & anharmonic_data) result(output)
+impure elemental function integrate_BasisState_WavevectorBasis(this,bra, &
+   & monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in)           :: this
-  type(WavevectorState),  intent(in)           :: bra
-  type(SparseMonomial),   intent(in)           :: monomial
-  type(WavevectorState),  intent(in), optional :: ket
-  type(AnharmonicData),   intent(in)           :: anharmonic_data
-  complex(dp)                                  :: output
+  class(WavevectorBasis),   intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  type(SparseMonomial),     intent(in)           :: monomial
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  complex(dp)                                    :: output
+  
+  type(WavevectorState) :: bra_
+  type(WavevectorState) :: ket_
   
   complex(dp) :: term
   
   integer :: i,j,k
+  
+  bra_ = WavevectorState(bra)
+  if (present(ket)) then
+    ket_ = WavevectorState(ket)
+  else
+    ket_ = bra_
+  endif
   
   output = 0.0_dp
   do i=1,size(this%harmonic_states_)
@@ -592,11 +645,7 @@ impure elemental function integrate_WavevectorBasis(this,bra,monomial,ket, &
                                                & this%harmonic_states_(k), &
                                                & anharmonic_data           )
       
-      if (present(ket)) then
-        term = bra%coefficients(i) * term * ket%coefficients(k)
-      else
-        term = bra%coefficients(i) * term * bra%coefficients(k)
-      endif
+      term = bra_%coefficients(i) * term * ket_%coefficients(k)
       
       if (k==i) then
         output = output + term
@@ -614,11 +663,13 @@ function integrate_SparseMonomial_WavevectorBases(bases,states, &
   implicit none
   
   class(WavevectorBasis), intent(in) :: bases(:)
-  type(WavevectorStates), intent(in) :: states
+  class(BasisStates),     intent(in) :: states
   real(dp),               intent(in) :: thermal_energy
   type(SparseMonomial),   intent(in) :: monomial
   type(AnharmonicData),   intent(in) :: anharmonic_data
   complex(dp)                        :: output
+  
+  type(WavevectorStates) :: states_
   
   integer, allocatable :: at_wavevector(:)
   
@@ -626,11 +677,13 @@ function integrate_SparseMonomial_WavevectorBases(bases,states, &
   
   integer :: i,j,k,l,m
   
+  states_ = WavevectorStates(states)
+  
   output = 0.0_dp
   ! Loop over wavevector bases, summing the contribution from each.
   do i=1,size(bases)
     ! Filter the states to get only the states at this wavevector.
-    at_wavevector = filter(states%states%wavevector==bases(i)%wavevector)
+    at_wavevector = filter(states_%states%wavevector==bases(i)%wavevector)
     
     ! Perform a double loop across harmonic states, including only those
     !   for which <j|X|l> can be non-zero.
@@ -656,12 +709,12 @@ function integrate_SparseMonomial_WavevectorBases(bases,states, &
         ! <X> = sum_m (sum_j U(m,j)<j|) X (sum_l U(m,l)|l>) w(m)
         !     = sum_j sum_l ( <j|X|l> * sum_m(U(m,j) U(m,l) w(m)) )
         ! U(m,j) is the j'th component of the m'th eigenvector.
-        term = term                                                     &
-           & * sum([(   states%states(at_wavevector(m))%coefficients(j) &
-           &          * states%states(at_wavevector(m))%coefficients(l) &
-           &          * states%weights(at_wavevector(m)),               &
-           &          m=1,                                              &
-           &          size(at_wavevector)                               )])
+        term = term                                                      &
+           & * sum([(   states_%states(at_wavevector(m))%coefficients(j) &
+           &          * states_%states(at_wavevector(m))%coefficients(l) &
+           &          * states_%weights(at_wavevector(m)),               &
+           &          m=1,                                               &
+           &          size(at_wavevector)                                )])
         
         ! If j==l, only include <j|X|j>, otherwise include <l|X|j> and <j|X|l>.
         if (l==j) then
@@ -675,18 +728,29 @@ function integrate_SparseMonomial_WavevectorBases(bases,states, &
 end function
 
 impure elemental function kinetic_energy_WavevectorBasis(this,bra,ket, &
-   & anharmonic_data) result(output)
+   & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in)           :: this
-  type(WavevectorState),  intent(in)           :: bra
-  type(WavevectorState),  intent(in), optional :: ket
-  type(AnharmonicData),   intent(in)           :: anharmonic_data
-  real(dp)                                     :: output
+  class(WavevectorBasis),   intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(WavevectorState) :: bra_
+  type(WavevectorState) :: ket_
   
   real(dp) :: term
   
   integer :: i,j,k
+  
+  bra_ = WavevectorState(bra)
+  if (present(ket)) then
+    ket_ = WavevectorState(ket)
+  else
+    ket_ = bra_
+  endif
   
   output = 0
   do i=1,size(this%harmonic_states_)
@@ -695,34 +759,38 @@ impure elemental function kinetic_energy_WavevectorBasis(this,bra,ket, &
       term = this%harmonic_states_(i)%kinetic_energy( &
                           & this%harmonic_states_(k), &
                           & anharmonic_data            )
-      if (present(ket)) then
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * ket%coefficients(k)
-      else
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * bra%coefficients(k)
-      endif
+      output = output               &
+           & + bra_%coefficients(i) &
+           & * term                 &
+           & * ket_%coefficients(k)
     enddo
   enddo
 end function
 
 impure elemental function harmonic_potential_energy_WavevectorBasis(this, &
-   & bra,ket,anharmonic_data) result(output)
+   & bra,ket,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in)           :: this
-  type(WavevectorState),  intent(in)           :: bra
-  type(WavevectorState),  intent(in), optional :: ket
-  type(AnharmonicData),   intent(in)           :: anharmonic_data
-  real(dp)                                     :: output
+  class(WavevectorBasis),   intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(WavevectorState) :: bra_
+  type(WavevectorState) :: ket_
   
   real(dp) :: term
   
   integer :: i,j,k
+  
+  bra_ = WavevectorState(bra)
+  if (present(ket)) then
+    ket_ = WavevectorState(ket)
+  else
+    ket_ = bra_
+  endif
   
   output = 0
   do i=1,size(this%harmonic_states_)
@@ -732,34 +800,45 @@ impure elemental function harmonic_potential_energy_WavevectorBasis(this, &
                                      & this%harmonic_states_(k), &
                                      & anharmonic_data           )
       if (present(ket)) then
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * ket%coefficients(k)
+        output = output               &
+             & + bra_%coefficients(i) &
+             & * term                 &
+             & * ket_%coefficients(k)
       else
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * bra%coefficients(k)
+        output = output               &
+             & + bra_%coefficients(i) &
+             & * term                 &
+             & * bra_%coefficients(k)
       endif
     enddo
   enddo
 end function
 
 impure elemental function kinetic_stress_WavevectorBasis(this,bra,ket, &
-   & stress_prefactors,anharmonic_data) result(output)
+   & subspace,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in)           :: this
-  type(WavevectorState),  intent(in)           :: bra
-  type(WavevectorState),  intent(in), optional :: ket
-  type(StressPrefactors), intent(in)           :: stress_prefactors
-  type(AnharmonicData),   intent(in)           :: anharmonic_data
-  type(RealMatrix)                             :: output
+  class(WavevectorBasis),   intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  type(StressPrefactors),   intent(in)           :: stress_prefactors
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  type(WavevectorState) :: bra_
+  type(WavevectorState) :: ket_
   
   type(RealMatrix) :: term
   
   integer :: i,j,k
+  
+  bra_ = WavevectorState(bra)
+  if (present(ket)) then
+    ket_ = WavevectorState(ket)
+  else
+    ket_ = bra_
+  endif
   
   output = dblemat(zeroes(3,3))
   do i=1,size(this%harmonic_states_)
@@ -769,17 +848,10 @@ impure elemental function kinetic_stress_WavevectorBasis(this,bra,ket, &
                           & this%harmonic_states_(k), &
                           & stress_prefactors,        &
                           & anharmonic_data           )
-      if (present(ket)) then
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * ket%coefficients(k)
-      else
-        output = output              &
-             & + bra%coefficients(i) &
-             & * term                &
-             & * bra%coefficients(k)
-      endif
+      output = output               &
+           & + bra_%coefficients(i) &
+           & * term                 &
+           & * ket_%coefficients(k)
     enddo
   enddo
 end function
@@ -804,30 +876,40 @@ impure elemental function initial_ground_state_WavevectorBasis(this) &
   output = WavevectorState(this%subspace_id,this%wavevector,coefficients)
 end function
 
-function initial_states_WavevectorBasis(this,thermal_energy,anharmonic_data) &
-   & result(output)
+impure elemental function initial_states_WavevectorBasis(this,subspace, &
+   & thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in) :: this
-  real(dp),               intent(in) :: thermal_energy
-  type(AnharmonicData),   intent(in) :: anharmonic_data
-  type(WavevectorStates)             :: output
+  class(WavevectorBasis),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  real(dp),                 intent(in) :: thermal_energy
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(BasisStatesPointer)             :: output
   
-  output = WavevectorStates( subspace_id = this%subspace_id,              &
-                           & states      = [this%initial_ground_state()], &
-                           & energies    = [0.0_dp],                      &
-                           & weights     = [1.0_dp]                       )
+  output = BasisStatesPointer(WavevectorStates(     &
+     & subspace_id = this%subspace_id,              &
+     & states      = [this%initial_ground_state()], &
+     & energies    = [0.0_dp],                      &
+     & weights     = [1.0_dp]                       ))
 end function
 
-function calculate_states_WavevectorBasis(this,potential,thermal_energy, &
-   & anharmonic_data) result(output)
+impure elemental function calculate_states_WavevectorBasis(this,subspace, &
+   & subspace_potential,thermal_energy,energy_convergence,                &
+   & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
+   & pre_pulay_damping,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in) :: this
-  class(PotentialData),   intent(in) :: potential
-  real(dp),               intent(in) :: thermal_energy
-  type(AnharmonicData),   intent(in) :: anharmonic_data
-  type(WavevectorStates)             :: output
+  class(WavevectorBasis),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(PotentialData),     intent(in) :: subspace_potential
+  real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: energy_convergence
+  integer,                  intent(in) :: no_converged_calculations
+  integer,                  intent(in) :: max_pulay_iterations
+  integer,                  intent(in) :: pre_pulay_iterations
+  real(dp),                 intent(in) :: pre_pulay_damping
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(BasisStatesPointer)             :: output
   
   type(SubspaceStatePointer)             :: bra
   type(SubspaceStatePointer)             :: ket
@@ -851,7 +933,7 @@ function calculate_states_WavevectorBasis(this,potential,thermal_energy, &
       hamiltonian(i,k) = bra%kinetic_energy( ket,              &
                      &                       anharmonic_data ) &
                      & + potential_energy( bra,                &
-                     &                     potential,          &
+                     &                     subspace_potential, &
                      &                     ket,                &
                      &                     anharmonic_data )
     enddo
@@ -867,29 +949,38 @@ function calculate_states_WavevectorBasis(this,potential,thermal_energy, &
   
   ! N.B. there is not enough information at this stage to calculate weights.
   ! These must be calculated once the states from each wavevector are collated.
-  output = WavevectorStates( subspace_id = this%subspace_id,           &
-                           & states      = wavevector_states,          &
-                           & energies    = estuff%eval,                &
-                           & weights     = [(0.0_dp,i=1,size(estuff))] )
+  output = BasisStatesPointer(WavevectorStates(  &
+     & subspace_id = this%subspace_id,           &
+     & states      = wavevector_states,          &
+     & energies    = estuff%eval,                &
+     & weights     = [(0.0_dp,i=1,size(estuff))] ))
 end function
 
+! ----------------------------------------------------------------------
+! Operations which calculate thermodynamic data.
+! ----------------------------------------------------------------------
 ! Calculate the harmonic expectation of the harmonic potential,
 !    but only using the states in the basis.
 ! N.B. this normalises the sum of thermal weights of the included states
 !    to be one,
 !    rather than normalising to the sum across all states to be one.
-function harmonic_thermodynamics_WavevectorBasis(bases,thermal_energy, &
-   & anharmonic_data) result(output)
+function core_harmonic_observables_WavevectorBasis(bases,thermal_energy, &
+   & stress,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  type(WavevectorBasis), intent(in) :: bases(:)
-  real(dp),              intent(in) :: thermal_energy
-  type(AnharmonicData),  intent(in) :: anharmonic_data
-  type(ThermodynamicData)           :: output
+  type(WavevectorBasis),  intent(in)           :: bases(:)
+  real(dp),               intent(in)           :: thermal_energy
+  class(StressData),      intent(in), optional :: stress
+  type(StressPrefactors), intent(in), optional :: stress_prefactors
+  type(AnharmonicData),   intent(in)           :: anharmonic_data
+  type(ThermodynamicData)                      :: output
   
   real(dp), allocatable :: kinetic_energies(:)
   
-  integer :: i
+  type(RealMatrix), allocatable :: stresses(:)
+  real(dp),         allocatable :: volume
+  
+  integer :: i,j,k,ialloc
   
   ! Calculate <|T|>. N.B. this is also <|V|> for the harmonic potential.
   kinetic_energies = [( bases(i)%harmonic_states_%kinetic_energy(    &
@@ -897,7 +988,34 @@ function harmonic_thermodynamics_WavevectorBasis(bases,thermal_energy, &
                       & i=1,                                         &
                       & size(bases)                                  )]
   
-  output = ThermodynamicData(thermal_energy, 2*kinetic_energies)
+  if (present(stress) .neqv. present(stress_prefactors)) then
+    call print_line(CODE_ERROR//': Either both or neither of stress and &
+       &stress_prefactors must be present.')
+    call err()
+  endif
+  if (present(stress)) then
+    allocate(stresses(size(kinetic_energies)), stat=ialloc); call err(ialloc)
+    k = 0
+    do i=1,size(bases)
+      do j=1,size(bases(i)%harmonic_states_)
+        k = k+1
+        stresses(k) = bases(i)%harmonic_states_(j)%kinetic_stress(       &
+                  &         stress_prefactors = stress_prefactors,       &
+                  &         anharmonic_data   = anharmonic_data    )     &
+                  & + potential_stress(                                  &
+                  &      state           = bases(i)%harmonic_states_(j), &
+                  &      stress          = stress,                       &
+                  &      anharmonic_data = anharmonic_data               )
+      enddo
+    enddo
+    
+    volume = anharmonic_data%structure%volume
+  endif
+  
+  output = ThermodynamicData( thermal_energy,     &
+                            & 2*kinetic_energies, &
+                            & stresses,           &
+                            & volume              )
 end function
 
 ! Calculate the harmonic expectation of a potential,
@@ -905,40 +1023,54 @@ end function
 ! N.B. this normalises the sum of thermal weights of the included states
 !    to be one,
 !    rather than normalising to the sum across all states to be one.
-function harmonic_expectation_WavevectorBasis(bases,potential, &
-   & thermal_energy,anharmonic_data) result(output)
+function core_effective_harmonic_observables_WavevectorBasis(bases,     &
+   & thermal_energy,potential,stress,stress_prefactors,anharmonic_data) &
+   & result(output)
   implicit none
   
-  type(WavevectorBasis), intent(in) :: bases(:)
-  class(PotentialData),  intent(in) :: potential
-  real(dp),              intent(in) :: thermal_energy
-  type(AnharmonicData),  intent(in) :: anharmonic_data
-  type(ThermodynamicData)           :: output
+  type(WavevectorBasis),  intent(in)           :: bases(:)
+  real(dp),               intent(in)           :: thermal_energy
+  class(PotentialData),   intent(in)           :: potential
+  class(StressData),      intent(in), optional :: stress
+  type(StressPrefactors), intent(in), optional :: stress_prefactors
+  type(AnharmonicData),   intent(in)           :: anharmonic_data
+  type(ThermodynamicData)                      :: output
   
-  real(dp), allocatable :: kinetic_energies(:)
-  real(dp), allocatable :: energies(:)
+  real(dp), allocatable :: harmonic_kinetic_energies(:)
+  real(dp), allocatable :: harmonic_energy_differences(:)
+  real(dp), allocatable :: anharmonic_potential_energies(:)
   real(dp), allocatable :: boltzmann_factors(:)
-  real(dp)              :: partition_function
   
-  integer               :: ground_state
-  real(dp), allocatable :: energy_difference(:)
+  integer :: ground_state
   
   real(dp) :: anharmonic_minus_harmonic
   
-  real(dp) :: energy
-  real(dp) :: free_energy
-  real(dp) :: entropy
+  integer :: i,j
   
-  integer :: i,j,ialloc
+  ! Calculate properties with a harmonic potential.
+  output = core_harmonic_observables( bases,             &
+                                    & thermal_energy,    &
+                                    & stress,            &
+                                    & stress_prefactors, &
+                                    & anharmonic_data    )
   
-  ! Calculate <|T|>. N.B. this is also <|V|> for the harmonic potential.
-  kinetic_energies = [( bases(i)%harmonic_states_%kinetic_energy(    &
-                      &           anharmonic_data=anharmonic_data ), &
-                      & i=1,                                         &
-                      & size(bases)                                  )]
+  ! Calculate <|T|> for the harmonic potential.
+  harmonic_kinetic_energies = [(                    &
+     & bases(i)%harmonic_states_%kinetic_energy(    &
+     &           anharmonic_data=anharmonic_data ), &
+     & i=1,                                         &
+     & size(bases)                                  )]
+  
+  ! Identify the ground state.
+  ground_state = minloc(harmonic_kinetic_energies, 1)
+  
+  ! Calculate <|T+V|> - min(<|T+V|>) for the harmonic potential.
+  ! N.B. <|V|> = <|T|> for the harmonic potential.
+  harmonic_energy_differences = 2*( harmonic_kinetic_energies               &
+                                & - harmonic_kinetic_energies(ground_state) )
   
   ! Calculate <|V|> for the input potential.
-  energies = [(                                               &
+  anharmonic_potential_energies = [(                          &
      & [( potential_energy( bases(i)%harmonic_states_(j),     &
      &                      potential,                        &
      &                      anharmonic_data           ),      &
@@ -947,58 +1079,113 @@ function harmonic_expectation_WavevectorBasis(bases,potential, &
      & i=1,                                                   &
      & size(bases)                                            )]
   
-  ! Identify the ground state.
-  ground_state = minloc(kinetic_energies, 1)
-  
-  ! Calculate E-E' = <|T+V|>-<|T+V|>' = 2<T>-2<T>'.
-  energy_difference = [( 2.0_dp*( kinetic_energies(i)               &
-                       &        - kinetic_energies(ground_state) ), &
-                       & i=1,                                       &
-                       & size(kinetic_energies)                     )]
-  
-  if (maxval(energy_difference) < 1e20_dp*thermal_energy) then
+  ! Calculate the difference in <|V|> between the harmonic
+  !    and anharmonic potentials.
+  if ( maxval(harmonic_energy_differences) < 1e20_dp*thermal_energy) then
     ! Normal temperature range.
-    boltzmann_factors = [exp(-energy_difference/thermal_energy)]
-    partition_function = sum(boltzmann_factors)
-    
-    ! Calculate observables w/r/t the harmonic potential.
-    energy = sum(boltzmann_factors*kinetic_energies) * 2 / partition_function
-    free_energy = 2*kinetic_energies(ground_state) &
-              & - thermal_energy*log(partition_function)
-    entropy = (energy-free_energy)/thermal_energy
-    
-    ! Update the energy and free energy to account for the input potential.
-    ! N.B. again, the harmonic kinetic and potential energies are the same.
-    anharmonic_minus_harmonic = sum( boltzmann_factors             &
-                            &      * (energies-kinetic_energies) ) &
-                            & / partition_function
-    energy = energy + anharmonic_minus_harmonic
-    free_energy = free_energy + anharmonic_minus_harmonic
+    boltzmann_factors = [exp( -harmonic_energy_differences &
+                          & / thermal_energy               )]
+    anharmonic_minus_harmonic = sum( boltzmann_factors                   &
+                            &      * ( anharmonic_potential_energies     &
+                            &        - harmonic_kinetic_energies     ) ) &
+                            & / sum(boltzmann_factors)
   else
     ! Very low temperature limit.
-    energy = energies(ground_state) + kinetic_energies(ground_state)
-    free_energy = energy
-    entropy = 0
+    anharmonic_minus_harmonic = anharmonic_potential_energies(ground_state) &
+                            & - harmonic_kinetic_energies(ground_state)
   endif
   
-  output = ThermodynamicData(thermal_energy, energy, free_energy, entropy)
+  ! Add the change in <|V|> to U, F, H and G.
+  output%energy = output%energy + anharmonic_minus_harmonic
+  output%free_energy = output%free_energy + anharmonic_minus_harmonic
+  if (allocated(output%enthalpy)) then
+    output%enthalpy = output%enthalpy + anharmonic_minus_harmonic
+    output%gibbs = output%gibbs + anharmonic_minus_harmonic
+  endif
 end function
 
-! Mode IDs.
-function mode_ids_WavevectorBasis(this) result(output)
+! Calculate thermodynamic data for the core VCI states.
+function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
+   & subspace,subspace_potential,subspace_stress,stress_prefactors,        &
+   & anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in) :: this
-  integer, allocatable               :: output(:)
+  type(WavevectorBasis),    intent(in)           :: bases(:)
+  real(dp),                 intent(in)           :: thermal_energy
+  class(BasisStates),       intent(in)           :: states
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(PotentialData),     intent(in)           :: subspace_potential
+  class(StressData),        intent(in), optional :: subspace_stress
+  type(StressPrefactors),   intent(in), optional :: stress_prefactors
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ThermodynamicData)                        :: output
+  
+  type(WavevectorStates) :: wavevector_states
+  
+  type(RealMatrix), allocatable :: stress(:)
+  real(dp),         allocatable :: volume
+  
+  integer :: i,j,ialloc
+  
+  if (present(subspace_stress) .neqv. present(stress_prefactors)) then
+    call print_line(CODE_ERROR//': Only one of subspace_stress and &
+       &stress_prefactors passed.')
+    call err()
+  endif
+  
+  wavevector_states = WavevectorStates(states)
+  
+  ! Calculate stress.
+  if (present(subspace_stress)) then
+    allocate( stress(size(wavevector_states%states)), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(wavevector_states%states)
+      associate(state => wavevector_states%states(i))
+        j = first(bases%wavevector==state%wavevector)
+        stress(i) = potential_stress( state,                  &
+                &                     subspace_stress,        &
+                &                     subspace,               &
+                &                     bases(j),               &
+                &                     anharmonic_data  )      &
+                & + bases(j)%kinetic_stress(                  &
+                &      bra               = state,             &
+                &      subspace          = subspace,          &
+                &      stress_prefactors = stress_prefactors, &
+                &      anharmonic_data   = anharmonic_data    )
+      end associate
+    enddo
+    
+    volume = anharmonic_data%structure%volume
+  endif
+  
+  output = ThermodynamicData( thermal_energy,             &
+                            & wavevector_states%energies, &
+                            & stress,                     &
+                            & volume                      )
+end function
+
+! ----------------------------------------------------------------------
+! Mode IDs.
+! ----------------------------------------------------------------------
+function mode_ids_WavevectorBasis(this,subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  integer, allocatable                 :: output(:)
   
   output = this%harmonic_states_(1)%mode_ids()
 end function
 
-function paired_mode_ids_WavevectorBasis(this) result(output)
+function paired_mode_ids_WavevectorBasis(this,subspace,anharmonic_data) &
+   & result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in) :: this
-  integer, allocatable               :: output(:)
+  class(WavevectorBasis),   intent(in) :: this
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  integer, allocatable                 :: output(:)
   
   output = this%harmonic_states_(1)%paired_mode_ids()
 end function
@@ -1116,5 +1303,54 @@ impure elemental function new_WavevectorBasis_StringArray(input) &
   type(WavevectorBasis)         :: this
   
   this = WavevectorBasis(str(input))
+end function
+
+! ----------------------------------------------------------------------
+! Inherited procedures which do not apply to this type.
+! ----------------------------------------------------------------------
+impure elemental function integrate_BasisStates_WavevectorBasis(this,states, &
+   & thermal_energy,monomial,subspace,anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in) :: this
+  class(BasisStates),       intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
+  type(SparseMonomial),     intent(in) :: monomial
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  complex(dp)                          :: output
+  
+  call err()
+end function
+
+impure elemental function thermodynamic_data_WavevectorBasis(this,      &
+   & thermal_energy,states,subspace,subspace_potential,subspace_stress, &
+   & stress_prefactors,anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in) :: this
+  real(dp),                 intent(in)           :: thermal_energy
+  class(BasisStates),       intent(in)           :: states
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(PotentialData),     intent(in)           :: subspace_potential
+  class(StressData),        intent(in), optional :: subspace_stress
+  type(StressPrefactors),   intent(in), optional :: stress_prefactors
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(ThermodynamicData)                        :: output
+  
+  call err()
+end function
+
+impure elemental function wavefunctions_WavevectorBasis(this,states,subspace, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  class(WavevectorBasis),   intent(in) :: this
+  class(BasisStates),       intent(in) :: states
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(SubspaceWavefunctionsPointer)   :: output
+  
+  call err()
 end function
 end module

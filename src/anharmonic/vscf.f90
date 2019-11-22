@@ -31,8 +31,9 @@ module vscf_module
   public :: run_vscf
   
   type, extends(NoDefaultConstructor) :: VscfOutput
-    type(PotentialPointer)   :: potential
-    type(BasisStatesPointer) :: states
+    type(PotentialPointer)           :: potential
+    type(BasisStatesPointer)         :: states
+    type(StressPointer), allocatable :: stress
   end type
   
   interface VscfOutput
@@ -41,25 +42,30 @@ module vscf_module
 contains
 
 ! Constructor.
-impure elemental function new_VscfOutput(potential,states) result(this)
+impure elemental function new_VscfOutput(potential,states,stress) result(this)
   implicit none
   
-  class(PotentialData), intent(in) :: potential
-  Class(BasisStates),   intent(in) :: states
-  type(VscfOutput)                 :: this
+  class(PotentialData), intent(in)           :: potential
+  Class(BasisStates),   intent(in)           :: states
+  class(StressData),    intent(in), optional :: stress
+  type(VscfOutput)                           :: this
   
   this%potential = PotentialPointer(potential)
   this%states = BasisStatesPointer(states)
+  if (present(stress)) then
+    this%stress = StressPointer(stress)
+  endif
 end function
 
 ! Vscf routine.
-function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
-   & energy_convergence,frequencies,no_converged_calculations,       &
-   & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,    &
+function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
+   & energy_convergence,frequencies,no_converged_calculations,              &
+   & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,           &
    & anharmonic_data,random_generator,starting_configuration) result(output)
   implicit none
   
   class(PotentialData),     intent(in)           :: potential
+  class(StressData),        intent(in), optional :: stress
   type(DegenerateSubspace), intent(in)           :: subspaces(:)
   class(SubspaceBasis),     intent(in)           :: subspace_bases(:)
   real(dp),                 intent(in)           :: thermal_energy
@@ -77,6 +83,7 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
   ! Single-subspace potentials and states.
   type(PotentialPointer),   allocatable :: subspace_potentials(:)
   type(BasisStatesPointer), allocatable :: subspace_states(:)
+  type(StressPointer),      allocatable :: subspace_stresses(:)
   
   ! Potential coefficients.
   integer,  allocatable :: first_coefficient(:)
@@ -195,8 +202,27 @@ function run_vscf(potential,subspaces,subspace_bases,thermal_energy, &
     
     ! Check for convergence.
     if (solver%converged()) then
-      output = VscfOutput(subspace_potentials, subspace_states)
       call print_line('Convergence reached.')
+      
+      ! Calculate subspace stresses.
+      if (present(stress)) then
+        subspace_stresses = generate_subspace_stresses( stress,          &
+                                                      & subspaces,       &
+                                                      & subspace_bases,  &
+                                                      & subspace_states, &
+                                                      & thermal_energy,  &
+                                                      & anharmonic_data  )
+      endif
+      
+      ! Construct output and return.
+      if (present(stress)) then
+        output = VscfOutput( subspace_potentials, &
+                           & subspace_states,     &
+                           & subspace_stresses    )
+      else
+        output = VscfOutput( subspace_potentials, &
+                           & subspace_states      )
+      endif
       return
     endif
     

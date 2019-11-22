@@ -437,6 +437,8 @@ impure elemental function harmonic_expectation_StressBasisFunction(this, &
                                               & anharmonic_data )
     enddo
   enddo
+  
+  output = mat(elements)
 end function
 
 ! ----------------------------------------------------------------------

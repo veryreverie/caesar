@@ -313,7 +313,7 @@ subroutine read_PolynomialStress(this,input)
     reference_stress = RealMatrix(input(2:4))
     
     basis_functions = CouplingStressBasisFunctions(split_into_sections( &
-                                       & input(8:),                     &
+                                       & input(7:),                     &
                                        & separating_line=repeat('=',50) ))
     
     this = PolynomialStress( reference_stress, &

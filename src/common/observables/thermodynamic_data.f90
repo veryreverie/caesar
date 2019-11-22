@@ -21,10 +21,17 @@ module thermodynamic_data_module
   public :: min
   
   type, extends(Stringable) :: ThermodynamicData
+    ! T, U, F and S.
     real(dp) :: thermal_energy
     real(dp) :: energy
     real(dp) :: free_energy
     real(dp) :: entropy
+    
+    ! P, V, H and G.
+    type(RealMatrix), allocatable :: stress
+    real(dp),         allocatable :: volume
+    real(dp),         allocatable :: enthalpy
+    real(dp),         allocatable :: gibbs
   contains
     procedure, public :: read  => read_ThermodynamicData
     procedure, public :: write => write_ThermodynamicData
@@ -68,73 +75,128 @@ module thermodynamic_data_module
 contains
 
 impure elemental function new_ThermodynamicData(thermal_energy,energy, &
-   & free_energy,entropy) result(this)
+   & free_energy,entropy,stress,volume,enthalpy,gibbs) result(this)
   implicit none
   
-  real(dp), intent(in)    :: thermal_energy
-  real(dp), intent(in)    :: energy
-  real(dp), intent(in)    :: free_energy
-  real(dp), intent(in)    :: entropy
+  real(dp),         intent(in)           :: thermal_energy
+  real(dp),         intent(in)           :: energy
+  real(dp),         intent(in)           :: free_energy
+  real(dp),         intent(in)           :: entropy
+  type(RealMatrix), intent(in), optional :: stress
+  real(dp),         intent(in), optional :: volume
+  real(dp),         intent(in), optional :: enthalpy
+  real(dp),         intent(in), optional :: gibbs
   type(ThermodynamicData) :: this
+  
+  logical :: arguments_present(4)
+  
+  arguments_present = [ present(stress),   &
+                      & present(volume),   &
+                      & present(enthalpy), &
+                      & present(gibbs)     ]
+  if (any(arguments_present) .and. .not. all(arguments_present)) then
+    call print_line(CODE_ERROR//': If any of P, V, H and G are given they &
+       &must all be given.')
+    call err()
+  endif
   
   this%thermal_energy = thermal_energy
   this%energy = energy
   this%free_energy = free_energy
   this%entropy = entropy
+  
+  if (any(arguments_present)) then
+    this%stress = stress
+    this%volume = volume
+    this%enthalpy = enthalpy
+    this%gibbs = gibbs
+  endif
 end function
 
-function new_ThermodynamicData_spectrum(thermal_energy,energies) result(output)
+function new_ThermodynamicData_spectrum(thermal_energy,energies,stresses, &
+   & volume) result(output)
   implicit none
   
-  real(dp), intent(in)    :: thermal_energy
-  real(dp), intent(in)    :: energies(:)
-  type(ThermodynamicData) :: output
+  real(dp),         intent(in)           :: thermal_energy
+  real(dp),         intent(in)           :: energies(:)
+  type(RealMatrix), intent(in), optional :: stresses(:)
+  real(dp),         intent(in), optional :: volume
+  type(ThermodynamicData)                :: output
   
-  real(dp) :: max_energy
-  real(dp) :: min_energy
+  integer :: ground_state
   
   real(dp), allocatable :: reduced_energies(:)
   
   real(dp), allocatable :: boltzmann_factors(:)
   real(dp)              :: partition_function
   
-  real(dp) :: energy
-  real(dp) :: free_energy
-  real(dp) :: entropy
+  real(dp)                      :: energy
+  real(dp)                      :: free_energy
+  real(dp)                      :: entropy
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
   
-  max_energy = maxval(energies)
-  min_energy = minval(energies)
+  if (present(stresses) .neqv. present(volume)) then
+    call print_line(CODE_ERROR//': Stresses and volume must either both be &
+       &present or both be absent.')
+    call err()
+  endif
   
-  reduced_energies = energies - min_energy
+  ground_state = minloc(energies, 1)
   
-  ! Calculate U, F and S using reduced energies.
-  if (max_energy-min_energy < 1e20_dp*thermal_energy) then
+  reduced_energies = energies - energies(ground_state)
+  
+  ! Calculate U, F, S and stress using reduced energies.
+  if (maxval(energies)-energies(ground_state) < 1e20_dp*thermal_energy) then
     ! Normal temperature range.
     boltzmann_factors = [exp(-reduced_energies/thermal_energy)]
     partition_function = sum(boltzmann_factors)
     energy = sum(boltzmann_factors*reduced_energies) / partition_function
     free_energy = -thermal_energy * log(partition_function)
     entropy = (energy-free_energy)/thermal_energy
+    if (present(stresses)) then
+      stress = sum(boltzmann_factors*stresses) / partition_function
+    endif
   else
     ! Very low temperature limit.
     energy = 0
     free_energy = 0
     entropy = 0
+    if (present(stresses)) then
+      stress = stresses(ground_state)
+    endif
   endif
   
-  ! Add min_energy back in.
-  energy = energy + min_energy
-  free_energy = free_energy + min_energy
+  ! Add ground state energy back in.
+  energy = energy + energies(ground_state)
+  free_energy = free_energy + energies(ground_state)
   
-  output = ThermodynamicData(thermal_energy, energy, free_energy, entropy)
+  ! Calculate stress-related quantities.
+  if (present(stresses)) then
+    enthalpy = energy + trace(stress)*volume/3
+    gibbs = free_energy + trace(stress)*volume/3
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
-function new_ThermodynamicData_harmonic(thermal_energy,frequency) &
-   & result(output)
+function new_ThermodynamicData_harmonic(thermal_energy,frequency, &
+   & stress_prefactor,potential_stress,volume) result(output)
   implicit none
   
-  real(dp), intent(in)    :: thermal_energy ! T.
-  real(dp), intent(in)    :: frequency      ! w.
+  real(dp),         intent(in)           :: thermal_energy ! T.
+  real(dp),         intent(in)           :: frequency      ! w.
+  type(RealMatrix), intent(in), optional :: stress_prefactor
+  type(RealMatrix), intent(in), optional :: potential_stress
+  real(dp),         intent(in), optional :: volume
   type(ThermodynamicData) :: output
   
   real(dp) :: exp_plus
@@ -143,6 +205,12 @@ function new_ThermodynamicData_harmonic(thermal_energy,frequency) &
   real(dp) :: energy
   real(dp) :: free_energy
   real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  logical, allocatable :: arguments_present(:)
   
   if (thermal_energy<0) then
     call print_line(CODE_ERROR//': Trying to calculate thermodynamic &
@@ -187,12 +255,37 @@ function new_ThermodynamicData_harmonic(thermal_energy,frequency) &
     entropy = (energy-free_energy)/thermal_energy
   endif
   
-  output = ThermodynamicData(thermal_energy, energy, free_energy, entropy)
+  ! Calculate stress-related properties.
+  arguments_present = [ present(stress_prefactor), &
+                      & present(potential_stress), &
+                      & present(volume)            ]
+  if (any(arguments_present) .and. .not. all(arguments_present)) then
+    call print_line(CODE_ERROR//': If any stress-related arguments are given, &
+       &all must be given.')
+    call err()
+  endif
+  if (all(arguments_present)) then
+    ! For harmonic states, the kinetic stress is equal to UI/V, where I is the
+    !    stress prefactor and V is the volume.
+    stress = potential_stress + energy*stress_prefactor/volume
+    enthalpy = energy + volume*trace(stress)/3
+    gibbs = free_energy + volume*trace(stress)/3
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 ! ----------------------------------------------------------------------
 ! Algebra with ThermodynamicData.
-! N.B. + and - assume that the thermal_energy is the same for both arguments.
+! N.B. + and - assume that the thermal_energy and volume are the same
+!    for both arguments.
 ! ----------------------------------------------------------------------
 impure elemental function add_ThermodynamicData_ThermodynamicData(this,that) &
    & result(output)
@@ -202,10 +295,45 @@ impure elemental function add_ThermodynamicData_ThermodynamicData(this,that) &
   type(ThermodynamicData), intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( this%thermal_energy,                 &
-                            & this%energy      + that%energy,      &
-                            & this%free_energy + that%free_energy, &
-                            & this%entropy     + that%entropy      )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = this%thermal_energy
+  energy = this%energy + that%energy
+  free_energy = this%free_energy + that%free_energy
+  entropy = this%entropy + that%entropy
+  
+  if (allocated(this%stress) .and. allocated(that%stress)) then
+    stress = this%stress + that%stress
+  endif
+  
+  if (allocated(this%volume) .and. allocated(that%volume)) then
+    volume = this%volume
+  endif
+  
+  if (allocated(this%enthalpy) .and. allocated(that%enthalpy)) then
+    enthalpy = this%enthalpy + that%enthalpy
+  endif
+  
+  if (allocated(this%gibbs) .and. allocated(that%gibbs)) then
+    gibbs = this%gibbs + that%gibbs
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function negative_ThermodynamicData(input) result(output)
@@ -214,10 +342,45 @@ impure elemental function negative_ThermodynamicData(input) result(output)
   type(ThermodynamicData), intent(in) :: input
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( input%thermal_energy, &
-                            & -input%energy         &
-                            & -input%free_energy    &
-                            & -input%entropy        )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = input%thermal_energy
+  energy = -input%energy
+  free_energy = -input%free_energy
+  entropy = -input%entropy
+  
+  if (allocated(input%stress)) then
+    stress = -input%stress
+  endif
+  
+  if (allocated(input%volume)) then
+    volume = input%volume
+  endif
+  
+  if (allocated(input%enthalpy)) then
+    enthalpy = -input%enthalpy
+  endif
+  
+  if (allocated(input%gibbs)) then
+    gibbs = -input%gibbs
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function subtract_ThermodynamicData_ThermodynamicData(this, &
@@ -228,10 +391,45 @@ impure elemental function subtract_ThermodynamicData_ThermodynamicData(this, &
   type(ThermodynamicData), intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( this%thermal_energy,                 &
-                            & this%energy      - that%energy,      &
-                            & this%free_energy - that%free_energy, &
-                            & this%entropy     - that%entropy      )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = this%thermal_energy
+  energy = this%energy - that%energy
+  free_energy = this%free_energy - that%free_energy
+  entropy = this%entropy - that%entropy
+  
+  if (allocated(this%stress) .and. allocated(that%stress)) then
+    stress = this%stress - that%stress
+  endif
+  
+  if (allocated(this%volume) .and. allocated(that%volume)) then
+    volume = this%volume
+  endif
+  
+  if (allocated(this%enthalpy) .and. allocated(that%enthalpy)) then
+    enthalpy = this%enthalpy - that%enthalpy
+  endif
+  
+  if (allocated(this%gibbs) .and. allocated(that%gibbs)) then
+    gibbs = this%gibbs - that%gibbs
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function multiply_ThermodynamicData_integer(this,that) &
@@ -242,10 +440,45 @@ impure elemental function multiply_ThermodynamicData_integer(this,that) &
   integer,                 intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( this%thermal_energy,     &
-                            & this%energy      * that, &
-                            & this%free_energy * that, &
-                            & this%entropy     * that  )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = this%thermal_energy
+  energy = this%energy*that
+  free_energy = this%free_energy*that
+  entropy = this%entropy*that
+  
+  if (allocated(this%stress)) then
+    stress = this%stress*that
+  endif
+  
+  if (allocated(this%volume)) then
+    volume = this%volume
+  endif
+  
+  if (allocated(this%enthalpy)) then
+    enthalpy = this%enthalpy*that
+  endif
+  
+  if (allocated(this%gibbs)) then
+    gibbs = this%gibbs*that
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function multiply_integer_ThermodynamicData(this,that) &
@@ -256,10 +489,45 @@ impure elemental function multiply_integer_ThermodynamicData(this,that) &
   type(ThermodynamicData), intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( that%thermal_energy,     &
-                            & this * that%energy,      &
-                            & this * that%free_energy, &
-                            & this * that%entropy      )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = that%thermal_energy
+  energy = that%energy*this
+  free_energy = that%free_energy*this
+  entropy = that%entropy*this
+  
+  if (allocated(that%stress)) then
+    stress = that%stress*this
+  endif
+  
+  if (allocated(that%volume)) then
+    volume = that%volume
+  endif
+  
+  if (allocated(that%enthalpy)) then
+    enthalpy = that%enthalpy*this
+  endif
+  
+  if (allocated(that%gibbs)) then
+    gibbs = that%gibbs*this
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function multiply_ThermodynamicData_real(this,that) &
@@ -270,10 +538,45 @@ impure elemental function multiply_ThermodynamicData_real(this,that) &
   real(dp),                intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( this%thermal_energy,     &
-                            & this%energy      * that, &
-                            & this%free_energy * that, &
-                            & this%entropy     * that  )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = this%thermal_energy
+  energy = this%energy*that
+  free_energy = this%free_energy*that
+  entropy = this%entropy*that
+  
+  if (allocated(this%stress)) then
+    stress = this%stress*that
+  endif
+  
+  if (allocated(this%volume)) then
+    volume = this%volume
+  endif
+  
+  if (allocated(this%enthalpy)) then
+    enthalpy = this%enthalpy*that
+  endif
+  
+  if (allocated(this%gibbs)) then
+    gibbs = this%gibbs*that
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function multiply_real_ThermodynamicData(this,that) &
@@ -284,10 +587,45 @@ impure elemental function multiply_real_ThermodynamicData(this,that) &
   type(ThermodynamicData), intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( that%thermal_energy,     &
-                            & this * that%energy,      &
-                            & this * that%free_energy, &
-                            & this * that%entropy      )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = that%thermal_energy
+  energy = that%energy*this
+  free_energy = that%free_energy*this
+  entropy = that%entropy*this
+  
+  if (allocated(that%stress)) then
+    stress = that%stress*this
+  endif
+  
+  if (allocated(that%volume)) then
+    volume = that%volume
+  endif
+  
+  if (allocated(that%enthalpy)) then
+    enthalpy = that%enthalpy*this
+  endif
+  
+  if (allocated(that%gibbs)) then
+    gibbs = that%gibbs*this
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function divide_ThermodynamicData_integer(this,that) &
@@ -298,10 +636,45 @@ impure elemental function divide_ThermodynamicData_integer(this,that) &
   integer,                 intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( this%thermal_energy,     &
-                            & this%energy      / that, &
-                            & this%free_energy / that, &
-                            & this%entropy     / that  )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = this%thermal_energy
+  energy = this%energy/that
+  free_energy = this%free_energy/that
+  entropy = this%entropy/that
+  
+  if (allocated(this%stress)) then
+    stress = this%stress/that
+  endif
+  
+  if (allocated(this%volume)) then
+    volume = this%volume
+  endif
+  
+  if (allocated(this%enthalpy)) then
+    enthalpy = this%enthalpy/that
+  endif
+  
+  if (allocated(this%gibbs)) then
+    gibbs = this%gibbs/that
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 impure elemental function divide_ThermodynamicData_real(this,that) &
@@ -312,10 +685,45 @@ impure elemental function divide_ThermodynamicData_real(this,that) &
   real(dp),                intent(in) :: that
   type(ThermodynamicData)             :: output
   
-  output = ThermodynamicData( this%thermal_energy,     &
-                            & this%energy      / that, &
-                            & this%free_energy / that, &
-                            & this%entropy     / that  )
+  real(dp) :: thermal_energy
+  real(dp) :: energy
+  real(dp) :: free_energy
+  real(dp) :: entropy
+  
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
+  thermal_energy = this%thermal_energy
+  energy = this%energy/that
+  free_energy = this%free_energy/that
+  entropy = this%entropy/that
+  
+  if (allocated(this%stress)) then
+    stress = this%stress/that
+  endif
+  
+  if (allocated(this%volume)) then
+    volume = this%volume
+  endif
+  
+  if (allocated(this%enthalpy)) then
+    enthalpy = this%enthalpy/that
+  endif
+  
+  if (allocated(this%gibbs)) then
+    gibbs = this%gibbs/that
+  endif
+  
+  output = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
 end function
 
 function sum_ThermodynamicData(input) result(output)
@@ -438,6 +846,11 @@ subroutine read_ThermodynamicData(this,input)
   real(dp) :: free_energy
   real(dp) :: entropy
   
+  type(RealMatrix), allocatable :: stress
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy
+  real(dp),         allocatable :: gibbs
+  
   type(String), allocatable :: line(:)
   
   select type(this); type is(ThermodynamicData)
@@ -447,7 +860,21 @@ subroutine read_ThermodynamicData(this,input)
     free_energy = dble(line(3))
     entropy = dble(line(4))
     
-    this = ThermodynamicData(thermal_energy,energy,free_energy,entropy)
+    if (size(line)>4) then
+      stress = mat(dble(line(5:13)),3,3)
+      volume = dble(line(14))
+      enthalpy = dble(line(15))
+      gibbs = dble(line(16))
+    endif
+    
+    this = ThermodynamicData( thermal_energy, &
+                            & energy,         &
+                            & free_energy,    &
+                            & entropy,        &
+                            & stress,         &
+                            & volume,         &
+                            & enthalpy,       &
+                            & gibbs           )
   class default
     call err()
   end select
@@ -464,6 +891,21 @@ function write_ThermodynamicData(this) result(output)
            & this%energy         //' '// &
            & this%free_energy    //' '// &
            & this%entropy
+    if (allocated(this%stress)) then
+      output = output                   //' '// &
+             & this%stress%element(1,1) //' '// &
+             & this%stress%element(1,2) //' '// &
+             & this%stress%element(1,3) //' '// &
+             & this%stress%element(2,1) //' '// &
+             & this%stress%element(2,2) //' '// &
+             & this%stress%element(2,3) //' '// &
+             & this%stress%element(3,1) //' '// &
+             & this%stress%element(3,2) //' '// &
+             & this%stress%element(3,3) //' '// &
+             & this%volume              //' '// &
+             & this%enthalpy            //' '// &
+             & this%gibbs
+    endif
   class default
     call err()
   end select

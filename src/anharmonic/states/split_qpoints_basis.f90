@@ -373,10 +373,17 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
           & energies(0), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this%wavevectors)
-    wavevector_states = this%wavevectors(i)%calculate_states( &
-                                        & subspace_potential, &
-                                        & thermal_energy,     &
-                                        & anharmonic_data     )
+    wavevector_states = WavevectorStates(        &
+       & this%wavevectors(i)%calculate_states(   &
+       &            subspace,                    &
+       &            subspace_potential,          &
+       &            thermal_energy,              &
+       &            energy_convergence,          &
+       &            no_converged_calculations,   &
+       &            max_pulay_iterations,        &
+       &            pre_pulay_iterations,        &
+       &            pre_pulay_damping,           &
+       &            anharmonic_data            ) )
     states = [states, wavevector_states%states]
     energies = [energies, wavevector_states%energies]
   enddo
@@ -629,6 +636,7 @@ impure elemental function inner_product_SplitQpointsBasis(this,bra,ket, &
   
   output = this%wavevectors(i)%inner_product( split_bra,       &
                                             & split_ket,       &
+                                            & subspace,        &
                                             & anharmonic_data  )
   
   output = output * size(this%qpoints_to_integrate_)
@@ -669,6 +677,7 @@ impure elemental function integrate_BasisState_SplitQpointsBasis(this, &
   output = product(this%wavevectors(i)%integrate( split_bra,       &
                                                 & monomials,       &
                                                 & split_ket,       &
+                                                & subspace,        &
                                                 & anharmonic_data  ))
 end function
 
@@ -732,6 +741,7 @@ impure elemental function kinetic_energy_SplitQpointsBasis(this,bra,ket, &
   
   output = this%wavevectors(i)%kinetic_energy( split_bra,      &
                                              & split_ket,      &
+                                             & subspace,       &
                                              & anharmonic_data )
   
   output = output * size(this%qpoints_to_integrate_)
@@ -762,6 +772,7 @@ impure elemental function harmonic_potential_energy_SplitQpointsBasis(this, &
   
   output = this%wavevectors(i)%harmonic_potential_energy( split_bra,      &
                                                         & split_ket,      &
+                                                        & subspace,       &
                                                         & anharmonic_data )
   
   output = output * size(this%qpoints_to_integrate_)
@@ -793,6 +804,7 @@ impure elemental function kinetic_stress_SplitQpointsBasis(this,bra,ket, &
   
   output = this%wavevectors(i)%kinetic_stress( split_bra,         &
                                              & split_ket,         &
+                                             & subspace,          &
                                              & stress_prefactors, &
                                              & anharmonic_data    )
   
@@ -815,59 +827,22 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(ThermodynamicData)                        :: output
   
-  type(SplitQpointsBasis) :: basis
-  
-  type(WavevectorStates) :: split_states
-  
-  type(RealMatrix), allocatable :: stress(:)
-  
-  type(ThermodynamicData) :: full_harmonic_thermodynamics
-  type(ThermodynamicData) :: core_harmonic_thermodynamics
-  type(ThermodynamicData) :: full_effective_thermodynamics
-  type(ThermodynamicData) :: core_effective_thermodynamics
-  type(ThermodynamicData) :: core_vci_thermodynamics
-  
-  integer :: i,ialloc
-  
-  if (present(subspace_stress) .neqv. present(stress_prefactors)) then
-    call print_line(CODE_ERROR//': Only one of subspace_stress and &
-       &stress_prefactors passed.')
-    call err()
-  endif
-  
-  split_states = WavevectorStates(states)
-  
-  ! TODO: include stress.
-  ! Calculate stress.
-  !if (present(subspace_stress)) then
-  !  allocate( stress(size(split_states%states)), &
-  !          & stat=ialloc); call err(ialloc)
-  !  do i=1,size(split_states%states)
-  !    stress(i) = potential_stress( split_states%states(i),        &
-  !            &                     subspace_stress,               &
-  !            &                     subspace,                      &
-  !            &                     this,                          &
-  !            &                     anharmonic_data              ) &
-  !            & + this%kinetic_stress(                             &
-  !            &        bra               = split_states%states(i), &
-  !            &        subspace          = subspace,               &
-  !            &        stress_prefactors = stress_prefactors,      &
-  !            &        anharmonic_data   = anharmonic_data         )
-  !  enddo
-  !endif
-  
   ! Calculate the thermodynamic properties for one q-point in the system.
   output = core_shell_thermodynamics(     &
      & thermal_energy,                    &
      & this%frequency,                    &
      & size(subspace)/size(this%qpoints), &
+     & subspace,                          &
      & this%wavevectors,                  &
+     & states,                            &
      & subspace_potential,                &
-     & split_states%energies,             &
+     & subspace_stress,                   &
+     & stress_prefactors,                 &
      & anharmonic_data                    )
   
   ! Multiply by the number of q-points, and add in the constant term.
   output = output * size(this%qpoints)
+  ! TODO: stress needs rotating per q-point.
 end function
 
 ! Wavefunctions.

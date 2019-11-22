@@ -74,6 +74,11 @@ module polynomial_potential_module
     procedure, public :: set_coefficients => &
                        & set_coefficients_PolynomialPotential
     
+    procedure, public :: can_be_interpolated => &
+                       & can_be_interpolated_PolynomialPotential
+    procedure, public :: calculate_interpolated_thermodynamics => &
+                    & calculate_interpolated_thermodynamics_PolynomialPotential
+    
     ! I/O.
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
@@ -959,6 +964,32 @@ subroutine set_coefficients_PolynomialPotential(this,coefficients, &
        & coefficients(j+1:j+size(this%basis_functions_(i))) )
     j = j+size(this%basis_functions_(i))
   enddo
+end subroutine
+
+! Interpolate the potential.
+function can_be_interpolated_PolynomialPotential(this) result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  logical                                :: output
+  
+  output = .true.
+end function
+
+subroutine calculate_interpolated_thermodynamics_PolynomialPotential(this, &
+   & thermal_energy,subspaces,subspace_potentials,subspace_bases,          &
+   & subspace_states,anharmonic_data)
+  implicit none
+  
+  class(PolynomialPotential), intent(in)    :: this
+  real(dp),                   intent(in)    :: thermal_energy
+  type(DegenerateSubspace),   intent(in)    :: subspaces(:)
+  class(PotentialData),       intent(in)    :: subspace_potentials(:)
+  class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
+  class(BasisStates),         intent(inout) :: subspace_states(:)
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  
+  ! TODO
 end subroutine
 
 ! ----------------------------------------------------------------------

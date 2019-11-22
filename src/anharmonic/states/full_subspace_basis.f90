@@ -295,13 +295,19 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
           & energies(0), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this%wavevectors)
-    wavevector_states = this%wavevectors(i)%calculate_states( &
-                                        & subspace_potential, &
-                                        & thermal_energy,     &
-                                        & anharmonic_data     )
+    wavevector_states = WavevectorStates(        &
+       & this%wavevectors(i)%calculate_states(   &
+       &            subspace,                    &
+       &            subspace_potential,          &
+       &            thermal_energy,              &
+       &            energy_convergence,          &
+       &            no_converged_calculations,   &
+       &            max_pulay_iterations,        &
+       &            pre_pulay_iterations,        &
+       &            pre_pulay_damping,           &
+       &            anharmonic_data            ) )
     states = [states, wavevector_states%states]
     energies = [energies, wavevector_states%energies]
-    weights = [weights, wavevector_states%weights]
   enddo
   
   weights = calculate_weights(energies, thermal_energy)
@@ -334,7 +340,7 @@ function mode_ids_FullSubspaceBasis(this,subspace,anharmonic_data) &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   integer, allocatable                 :: output(:)
   
-  output = this%wavevectors(1)%mode_ids()
+  output = this%wavevectors(1)%mode_ids(subspace,anharmonic_data)
 end function
 
 function paired_mode_ids_FullSubspaceBasis(this,subspace,anharmonic_data) &
@@ -346,7 +352,7 @@ function paired_mode_ids_FullSubspaceBasis(this,subspace,anharmonic_data) &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   integer, allocatable                 :: output(:)
   
-  output = this%wavevectors(1)%paired_mode_ids()
+  output = this%wavevectors(1)%paired_mode_ids(subspace,anharmonic_data)
 end function
 
 impure elemental function inner_product_FullSubspaceBasis(this,bra,ket, &
@@ -374,6 +380,7 @@ impure elemental function inner_product_FullSubspaceBasis(this,bra,ket, &
   
   output = this%wavevectors(i)%inner_product( full_bra,       &
                                             & full_ket,       &
+                                            & subspace,       &
                                             & anharmonic_data )
 end function
 
@@ -404,6 +411,7 @@ impure elemental function integrate_BasisState_FullSubspaceBasis(this, &
   output = this%wavevectors(i)%integrate( full_bra,       &
                                         & monomial,       &
                                         & full_ket,       &
+                                        & subspace,       &
                                         & anharmonic_data )
 end function
 
@@ -432,6 +440,7 @@ impure elemental function kinetic_energy_FullSubspaceBasis(this,bra,ket, &
   
   output = this%wavevectors(i)%kinetic_energy( full_bra,       &
                                              & full_ket,       &
+                                             & subspace,       &
                                              & anharmonic_data )
 end function
 
@@ -460,6 +469,7 @@ impure elemental function harmonic_potential_energy_FullSubspaceBasis( &
   
   output = this%wavevectors(i)%harmonic_potential_energy( full_bra,       &
                                                         & full_ket,       &
+                                                        & subspace,       &
                                                         & anharmonic_data )
 end function
 
@@ -489,6 +499,7 @@ impure elemental function kinetic_stress_FullSubspaceBasis(this,bra,ket, &
   
   output = this%wavevectors(i)%kinetic_stress( full_bra,          &
                                              & full_ket,          &
+                                             & subspace,          &
                                              & stress_prefactors, &
                                              & anharmonic_data    )
 end function
@@ -509,53 +520,17 @@ impure elemental function thermodynamic_data_FullSubspaceBasis(this,    &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(ThermodynamicData)                        :: output
   
-  type(WavevectorStates) :: full_states
-  
-  type(RealMatrix), allocatable :: stress(:)
-  
-  type(ThermodynamicData) :: full_harmonic_thermodynamics
-  type(ThermodynamicData) :: core_harmonic_thermodynamics
-  type(ThermodynamicData) :: full_effective_thermodynamics
-  type(ThermodynamicData) :: core_effective_thermodynamics
-  type(ThermodynamicData) :: core_vci_thermodynamics
-  
-  integer :: i,ialloc
-  
-  if (present(subspace_stress) .neqv. present(stress_prefactors)) then
-    call print_line(CODE_ERROR//': Only one of subspace_stress and &
-       &stress_prefactors passed.')
-    call err()
-  endif
-  
-  full_states = WavevectorStates(states)
-  
-  ! TODO: include stress.
-  !! Calculate stress.
-  !if (present(subspace_stress)) then
-  !  allocate( stress(size(full_states%states)), &
-  !          & stat=ialloc); call err(ialloc)
-  !  do i=1,size(full_states%states)
-  !    stress(i) = potential_stress( full_states%states(i),      &
-  !            &                     subspace_stress,            &
-  !            &                     subspace,                   &
-  !            &                     this,                       &
-  !            &                     anharmonic_data        )    &
-  !            & + this%kinetic_stress(                          &
-  !            &      bra               = full_states%states(i), &
-  !            &      subspace          = subspace,              &
-  !            &      stress_prefactors = stress_prefactors,     &
-  !            &      anharmonic_data   = anharmonic_data        )
-  !  enddo
-  !endif
-  
   ! Calculate the thermodynamic properties for the system.
   output = core_shell_thermodynamics( &
               & thermal_energy,       &
               & this%frequency,       &
               & size(subspace),       &
+              & subspace,             &
               & this%wavevectors,     &
+              & states,               &
               & subspace_potential,   &
-              & full_states%energies, &
+              & subspace_stress,      &
+              & stress_prefactors,    &
               & anharmonic_data       )
 end function
 
