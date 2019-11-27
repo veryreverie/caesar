@@ -101,17 +101,35 @@ end subroutine
 ! Main function.
 ! ----------------------------------------------------------------------
 subroutine test_subroutine(arguments)
+  use interpolation_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
-  type(T1) :: t_1
-  type(T2) :: t_2
+  call heaps_algorithm([1,2,3,3])
   
-  t_1 = T1(1)
-  t_2 = T2(T1(2))
+  call print_line('')
   
-  call t_1%print()
-  call t_2%print()
+  call no_repeats([1,2,1,2,1,2])
+  call print_line('')
+  call no_repeats([1,2,3,2,1,2])
+  call print_line('')
+  call no_repeats([1,2,3,4])
+  call print_line('')
+  call no_repeats([1,2,3,4,5,6])
+  call print_line('')
+  call no_repeats([1,2,3,4,5,6,7,8])
+  call print_line('')
+  call no_repeats([1,2,3,4,5,6,7,8,9,10])
+  
+  call print_line('')
+  call print_line('')
+  call perm([1,2,3],[1,2,3])
+  call print_line('')
+  call print_line('')
+  call perm([1,2,3],[1,2,2])
+  call print_line('')
+  call print_line('')
+  call perm([1,2,3,4],[1,2,2,1])
 end subroutine
 end module

@@ -827,6 +827,10 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(ThermodynamicData)                        :: output
   
+  type(RealMatrix) :: stress
+  
+  integer :: i
+  
   ! Calculate the thermodynamic properties for one q-point in the system.
   output = core_shell_thermodynamics(     &
      & thermal_energy,                    &
@@ -842,7 +846,23 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   
   ! Multiply by the number of q-points, and add in the constant term.
   output = output * size(this%qpoints)
-  ! TODO: stress needs rotating per q-point.
+  
+  ! Average the stress across all symmetries.
+  ! Each subspace obeys all symmetries, so the stress must too.
+  ! This is needed because the properties are only calculated at one q-point,
+  !    which will not in general obey the symmetries.
+  if (allocated(output%stress)) then
+    associate(symmetries=>anharmonic_data%structure%symmetries)
+      stress = dblemat(zeroes(3,3))
+      do i=1,size(symmetries)
+        stress = stress                         &
+             & + symmetries(i)%cartesian_tensor &
+             & * output%stress                  &
+             & * transpose(symmetries(i)%cartesian_tensor)
+      enddo
+      output%stress = stress / size(symmetries)
+    end associate
+  endif
 end function
 
 ! Wavefunctions.

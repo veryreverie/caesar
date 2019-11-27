@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import scipy.stats
 import numpy as np
+import math
 import operator
 from matplotlib import rc
 import matplotlib.lines as mlines
@@ -11,6 +12,32 @@ rc('font', **{'family':'serif','serif':['sffamily']})
 rc('text', usetex=True)
 params = {'text.latex.preamble' : [r'\usepackage{amsmath}']}
 plt.rcParams.update(params)
+
+def set_xaxis(axis,limits,label,units):
+  '''
+  Set limits, scientific notation and offsets.
+  '''
+  axis.set_xlim(limits)
+  offset = math.floor(np.log10(max(abs(limits[0]),abs(limits[1]))))
+  axis.ticklabel_format(axis='x', style='sci',scilimits=(offset,offset))
+  if offset==0:
+    axis.set_xlabel(label+' ('+units+')')
+  else:
+    axis.set_xlabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
+  axis.xaxis.offsetText.set_visible(False)
+
+def set_yaxis(axis,limits,label,units):
+  '''
+  Set limits, scientific notation and offsets.
+  '''
+  axis.set_ylim(limits)
+  offset = math.floor(np.log10(max(abs(limits[0]),abs(limits[1]))))
+  axis.ticklabel_format(axis='y', style='sci',scilimits=(offset,offset))
+  if offset==0:
+    axis.set_ylabel(label+' ('+units+')')
+  else:
+    axis.set_ylabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
+  axis.yaxis.offsetText.set_visible(False)
 
 def main():
   # Define some static data.
@@ -161,6 +188,8 @@ def main():
   ev_per_hartree = 27.21138602
   kb_in_au = kb_in_ev_per_k / ev_per_hartree
   
+  hartree_per_cubic_bohr_to_pascals = 29421.02648438959e9
+  
   xmin_kelvin  = xmin_hartree/kb_in_au
   xmax_kelvin  = xmax_hartree/kb_in_au
   axes['energy']['b'].set_xlim(xmin_hartree,xmax_hartree)
@@ -177,24 +206,42 @@ def main():
   axes['stress']['t'].tick_params(labelbottom=False,labeltop=False)
   axes['stress']['b'].tick_params(labelbottom=True,labeltop=False)
   axes['stress']['b'].set_xlabel(r"$k_BT$ (Ha)")
+  set_xaxis(axes['stress']['b'],
+            (xmin_hartree,xmax_hartree),
+            r"$k_BT$",
+            r"Ha")
   
-  axes['energy']['l'].set_ylim(ymin_hartree,ymax_hartree)
-  axes['energy']['r'].set_ylim(ymin_hartree,ymax_hartree)
-  axes['energy']['l'].set_ylabel(r"(Ha/cell)")
-  axes['energy']['l'].tick_params(axis='y', width=2)
-  axes['energy']['r'].set_ylabel(r"(Ha/cell)")
-  axes['energy']['r'].tick_params(axis='y', width=2)
+  set_yaxis(axes['energy']['l'],
+            (ymin_hartree,ymax_hartree),
+            r"",
+            r"Ha/cell")
+  set_yaxis(axes['energy']['r'],
+            (ymin_hartree,ymax_hartree),
+            r"",
+            r"Ha/cell")
   
   ymin_gibbs = ymin_shannon * kb_in_au
   ymax_gibbs = ymax_shannon * kb_in_au
-  axes['entropy']['l'].set_ylim(ymin_shannon,ymax_shannon)
-  axes['entropy']['l'].set_ylabel(r"$S/k_B$ (arb. units/cell)")
-  axes['entropy']['r'].set_ylim(ymin_gibbs,ymax_gibbs)
-  axes['entropy']['r'].set_ylabel(r"$S$ (Ha/K/cell)")
+  set_yaxis(axes['entropy']['l'],
+            (ymin_shannon,ymax_shannon),
+            r"$S/k_B$",
+            r"arb. units/cell")
+  set_yaxis(axes['entropy']['r'],
+            (ymin_gibbs,ymax_gibbs),
+            r"$S$",
+            r"Ha/K/cell")
   
-  axes['stress']['l'].set_ylim(ymin_pressure,ymax_pressure)
-  axes['stress']['l'].set_ylabel(r"p (Ha/bohr$^3$)")
-  axes['stress']['r'].set_ylim(ymin_pressure,ymax_pressure)
+  ymin_pascals = ymin_pressure * hartree_per_cubic_bohr_to_pascals
+  ymax_pascals = ymax_pressure * hartree_per_cubic_bohr_to_pascals
+  set_yaxis(axes['stress']['l'],
+            (ymin_pressure,ymax_pressure),
+            r"$p$",
+            r"Ha/bohr$^3$")
+  set_yaxis(axes['stress']['r'],
+            (ymin_pascals,ymax_pascals),
+            r"$p$",
+            r"Pa")
+  
   
   # Format legend.
   handles = []

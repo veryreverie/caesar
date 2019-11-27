@@ -456,10 +456,10 @@ impure elemental function kinetic_stress_MonomialStateReal(this,ket, &
   
   ! |p> = product_i |p_i>
   ! The kinetic stress is given by
-  !    S = -(1/2NV) sum_i (I_{i,i}d^2/d(u_i^2) + sum_{j/=i}I_{i,j}d^2/du_idu_j).
+  !    S = -(1/NV) sum_i (I_{i,i}d^2/d(u_i^2) + sum_{j/=i}I_{i,j}d^2/du_idu_j).
   ! <p_i|d^2/d(u_i)^2|q_i> and <p_i|d^2/du_idu_j|q_i> are calculated up to
   !    a factor of 2Nw, so
-  !    <p|S|q> = -w * (
+  !    <p|S|q> = -2w * (
   !      sum_i prefactor_{i,i}*<p_i|%second_derivative(|q_i>) * (<p'|q'>)
   !    + sum_{i,j} prefactor_{i,j}*<p_i|%first_derivative(|q_i>)
   !                               *<p_j|%first_derivative(|q_j>)*(<p''|q''>) ),
@@ -485,7 +485,7 @@ impure elemental function kinetic_stress_MonomialStateReal(this,ket, &
            &                                     this%modes_%id()  )     &
            &      * this%modes_%second_derivative(monomial_ket%modes_)   &
            &      / overlaps                                           ) &
-           & * (-this%frequency)*product(overlaps)
+           & * (-2*this%frequency)*product(overlaps)
     elseif (count(.not.finite_overlap)==2) then
       ! Exactly two <p_i|q_i> are zero. Label these i and j.
       ! <p|S|q> = -w*
@@ -503,7 +503,7 @@ impure elemental function kinetic_stress_MonomialStateReal(this,ket, &
            &                                  this%modes_(i)%id()  ) ) &
            & * this%modes_(i)%first_derivative(monomial_ket%modes_(i)) &
            & * this%modes_(j)%first_derivative(monomial_ket%modes_(j)) &
-           & * (-this%frequency)
+           & * (-2*this%frequency)
       
       ! Calculate and include the factor of <p''|q''>.
       overlaps = this%modes_%inner_product(monomial_ket%modes_)
@@ -519,7 +519,7 @@ impure elemental function kinetic_stress_MonomialStateReal(this,ket, &
     ! |p>=|q>, so all first derivative expectations are zero.
     ! Also, <p|p>=1, so <p'|p'>=1.
     ! -> <p|S|p> = -w sum_i prefactor_{i,i}<p_i|%second_derivative(|p_i>)
-    output = -this%frequency                                     &
+    output = -2*this%frequency                                   &
          & * sum( stress_prefactors%prefactor( this%modes_%id(), &
          &                                     this%modes_%id()) &
          &      * this%modes_%second_derivative(this%modes_)     )
