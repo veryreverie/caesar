@@ -102,34 +102,9 @@ end subroutine
 ! ----------------------------------------------------------------------
 subroutine test_subroutine(arguments)
   use interpolation_module
+  use permutation_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments
-  
-  call heaps_algorithm([1,2,3,3])
-  
-  call print_line('')
-  
-  call no_repeats([1,2,1,2,1,2])
-  call print_line('')
-  call no_repeats([1,2,3,2,1,2])
-  call print_line('')
-  call no_repeats([1,2,3,4])
-  call print_line('')
-  call no_repeats([1,2,3,4,5,6])
-  call print_line('')
-  call no_repeats([1,2,3,4,5,6,7,8])
-  call print_line('')
-  call no_repeats([1,2,3,4,5,6,7,8,9,10])
-  
-  call print_line('')
-  call print_line('')
-  call perm([1,2,3],[1,2,3])
-  call print_line('')
-  call print_line('')
-  call perm([1,2,3],[1,2,2])
-  call print_line('')
-  call print_line('')
-  call perm([1,2,3,4],[1,2,2,1])
 end subroutine
 end module

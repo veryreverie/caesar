@@ -7,6 +7,7 @@ module polynomial_stress_module
   use states_module
   use anharmonic_common_module
   
+  use polynomial_interpolator_module
   use coupling_stress_basis_functions_module
   implicit none
   
@@ -17,6 +18,7 @@ module polynomial_stress_module
   public :: PolynomialStress
   
   type, extends(StressData) :: PolynomialStress
+    integer,          private :: stress_expansion_order_
     type(RealMatrix), private :: reference_stress_
     type(CouplingStressBasisFunctions), allocatable, private :: &
        & basis_functions_(:)
@@ -45,6 +47,10 @@ module polynomial_stress_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PolynomialStress
     
+    procedure, public :: add_overlap => add_overlap_PolynomialStress
+    
+    procedure, public :: expansion_order => expansion_order_PolynomialStress
+    
     ! I/O.
     procedure, public :: read  => read_PolynomialStress
     procedure, public :: write => write_PolynomialStress
@@ -67,15 +73,18 @@ subroutine startup_polynomial_stress()
 end subroutine
 
 ! Constructor.
-function new_PolynomialStress(reference_stress,basis_functions) result(this)
+function new_PolynomialStress(stress_expansion_order,reference_stress, &
+   & basis_functions) result(this)
   implicit none
   
+  integer,                            intent(in) :: stress_expansion_order
   type(RealMatrix),                   intent(in) :: reference_stress
   type(CouplingStressBasisFunctions), intent(in) :: basis_functions(:)
   type(PolynomialStress)                         :: this
   
-  this%reference_stress_ = reference_stress
-  this%basis_functions_  = basis_functions
+  this%stress_expansion_order_ = stress_expansion_order
+  this%reference_stress_       = reference_stress
+  this%basis_functions_        = basis_functions
 end function
 
 ! Type representation.
@@ -281,8 +290,8 @@ end subroutine
 
 ! Calculate the thermal expectation of the stress, <stress>, for a set of
 !    harmonic states.
-function harmonic_expectation_PolynomialStress(this,frequency, &
-   & thermal_energy,anharmonic_data) result(output)
+impure elemental function harmonic_expectation_PolynomialStress(this, &
+   & frequency,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialStress), intent(in) :: this
@@ -297,6 +306,29 @@ function harmonic_expectation_PolynomialStress(this,frequency, &
        &                                                   anharmonic_data ))
 end function
 
+! Interpolate the contribution to this stress from
+!    another stress.
+impure elemental subroutine add_overlap_PolynomialStress(this,that, &
+   & interpolator)
+  implicit none
+  
+  class(PolynomialStress),      intent(inout) :: this
+  type(PolynomialStress),       intent(in)    :: that
+  type(PolynomialInterpolator), intent(in)    :: interpolator
+  
+  call this%basis_functions_%add_overlap(that%basis_functions_, interpolator)
+end subroutine
+
+! Expansion order.
+impure elemental function expansion_order_PolynomialStress(this) result(output)
+  implicit none
+  
+  class(PolynomialStress), intent(in) :: this
+  integer                             :: output
+  
+  output = this%stress_expansion_order_
+end function
+
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
@@ -306,17 +338,21 @@ subroutine read_PolynomialStress(this,input)
   class(PolynomialStress), intent(out) :: this
   type(String),               intent(in)  :: input(:)
   
+  integer                                         :: expansion_order
   type(RealMatrix)                                :: reference_stress
   type(CouplingStressBasisFunctions), allocatable :: basis_functions(:)
   
   select type(this); type is(PolynomialStress)
-    reference_stress = RealMatrix(input(2:4))
+    expansion_order = int(token(input(1),3))
+    
+    reference_stress = RealMatrix(input(3:5))
     
     basis_functions = CouplingStressBasisFunctions(split_into_sections( &
-                                       & input(7:),                     &
+                                       & input(8:),                     &
                                        & separating_line=repeat('=',50) ))
     
-    this = PolynomialStress( reference_stress, &
+    this = PolynomialStress( expansion_order,  &
+                           & reference_stress, &
                            & basis_functions   )
   class default
     call err()
@@ -330,7 +366,8 @@ function write_PolynomialStress(this) result(output)
   type(String), allocatable              :: output(:)
   
   select type(this); type is(PolynomialStress)
-    output = [ str('Reference stress:'),                                  &
+    output = [ 'Expansion order: '//this%stress_expansion_order_,         &
+             & str('Reference stress:'),                                  &
              & str(this%reference_stress_),                               &
              & str('Basis functions:'),                                   &
              & str(''),                                                   &

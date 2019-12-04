@@ -289,8 +289,8 @@ subroutine braket_BasisStates_PotentialDataExample(this,states, &
   ! This likely just involves calling braket on the constituent parts of this.
 end subroutine
 
-function harmonic_expectation_PotentialDataExample(this,frequency, &
-   & thermal_energy,anharmonic_data) result(output)
+impure elemental function harmonic_expectation_PotentialDataExample(this, &
+   & frequency,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(PotentialDataExample), intent(in) :: this

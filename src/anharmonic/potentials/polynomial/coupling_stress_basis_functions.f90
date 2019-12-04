@@ -6,6 +6,7 @@ module coupling_stress_basis_functions_module
   
   use anharmonic_common_module
   
+  use polynomial_interpolator_module
   use basis_function_module
   use stress_basis_function_module
   use sampling_points_module
@@ -51,6 +52,9 @@ module coupling_stress_basis_functions_module
                        & undisplaced_stress_CouplingStressBasisFunctions
     
     procedure, public :: append => append_CouplingStressBasisFunctions
+    
+    procedure, public :: add_overlap => &
+                       & add_overlap_CouplingStressBasisFunctions
     
     ! I/O.
     procedure, public :: read  => read_CouplingStressBasisFunctions
@@ -338,6 +342,19 @@ function generate_stress_basis_functions_SubspaceCoupling(coupling,     &
   output = CouplingStressBasisFunctions( coupling,                &
                                        & coupling_basis_functions )
 end function
+
+! Interpolate the contribution to this basis function from
+!    another basis function.
+impure elemental subroutine add_overlap_CouplingStressBasisFunctions(this, &
+   & that,interpolator)
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(inout) :: this
+  type(CouplingStressBasisFunctions),  intent(in)    :: that
+  type(PolynomialInterpolator),        intent(in)    :: interpolator
+  
+  call this%basis_functions_%add_overlap(that%basis_functions_, interpolator)
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! I/O.

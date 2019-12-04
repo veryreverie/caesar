@@ -7,6 +7,7 @@ module polynomial_potential_module
   use states_module
   use anharmonic_common_module
   
+  use polynomial_interpolator_module
   use basis_function_module
   use coupling_basis_functions_module
   use stress_basis_function_module
@@ -78,6 +79,11 @@ module polynomial_potential_module
                        & can_be_interpolated_PolynomialPotential
     procedure, public :: calculate_interpolated_thermodynamics => &
                     & calculate_interpolated_thermodynamics_PolynomialPotential
+    
+    procedure, public :: add_overlap => &
+                       & add_overlap_PolynomialPotential
+    
+    procedure, public :: expansion_order => expansion_order_PolynomialPotential
     
     ! I/O.
     procedure, public :: read  => read_PolynomialPotential
@@ -451,7 +457,8 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
                                 & sampling_points_dir,        &
                                 & anharmonic_data,            &
                                 & calculation_reader          )
-  stress = PolynomialStress( equilibrium_sample_result%stress(), &
+  stress = PolynomialStress( stress_expansion_order,             &
+                           & equilibrium_sample_result%stress(), &
                            & zero_basis_functions                )
   
   ! Generate basis functions.
@@ -501,7 +508,8 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   enddo
   
   ! Assemble output.
-  stress = PolynomialStress( equilibrium_sample_result%stress(), &
+  stress = PolynomialStress( stress_expansion_order,             &
+                           & equilibrium_sample_result%stress(), &
                            & basis_functions                     )
   output = StressPointer(stress)
 end function
@@ -908,8 +916,8 @@ end subroutine
 
 ! Calculate the thermal expectation of the potential, <V>, for a set of
 !    harmonic states.
-function harmonic_expectation_PolynomialPotential(this,frequency, &
-   & thermal_energy,anharmonic_data) result(output)
+impure elemental function harmonic_expectation_PolynomialPotential(this, &
+   & frequency,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
@@ -991,6 +999,30 @@ subroutine calculate_interpolated_thermodynamics_PolynomialPotential(this, &
   
   ! TODO
 end subroutine
+
+! Interpolate the contribution to this potential from
+!    another potential.
+impure elemental subroutine add_overlap_PolynomialPotential(this,that, &
+   & interpolator)
+  implicit none
+  
+  class(PolynomialPotential),   intent(inout) :: this
+  type(PolynomialPotential),    intent(in)    :: that
+  type(PolynomialInterpolator), intent(in)    :: interpolator
+  
+  call this%basis_functions_%add_overlap(that%basis_functions_, interpolator)
+end subroutine
+
+! Expansion order.
+impure elemental function expansion_order_PolynomialPotential(this) &
+   & result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in) :: this
+  integer                                :: output
+  
+  output = this%potential_expansion_order_
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.

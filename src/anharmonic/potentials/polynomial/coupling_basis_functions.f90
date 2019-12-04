@@ -6,6 +6,7 @@ module coupling_basis_functions_module
   
   use anharmonic_common_module
   
+  use polynomial_interpolator_module
   use basis_function_module
   use sampling_points_module
   implicit none
@@ -60,6 +61,8 @@ module coupling_basis_functions_module
                        & set_coefficients_CouplingBasisFunctions
     
     procedure, public :: append => append_CouplingBasisFunctions
+    
+    procedure, public :: add_overlap => add_overlap_CouplingBasisFunctions
     
     ! I/O.
     procedure, public :: read  => read_CouplingBasisFunctions
@@ -439,6 +442,19 @@ subroutine append_CouplingBasisFunctions(this,that)
   !    as of version 19.0.4.227.
   temp = [this%basis_functions_, that%basis_functions_]
   this%basis_functions_ = temp
+end subroutine
+
+! Interpolate the contribution to this basis function from
+!    another basis function.
+impure elemental subroutine add_overlap_CouplingBasisFunctions(this,that, &
+   & interpolator)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  type(CouplingBasisFunctions),  intent(in)    :: that
+  type(PolynomialInterpolator),  intent(in)    :: interpolator
+  
+  call this%basis_functions_%add_overlap(that%basis_functions_, interpolator)
 end subroutine
 
 ! ----------------------------------------------------------------------

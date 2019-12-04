@@ -10,6 +10,8 @@ module basis_function_module
   
   use states_module
   use anharmonic_common_module
+  
+  use polynomial_interpolator_module
   implicit none
   
   private
@@ -63,6 +65,8 @@ module basis_function_module
     
     procedure, public  :: coefficient => coefficient_BasisFunction
     procedure, public  :: set_coefficient => set_coefficient_BasisFunction
+    
+    procedure, public :: add_overlap => add_overlap_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
@@ -909,6 +913,39 @@ impure elemental function subtract_BasisFunction_BasisFunction(this,that) &
   output = BasisFunction(                                          &
      & this%complex_representation()-that%complex_representation() )
 end function
+
+! Interpolate the contribution to this basis function from
+!    another basis function.
+! Calculates the overlap using only one term in this basis function,
+!    to preserve symmetry.
+impure elemental subroutine add_overlap_BasisFunction(this,that,interpolator)
+  implicit none
+  
+  class(BasisFunction),         intent(inout) :: this
+  type(BasisFunction),          intent(in)    :: that
+  type(PolynomialInterpolator), intent(in)    :: interpolator
+  
+  complex(dp) :: overlap
+  
+  integer :: i
+  
+  i = maxloc(abs(this%complex_representation_%terms%coefficient), 1)
+  associate(term=>this%complex_representation_%terms(i))
+    overlap = interpolator%overlap(term, that%complex_representation_)
+    
+    if (abs(real(term%coefficient)) > abs(aimag(term%coefficient))) then
+      this%coefficient_ = this%coefficient_ &
+                      & + real(overlap)     &
+                      & * that%coefficient_ &
+                      & / real(term%coefficient)
+    else
+      this%coefficient_ = this%coefficient_ &
+                      & + aimag(overlap)    &
+                      & * that%coefficient_ &
+                      & / aimag(term%coefficient)
+    endif
+  end associate
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! I/O.

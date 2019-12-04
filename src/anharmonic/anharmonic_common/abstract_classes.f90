@@ -785,8 +785,8 @@ module abstract_classes_module
       type(AnharmonicData),     intent(in)           :: anharmonic_data
     end subroutine
     
-    function harmonic_expectation_PotentialData(this,frequency, &
-       & thermal_energy,anharmonic_data) result(output)
+    impure elemental function harmonic_expectation_PotentialData(this, &
+       & frequency,thermal_energy,anharmonic_data) result(output)
       import PotentialData
       import dp
       import AnharmonicData
@@ -922,7 +922,7 @@ module abstract_classes_module
       type(AnharmonicData),     intent(in)           :: anharmonic_data
     end subroutine
     
-    function harmonic_expectation_StressData(this,frequency, &
+    impure elemental function harmonic_expectation_StressData(this,frequency, &
        & thermal_energy,anharmonic_data) result(output)
       import StressData
       import dp
@@ -1691,8 +1691,8 @@ subroutine braket_BasisStates_PotentialPointer(this,states,thermal_energy, &
                              & anharmonic_data )
 end subroutine
 
-function harmonic_expectation_PotentialPointer(this,frequency, &
-   & thermal_energy,anharmonic_data) result(output)
+impure elemental function harmonic_expectation_PotentialPointer(this, &
+   & frequency,thermal_energy,anharmonic_data) result(output)
   implicit none
   
   class(PotentialPointer), intent(in) :: this
@@ -1982,7 +1982,7 @@ subroutine braket_BasisStates_StressPointer(this,states,thermal_energy, &
                           & anharmonic_data )
 end subroutine
 
-function harmonic_expectation_StressPointer(this,frequency, &
+impure elemental function harmonic_expectation_StressPointer(this,frequency, &
    & thermal_energy,anharmonic_data) result(output)
   implicit none
   

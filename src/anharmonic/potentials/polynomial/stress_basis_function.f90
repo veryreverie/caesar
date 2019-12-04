@@ -5,6 +5,8 @@ module stress_basis_function_module
   use common_module
   
   use anharmonic_common_module
+  
+  use polynomial_interpolator_module
   use basis_function_module
   implicit none
   
@@ -17,7 +19,10 @@ module stress_basis_function_module
   
   type, extends(Stringsable) :: StressBasisFunction
     ! This will always be 3x3, but is allocatable to avoid stack overflows.
-    type(BasisFunction), private, allocatable :: elements_(:,:)
+    type(ComplexPolynomial), private, allocatable :: elements_(:,:)
+    
+    ! A leading coefficient.
+    real(dp), private :: coefficient_
   contains
     procedure, public :: simplify => simplify_StressBasisFunction
     
@@ -43,6 +48,8 @@ module stress_basis_function_module
     
     procedure, public :: undisplaced_stress => &
                        & undisplaced_stress_StressBasisFunction
+    
+    procedure, public :: add_overlap => add_overlap_StressBasisFunction
     
     ! I/O.
     procedure, public :: read  => read_StressBasisFunction
@@ -70,13 +77,19 @@ module stress_basis_function_module
 contains
 
 ! Constructor.
-function new_StressBasisFunction(elements) result(this)
+function new_StressBasisFunction(elements,coefficient) result(this)
   implicit none
   
-  type(BasisFunction), intent(in) :: elements(3,3)
-  type(StressBasisFunction)       :: this
+  type(ComplexPolynomial), intent(in)           :: elements(3,3)
+  real(dp),                intent(in), optional :: coefficient
+  type(StressBasisFunction)                     :: this
   
   this%elements_ = elements
+  if (present(coefficient)) then
+    this%coefficient_ = coefficient
+  else
+    this%coefficient_ = 0
+  endif
 end function
 
 ! Generate basis functions.
@@ -120,7 +133,7 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   
   ! Variables for constructing the output.
   type(ComplexPolynomial) :: complex_representation
-  type(BasisFunction)     :: elements(3,3)
+  type(ComplexPolynomial) :: elements(3,3)
   
   ! Mappings between 3x3 indices and 9 indices.
   integer :: x(9)
@@ -262,7 +275,7 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
       complex_representation = ComplexPolynomial( complex_coefficients &
                                               & * complex_monomials    )
       
-      elements(x(j),y(j)) = BasisFunction(complex_representation)
+      elements(x(j),y(j)) = complex_representation
       call elements(x(j),y(j))%simplify()
     enddo
     
@@ -335,7 +348,7 @@ impure elemental function stress_RealModeDisplacement_StressBasisFunction( &
     enddo
   enddo
   
-  output = mat(elements)
+  output = this%coefficient_ * mat(elements)
 end function
 
 impure elemental function stress_ComplexModeDisplacement_StressBasisFunction( &
@@ -356,7 +369,7 @@ impure elemental function stress_ComplexModeDisplacement_StressBasisFunction( &
     enddo
   enddo
   
-  output = mat(elements)
+  output = this%coefficient_ * mat(elements)
 end function
 
 ! ----------------------------------------------------------------------
@@ -371,7 +384,16 @@ subroutine braket_SubspaceState_StressBasisFunction(this,bra,ket, &
   class(SubspaceState),       intent(in), optional :: ket
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
-  call this%elements_%braket(bra,ket,anharmonic_data)
+  integer :: i,j
+  
+  do i=1,3
+    do j=1,3
+      this%elements_(j,i)%terms = integrate( bra,                       &
+                                           & this%elements_(j,i)%terms, &
+                                           & ket,                       &
+                                           & anharmonic_data            )
+    enddo
+  enddo
 end subroutine
 
 subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
@@ -385,7 +407,18 @@ subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
-  call this%elements_%braket(bra,ket,subspace,subspace_basis,anharmonic_data)
+  integer :: i,j
+  
+  do i=1,3
+    do j=1,3
+      this%elements_(j,i)%terms = integrate( bra,                       &
+                                           & this%elements_(j,i)%terms, &
+                                           & ket,                       &
+                                           & subspace,                  &
+                                           & subspace_basis,            &
+                                           & anharmonic_data            )
+    enddo
+  enddo
 end subroutine
 
 subroutine braket_BasisStates_StressBasisFunction(this,states,thermal_energy, &
@@ -403,11 +436,12 @@ subroutine braket_BasisStates_StressBasisFunction(this,states,thermal_energy, &
   
   do i=1,3
     do j=1,3
-      call this%elements_(i,j)%braket( states,         &
-                                     & thermal_energy, &
-                                     & subspace,       &
-                                     & subspace_basis, &
-                                     & anharmonic_data )
+      this%elements_(j,i)%terms = integrate( states,                    &
+                                           & thermal_energy,            &
+                                           & this%elements_(j,i)%terms, &
+                                           & subspace,                  &
+                                           & subspace_basis,            &
+                                           & anharmonic_data            )
     enddo
   enddo
 end subroutine
@@ -432,13 +466,13 @@ impure elemental function harmonic_expectation_StressBasisFunction(this, &
   do i=1,3
     do j=1,3
       elements(j,i) = this%elements_(j,i)%harmonic_expectation( &
-                                              & frequency,      &
-                                              & thermal_energy, &
-                                              & anharmonic_data )
+                         & frequency,                           &
+                         & thermal_energy,                      &
+                         & anharmonic_data%anharmonic_supercell )
     enddo
   enddo
   
-  output = mat(elements)
+  output = this%coefficient_ * mat(elements)
 end function
 
 ! ----------------------------------------------------------------------
@@ -467,7 +501,8 @@ impure elemental function multiply_StressBasisFunction_real(this,that) &
   real(dp),                  intent(in) :: that
   type(StressBasisFunction)             :: output
   
-  output = StressBasisFunction(this%elements_ * that)
+  output = this
+  output%coefficient_ = output%coefficient_ * that
 end function
 
 impure elemental function multiply_real_StressBasisFunction(this,that) &
@@ -478,7 +513,8 @@ impure elemental function multiply_real_StressBasisFunction(this,that) &
   type(StressBasisFunction), intent(in) :: that
   type(StressBasisFunction)             :: output
   
-  output = StressBasisFunction(this * that%elements_)
+  output = that
+  output%coefficient_ = this * output%coefficient_
 end function
 
 impure elemental function divide_StressBasisFunction_real(this,that) &
@@ -489,8 +525,65 @@ impure elemental function divide_StressBasisFunction_real(this,that) &
   real(dp),                  intent(in) :: that
   type(StressBasisFunction)             :: output
   
-  output = StressBasisFunction(this%elements_ / that)
+  output = this
+  output%coefficient_ = output%coefficient_ / that
 end function
+
+! Interpolate the contribution to this basis function from
+!    another basis function.
+! Calculates the overlap using only one term in this basis function,
+!    to preserve symmetry.
+impure elemental subroutine add_overlap_StressBasisFunction(this,that, &
+   & interpolator)
+  implicit none
+  
+  class(StressBasisFunction),   intent(inout) :: this
+  type(StressBasisFunction),    intent(in)    :: that
+  type(PolynomialInterpolator), intent(in)    :: interpolator
+  
+  integer  :: largest_i
+  integer  :: largest_j
+  integer  :: largest_k
+  real(dp) :: largest
+  
+  complex(dp) :: overlap
+  
+  integer :: i,j,k
+  
+  largest_i = 0
+  largest_j = 0
+  largest_k = 0
+  largest = 0
+  
+  do i=1,3
+    do j=1,3
+      k = minloc(abs(this%elements_(j,i)%terms%coefficient), 1)
+      
+      if (abs(this%elements_(j,i)%terms(k)%coefficient)>largest) then
+        largest_i = i
+        largest_j = j
+        largest_k = k
+        largest = abs(this%elements_(j,i)%terms(k)%coefficient)
+      endif
+    enddo
+  enddo
+  
+  associate(term=>this%elements_(largest_j,largest_i)%terms(largest_k))
+    overlap = interpolator%overlap(term, that%elements_(largest_j,largest_i))
+    
+    if (abs(real(term%coefficient)) > abs(aimag(term%coefficient))) then
+      this%coefficient_ = this%coefficient_ &
+                      & + real(overlap)     &
+                      & * that%coefficient_ &
+                      & / real(term%coefficient)
+    else
+      this%coefficient_ = this%coefficient_ &
+                      & + aimag(overlap)    &
+                      & * that%coefficient_ &
+                      & / aimag(term%coefficient)
+    endif
+  end associate
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! I/O.
@@ -501,7 +594,7 @@ subroutine read_StressBasisFunction(this,input)
   class(StressBasisFunction), intent(out) :: this
   type(String),               intent(in)  :: input(:)
   
-  type(BasisFunction) :: elements(3,3)
+  type(ComplexPolynomial) :: elements(3,3)
   
   type(StringArray), allocatable :: sections(:)
   
@@ -513,7 +606,8 @@ subroutine read_StressBasisFunction(this,input)
     do i=1,3
       do j=1,3
         k = k+1
-        elements(i,j) = BasisFunction(sections(k)%strings(2:))
+        elements(i,j) = ComplexPolynomial(join( sections(k)%strings(3:), &
+                                              & delimiter=' + '          ))
       enddo
     enddo
     
@@ -538,9 +632,10 @@ function write_StressBasisFunction(this) result(output)
         if (i/=1 .or. j/=1) then
           output = [output, str('')]
         endif
-        output = [ output,                        &
-                 & 'Element ('//i//' '//j//'):',  &
-                 & str(this%elements_(i,j))       ]
+        output = [ output,                                         &
+                 & 'Element ('//i//' '//j//'):',                   &
+                 & str('Basis function in complex co-ordinates:'), &
+                 & str(this%elements_(i,j))                        ]
       enddo
     enddo
   class default

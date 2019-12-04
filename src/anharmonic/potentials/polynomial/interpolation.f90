@@ -5,6 +5,12 @@
 module interpolation_module
   use common_module
   use anharmonic_common_module
+  use permutation_module
+  use stress_basis_function_module
+  use coupling_stress_basis_functions_module
+  use polynomial_potential_module
+  use polynomial_stress_module
+  use polynomial_interpolator_module
   implicit none
   
   ! TODO: public/private
@@ -106,236 +112,314 @@ function size_SplitMonomial(this) result(output)
   output = size(this%head)
 end function
 
-function interpolate_monomial(monomial,subspaces,subspace_bases, &
-   & subspace_states,modes,anharmonic_data) result(output)
+function interpolate_stress(stress,degenerate_frequency,harmonic_dos,        &
+   & thermal_energy,harmonic_supercell,harmonic_hessian,harmonic_min_images, &
+   & subspaces,subspace_bases,basis_states,anharmonic_min_images,            &
+   & anharmonic_data) result(output)
   implicit none
   
-  type(ComplexMonomial),    intent(in) :: monomial
+  type(PolynomialStress),   intent(in) :: stress
+  real(dp),                 intent(in) :: degenerate_frequency
+  type(PhononDos),          intent(in) :: harmonic_dos
+  real(dp),                 intent(in) :: thermal_energy
+  type(StructureData),      intent(in) :: harmonic_supercell
+  type(CartesianHessian),   intent(in) :: harmonic_hessian
+  type(MinImages),          intent(in) :: harmonic_min_images(:,:)
   type(DegenerateSubspace), intent(in) :: subspaces(:)
   class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(BasisStates),       intent(in) :: subspace_states(:)
-  type(ComplexMode),        intent(in) :: modes(:)
+  class(BasisStates),       intent(in) :: basis_states(:)
+  type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(ComplexPolynomial)              :: output
-end function
-
-function interpolate(input) result(output)
-  implicit none
+  type(ThermodynamicData)              :: output
   
-  type(ComplexMonomial), intent(in) :: input
-  type(ComplexPolynomial)           :: output
-end function
-
-! Generates all permutations of a list of (distinguishable) integers.
-! N.B. generates duplicates if any elements of the input are the duplicated.
-subroutine heaps_algorithm(input)
-  implicit none
+  type(DynamicalMatrix)          :: dynamical_matrix
+  type(ComplexMode), allocatable :: qpoint_modes(:)
+  type(ComplexMode), allocatable :: modes(:)
+  type(RealVector),  allocatable :: qpoints(:)
   
-  integer, intent(in) :: input(:)
+  type(PolynomialInterpolator) :: interpolator
   
-  integer, allocatable :: state(:)
+  type(DegenerateSubspace), allocatable :: fine_subspaces(:)
+  type(PolynomialStress),   allocatable :: fine_stresses(:)
   
-  integer, allocatable :: indices(:)
-  
-  integer :: swap(2)
-  
-  integer :: i
-  
-  
-  state = [(1,i=1,size(input))]
-  
-  indices = [(i,i=1,size(input))]
-  
-  call print_line(input(indices))
-  
-  i = 1
-  do while (i<=size(input))
-    if (state(i)<i) then
-      if (modulo(i,2)==1) then
-        swap = [1,i]
-      else
-        swap = [i,state(i)]
-      endif
-      indices(swap) = indices(swap([2,1]))
-      call print_line(input(indices))
-      state(i) = state(i)+1
-      i = 1
-    else
-      state(i) = 1
-      i = i+1
-    endif
-  enddo
-end subroutine
-
-! Generates all permutations of a list of integers, which may include repeats.
-subroutine no_repeats(input)
-  implicit none
-  
-  integer, intent(in) :: input(:)
-  
-  integer, allocatable :: indices(:)
+  type(RealMatrix) :: stress_tensor
   
   integer :: i,j
   
-  integer :: n
-  
-  indices = sort(input)
-  call print_line(input(indices))
-  n = 1
-  
-  do
-    ! Find the last element which has larger elements after it.
-    ! Label this element j.
-    j = 0
-    do i=size(input)-1,1,-1
-      if (input(indices(i))<input(indices(i+1))) then
-        j = i
-        exit
-      endif
-    enddo
-    
-    ! If there is no element j then input(indices) is now
-    !    sorted in reverse order and the algorithm is done.
-    if (j==0) then
-      exit
-    endif
-    
-    ! Find the last element larger than element j.
-    ! Label this element i.
-    ! Swap elements i and j.
-    do i=size(input),j+1,-1
-      if (input(indices(i))>input(indices(j))) then
-        indices([i,j]) = indices([j,i])
-        exit
-      endif
-    enddo
-    
-    ! Reverse the order of all elements after element j.
-    indices(j+1:) = indices(size(indices):j+1:-1)
-    
-    !call print_line(input(indices))
-    n = n+1
+  stress_tensor = dblemat(zeroes(3,3))
+  do i=1,size(harmonic_dos%qpoints)
+    associate(qpoint => harmonic_dos%qpoints(i)%qpoint)
+      ! Construct normal modes from harmonic potential.
+      ! Include modes from both q and -q.
+      dynamical_matrix = DynamicalMatrix( harmonic_dos%qpoints(i)%qpoint, &
+                                        & harmonic_supercell,             &
+                                        & harmonic_hessian,               &
+                                        & harmonic_min_images             )
+      
+      qpoint_modes = ComplexMode(dynamical_matrix, harmonic_supercell)
+      qpoint_modes%id = [(j,j=1,size(qpoint_modes))]
+      qpoint_modes%paired_id = [(j+size(qpoint_modes),j=1,size(qpoint_modes))]
+      
+      modes = [( [qpoint_modes(j),conjg(qpoint_modes(j))], &
+               & j=1,                                      &
+               & size(qpoint_modes)                        )]
+      
+      qpoints = [([qpoint,-qpoint], j=1, size(qpoint_modes))]
+      
+      ! Construct the polynomial interpolator.
+      interpolator = PolynomialInterpolator(                &
+         & fine_modes      = modes,                         &
+         & fine_qpoints    = qpoints,                       &
+         & coarse_modes    = anharmonic_data%complex_modes, &
+         & min_images      = anharmonic_min_images,         &
+         & anharmonic_data = anharmonic_data                )
+      
+      ! Split modes into subspaces.
+      fine_subspaces = generate_fine_subspaces( qpoint_modes,        &
+                                              & degenerate_frequency )
+      
+      ! Construct stress basis functions.
+      fine_stresses = [( generate_fine_stress( fine_subspaces(j),          &
+                       &                       qpoint_modes,               &
+                       &                       stress%expansion_order() ), &
+                       & j=1,                                              &
+                       & size(subspaces)                                   )]
+      
+      ! Interpolate stress to the q-point.
+      call fine_stresses%add_overlap(stress,interpolator)
+      
+      ! Take the harmonic expectation of the stress.
+      do j=1,size(fine_subspaces)
+        if (fine_subspaces(j)%frequency>0) then
+          stress_tensor = stress_tensor                          &
+                      & + fine_stresses(j)%harmonic_expectation( &
+                      &             fine_subspaces(j)%frequency, &
+                      &             thermal_energy,              &
+                      &             anharmonic_data              )
+        endif
+      enddo
+    end associate
   enddo
   
-  call print_line('n='//n)
-end subroutine
+  ! Normalise to be per primitive cell.
+  ! N.B. at each q-point, q and -q are both considered, hence the factor of 2.
+  stress_tensor = stress_tensor / (2*size(harmonic_dos%qpoints))
+  
+  output = harmonic_dos%thermodynamic_data(1)
+  output%stress = stress_tensor
+  output%enthalpy = output%energy &
+                & - trace(stress_tensor)*anharmonic_data%structure%volume/3
+  output%gibbs = output%free_energy &
+             & - trace(stress_tensor)*anharmonic_data%structure%volume/3
+end function
 
-! Generates all permutations of a against b.
-subroutine perm(a,b)
+function generate_fine_subspaces(modes,degenerate_frequency) result(output)
   implicit none
   
-  integer, intent(in) :: a(:)
-  integer, intent(in) :: b(:)
+  type(ComplexMode), intent(in)         :: modes(:)
+  real(dp),          intent(in)         :: degenerate_frequency
+  type(DegenerateSubspace), allocatable :: output(:)
   
-  integer, allocatable :: a_id(:)
-  integer, allocatable :: b_id(:)
+  integer, allocatable :: splits(:)
+  integer              :: no_splits
   
-  integer, allocatable :: bins(:,:)
-  integer              :: no_bins
+  integer :: i,ialloc
   
-  integer, allocatable :: a_id_remainder(:)
-  integer, allocatable :: sort_key(:)
+  allocate(splits(size(modes)+1), stat=ialloc); call err(ialloc)
+  no_splits = 1
+  splits(no_splits) = 1
+  do i=2,size(modes)
+    if (abs(modes(i)%frequency-modes(i-1)%frequency)>degenerate_frequency) then
+      no_splits = no_splits+1
+      splits(no_splits) = i
+    endif
+  enddo
+  no_splits = no_splits+1
+  splits(no_splits) = size(modes)+1
+  
+  allocate(output(no_splits-1), stat=ialloc); call err(ialloc)
+  do i=1,no_splits-1
+    associate(subspace_modes=>modes(splits(i):splits(i+1)-1))
+      output(i) = DegenerateSubspace(                                  &
+         & id         = i,                                             &
+         & frequency  = subspace_modes(1)%frequency,                   &
+         & mode_ids   = [subspace_modes%id, subspace_modes%paired_id], &
+         & paired_ids = [subspace_modes%paired_id, subspace_modes%id]  )
+    end associate
+  enddo
+end function
+
+function generate_fine_stress(subspace,modes,expansion_order) result(output)
+  implicit none
+  
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(ComplexMode),        intent(in) :: modes(:)
+  integer,                  intent(in) :: expansion_order
+  type(PolynomialStress)               :: output
+  
+  integer :: power
+  
+  type(ComplexUnivariate) :: no_modes(0)
+  
+  type(ComplexMonomial), allocatable :: monomials(:)
+  type(ComplexMonomial), allocatable :: old(:)
+  
+  type(ComplexPolynomial) :: polynomial
+  
+  type(StressBasisFunction), allocatable :: basis_functions(:)
+  type(StressBasisFunction), allocatable :: old_basis_functions(:)
+  type(StressBasisFunction), allocatable :: new_basis_functions(:)
   
   integer :: i,j,k,l,ialloc
   
-  integer :: n1,n2
-  
-  a_id = sort(a)
-  b_id = sort(b)
-  
-  call print_line(a(a_id))
-  call print_line(b(b_id))
-  call print_line('')
-  
-  ! Split b into bins.
-  allocate(bins(2,size(b)), stat=ialloc); call err(ialloc)
-  bins(1,1) = 1
-  no_bins = 1
-  do i=2,size(b)
-    if (b(b_id(i))/=b(b_id(i-1))) then
-      bins(2,no_bins) = i-1
-      no_bins = no_bins+1
-      bins(1,no_bins) = i
-    endif
-  enddo
-  bins(2,no_bins) = size(b)
-  bins = bins(:,:no_bins)
-  
-  ! Check if all elements in b are indistinguishable.
-  if (no_bins==1) then
-    return
+  if (modulo(expansion_order,2)/=0) then
+    call print_line(ERROR//': stress expansion order must be even.')
+    call err()
+  elseif (expansion_order<2) then
+    call print_line(ERROR//': stress expansion order must be at least 2.')
+    call err()
   endif
   
-  ! Keeps each bin of a in sorted (increasing) order.
-  
-  do
-    ! Find the last bin which contains an element of a which is smaller than
-    !    an element of a in a later bin.
-    ! Label this bin j.
-    do i=no_bins-1,1,-1
-      if (a(a_id(bins(1,i)))<a(a_id(bins(2,i+1)))) then
-        j = i
-        exit
-      elseif (i==1) then
-        ! If there is no element j then the a(a_id) is now
-        !    sorted in reverse order and the algorithm is done.
-        return
+  do power=1,expansion_order/2
+    ! Construct the monomial containing no modes.
+    old = [ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                          & modes       = no_modes                 )]
+    
+    ! Loop over each mode in modes.
+    ! For each mode, loop over all monomials containing the previous modes,
+    !    and for each monomial append the new mode with all valid powers and
+    !    paired_powers such that sum(monomial%powers()) and
+    !    sum(monomial%paired_powers()) are both between 0 and power inclusive.
+    do i=1,size(modes)-1
+      monomials = [(                                                   &
+         & (                                                           &
+         &   ( ComplexMonomial(                                        &
+         &        coefficient = cmplx(1.0_dp,0.0_dp,dp),               &
+         &        modes       = [ old(l)%modes(),                      &
+         &                        ComplexUnivariate(                   &
+         &                           id           = modes(i)%id,       &
+         &                           paired_id    = modes(i)%id,       &
+         &                           power        = j,                 &
+         &                           paired_power = k            )] ), &
+         &     j=0,                                                    &
+         &     power-sum(old(l)%powers()) ),                           &
+         &   k=0,                                                      &
+         &   power-sum(old(l)%paired_powers()) ),                      &
+         & l=1,                                                        &
+         & size(old)                                                   )]
+      old = monomials
+    enddo
+    
+    ! Add powers and paired_powers of the final mode such that
+    !    sum(monomial%powers()) = sum(monomial%paired_powers()) = power.
+    monomials = [(                                                        &
+       & ComplexMonomial(                                                 &
+       &    coefficient = cmplx(1.0_dp,0.0_dp,dp),                        &
+       &    modes       = [                                               &
+       &       old(i)%modes(),                                            &
+       &       ComplexUnivariate(                                         &
+       &          id           = modes(size(modes))%id,                   &
+       &          paired_id    = modes(size(modes))%paired_id,            &
+       &          power        = power-sum(old(i)%powers()),              &
+       &          paired_power = power-sum(old(i)%paired_powers()) ) ] ), &
+       & i=1,                                                             &
+       & size(old)                                                        )]
+    
+    call monomials%simplify()
+    
+    ! Convert the monomials into real basis functions.
+    ! If power=paired_power, construct the u        basis function.
+    ! If power<paired_power, construct the u+u*     basis function.
+    ! If power>paired_power, construct the (u-u*)/i basis function
+    allocate( new_basis_functions(6*size(monomials)), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(monomials)
+      j = first( monomials(i)%powers()<monomials(i)%paired_powers(), &
+               & default=size(monomials(i))+1                        )
+      k = first( monomials(i)%powers()>monomials(i)%paired_powers(), &
+               & default=size(monomials(i))+1                        )
+      if (j==k) then
+        polynomial = ComplexPolynomial(terms=[monomials(i)])
+      elseif (j<k) then
+        polynomial = ComplexPolynomial(terms=[monomials(i), conjg(monomials)])
+        polynomial%terms%coefficient = [1,1]/sqrt(2.0_dp)
+      else
+        polynomial = ComplexPolynomial(terms=[monomials(i), conjg(monomials)])
+        polynomial%terms%coefficient = [1,-1]/cmplx(0.0_dp,sqrt(2.0_dp),dp)
       endif
+      
+      ! Construct the six independent stress element basis functions.
+      new_basis_functions(6*i-5:6*i) = generate_stress_elements(polynomial)
+      l = l+6
     enddo
     
-    ! Find the last bin containing an element of a which is larger than
-    !    the smallest element in bin j.
-    ! Label this bin i.
-    ! Find the largest element in bin j which is smaller than any element in i.
-    ! Label this element l.
-    ! Find the smallest element in bin i which is larger than element l.
-    ! Label this element k.
-    do i=no_bins,j+1,-1
-      l = last(a(a_id(bins(1,j):bins(2,j)))<a(a_id(bins(2,i))), default=0) &
-      & + bins(1,j)-1
-      if (l/=bins(1,j)-1) then
-        k = first(a(a_id(bins(1,i):bins(2,i)))>a(a_id(l)), default=0) &
-        & + bins(1,i)-1
-        exit
-      endif
-    enddo
-    
-    ! Swap elements k and l.
-    a_id([k,l]) = a_id([l,k])
-    
-    ! The elements after element l in bin j must be the smallest elements
-    !    anywhere after l which are larger than element l.
-    ! The elements in further bins should be sorted in ascending order.
-    
-    ! This is done by first reversing the order of elements within each bin
-    !    after bin j, resulting in a(a_id(bins(1,j+1):)) being in descending
-    !    order.
-    ! Then elements a(a_id(bins(1,j+1):)) are reversed.
-    ! Then element k is re-found.
-    ! Then the elements after l in bin j, and the elements immediately after k
-    !    are merged and split so that the smallest elements go
-    !    after l in bin j, and the remainder go after k.
-    
-    do n1=j+1,no_bins
-      a_id(bins(1,n1):bins(2,n1)) = a_id(bins(2,n1):bins(1,n1):-1)
-    enddo
-    
-    k = bins(2,i)-(k-bins(1,i))
-    
-    a_id(bins(1,j+1):) = a_id(size(a_id):bins(1,j+1):-1)
-    
-    k = size(a_id)-(k-bins(1,j+1))
-    
-    n1 = bins(2,j)-l
-    n2 = min(n1,size(a_id)-k)
-    a_id_remainder = [a_id(l+1:l+n1), a_id(k+1:k+n2)]
-    sort_key = sort(a(a_id_remainder))
-    a_id(l+1:l+n1) = a_id_remainder(sort_key(:n1))
-    a_id(k+1:k+n2) = a_id_remainder(sort_key(n1+1:))
-    
-    call print_line(a(a_id))
-    call print_line(b(b_id))
-    call print_line('')
+    ! Append the new basis functions to the basis functions
+    !    from previous powers.
+    if (power==1) then
+      basis_functions = new_basis_functions
+    else
+      old_basis_functions = basis_functions
+      basis_functions = [old_basis_functions, new_basis_functions]
+    endif
   enddo
-end subroutine
+  
+  output = PolynomialStress(                                        &
+     & stress_expansion_order = expansion_order,                    &
+     & reference_stress       = dblemat(zeroes(3,3)),               &
+     & basis_functions        = [CouplingStressBasisFunctions(      &
+     &    coupling        = SubspaceCoupling(ids=[subspace%id]),    &
+     &    basis_functions = basis_functions                      )] )
+end function
+
+! Constructs the six tensor elements from a given polynomial.
+function generate_stress_elements(polynomial) result(output)
+  implicit none
+  
+  type(ComplexPolynomial), intent(in)    :: polynomial
+  type(StressBasisFunction), allocatable :: output(:)
+  
+  type(ComplexMonomial)   :: no_monomials(0)
+  type(ComplexPolynomial) :: empty_polynomial
+  type(ComplexPolynomial) :: elements(3,3)
+  
+  integer :: i,ialloc
+  
+  empty_polynomial = ComplexPolynomial(terms=no_monomials)
+  elements = empty_polynomial
+  
+  allocate(output(6), stat=ialloc); call err(ialloc)
+  elements(1,1) = polynomial
+  output(1) = StressBasisFunction( elements    = elements, &
+                                 & coefficient = 0.0_dp    )
+  elements(1,1) = empty_polynomial
+  
+  elements(2,2) = polynomial
+  output(2) = StressBasisFunction( elements    = elements, &
+                                 & coefficient = 0.0_dp    )
+  elements(2,2) = empty_polynomial
+  
+  elements(3,3) = polynomial
+  output(3) = StressBasisFunction( elements    = elements, &
+                                 & coefficient = 0.0_dp    )
+  elements(3,3) = empty_polynomial
+  
+  elements(1,2) = polynomial
+  elements(2,1) = polynomial
+  output(4) = StressBasisFunction( elements    = elements, &
+                                 & coefficient = 0.0_dp    )
+  elements(1,2) = empty_polynomial
+  elements(2,1) = empty_polynomial
+  
+  elements(2,3) = polynomial
+  elements(3,2) = polynomial
+  output(5) = StressBasisFunction( elements    = elements, &
+                                 & coefficient = 0.0_dp    )
+  elements(2,3) = empty_polynomial
+  elements(3,2) = empty_polynomial
+  
+  elements(3,1) = polynomial
+  elements(1,3) = polynomial
+  output(6) = StressBasisFunction( elements    = elements, &
+                                 & coefficient = 0.0_dp    )
+end function
 end module
