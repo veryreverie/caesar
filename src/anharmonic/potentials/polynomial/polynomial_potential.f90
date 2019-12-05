@@ -80,8 +80,8 @@ module polynomial_potential_module
     procedure, public :: calculate_interpolated_thermodynamics => &
                     & calculate_interpolated_thermodynamics_PolynomialPotential
     
-    procedure, public :: add_overlap => &
-                       & add_overlap_PolynomialPotential
+    procedure, public :: interpolate => &
+                       & interpolate_PolynomialPotential
     
     procedure, public :: expansion_order => expansion_order_PolynomialPotential
     
@@ -1000,18 +1000,19 @@ subroutine calculate_interpolated_thermodynamics_PolynomialPotential(this, &
   ! TODO
 end subroutine
 
-! Interpolate the contribution to this potential from
-!    another potential.
-impure elemental subroutine add_overlap_PolynomialPotential(this,that, &
-   & interpolator)
+! Calculate the contribution to a given monomial from the interpolation of
+!    this potential.
+impure elemental function interpolate_PolynomialPotential(this,monomial, &
+   & interpolator) result(output)
   implicit none
   
-  class(PolynomialPotential),   intent(inout) :: this
-  type(PolynomialPotential),    intent(in)    :: that
-  type(PolynomialInterpolator), intent(in)    :: interpolator
+  class(PolynomialPotential),   intent(in) :: this
+  type(ComplexMonomial),        intent(in) :: monomial
+  type(PolynomialInterpolator), intent(in) :: interpolator
+  complex(dp)                              :: output
   
-  call this%basis_functions_%add_overlap(that%basis_functions_, interpolator)
-end subroutine
+  output = sum(this%basis_functions_%interpolate(monomial, interpolator))
+end function
 
 ! Expansion order.
 impure elemental function expansion_order_PolynomialPotential(this) &

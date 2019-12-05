@@ -265,7 +265,8 @@ module complex_polynomial_module
   end interface
   
   interface operator(-)
-    module procedure negative_ComplexPolynomialable
+    module procedure negative_ComplexMonomial
+    module procedure negative_ComplexPolynomial
     
     module procedure subtract_ComplexPolynomialable_ComplexPolynomialable
   end interface
@@ -1994,15 +1995,24 @@ impure elemental function add_ComplexPolynomialable_ComplexPolynomialable( &
   output%terms = output%terms(:no_terms)
 end function
 
-! The negative of a polynomial or polynomial-like type.
-impure elemental function negative_ComplexPolynomialable(this) result(output)
+! The negative of a monomial or polynomial.
+impure elemental function negative_ComplexMonomial(this) result(output)
   implicit none
   
-  class(ComplexPolynomialable), intent(in) :: this
-  type(ComplexPolynomial)                  :: output
+  class(ComplexMonomial), intent(in) :: this
+  type(ComplexMonomial)              :: output
   
-  output = this%to_ComplexPolynomial()
-  output%terms%coefficient = - output%terms%coefficient
+  output = ComplexMonomial( modes       = this%modes_,      &
+                          & coefficient = -this%coefficient )
+end function
+
+impure elemental function negative_ComplexPolynomial(this) result(output)
+  implicit none
+  
+  class(ComplexPolynomial), intent(in) :: this
+  type(ComplexPolynomial)              :: output
+  
+  output = ComplexPolynomial(-this%terms)
 end function
 
 ! Subtraction between polynomials and polynomial-like types.
@@ -2015,7 +2025,7 @@ impure elemental function                                            &
   class(ComplexPolynomialable), intent(in) :: that
   type(ComplexPolynomial)                  :: output
   
-  output = this + (-that)
+  output = this + (-that%to_ComplexPolynomial())
 end function
 
 ! Sum polynomial-like types.

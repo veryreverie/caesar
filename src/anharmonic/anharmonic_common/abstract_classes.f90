@@ -329,6 +329,12 @@ module abstract_classes_module
     !    states.
     procedure(harmonic_expectation_StressData), public, deferred :: &
        & harmonic_expectation
+    
+    ! Interpolation of the stress.
+    procedure, public :: can_be_interpolated => &
+                       & can_be_interpolated_StressData
+    procedure, public :: calculate_interpolated_stress => &
+                       & calculate_interpolated_stress_StressData
   end type
   
   type, extends(StressData) :: StressPointer
@@ -357,6 +363,11 @@ module abstract_classes_module
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_StressPointer
+    
+    procedure, public :: can_be_interpolated => &
+                       & can_be_interpolated_StressPointer
+    procedure, public :: calculate_interpolated_stress => &
+                       & calculate_interpolated_stress_StressPointer
     
     ! I/O.
     procedure, public :: read  => read_StressPointer
@@ -1999,6 +2010,52 @@ impure elemental function harmonic_expectation_StressPointer(this,frequency, &
                                             & anharmonic_data )
 end function
 
+function can_be_interpolated_StressPointer(this) result(output)
+  implicit none
+  
+  class(StressPointer), intent(in) :: this
+  logical                          :: output
+  
+  call this%check()
+  
+  output = this%stress_%can_be_interpolated()
+end function
+
+function calculate_interpolated_stress_StressPointer(this,                &
+   & degenerate_frequency,fine_qpoints,thermal_energy,harmonic_supercell, &
+   & harmonic_hessian,harmonic_min_images,subspaces,subspace_bases,       &
+   & basis_states,anharmonic_min_images,anharmonic_data) result(output)
+  implicit none
+  
+  class(StressPointer),     intent(in) :: this
+  real(dp),                 intent(in) :: degenerate_frequency
+  type(RealVector),         intent(in) :: fine_qpoints(:)
+  real(dp),                 intent(in) :: thermal_energy
+  type(StructureData),      intent(in) :: harmonic_supercell
+  type(CartesianHessian),   intent(in) :: harmonic_hessian
+  type(MinImages),          intent(in) :: harmonic_min_images(:,:)
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
+  class(BasisStates),       intent(in) :: basis_states(:)
+  type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(RealMatrix)                     :: output
+  
+  call this%check()
+  
+  output = this%stress_%calculate_interpolated_stress( degenerate_frequency,  &
+                                                     & fine_qpoints,          &
+                                                     & thermal_energy,        &
+                                                     & harmonic_supercell,    &
+                                                     & harmonic_hessian,      &
+                                                     & harmonic_min_images,   &
+                                                     & subspaces,             &
+                                                     & subspace_bases,        &
+                                                     & basis_states,          &
+                                                     & anharmonic_min_images, &
+                                                     & anharmonic_data        )
+end function
+
 ! I/O.
 subroutine read_StressPointer(this,input)
   implicit none
@@ -2157,5 +2214,40 @@ function undisplaced_stress(this) result(output)
   type(RealSingleDisplacement) :: zero_displacement(0)
   
   output = this%stress(RealModeDisplacement(zero_displacement))
+end function
+
+function can_be_interpolated_StressData(this) result(output)
+  implicit none
+  
+  class(StressData), intent(in) :: this
+  logical                       :: output
+  
+  output = .false.
+end function
+
+function calculate_interpolated_stress_StressData(this,                   &
+   & degenerate_frequency,fine_qpoints,thermal_energy,harmonic_supercell, &
+   & harmonic_hessian,harmonic_min_images,subspaces,subspace_bases,       &
+   & basis_states,anharmonic_min_images,anharmonic_data) result(output)
+  implicit none
+  
+  class(StressData),        intent(in) :: this
+  real(dp),                 intent(in) :: degenerate_frequency
+  type(RealVector),         intent(in) :: fine_qpoints(:)
+  real(dp),                 intent(in) :: thermal_energy
+  type(StructureData),      intent(in) :: harmonic_supercell
+  type(CartesianHessian),   intent(in) :: harmonic_hessian
+  type(MinImages),          intent(in) :: harmonic_min_images(:,:)
+  type(DegenerateSubspace), intent(in) :: subspaces(:)
+  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
+  class(BasisStates),       intent(in) :: basis_states(:)
+  type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(RealMatrix)                     :: output
+  
+  ! This should be gated behind can_be_interpolated.
+  call print_line(CODE_ERROR//': calculate_interpolated_stress not &
+     &implemented for this stress.')
+  call err()
 end function
 end module

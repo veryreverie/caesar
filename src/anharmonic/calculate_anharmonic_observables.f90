@@ -11,6 +11,9 @@ module calculate_anharmonic_observables_module
   use generate_subspace_potentials_module
   use vscf_module
   use stress_prefactors_module
+  
+  ! TODO: remove this.
+  use interpolation_module
   implicit none
   
   private
@@ -652,6 +655,24 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call pdos_file%print_lines(phonon_dos%pdos)
     
     vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
+    
+    ! Interpolate stress under the effective harmonic approximation.
+    if (stress%can_be_interpolated()) then
+      call vscha_thermodynamics(i)%set_stress(      &
+         & stress%calculate_interpolated_stress(    &
+         &            1e-30_dp,                     &
+         &            phonon_dos%qpoints%qpoint,    &
+         &            thermal_energies(i),          &
+         &            supercell,                    &
+         &            hessian,                      &
+         &            min_images,                   &
+         &            subspaces,                    &
+         &            vscha_basis,                  &
+         &            vscha_states,                 &
+         &            min_images,                   &
+         &            anharmonic_data            ), &
+         & anharmonic_data%structure%volume         )
+    endif
     
     ! --------------------------------------------------
     ! Calculated interpolated VSCF results.

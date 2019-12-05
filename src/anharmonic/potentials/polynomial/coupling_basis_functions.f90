@@ -62,7 +62,7 @@ module coupling_basis_functions_module
     
     procedure, public :: append => append_CouplingBasisFunctions
     
-    procedure, public :: add_overlap => add_overlap_CouplingBasisFunctions
+    procedure, public :: interpolate => interpolate_CouplingBasisFunctions
     
     ! I/O.
     procedure, public :: read  => read_CouplingBasisFunctions
@@ -444,18 +444,19 @@ subroutine append_CouplingBasisFunctions(this,that)
   this%basis_functions_ = temp
 end subroutine
 
-! Interpolate the contribution to this basis function from
-!    another basis function.
-impure elemental subroutine add_overlap_CouplingBasisFunctions(this,that, &
-   & interpolator)
+! Calculate the contribution to a given monomial from the interpolation of
+!    this basis function.
+impure elemental function interpolate_CouplingBasisFunctions(this,monomial, &
+   & interpolator) result(output)
   implicit none
   
-  class(CouplingBasisFunctions), intent(inout) :: this
-  type(CouplingBasisFunctions),  intent(in)    :: that
-  type(PolynomialInterpolator),  intent(in)    :: interpolator
+  class(CouplingBasisFunctions), intent(in) :: this
+  type(ComplexMonomial),         intent(in) :: monomial
+  type(PolynomialInterpolator),  intent(in) :: interpolator
+  complex(dp)                               :: output
   
-  call this%basis_functions_%add_overlap(that%basis_functions_, interpolator)
-end subroutine
+  output = sum(this%basis_functions_%interpolate(monomial, interpolator))
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.

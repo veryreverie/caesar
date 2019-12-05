@@ -33,6 +33,9 @@ module thermodynamic_data_module
     real(dp),         allocatable :: enthalpy
     real(dp),         allocatable :: gibbs
   contains
+    procedure, public :: set_stress => set_stress_ThermodynamicData
+    
+    ! I/O.
     procedure, public :: read  => read_ThermodynamicData
     procedure, public :: write => write_ThermodynamicData
   end type
@@ -281,6 +284,20 @@ function new_ThermodynamicData_harmonic(thermal_energy,frequency, &
                             & enthalpy,       &
                             & gibbs           )
 end function
+
+! Add stress to a ThermodynamicData.
+impure elemental subroutine set_stress_ThermodynamicData(this,stress,volume)
+  implicit none
+  
+  class(ThermodynamicData), intent(inout) :: this
+  type(RealMatrix),         intent(in)    :: stress
+  real(dp),                 intent(in)    :: volume
+  
+  this%stress = stress
+  this%volume = volume
+  this%enthalpy = this%energy + volume*trace(stress)/3
+  this%gibbs = this%free_energy + volume*trace(stress)/3
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Algebra with ThermodynamicData.

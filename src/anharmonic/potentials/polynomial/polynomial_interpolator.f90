@@ -97,7 +97,7 @@ function new_PolynomialInterpolator(fine_modes,fine_qpoints,coarse_modes, &
         
         q = coarse_qpoints(j)-fine_qpoints(k)
         do l=1,size(anharmonic_data%anharmonic_supercell%atoms)
-          atom_l = anharmonic_data%anharmonic_supercell%atoms(j)
+          atom_l = anharmonic_data%anharmonic_supercell%atoms(l)
           rvectors = min_images(i,l)%image_rvectors
           this%relative_(k, j, i) =                                 &
              &   this%relative_(k, j, i)                            &

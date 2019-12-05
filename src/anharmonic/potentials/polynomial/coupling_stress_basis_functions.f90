@@ -53,8 +53,8 @@ module coupling_stress_basis_functions_module
     
     procedure, public :: append => append_CouplingStressBasisFunctions
     
-    procedure, public :: add_overlap => &
-                       & add_overlap_CouplingStressBasisFunctions
+    procedure, public :: interpolate => &
+                       & interpolate_CouplingStressBasisFunctions
     
     ! I/O.
     procedure, public :: read  => read_CouplingStressBasisFunctions
@@ -343,18 +343,20 @@ function generate_stress_basis_functions_SubspaceCoupling(coupling,     &
                                        & coupling_basis_functions )
 end function
 
-! Interpolate the contribution to this basis function from
-!    another basis function.
-impure elemental subroutine add_overlap_CouplingStressBasisFunctions(this, &
-   & that,interpolator)
+! Calculate the contribution to a given monomial from the interpolation of
+!    this basis function.
+! The result is given as a cartesian tensor.
+impure elemental function interpolate_CouplingStressBasisFunctions(this, &
+   & monomial,interpolator) result(output)
   implicit none
   
-  class(CouplingStressBasisFunctions), intent(inout) :: this
-  type(CouplingStressBasisFunctions),  intent(in)    :: that
-  type(PolynomialInterpolator),        intent(in)    :: interpolator
+  class(CouplingStressBasisFunctions), intent(in) :: this
+  type(ComplexMonomial),               intent(in) :: monomial
+  type(PolynomialInterpolator),        intent(in) :: interpolator
+  type(ComplexMatrix)                             :: output
   
-  call this%basis_functions_%add_overlap(that%basis_functions_, interpolator)
-end subroutine
+  output = sum(this%basis_functions_%interpolate(monomial, interpolator))
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.

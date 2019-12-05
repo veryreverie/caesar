@@ -49,7 +49,7 @@ module stress_basis_function_module
     procedure, public :: undisplaced_stress => &
                        & undisplaced_stress_StressBasisFunction
     
-    procedure, public :: add_overlap => add_overlap_StressBasisFunction
+    procedure, public :: interpolate => interpolate_StressBasisFunction
     
     ! I/O.
     procedure, public :: read  => read_StressBasisFunction
@@ -529,61 +529,35 @@ impure elemental function divide_StressBasisFunction_real(this,that) &
   output%coefficient_ = output%coefficient_ / that
 end function
 
-! Interpolate the contribution to this basis function from
-!    another basis function.
-! Calculates the overlap using only one term in this basis function,
-!    to preserve symmetry.
-impure elemental subroutine add_overlap_StressBasisFunction(this,that, &
-   & interpolator)
+! Calculate the contribution to a given monomial from the interpolation of
+!    this basis function.
+! The result is given as a cartesian tensor.
+impure elemental function interpolate_StressBasisFunction(this,monomial, &
+   & interpolator) result(output)
   implicit none
   
-  class(StressBasisFunction),   intent(inout) :: this
-  type(StressBasisFunction),    intent(in)    :: that
-  type(PolynomialInterpolator), intent(in)    :: interpolator
+  class(StressBasisFunction),   intent(in) :: this
+  type(ComplexMonomial),        intent(in) :: monomial
+  type(PolynomialInterpolator), intent(in) :: interpolator
+  type(ComplexMatrix)                      :: output
   
-  integer  :: largest_i
-  integer  :: largest_j
-  integer  :: largest_k
-  real(dp) :: largest
+  complex(dp) :: elements(3,3)
   
-  complex(dp) :: overlap
-  
-  integer :: i,j,k
-  
-  largest_i = 0
-  largest_j = 0
-  largest_k = 0
-  largest = 0
+  integer :: i,j
   
   do i=1,3
-    do j=1,3
-      k = minloc(abs(this%elements_(j,i)%terms%coefficient), 1)
-      
-      if (abs(this%elements_(j,i)%terms(k)%coefficient)>largest) then
-        largest_i = i
-        largest_j = j
-        largest_k = k
-        largest = abs(this%elements_(j,i)%terms(k)%coefficient)
-      endif
+    do j=i,3
+      elements(j,i) = interpolator%overlap(monomial, this%elements_(j,i)) &
+                  & * this%coefficient_
     enddo
   enddo
   
-  associate(term=>this%elements_(largest_j,largest_i)%terms(largest_k))
-    overlap = interpolator%overlap(term, that%elements_(largest_j,largest_i))
-    
-    if (abs(real(term%coefficient)) > abs(aimag(term%coefficient))) then
-      this%coefficient_ = this%coefficient_ &
-                      & + real(overlap)     &
-                      & * that%coefficient_ &
-                      & / real(term%coefficient)
-    else
-      this%coefficient_ = this%coefficient_ &
-                      & + aimag(overlap)    &
-                      & * that%coefficient_ &
-                      & / aimag(term%coefficient)
-    endif
-  end associate
-end subroutine
+  elements(1,2) = elements(2,1)
+  elements(1,3) = elements(3,1)
+  elements(2,3) = elements(3,2)
+  
+  output = mat(elements)
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.
