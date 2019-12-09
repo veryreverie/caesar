@@ -115,14 +115,14 @@ function new_PolynomialInterpolator(fine_modes,fine_qpoints,coarse_modes, &
 end function
 
 ! Calculates <u1|j><j|u2>.
-impure elemental function absolute_overlap(this,atom,fine_mode,coarse_mode) &
+impure elemental function absolute_overlap(this,fine_mode,coarse_mode,atom) &
    & result(output)
   implicit none
   
   class(PolynomialInterpolator), intent(in) :: this
-  integer,                       intent(in) :: atom
   integer,                       intent(in) :: fine_mode
   integer,                       intent(in) :: coarse_mode
+  integer,                       intent(in) :: atom
   complex(dp)                               :: output
   
   output = this%absolute_( this%fine_map_(fine_mode),     &
@@ -131,14 +131,14 @@ impure elemental function absolute_overlap(this,atom,fine_mode,coarse_mode) &
 end function
 
 ! Calculates sum_k <u1|k>e^{2 pi i (q1-q2).R_{jk}}<k|u2>.
-impure elemental function relative_overlap(this,atom,fine_mode,coarse_mode) &
+impure elemental function relative_overlap(this,fine_mode,coarse_mode,atom) &
    & result(output)
   implicit none
   
   class(PolynomialInterpolator), intent(in) :: this
-  integer,                       intent(in) :: atom
   integer,                       intent(in) :: fine_mode
   integer,                       intent(in) :: coarse_mode
+  integer,                       intent(in) :: atom
   complex(dp)                               :: output
   
   output = this%relative_( this%fine_map_(fine_mode),     &
@@ -241,7 +241,7 @@ impure elemental function overlap_ComplexMonomial_ComplexMonomial(this,fine, &
     endif
   enddo
   
-  output = output / no_permutations
+  output = output * coarse%coefficient / no_permutations
 end function
 
 function to_ids(monomial) result(output)

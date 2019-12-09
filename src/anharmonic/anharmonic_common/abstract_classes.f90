@@ -1759,12 +1759,13 @@ function can_be_interpolated_PotentialPointer(this) result(output)
 end function
 
 subroutine calculate_interpolated_thermodynamics_PotentialPointer(this, &
-   & thermal_energy,subspaces,subspace_potentials,subspace_bases,       &
-   & subspace_states,anharmonic_data)
+   & thermal_energy,min_frequency,subspaces,subspace_potentials,        &
+   & subspace_bases,subspace_states,anharmonic_data)
   implicit none
   
   class(PotentialPointer),  intent(in)    :: this
   real(dp),                 intent(in)    :: thermal_energy
+  real(dp),                 intent(in)    :: min_frequency
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(PotentialData),     intent(in)    :: subspace_potentials(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
@@ -1775,6 +1776,7 @@ subroutine calculate_interpolated_thermodynamics_PotentialPointer(this, &
   
   call this%potential_%calculate_interpolated_thermodynamics( &
                                        & thermal_energy,      &
+                                       & min_frequency,       &
                                        & subspaces,           &
                                        & subspace_potentials, &
                                        & subspace_bases,      &
@@ -2021,16 +2023,18 @@ function can_be_interpolated_StressPointer(this) result(output)
   output = this%stress_%can_be_interpolated()
 end function
 
-function calculate_interpolated_stress_StressPointer(this,                &
-   & degenerate_frequency,fine_qpoints,thermal_energy,harmonic_supercell, &
-   & harmonic_hessian,harmonic_min_images,subspaces,subspace_bases,       &
-   & basis_states,anharmonic_min_images,anharmonic_data) result(output)
+function calculate_interpolated_stress_StressPointer(this,              &
+   & degenerate_frequency,fine_qpoints,thermal_energy,min_frequency,    &
+   & harmonic_supercell,harmonic_hessian,harmonic_min_images,subspaces, &
+   & subspace_bases,basis_states,anharmonic_min_images,anharmonic_data) &
+   & result(output)
   implicit none
   
   class(StressPointer),     intent(in) :: this
   real(dp),                 intent(in) :: degenerate_frequency
   type(RealVector),         intent(in) :: fine_qpoints(:)
   real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: min_frequency
   type(StructureData),      intent(in) :: harmonic_supercell
   type(CartesianHessian),   intent(in) :: harmonic_hessian
   type(MinImages),          intent(in) :: harmonic_min_images(:,:)
@@ -2046,6 +2050,7 @@ function calculate_interpolated_stress_StressPointer(this,                &
   output = this%stress_%calculate_interpolated_stress( degenerate_frequency,  &
                                                      & fine_qpoints,          &
                                                      & thermal_energy,        &
+                                                     & min_frequency,         &
                                                      & harmonic_supercell,    &
                                                      & harmonic_hessian,      &
                                                      & harmonic_min_images,   &
@@ -2186,12 +2191,13 @@ function can_be_interpolated_PotentialData(this) result(output)
 end function
 
 subroutine calculate_interpolated_thermodynamics_PotentialData(this, &
-   & thermal_energy,subspaces,subspace_potentials,subspace_bases,    &
-   & subspace_states,anharmonic_data)
+   & thermal_energy,min_frequency,subspaces,subspace_potentials,     &
+   & subspace_bases,subspace_states,anharmonic_data)
   implicit none
   
   class(PotentialData),     intent(in)    :: this
   real(dp),                 intent(in)    :: thermal_energy
+  real(dp),                 intent(in)    :: min_frequency
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(PotentialData),     intent(in)    :: subspace_potentials(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
@@ -2225,16 +2231,18 @@ function can_be_interpolated_StressData(this) result(output)
   output = .false.
 end function
 
-function calculate_interpolated_stress_StressData(this,                   &
-   & degenerate_frequency,fine_qpoints,thermal_energy,harmonic_supercell, &
-   & harmonic_hessian,harmonic_min_images,subspaces,subspace_bases,       &
-   & basis_states,anharmonic_min_images,anharmonic_data) result(output)
+function calculate_interpolated_stress_StressData(this,                 &
+   & degenerate_frequency,fine_qpoints,thermal_energy,min_frequency,    &
+   & harmonic_supercell,harmonic_hessian,harmonic_min_images,subspaces, &
+   & subspace_bases,basis_states,anharmonic_min_images,anharmonic_data) &
+   & result(output)
   implicit none
   
   class(StressData),        intent(in) :: this
   real(dp),                 intent(in) :: degenerate_frequency
   type(RealVector),         intent(in) :: fine_qpoints(:)
   real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: min_frequency
   type(StructureData),      intent(in) :: harmonic_supercell
   type(CartesianHessian),   intent(in) :: harmonic_hessian
   type(MinImages),          intent(in) :: harmonic_min_images(:,:)

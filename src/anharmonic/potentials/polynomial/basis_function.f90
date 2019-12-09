@@ -188,7 +188,6 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   ! Temporary variables.
   integer :: i,j,ialloc
   
-  
   if (sum(subspace_monomial%powers)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
        &power less than 2.')
@@ -299,68 +298,60 @@ function make_basis_projection(projection,conjugates) result(output)
   
   real(dp), allocatable :: matrix(:,:)
   
-  integer :: i,j,ialloc
+  integer :: i,j,ip,jp,ialloc
   
   ! Construct the output matrix.
-  ! N.B. each time conjugates(x)<x, x and x' are the other way around,
-  !    e.g. when conjugates(j)<j, Pij=element(i,conjugate(j)) and
-  !    Pij'=element(i,j).
   allocate( matrix(size(projection,1),size(projection,2)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(projection,1)
+    ip = conjugates(i)
     do j=1,size(projection,2)
-      if (conjugates(i)==i) then
-        if (conjugates(j)==j) then
+      jp = conjugates(j)
+      if (ip==i) then
+        if (jp==j) then
           ! ui = Pij uj
           matrix(i,j) = real(projection%element(i,j))
-        elseif (conjugates(j)>j) then
-          ! ui = (Pij+Pij') (uj+uj')/2 + ...
-          matrix(i,j) = real( projection%element(i,j)             &
-                          & + projection%element(i,conjugates(j)) )
-        else
-          ! ... + i(Pij-Pij') (uj-uj')/2i
-          matrix(i,j) = -aimag( projection%element(i,conjugates(j)) &
-                            & - projection%element(i,j)             )
+        elseif (jp>j) then
+          ! ui = (Pij+Pij')/sqrt(2) (uj+uj')/sqrt(2) + ...
+          matrix(i,j) = real( projection%element(i,j)    &
+                    &       + projection%element(i,jp) ) &
+                    & / sqrt(2.0_dp)
+          ! ... + i(Pij-Pij')/sqrt(2) (uj-uj')/sqrt(2)i
+          matrix(i,jp) = -aimag( projection%element(i,j)    &
+                     &         - projection%element(i,jp) ) &
+                     & / sqrt(2.0_dp)
         endif
-      elseif (conjugates(i)>i) then
-        if (conjugates(j)==j) then
-          ! (ui+ui')/2 = (Pij+Pi'j)/2 uj
-          matrix(i,j) = real( projection%element(i,j)             &
-                          & + projection%element(conjugates(i),j) )/2
-        elseif (conjugates(j)>j) then
-          ! (ui+ui')/2 = (Pij+Pij'+Pi'j+Pi'j')/2 (uj+uj')/2 + ...
-          matrix(i,j) = real(                                    &
-             &   projection%element(i,j)                         &
-             & + projection%element(i,conjugates(j))             &
-             & + projection%element(conjugates(i),j)             &
-             & + projection%element(conjugates(i),conjugates(j)) ) / 2
-        else
-          ! ... + i(Pij-Pij'+Pi'j-Pi'j')/2 (uj-uj')/2i
-          matrix(i,j) = -aimag(                                  &
-             &   projection%element(i,conjugates(j))             &
-             & - projection%element(i,j)                         &
-             & + projection%element(conjugates(i),conjugates(j)) &
-             & - projection%element(conjugates(i),j)             ) / 2
-        endif
-      else
-        if (conjugates(j)==j) then
-          ! (ui-ui')/2i = (Pij-Pi'j)/2i uj
-          matrix(i,j) = aimag( projection%element(conjugates(i),j) &
-                           & - projection%element(i,j)             )/2
-        elseif (conjugates(j)>j) then
-          ! (ui-ui')/2i = (Pij+Pij'-Pi'j-Pi'j')/2i (uj+uj')/2 + ...
-          matrix(i,j) = aimag(                                   &
-             &   projection%element(conjugates(i),j)             &
-             & + projection%element(conjugates(i),conjugates(j)) &
-             & - projection%element(i,j)                         &
-             & - projection%element(i,conjugates(j))             ) / 2
-        else
-          ! ... +  (Pij-Pij'-Pi'j+Pi'j')/2 (uj-uj')/2i
-          matrix(i,j) = real(                                    &
-             &   projection%element(conjugates(i),conjugates(j)) &
-             & - projection%element(conjugates(i),j)             &
-             & - projection%element(i,conjugates(j))             &
-             & + projection%element(i,j)                         ) / 2
+      elseif (ip>i) then
+        if (jp==j) then
+          ! (ui+ui')/sqrt(2) = (Pij+Pi'j)/sqrt(2) uj
+          matrix(i,j) = real( projection%element(i,j)    &
+                    &       + projection%element(ip,j) ) &
+                    & / sqrt(2.0_dp)
+          ! (ui-ui')/sqrt(2)i = (Pij-Pi'j)/sqrt(2)i uj
+          matrix(ip,j) = aimag( projection%element(i,j)    &
+                     &        - projection%element(ip,j) ) &
+                     & / sqrt(2.0_dp)
+        elseif (jp>j) then
+          ! (ui+ui')/sqrt(2) = (Pij+Pij'+Pi'j+Pi'j')/2 (uj+uj')/sqrt(2) + ...
+          matrix(i,j) = real( projection%element(i,j)   &
+                          & + projection%element(i,jp)  &
+                          & + projection%element(ip,j)  &
+                          & + projection%element(ip,jp) ) / 2
+          ! ... + i(Pij-Pij'+Pi'j-Pi'j')/2 (uj-uj')/sqrt(2)i
+          matrix(i,jp) = -aimag( projection%element(i,j)   &
+                             & - projection%element(i,jp)  &
+                             & + projection%element(ip,j)  &
+                             & - projection%element(ip,jp) ) / 2
+          ! (ui-ui')/sqrt(2)i = (Pij+Pij'-Pi'j-Pi'j')/2i (uj+uj')/sqrt(2) + ...
+          matrix(ip,j) = aimag( projection%element(i,j)   &
+                            & + projection%element(i,jp)  &
+                            & - projection%element(ip,j)  &
+                            & - projection%element(ip,jp) ) / 2
+          ! ... +  (Pij-Pij'-Pi'j+Pi'j')/2 (uj-uj')/sqrt(2)i
+          matrix(ip,jp) = real( projection%element(i,j)   &
+                            & - projection%element(i,jp)  &
+                            & - projection%element(ip,j)  &
+                            & + projection%element(ip,jp) ) / 2
         endif
       endif
     enddo

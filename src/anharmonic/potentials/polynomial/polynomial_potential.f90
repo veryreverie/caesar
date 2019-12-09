@@ -985,12 +985,13 @@ function can_be_interpolated_PolynomialPotential(this) result(output)
 end function
 
 subroutine calculate_interpolated_thermodynamics_PolynomialPotential(this, &
-   & thermal_energy,subspaces,subspace_potentials,subspace_bases,          &
-   & subspace_states,anharmonic_data)
+   & thermal_energy,min_frequency,subspaces,subspace_potentials,           &
+   & subspace_bases,subspace_states,anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(in)    :: this
   real(dp),                   intent(in)    :: thermal_energy
+  real(dp),                   intent(in)    :: min_frequency
   type(DegenerateSubspace),   intent(in)    :: subspaces(:)
   class(PotentialData),       intent(in)    :: subspace_potentials(:)
   class(SubspaceBasis),       intent(in)    :: subspace_bases(:)

@@ -88,7 +88,7 @@ function new_StressBasisFunction(elements,coefficient) result(this)
   if (present(coefficient)) then
     this%coefficient_ = coefficient
   else
-    this%coefficient_ = 0
+    this%coefficient_ = 1
   endif
 end function
 
@@ -568,6 +568,8 @@ subroutine read_StressBasisFunction(this,input)
   class(StressBasisFunction), intent(out) :: this
   type(String),               intent(in)  :: input(:)
   
+  type(ComplexMonomial) :: no_monomials(0)
+  
   type(ComplexPolynomial) :: elements(3,3)
   
   type(StringArray), allocatable :: sections(:)
@@ -575,14 +577,14 @@ subroutine read_StressBasisFunction(this,input)
   integer :: i,j,k
   
   select type(this); type is(StressBasisFunction)
+    elements = ComplexPolynomial(no_monomials)
+    
     sections = split_into_sections(input)
-    k = 0
-    do i=1,3
-      do j=1,3
-        k = k+1
-        elements(i,j) = ComplexPolynomial(join( sections(k)%strings(3:), &
-                                              & delimiter=' + '          ))
-      enddo
+    do k=1,size(sections)
+      i = int(token(sections(k)%strings(1),3))
+      j = int(token(sections(k)%strings(1),5))
+      elements(i,j) = ComplexPolynomial(join( sections(k)%strings(2:), &
+                                            & delimiter=' + '          ))
     enddo
     
     this = StressBasisFunction(elements)
@@ -597,19 +599,24 @@ function write_StressBasisFunction(this) result(output)
   class(StressBasisFunction), intent(in) :: this
   type(String), allocatable              :: output(:)
   
+  logical :: first_element
+  
   integer :: i,j,ialloc
   
   select type(this); type is(StressBasisFunction)
     allocate(output(0), stat=ialloc); call err(ialloc)
+    first_element = .true.
     do i=1,3
       do j=1,3
-        if (i/=1 .or. j/=1) then
-          output = [output, str('')]
+        if (size(this%elements_(i,j))>0) then
+          if (.not. first_element) then
+            output = [output, str('')]
+          endif
+          output = [ output,                                         &
+                   & 'Element ( '//i//' , '//j//' ):',                   &
+                   & str(this%elements_(i,j)*this%coefficient_)      ]
+          first_element = .false.
         endif
-        output = [ output,                                         &
-                 & 'Element ('//i//' '//j//'):',                   &
-                 & str('Basis function in complex co-ordinates:'), &
-                 & str(this%elements_(i,j))                        ]
       enddo
     enddo
   class default

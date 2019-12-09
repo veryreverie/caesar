@@ -324,16 +324,18 @@ function can_be_interpolated_PolynomialStress(this) result(output)
   output = .true.
 end function
 
-function calculate_interpolated_stress_PolynomialStress(this,             &
-   & degenerate_frequency,fine_qpoints,thermal_energy,harmonic_supercell, &
-   & harmonic_hessian,harmonic_min_images,subspaces,subspace_bases,       &
-   & basis_states,anharmonic_min_images,anharmonic_data) result(output)
+function calculate_interpolated_stress_PolynomialStress(this,           &
+   & degenerate_frequency,fine_qpoints,thermal_energy,min_frequency,    &
+   & harmonic_supercell,harmonic_hessian,harmonic_min_images,subspaces, &
+   & subspace_bases,basis_states,anharmonic_min_images,anharmonic_data) &
+   & result(output)
   implicit none
   
   class(PolynomialStress),  intent(in) :: this
   real(dp),                 intent(in) :: degenerate_frequency
   type(RealVector),         intent(in) :: fine_qpoints(:)
   real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: min_frequency
   type(StructureData),      intent(in) :: harmonic_supercell
   type(CartesianHessian),   intent(in) :: harmonic_hessian
   type(MinImages),          intent(in) :: harmonic_min_images(:,:)
@@ -352,14 +354,16 @@ function calculate_interpolated_stress_PolynomialStress(this,             &
   type(PolynomialInterpolator) :: interpolator
   
   type(DegenerateSubspace), allocatable :: fine_subspaces(:)
+  type(StressPrefactors),   allocatable :: stress_prefactors(:)
   type(ComplexMode),        allocatable :: subspace_modes(:)
   type(PolynomialStress)                :: fine_stress
   
-  type(RealMatrix) :: stress_tensor
+  type(RealMatrix)        :: potential_stress
+  type(ThermodynamicData) :: thermodynamic_data
   
   integer :: i,j,k
   
-  stress_tensor = dblemat(zeroes(3,3))
+  output = dblemat(zeroes(3,3))
   do i=1,size(fine_qpoints)
     ! Construct normal modes from harmonic potential.
     ! Include modes from both q and -q.
@@ -390,33 +394,59 @@ function calculate_interpolated_stress_PolynomialStress(this,             &
     fine_subspaces = generate_fine_subspaces( qpoint_modes,        &
                                             & degenerate_frequency )
     
+    ! Calculate stress prefactors.
+    stress_prefactors = [(                                   &
+       & StressPrefactors( fine_subspaces(j),                &
+       &                   fine_subspaces(j)%modes(modes) ), &
+       & j=1,                                                &
+       & size(fine_subspaces)                                )]
+    
     do j=1,size(fine_subspaces)
-      if (fine_subspaces(j)%frequency>0) then
+      if (fine_subspaces(j)%frequency>min_frequency) then
         ! Interpolate stress.
         subspace_modes = qpoint_modes(filter([(                   &
            & any(qpoint_modes(k)%id==fine_subspaces(j)%mode_ids), &
            & k=1,                                                 &
-           & size(subspace_modes)                                 )]))
+           & size(qpoint_modes)                                   )]))
+        
         fine_stress = generate_fine_stress( fine_subspaces(j), &
                                           & subspace_modes,    &
                                           & this,              &
                                           & interpolator       )
         
         ! Take the harmonic expectation of the stress.
-        stress_tensor = stress_tensor                     &
-                    & + fine_stress%harmonic_expectation( &
-                    &        fine_subspaces(j)%frequency, &
-                    &        thermal_energy,              &
-                    &        anharmonic_data              )
+        potential_stress = fine_stress%harmonic_expectation(   &
+                       &        fine_subspaces(j)%frequency,   &
+                       &        thermal_energy,                &
+                       &        anharmonic_data              ) &
+                       & / (2*size(subspace_modes))
+        
+        ! Calculate total stress, including kinetic stress.
+        thermodynamic_data =                                             &
+           & ThermodynamicData( thermal_energy,                          &
+           &                   fine_subspaces(j)%frequency,              &
+           &                   stress_prefactors(j)%average_prefactor(), &
+           &                   potential_stress,                         &
+           &                   anharmonic_data%structure%volume )        &
+           & * (2*size(subspace_modes))
+        
+        output = output + thermodynamic_data%stress
       endif
     enddo
+    
+    if (modulo(i,size(fine_qpoints)/10)==0) then
+      call print_line('Stress: '//i//' of '//size(fine_qpoints)// &
+         & ' q-points sampled.')
+    endif
   enddo
   
   ! Normalise to be per primitive cell.
   ! N.B. at each q-point, q and -q are both considered, hence the factor of 2.
-  stress_tensor = stress_tensor / (2*size(fine_qpoints))
+  output = output / (2*size(fine_qpoints))
   
-  output = stress_tensor
+  ! Add in the static-lattice stress.
+  ! TODO: Correct VSCF form for when stress is not harmonic.
+  output = output + this%undisplaced_stress()
 end function
 
 ! Helper functions for interpolation.
@@ -510,6 +540,7 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
     ! If power>paired_power, ignore the monomial, as it is included above.
     allocate( new_basis_functions(6*size(monomials)), &
             & stat=ialloc); call err(ialloc)
+    l = 0
     do i=1,size(monomials)
       j = first( monomials(i)%powers()<monomials(i)%paired_powers(), &
                & default=size(monomials(i))+1                        )
@@ -517,17 +548,17 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
                & default=size(monomials(i))+1                        )
       if (j==k) then
         coefficients = stress%interpolate(monomials(i), interpolator)
-        new_basis_functions(6*l-5:6*l) = generate_stress_elements( &
-                                             & [monomials(i)],     &
-                                             & real(coefficients)  )
+        new_basis_functions(6*l+1:6*l+6) = generate_stress_elements( &
+                                               & [monomials(i)],     &
+                                               & real(coefficients)  )
         l = l+6
       elseif (j<k) then
         coefficients = stress%interpolate(monomials(i), interpolator)
-        new_basis_functions(6*l-5:6*l) = generate_stress_elements( &
-                            & [monomials(i), conjg(monomials(i))], &
-                            & real(coefficients)                   )
+        new_basis_functions(6*l+1:6*l+6) = generate_stress_elements( &
+                              & [monomials(i), conjg(monomials(i))], &
+                              & real(coefficients)                   )
         l = l+6
-        new_basis_functions(6*l-5:6*l) = generate_stress_elements(         &
+        new_basis_functions(6*l+1:6*l+6) = generate_stress_elements(       &
            & [monomials(i), -conjg(monomials(i))]/cmplx(0.0_dp,1.0_dp,dp), &
            & aimag(coefficients)                                           )
         l = l+6

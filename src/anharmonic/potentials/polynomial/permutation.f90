@@ -90,6 +90,12 @@ subroutine next_permutation_PermutationData(this)
   endif
   
   associate(bins=>this%bins_, a=>this%a_, permutation=>this%a_permutation_)
+    ! If there is only one bin, there is only one permutation.
+    if (size(bins,2)==1) then
+      this%all_permutations_done_ = .true.
+      return
+    endif
+    
     ! Find the last bin which contains an element of a which is smaller than
     !    an element of a in a later bin.
     ! Label this bin j.

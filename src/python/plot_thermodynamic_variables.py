@@ -52,14 +52,14 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   
   # Read in data.
-  #names  = ['Interpolated effective harmonic', 'VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
-  #fnames = ['interpolated_vscha_', 'vscf_', '', 'vscha_', 'vscha_vscf_']
-  #dashes = [[8,2], [10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
-  #widths = [2,1,1,2,2]
-  names  = ['VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
-  fnames = ['vscf_', '', 'vscha_', 'vscha_vscf_']
-  dashes = [[10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
-  widths = [1,1,2,2]
+  names  = ['Interpolated effective harmonic', 'VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
+  fnames = ['interpolated_vscha_', 'vscf_', '', 'vscha_', 'vscha_vscf_']
+  dashes = [[8,2], [10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
+  widths = [2,1,1,2,2]
+  #names  = ['VSCF', 'Harmonic', 'Uninterpolated effective harmonic', 'vscha']
+  #fnames = ['vscf_', '', 'vscha_', 'vscha_vscf_']
+  #dashes = [[10,0], [10,0], [1,1,1,1,1,1,1,1,1,1,1,1,1,1], [2,5,2,5]]
+  #widths = [1,1,2,2]
   
   calculating_stress = False
   

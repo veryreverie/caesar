@@ -663,6 +663,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
          &            1e-30_dp,                     &
          &            phonon_dos%qpoints%qpoint,    &
          &            thermal_energies(i),          &
+         &            min_frequency,                &
          &            supercell,                    &
          &            hessian,                      &
          &            min_images,                   &
@@ -681,6 +682,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       call print_line('Interpolating VSCF results.')
       call potential%calculate_interpolated_thermodynamics( &
                                      & thermal_energies(i), &
+                                     & min_frequency,       &
                                      & subspaces,           &
                                      & subspace_potentials, &
                                      & vscf_basis,          &
