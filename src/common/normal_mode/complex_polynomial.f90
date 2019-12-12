@@ -1328,8 +1328,8 @@ impure elemental function force_RealModeDisplacement_ComplexMonomial(this, &
           paired_displacements(i) = RealSingleDisplacement( mode%paired_id, &
                                                           & 0.0_dp          )
         endif
-        value_is_zero(i) = (j==0 .and. mode%power/=0) &
-                    & .or. (k==0 .and. mode%paired_power/=0)
+        value_is_zero(i) = (j==0 .and. k==0) &
+                   & .and. (mode%power/=0 .or. mode%paired_power/=0)
         force_is_zero(i) = (j==0 .and. mode%power/=1) &
                    & .and. (k==0 .and. mode%paired_power/=1)
         if (.not. force_is_zero(i)) then

@@ -7,6 +7,7 @@ module fit_coefficients_module
   use anharmonic_common_module
   
   use basis_function_module
+  use sampling_points_module
   use sample_result_module
   implicit none
   
@@ -49,37 +50,17 @@ function fit_coefficients(basis_functions,sampling_points,sample_results, &
   
   ! Calculate the energies and forces due to each basis function at each
   !    sampling point.
-  allocate( a(size(sampling_points)*dimensions, size(basis_functions)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(basis_functions)
-    do j=1,size(sampling_points)
-      energy = basis_functions(i)%energy(sampling_points(j))
-      forces = basis_functions(i)%force(sampling_points(j))
-      
-      a((j-1)*dimensions+1:j*dimensions, i) = make_vector( energy,            &
-                                                         & forces,            &
-                                                         & modes,             &
-                                                         & energy_force_ratio )
-    enddo
-  enddo
+  a = construct_sample_matrix( basis_functions,   &
+                             & sampling_points,   &
+                             & modes,             &
+                             & energy_force_ratio )
   
   ! Calculate the energies and forces sampled at each sampling point.
-  allocate(b(size(sampling_points)*dimensions), stat=ialloc); call err(ialloc)
-  do i=1,size(sampling_points)
-    energy = sample_results(i)%energy
-    forces = sample_results(i)%force
-    
-    ! Subtract the energy and forces from the existing potential.
-    if (present(potential)) then
-      energy = energy - potential%energy(sampling_points(i))
-      forces = forces - potential%force(sampling_points(i))
-    endif
-    
-    b((i-1)*dimensions+1:i*dimensions) = make_vector( energy,             &
-                                                    & forces,             &
-                                                    & modes,              &
-                                                    & energy_force_ratio  )
-  enddo
+  b = construct_sample_vector( sampling_points,   &
+                             & sample_results,    &
+                             & potential,         &
+                             & modes,             &
+                             & energy_force_ratio )
   
   ! Run linear least squares to get the basis function coefficients.
   ! This finds x s.t. (a.x-b)^2 is minimised.

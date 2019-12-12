@@ -81,6 +81,14 @@ subroutine startup_setup_anharmonic()
   &potential. It is only worth using forces if they are calculated using a &
   &faster method than finite differences.',                                   &
   &              default_value='true'),                                       &
+  & KeywordData( 'energy_to_force_ratio',                                     &
+  &              'energy_to_force_ratio is the ratio of how penalised &
+  &deviations in energy are compared to deviations in forces when the &
+  &potential is being fitted. This should be given in units of (Hartree &
+  &per primitive cell) divided by (Hartree per bohr). Due to the use of &
+  &mass-weighted co-ordinates, in systems containing different elements &
+  &forces along modes with higher contributions from heavier elements will &
+  &be weighted less than this.'),                                             &
   & KeywordData( 'use_hessians',                                              &
   &              'use_hessians specifies whether or not each single-point &
   &calculation will produce a Hessian (the second derivatives of the &
@@ -119,8 +127,11 @@ subroutine setup_anharmonic_subroutine(arguments)
   real(dp)     :: max_energy_of_displacement
   real(dp)     :: frequency_of_max_displacement
   logical      :: use_forces
+  real(dp)     :: energy_to_force_ratio
   logical      :: use_hessians
   logical      :: calculate_stress
+  
+  real(dp) :: weighted_energy_force_ratio
   
   ! Previous user inputs.
   type(Dictionary) :: setup_harmonic_arguments
@@ -204,6 +215,7 @@ subroutine setup_anharmonic_subroutine(arguments)
        & dble(arguments%value('max_energy_of_displacement'))
   endif
   use_forces = lgcl(arguments%value('use_forces'))
+  energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
   use_hessians = lgcl(arguments%value('use_hessians'))
   calculate_stress = lgcl(arguments%value('calculate_stress'))
   
@@ -221,6 +233,11 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
   harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
+  
+  ! Calculate weighted energy to force ratio.
+  weighted_energy_force_ratio = &
+     &   energy_to_force_ratio  &
+     & * sqrt(maxval(structure%atoms%mass()))
   
   ! --------------------------------------------------
   ! Initialise calculation writer.
@@ -381,13 +398,14 @@ subroutine setup_anharmonic_subroutine(arguments)
   !    Born-Oppenheimer surface in the chosen representation.
   call print_line('Generating sampling points.')
   logfile = OFile('setup_anharmonic_logfile.dat')
-  call potential%generate_sampling_points( anharmonic_data,     &
-                                         & use_forces,          &
-                                         & use_hessians,        &
-                                         & calculate_stress,    &
-                                         & sampling_points_dir, &
-                                         & calculation_writer,  &
-                                         & logfile              )
+  call potential%generate_sampling_points( anharmonic_data,             &
+                                         & use_forces,                  &
+                                         & weighted_energy_force_ratio, &
+                                         & use_hessians,                &
+                                         & calculate_stress,            &
+                                         & sampling_points_dir,         &
+                                         & calculation_writer,          &
+                                         & logfile                      )
   
   ! Write out calculation directories to file.
   calculation_directories_file = OFile('calculation_directories.dat')

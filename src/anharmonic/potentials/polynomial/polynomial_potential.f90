@@ -161,14 +161,15 @@ end function
 
 ! Generate sampling points.
 ! N.B. does not look at use_forces, use_hessians or calculate stress.
-subroutine generate_sampling_points_PolynomialPotential(this,  &
-   & anharmonic_data,use_forces,use_hessians,calculate_stress, &
-   & sampling_points_dir,calculation_writer,logfile)
+subroutine generate_sampling_points_PolynomialPotential(this,       &
+   & anharmonic_data,use_forces,energy_to_force_ratio,use_hessians, &
+   & calculate_stress,sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PolynomialPotential), intent(inout) :: this
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   logical,                    intent(in)    :: use_forces
+  real(dp),                   intent(in)    :: energy_to_force_ratio
   logical,                    intent(in)    :: use_hessians
   logical,                    intent(in)    :: calculate_stress
   type(String),               intent(in)    :: sampling_points_dir
@@ -206,6 +207,16 @@ subroutine generate_sampling_points_PolynomialPotential(this,  &
   ! Temporary variables.
   integer :: i,j,k,ialloc
   
+  if (.not. use_forces) then
+    call print_line(ERROR//': The polynomial potential cannot currently not &
+       &use forces.')
+    call err()
+  elseif (use_hessians) then
+    call print_line(ERROR//': The polynomial potential cannot currently &
+       &use hessians.')
+    call err()
+  endif
+  
   ! --------------------------------------------------
   ! Generate basis functions and sampling points.
   ! --------------------------------------------------
@@ -235,6 +246,7 @@ subroutine generate_sampling_points_PolynomialPotential(this,  &
           & anharmonic_data%vscf_basis_functions_only,     &
           & anharmonic_data%maximum_weighted_displacement, &
           & anharmonic_data%frequency_of_max_displacement, &
+          & energy_to_force_ratio,                         &
           & logfile                                        )
     basis_functions(i) = basis_functions_and_points%basis_functions
     sampling_points(i) = basis_functions_and_points%sampling_points

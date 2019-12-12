@@ -317,8 +317,8 @@ end function
 function generate_basis_functions_SubspaceCoupling(coupling,               &
    & potential_expansion_order,structure,complex_modes,real_modes,qpoints, &
    & subspaces,degenerate_symmetries,vscf_basis_functions_only,            &
-   & maximum_weighted_displacement,frequency_of_max_displacement,logfile)  &
-   & result(output)
+   & maximum_weighted_displacement,frequency_of_max_displacement,          &
+   & energy_to_force_ratio,logfile) result(output)
   implicit none
   
   type(SubspaceCoupling),   intent(in)    :: coupling
@@ -332,15 +332,15 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
   logical,                  intent(in)    :: vscf_basis_functions_only
   real(dp),                 intent(in)    :: maximum_weighted_displacement
   real(dp),                 intent(in)    :: frequency_of_max_displacement
+  real(dp),                 intent(in)    :: energy_to_force_ratio
   type(OFile),              intent(inout) :: logfile
   type(BasisFunctionsAndSamplingPoints)   :: output
   
   type(SubspaceMonomial), allocatable :: subspace_monomials(:)
   
-  type(BasisFunctionsAndUniqueTerms) :: basis_functions
+  type(BasisFunctionsAndUniqueTerms), allocatable :: basis_functions(:)
   
   type(BasisFunction), allocatable :: coupling_basis_functions(:)
-  type(RealMonomial),  allocatable :: coupling_unique_terms(:)
   
   integer :: i,j,k,ialloc
   
@@ -354,37 +354,36 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
      & maximum_expansion_order = potential_expansion_order )
     
   ! Loop over the subspace monomials corresponding to the coupling.
-  allocate( coupling_basis_functions(0), &
-          & coupling_unique_terms(0),    &
+  allocate( basis_functions(size(subspace_monomials)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(subspace_monomials)
     ! Generate all basis functions for the subspace monomial.
-    basis_functions = generate_basis_functions( subspace_monomials(i),     &
-                                              & structure,                 &
-                                              & complex_modes,             &
-                                              & real_modes,                &
-                                              & qpoints,                   &
-                                              & subspaces,                 &
-                                              & degenerate_symmetries,     &
-                                              & vscf_basis_functions_only, &
-                                              & logfile                    )
-
-    ! Concatenate the terms from each monomial together.
-    coupling_basis_functions = [ coupling_basis_functions,       &
-                               & basis_functions%basis_functions ]
-    coupling_unique_terms = [ coupling_unique_terms,       &
-                            & basis_functions%unique_terms ]
+    basis_functions(i) = generate_basis_functions( subspace_monomials(i),     &
+                                                 & structure,                 &
+                                                 & complex_modes,             &
+                                                 & real_modes,                &
+                                                 & qpoints,                   &
+                                                 & subspaces,                 &
+                                                 & degenerate_symmetries,     &
+                                                 & vscf_basis_functions_only, &
+                                                 & logfile                    )
   enddo
+  
+  ! Concatenate the terms from each subspace monomial together.
+  coupling_basis_functions = [( basis_functions(i)%basis_functions, &
+                              & i=1,                                &
+                              & size(subspace_monomials)            )]
   
   output = BasisFunctionsAndSamplingPoints(                                 &
      & basis_functions = CouplingBasisFunctions( coupling,                  &
      &                                           coupling_basis_functions), &
      & sampling_points = generate_sampling_points(                          &
-     &                                     coupling_unique_terms,           &
+     &                                     basis_functions,                 &
      &                                     potential_expansion_order,       &
      &                                     maximum_weighted_displacement,   &
      &                                     frequency_of_max_displacement,   &
-     &                                     real_modes                     ) )
+     &                                     real_modes,                      &
+     &                                     energy_to_force_ratio          ) )
 end function
 
 ! Return the energy at zero displacement.

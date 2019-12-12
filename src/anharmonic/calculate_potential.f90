@@ -25,14 +25,6 @@ subroutine startup_calculate_potential()
   mode%description = 'Uses the results of run_anharmonic to calculate &
      &the anharmonic potential. Should be run after run_anharmonic.'
   mode%keywords = [                                                           &
-     & KeywordData( 'energy_to_force_ratio',                                  &
-     &              'energy_to_force_ratio is the ratio of how penalised &
-     &deviations in energy are compared to deviations in forces when the &
-     &potential is being fitted. This should be given in units of (Hartree &
-     &per primitive cell) divided by (Hartree per bohr). Due to the use of &
-     &mass-weighted co-ordinates, in systems containing different elements &
-     &forces along modes with higher contributions from heavier elements will &
-     &be weighted less than this.'),                                          &
      & KeywordData( 'loto_direction',                                         &
      &              'loto_direction specifies the direction (in reciprocal &
      &co-ordinates from which the gamma point is approached when calculating &
@@ -56,7 +48,6 @@ subroutine calculate_potential_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! Input arguments.
-  real(dp)             :: energy_to_force_ratio
   real(dp)             :: weighted_energy_force_ratio
   type(Fractionvector) :: loto_direction
   logical              :: loto_direction_set
@@ -68,6 +59,7 @@ subroutine calculate_potential_subroutine(arguments)
   type(Dictionary) :: setup_anharmonic_arguments
   type(String)     :: potential_representation
   integer          :: potential_expansion_order
+  real(dp)         :: energy_to_force_ratio
   logical          :: calculate_stress
   
   ! Electronic structure calculation reader.
@@ -91,9 +83,6 @@ subroutine calculate_potential_subroutine(arguments)
   type(OFile)  :: stress_subspace_coupling_file
   type(OFile)  :: stress_file
   
-  ! Read in arguments.
-  energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
-  
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
@@ -106,6 +95,8 @@ subroutine calculate_potential_subroutine(arguments)
      & setup_anharmonic_arguments%value('potential_representation')
   potential_expansion_order = &
      & int(setup_anharmonic_arguments%value('potential_expansion_order'))
+  energy_to_force_ratio = &
+     & dble(setup_anharmonic_arguments%value('energy_to_force_ratio'))
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! Read in anharmonic data.

@@ -68,6 +68,8 @@ module basis_function_module
     
     procedure, public :: interpolate => interpolate_BasisFunction
     
+    procedure, public :: terms => terms_BasisFunction
+    
     procedure, public :: read  => read_BasisFunction
     procedure, public :: write => write_BasisFunction
   end type
@@ -918,6 +920,16 @@ impure elemental function interpolate_BasisFunction(this,monomial, &
   
   output = interpolator%overlap(monomial, this%complex_representation_) &
        & * this%coefficient_
+end function
+
+! Return the monomial terms of this basis function.
+function terms_BasisFunction(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in)   :: this
+  type(ComplexMonomial), allocatable :: output(:)
+  
+  output = this%complex_representation_%terms
 end function
 
 ! ----------------------------------------------------------------------

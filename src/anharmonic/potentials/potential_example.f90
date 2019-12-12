@@ -101,13 +101,14 @@ end function
 ! Overloads of PotentialData's methods.
 ! --------------------------------------------------
 subroutine generate_sampling_points_PotentialDataExample(this, &
-   & anharmonic_data,use_forces,use_hessians,calculate_stress, &
-   & sampling_points_dir,calculation_writer,logfile)
+   & anharmonic_data,use_forces,energy_to_force_ratio,use_hessians, &
+   & calculate_stress,sampling_points_dir,calculation_writer,logfile)
   implicit none
   
   class(PotentialDataExample), intent(inout) :: this
   type(AnharmonicData),        intent(in)    :: anharmonic_data
   logical,                     intent(in)    :: use_forces
+  real(dp),                    intent(in)    :: energy_to_force_ratio
   logical,                     intent(in)    :: use_hessians
   logical,                     intent(in)    :: calculate_stress
   type(String),                intent(in)    :: sampling_points_dir
@@ -421,13 +422,14 @@ subroutine potential_example_subroutine()
   ! They will all be forwareded to the PotentialDataExample instance.
   
   ! Generates sampling points, in a manner specific to the representation.
-  call potential%generate_sampling_points( anharmonic_data,     &
-                                         & use_forces,          &
-                                         & use_hessian,         &
-                                         & calculate_stress,    &
-                                         & sampling_points_dir, &
-                                         & calculation_writer,  &
-                                         & logfile              )
+  call potential%generate_sampling_points( anharmonic_data,             &
+                                         & use_forces,                  &
+                                         & weighted_energy_force_ratio, &
+                                         & use_hessian,                 &
+                                         & calculate_stress,            &
+                                         & sampling_points_dir,         &
+                                         & calculation_writer,          &
+                                         & logfile                      )
   
   ! Code to run electronic structure goes here.
   

@@ -110,6 +110,8 @@ function new_PolynomialInterpolator(fine_modes,fine_qpoints,coarse_modes, &
     enddo
   enddo
   
+  this%absolute_ = this%absolute_ &
+               & / anharmonic_data%anharmonic_supercell%sc_size
   this%relative_ = this%relative_ &
                & / anharmonic_data%anharmonic_supercell%sc_size
 end function

@@ -15,6 +15,7 @@ module qr_decomposition_module
   public :: RealQRDecomposition
   public :: ComplexQRDecomposition
   public :: qr_decomposition
+  public :: determinant_qr
   
   type :: RealQRDecomposition
     real(dp), allocatable :: q(:,:)
@@ -31,6 +32,11 @@ module qr_decomposition_module
     module procedure qr_decomposition_RealMatrix
     module procedure qr_decomposition_complexes
     module procedure qr_decomposition_ComplexMatrix
+  end interface
+  
+  interface determinant_qr
+    module procedure determinant_qr_reals
+    module procedure determinant_qr_RealMatrix
   end interface
 contains
 
@@ -302,5 +308,42 @@ function qr_decomposition_ComplexMatrix(input) result(output)
   type(ComplexQRDecomposition)    :: output
   
   output = qr_decomposition(cmplx(input))
+end function
+
+! --------------------------------------------------
+! Calculate the determinant of a real square matrix using QR decomposition.
+! --------------------------------------------------
+function determinant_qr_reals(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:,:)
+  real(dp)             :: output
+  
+  type(RealQRDecomposition) :: qr
+  
+  integer :: i
+  
+  if (size(input,1)/=size(input,2)) then
+    call print_line(ERROR//': trying to calculate the determinant of a &
+       &non-square matrix.')
+    call err()
+  endif
+  
+  qr = qr_decomposition(input)
+  
+  ! If matrix A is QR decomposed as A=QR, then the determinant of A is simply
+  !    the determinant of R (Q has determinant 1).
+  ! Since R is upper triangular, the determinant of R is just the product of
+  !    the entries on its leading diagonal.
+  output = product([(qr%r(i,i), i=1, size(qr%r,1))])
+end function
+
+function determinant_qr_RealMatrix(input) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  real(dp)                     :: output
+  
+  output = determinant_qr(dble(input))
 end function
 end module

@@ -11,11 +11,13 @@ module sample_result_module
   use anharmonic_common_module
   
   use vscf_rvectors_module
+  use sampling_points_module
   implicit none
   
   private
   
   public :: SampleResult
+  public :: construct_sample_vector
   
   type, extends(NoDefaultConstructor) :: SampleResult
     real(dp)                               :: energy
@@ -157,5 +159,49 @@ function new_SampleResult_calculations(vscf_rvectors,calculations,supercell, &
   else
     this = SampleResult(energy, force)
   endif
+end function
+
+! Construct the vector neccesary for L2 fitting of basis function coefficients.
+! The components of the vector are the measured energies and forces at a given
+!    sampling point, minus the energies and forces already accounted for
+!    by the potential (if given).
+function construct_sample_vector(sampling_points,sample_results,potential, &
+   & modes,energy_force_ratio) result(output)
+  implicit none
+  
+  type(RealModeDisplacement), intent(in)           :: sampling_points(:)
+  type(SampleResult),         intent(in)           :: sample_results(:)
+  class(PotentialData),       intent(in), optional :: potential
+  type(RealMode),             intent(in)           :: modes(:)
+  real(dp),                   intent(in)           :: energy_force_ratio
+  real(dp), allocatable                            :: output(:)
+  
+  real(dp)            :: energy
+  type(RealModeForce) :: forces
+  
+  integer :: dims
+  
+  integer :: i,ialloc
+  
+  dims = 1+size(modes)
+  
+  allocate( output(size(sampling_points)*dims), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(sampling_points)
+    energy = sample_results(i)%energy
+    forces = sample_results(i)%force
+    
+    ! Subtract the energy and forces from the existing potential.
+    if (present(potential)) then
+      energy = energy - potential%energy(sampling_points(i))
+      forces = forces - potential%force(sampling_points(i))
+    endif
+    
+    ! Construct the vector.
+    output((i-1)*dims+1:i+dims) = make_sample_vector( energy,            &
+                                                    & forces,            &
+                                                    & modes,             &
+                                                    & energy_force_ratio )
+  enddo
 end function
 end module
