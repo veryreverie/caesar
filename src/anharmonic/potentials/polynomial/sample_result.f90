@@ -104,8 +104,10 @@ function new_SampleResult_calculation(calculation,supercell,real_modes, &
       & * real(anharmonic_data%anharmonic_supercell%sc_size,dp)
   
   ! Construct output.
+  ! Make the stress extensive, and normalised to be per anharmonic supercell.
   if (calculation%has_stress()) then
-    stress = calculation%stress()
+    stress = calculation%stress() &
+         & * anharmonic_data%anharmonic_supercell%sc_size
   endif
   
   this = SampleResult(energy,force,stress)

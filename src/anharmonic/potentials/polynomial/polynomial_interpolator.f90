@@ -67,8 +67,11 @@ function new_PolynomialInterpolator(fine_modes,fine_qpoints,coarse_modes, &
   
   type(IntVector), allocatable :: rvectors(:)
   
-  coarse_qpoints = dblevec(                                   &
-     & anharmonic_data%qpoints(coarse_modes%qpoint_id)%qpoint )
+  coarse_qpoints = [(                                                       &
+     & dblevec(anharmonic_data%qpoints(first(                               &
+     &    anharmonic_data%qpoints%id==coarse_modes(i)%qpoint_id ))%qpoint), &
+     & i=1,                                                                 &
+     & size(coarse_modes)                                                   )]
   
   this%fine_map_ = [(0,i=1,maxval(fine_modes%id))]
   do i=1,size(fine_modes)
@@ -185,7 +188,7 @@ function product_overlap(this,fine_modes,coarse_modes) result(output)
            & + product(relative_overlaps) &
            & * sum(absolute_overlaps/relative_overlaps)
     else
-      j = first(abs(relative_overlaps(j+1:))<1e-200_dp, default=0)
+      k = first(abs(relative_overlaps(j+1:))<1e-200_dp, default=0)
       if (k==0) then
         ! relative(k)==0 only for k=j.
         output = output                           &
@@ -221,6 +224,11 @@ impure elemental function overlap_ComplexMonomial_ComplexMonomial(this,fine, &
   integer :: no_permutations
   
   integer :: i,j
+  
+  if (fine%total_power()/=coarse%total_power()) then
+    output = 0
+    return
+  endif
   
   fine_ids = to_ids(fine)
   coarse_ids = to_ids(coarse)

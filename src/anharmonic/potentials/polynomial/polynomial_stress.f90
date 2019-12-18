@@ -422,12 +422,12 @@ function calculate_interpolated_stress_PolynomialStress(this,           &
                        & / (2*size(subspace_modes))
         
         ! Calculate total stress, including kinetic stress.
-        thermodynamic_data =                                             &
-           & ThermodynamicData( thermal_energy,                          &
-           &                   fine_subspaces(j)%frequency,              &
-           &                   stress_prefactors(j)%average_prefactor(), &
-           &                   potential_stress,                         &
-           &                   anharmonic_data%structure%volume )        &
+        thermodynamic_data =                                                &
+           & ThermodynamicData( thermal_energy,                             &
+           &                    fine_subspaces(j)%frequency,                &
+           &                    stress_prefactors(j)%average_prefactor(),   &
+           &                    potential_stress,                           &
+           &                    anharmonic_data%structure%volume          ) &
            & * (2*size(subspace_modes))
         
         output = output + thermodynamic_data%stress
@@ -446,7 +446,8 @@ function calculate_interpolated_stress_PolynomialStress(this,           &
   
   ! Add in the static-lattice stress.
   ! TODO: Correct VSCF form for when stress is not harmonic.
-  output = output + this%undisplaced_stress()
+  output = output + this%undisplaced_stress() &
+                & / anharmonic_data%anharmonic_supercell%sc_size
 end function
 
 ! Helper functions for interpolation.
@@ -497,22 +498,22 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
     !    paired_powers such that sum(monomial%powers()) and
     !    sum(monomial%paired_powers()) are both between 0 and power inclusive.
     do i=1,size(modes)-1
-      monomials = [(                                                   &
-         & (                                                           &
-         &   ( ComplexMonomial(                                        &
-         &        coefficient = cmplx(1.0_dp,0.0_dp,dp),               &
-         &        modes       = [ old(l)%modes(),                      &
-         &                        ComplexUnivariate(                   &
-         &                           id           = modes(i)%id,       &
-         &                           paired_id    = modes(i)%id,       &
-         &                           power        = j,                 &
-         &                           paired_power = k            )] ), &
-         &     j=0,                                                    &
-         &     power-sum(old(l)%powers()) ),                           &
-         &   k=0,                                                      &
-         &   power-sum(old(l)%paired_powers()) ),                      &
-         & l=1,                                                        &
-         & size(old)                                                   )]
+      monomials = [(                                                    &
+         & (                                                            &
+         &   ( ComplexMonomial(                                         &
+         &        coefficient = cmplx(1.0_dp,0.0_dp,dp),                &
+         &        modes       = [ old(l)%modes(),                       &
+         &                        ComplexUnivariate(                    &
+         &                           id           = modes(i)%id,        &
+         &                           paired_id    = modes(i)%paired_id, &
+         &                           power        = j,                  &
+         &                           paired_power = k            )] ),  &
+         &     j=0,                                                     &
+         &     power-sum(old(l)%powers()) ),                            &
+         &   k=0,                                                       &
+         &   power-sum(old(l)%paired_powers()) ),                       &
+         & l=1,                                                         &
+         & size(old)                                                    )]
       old = monomials
     enddo
     
@@ -548,17 +549,17 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
                & default=size(monomials(i))+1                        )
       if (j==k) then
         coefficients = stress%interpolate(monomials(i), interpolator)
-        new_basis_functions(6*l+1:6*l+6) = generate_stress_elements( &
-                                               & [monomials(i)],     &
-                                               & real(coefficients)  )
+        new_basis_functions(l+1:l+6) = generate_stress_elements( &
+                                           & [monomials(i)],     &
+                                           & real(coefficients)  )
         l = l+6
       elseif (j<k) then
         coefficients = stress%interpolate(monomials(i), interpolator)
-        new_basis_functions(6*l+1:6*l+6) = generate_stress_elements( &
-                              & [monomials(i), conjg(monomials(i))], &
-                              & real(coefficients)                   )
+        new_basis_functions(l+1:l+6) = generate_stress_elements( &
+                          & [monomials(i), conjg(monomials(i))], &
+                          & real(coefficients)                   )
         l = l+6
-        new_basis_functions(6*l+1:6*l+6) = generate_stress_elements(       &
+        new_basis_functions(l+1:l+6) = generate_stress_elements(           &
            & [monomials(i), -conjg(monomials(i))]/cmplx(0.0_dp,1.0_dp,dp), &
            & aimag(coefficients)                                           )
         l = l+6

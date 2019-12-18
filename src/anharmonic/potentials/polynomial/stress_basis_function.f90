@@ -122,7 +122,7 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   !    and the combined basis function.
   type(ComplexMatrix)   :: complex_scalar_symmetry
   real(dp), allocatable :: real_scalar_symmetry(:,:)
-  real(dp)              :: tensor_symmetry(9,9)
+  real(dp)              :: tensor_symmetry(6,6)
   real(dp), allocatable :: symmetry(:,:)
   type(RealMatrix)      :: projection
   
@@ -135,19 +135,17 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(ComplexPolynomial) :: complex_representation
   type(ComplexPolynomial) :: elements(3,3)
   
-  ! Mappings between 3x3 indices and 9 indices.
-  integer :: x(9)
-  integer :: y(9)
-  integer :: z(3,3)
+  ! Mappings between 3x3 indices and 6 indices.
+  integer :: x(6)
+  integer :: y(6)
   
   ! Temporary variables.
   integer  :: i,j,k,l,m,n,o,ialloc
   real(dp) :: tensor(3,3)
   
   ! Initialise index mappings.
-  x = [1,1,1,2,2,2,3,3,3]
-  y = [1,2,3,1,2,3,1,2,3]
-  z = reshape([1,4,7,2,5,8,3,6,9], [3,3])
+  x = [1,2,3,1,1,2]
+  y = [1,2,3,2,3,3]
   
   ! Generate the real monomials and complex monomials corresponding to the
   !    subspace monomial, with coefficients such that symmetries are unitary.
@@ -182,8 +180,8 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
-  projection = dblemat(make_identity_matrix(size(real_monomials)*9))
-  allocate( symmetry(size(real_monomials)*9,size(real_monomials)*9), &
+  projection = dblemat(make_identity_matrix(size(real_monomials)*6))
+  allocate( symmetry(size(real_monomials)*6,size(real_monomials)*6), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(degenerate_symmetries)
     ! Construct the symmetry acting on the complex monomials.
@@ -206,14 +204,24 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
     real_scalar_symmetry = dble(real(complex_scalar_symmetry))
     
     ! Construct the symmetry acting on the tensor components.
-    do j=1,9
+    do j=1,6
       tensor = 0.0_dp
-      tensor(x(j),y(j)) = 1.0_dp
+      if (x(j)==y(j)) then
+        tensor(x(j),y(j)) = 1.0_dp
+      else
+        tensor(x(j),y(j)) = 1/sqrt(2.0_dp)
+        tensor(y(j),x(j)) = 1/sqrt(2.0_dp)
+      endif
       tensor = dble( structure%symmetries(i)%cartesian_tensor         &
                  & * mat(tensor)                                      &
                  & * invert(structure%symmetries(i)%cartesian_tensor) )
-      do k=1,9
-        tensor_symmetry(k,j) = tensor(x(k),y(k))
+      do k=1,6
+        if (x(k)==y(k)) then
+          tensor_symmetry(k,j) = tensor(x(k),y(k))
+        else
+          tensor_symmetry(k,j) = (tensor(x(k),y(k)) + tensor(y(k),x(k))) &
+                             & / sqrt(2.0_dp)
+        endif
       enddo
     enddo
     call check_orthogonal( mat(tensor_symmetry),                     &
@@ -223,12 +231,12 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
     ! Construct the full symmetry, transforming both scalar and tensor
     !    compontents.
     l = 0
-    do j=1,9
+    do j=1,6
       do k=1,size(real_monomials)
         l = l+1
         
         o = 0
-        do m=1,9
+        do m=1,6
           do n=1,size(real_monomials)
             o = o+1
             
@@ -265,7 +273,7 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   ! Construct basis functions from coefficients.
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
-    do j=1,9
+    do j=1,6
       real_coefficients = estuff(i)%evec( size(real_monomials)*(j-1)+1 &
                                       & : size(real_monomials)*j       )
       
@@ -277,6 +285,8 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
       
       elements(x(j),y(j)) = complex_representation
       call elements(x(j),y(j))%simplify()
+      elements(y(j),x(j)) = complex_representation
+      call elements(y(j),x(j))%simplify()
     enddo
     
     output(i) = StressBasisFunction(elements)
@@ -432,16 +442,19 @@ subroutine braket_BasisStates_StressBasisFunction(this,states,thermal_energy, &
   class(SubspaceBasis),       intent(in)    :: subspace_basis
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   
-  integer :: i,j
+  integer :: i,j,k
   
   do i=1,3
     do j=1,3
-      this%elements_(j,i)%terms = integrate( states,                    &
-                                           & thermal_energy,            &
-                                           & this%elements_(j,i)%terms, &
-                                           & subspace,                  &
-                                           & subspace_basis,            &
-                                           & anharmonic_data            )
+      do k=1,size(this%elements_(j,i)%terms)
+        this%elements_(j,i)%terms(k) = integrate( &
+                  & states,                       &
+                  & thermal_energy,               &
+                  & this%elements_(j,i)%terms(k), &
+                  & subspace,                     &
+                  & subspace_basis,               &
+                  & anharmonic_data               )
+      enddo
     enddo
   enddo
 end subroutine

@@ -26,26 +26,34 @@ def main():
   # Read file.
   file_name = 'anharmonic_mode_maps.dat'
   
-  frequencies, sampling, modes = parse_mode_maps(file_name)
+  frequencies, sampling, using_stress, modes = parse_mode_maps(file_name)
+  
+  keys = ['frequency',
+          'energies',
+          'forces']
+  if using_stress:
+    keys.append('pressures')
+  if sampling:
+    keys.append('energy differences')
+    keys.append('force differences')
+    if using_stress:
+      keys.append('pressure differences')
   
   # Plot data.
+  fig, axs = plt.subplots(len(keys), len(modes), squeeze=False)
+  axes = {}
+  for key,ax in zip(keys,axs):
+    axes[key] = ax
   
-  if sampling:
-    fig, axes = plt.subplots(5,len(modes))
-  else:
-    fig, axes = plt.subplots(3,len(modes))
-  if len(modes)==1:
-    axes = [[ax] for ax in axes]
-  
-  for ax in axes[0]:
+  for ax in axes['frequency']:
     for frequency in frequencies:
       ax.hlines([frequency], 0, 1, color=colours['turquoise'])
-  for mode,ax in zip(modes,axes[0]):
-      ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['orange'])
-      ax.set_xlabel('Mode '+str(mode['ID']))
-      ax.xaxis.set_label_position('top')
+  for mode,ax in zip(modes,axes['frequency']):
+    ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['orange'])
+    ax.set_xlabel('Mode '+str(mode['ID']))
+    ax.xaxis.set_label_position('top')
   
-  for mode,ax in zip(modes,axes[1]):
+  for mode,ax in zip(modes,axes['energies']):
     ax.plot(mode['Displacements'], mode['Harmonic energies'],
             color=colours['orange'], lw=2)
     ax.plot(mode['Displacements'], mode['Anharmonic energies'], 
@@ -54,7 +62,7 @@ def main():
       ax.plot(mode['Displacements'], mode['Sampled energies'],
               color=colours['green'], lw=2)
   
-  for mode,ax in zip(modes,axes[2]):
+  for mode,ax in zip(modes,axes['forces']):
     ax.plot(mode['Displacements'], mode['Harmonic forces'],
             color=colours['orange'], lw=2)
     ax.plot(mode['Displacements'], mode['Anharmonic forces'], 
@@ -63,19 +71,31 @@ def main():
       ax.plot(mode['Displacements'], mode['Sampled forces'],
               color=colours['green'], lw=2)
   
+  if using_stress:
+    for mode,ax in zip(modes,axes['pressures']):
+      ax.plot(mode['Displacements'], mode['Anharmonic pressures'], 
+              color=colours['turquoise'], lw=2)
+      if sampling:
+        ax.plot(mode['Displacements'], mode['Sampled pressures'],
+                color=colours['green'], lw=2)
+  
   if sampling:
-    for mode,ax in zip(modes,axes[3]):
+    for mode,ax in zip(modes,axes['energy differences']):
       ax.plot(mode['Displacements'], mode['Harmonic energy difference'],
               color=colours['orange'], lw=2)
       ax.plot(mode['Displacements'], mode['Anharmonic energy difference'], 
               color=colours['turquoise'], lw=2)
-  
-  if sampling:
-    for mode,ax in zip(modes,axes[4]):
+    
+    for mode,ax in zip(modes,axes['force differences']):
       ax.plot(mode['Displacements'], mode['Harmonic force difference'],
               color=colours['orange'], lw=2)
       ax.plot(mode['Displacements'], mode['Anharmonic force difference'], 
               color=colours['turquoise'], lw=2)
+    
+    if using_stress:
+      for mode,ax in zip(modes,axes['pressure differences']):
+        ax.plot(mode['Displacements'], mode['Anharmonic pressure difference'], 
+                color=colours['turquoise'], lw=2)
   
   # Configure frequency axes.
   min_frequency = min(min(frequencies), 0)
@@ -84,12 +104,12 @@ def main():
   ymin = min_frequency - 0.1*(max_frequency-min_frequency)
   ymax = max_frequency + 0.1*(max_frequency-min_frequency)
   
-  for ax in axes[0]:
+  for ax in axes['frequency']:
     ax.set_ylim(ymin,ymax)
     ax.set_xticks([])
-  axes[0][0].tick_params(direction='out')
-  axes[0][0].set_ylabel('Energy (Ha)')
-  for ax in axes[0][1:]:
+  axes['frequency'][0].tick_params(direction='out')
+  axes['frequency'][0].set_ylabel('Energy (Ha)')
+  for ax in axes['frequency'][1:]:
     ax.tick_params(direction='out', labelleft='off')
   
   # Configure energy y-axes.
@@ -104,11 +124,11 @@ def main():
   
   ymin = min_energy - 0.1*(max_energy-min_energy)
   ymax = max_energy + 0.1*(max_energy-min_energy)
-  for ax in axes[1]:
+  for ax in axes['energies']:
     ax.set_ylim(ymin,ymax)
-  for ax in axes[1][1:]:
+  for ax in axes['energies'][1:]:
     ax.tick_params(labelleft='off')
-  axes[1][0].set_ylabel('Energy (Ha)')
+  axes['energies'][0].set_ylabel('Energy (Ha)')
   
   # Configure force y-axes.
   min_force = 0
@@ -122,14 +142,14 @@ def main():
   
   ymin = min_force - 0.1*(max_force-min_force)
   ymax = max_force + 0.1*(max_force-min_force)
-  for ax in axes[2]:
+  for ax in axes['forces']:
     ax.set_ylim(ymin,ymax)
-  for ax in axes[2][1:]:
+  for ax in axes['forces'][1:]:
     ax.tick_params(labelleft='off')
-  axes[2][0].set_ylabel('Force (Ha/Bohr)')
+  axes['forces'][0].set_ylabel('Force (Ha/Bohr)')
   
-  # Configure energy difference y-axes.
   if sampling:
+    # Configure energy difference y-axes.
     min_difference = 0
     max_difference = 0
     for mode in modes:
@@ -142,14 +162,13 @@ def main():
     ymax = max_difference + 0.1*(max_difference-min_difference)
     ymin = min(ymin,-ymax)
     ymax = max(ymax,-ymin)
-    for ax in axes[3]:
+    for ax in axes['energy differences']:
       ax.set_ylim(ymin,ymax)
-    for ax in axes[3][1:]:
+    for ax in axes['energy differences'][1:]:
       ax.tick_params(labelleft='off')
-    axes[3][0].set_ylabel('Energy difference (Ha)')
-  
-  # Configure force difference y-axes.
-  if sampling:
+    axes['energy differences'][0].set_ylabel('Energy difference (Ha)')
+    
+    # Configure force difference y-axes.
     min_difference = 0
     max_difference = 0
     for mode in modes:
@@ -162,11 +181,11 @@ def main():
     ymax = max_difference + 0.1*(max_difference-min_difference)
     ymin = min(ymin,-ymax)
     ymax = max(ymax,-ymin)
-    for ax in axes[4]:
+    for ax in axes['force differences']:
       ax.set_ylim(ymin,ymax)
-    for ax in axes[4][1:]:
+    for ax in axes['force differences'][1:]:
       ax.tick_params(labelleft='off')
-    axes[4][0].set_ylabel('Force difference (Ha/Bohr)')
+    axes['force differences'][0].set_ylabel('Force difference (Ha/Bohr)')
   
   # Configure displacement x-axes.
   min_displacement = 0
@@ -177,17 +196,15 @@ def main():
   
   xmin = min_displacement - 0.1*(max_displacement-min_displacement)
   xmax = max_displacement + 0.1*(max_displacement-min_displacement)
-  for axis in axes[1:]:
+  for key,axis in axes.items():
+    if key=='frequency':
+      continue
     for ax in axis:
       ax.set_xlim(xmin,xmax)
       ax.tick_params(direction='out', labelbottom='off')
   
-  if sampling:
-    for ax in axes[4]:
-      ax.tick_params(labelbottom='on')
-  else:
-    for ax in axes[2]:
-      ax.tick_params(labelbottom='on')
+  for ax in axes[keys[-1]]:
+    ax.tick_params(labelbottom='on')
   
   plt.show()
 

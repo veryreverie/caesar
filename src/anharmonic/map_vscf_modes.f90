@@ -107,10 +107,10 @@ subroutine map_vscf_modes_subroutine(arguments)
     allocate(mode_maps(size(subspaces(i))), stat=ialloc); call err(ialloc)
     do j=1,size(subspaces(i))
       mode = real_modes(first(real_modes%id==subspaces(i)%mode_ids(j)))
-      mode_maps(j) = ModeMap( scaled_displacements,   &
-                            & mode,                   &
-                            & subspace_potentials(i), &
-                            & anharmonic_data         )
+      mode_maps(j) = ModeMap( scaled_displacements,             &
+                            & mode,                             &
+                            & subspace_potentials(i),           &
+                            & anharmonic_data = anharmonic_data )
     enddo
     
     ! Write out displacements.

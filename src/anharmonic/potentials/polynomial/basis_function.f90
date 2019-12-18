@@ -768,14 +768,18 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   
+  integer :: i
+  
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_%terms = integrate( &
-            & states,                             &
-            & thermal_energy,                     &
-            & this%complex_representation_%terms, &
-            & subspace,                           &
-            & subspace_basis,                     &
-            & anharmonic_data                     )
+  do i=1,size(this%complex_representation_%terms) 
+    this%complex_representation_%terms(i) = integrate( &
+              & states,                                &
+              & thermal_energy,                        &
+              & this%complex_representation_%terms(i), &
+              & subspace,                              &
+              & subspace_basis,                        &
+              & anharmonic_data                        )
+  enddo
 end subroutine
 
 ! ----------------------------------------------------------------------

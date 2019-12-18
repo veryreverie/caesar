@@ -32,6 +32,11 @@ subroutine startup_map_anharmonic_modes()
      &side of zero) along each mode at which the anharmonic potential will be &
      &sampled.',                                                              &
      &              default_value='100'),                                     &
+     & KeywordData( 'calculate_stress', &
+     &              'calculate_stress specifies whether or not to calculate &
+     &stress and pressure. If calculate_stress is true then calculate_stress &
+     &for setup_anharmonic must also have been true.',                        &
+     &              default_value='true'),                                    &
      & KeywordData( 'validate_potential',                                     &
      &              'validate_potential specifies that the anharmonic &
      &potential should be verified against fresh electronic structure &
@@ -77,6 +82,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   
   ! Input arguments.
   integer      :: no_single_mode_samples
+  logical      :: calculate_stress
   logical      :: validate_potential
   type(String) :: run_script
   integer      :: no_cores
@@ -98,8 +104,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp)                              :: frequency_of_max_displacement
   
-  ! Anharmonic potential.
-  type(PotentialPointer) :: potential
+  ! Anharmonic potential and stress.
+  type(PotentialPointer)           :: potential
+  type(StressPointer), allocatable :: stress
   
   ! Electronic structure calculation handlers.
   type(CalculationWriter) :: calculation_writer
@@ -118,6 +125,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   real(dp), allocatable       :: sampled_energies(:)
   type(RealModeForce)         :: sampled_force
   real(dp), allocatable       :: sampled_forces(:)
+  real(dp), allocatable       :: sampled_pressures(:)
   type(IntMatrix)             :: supercell_matrix
   type(StructureData)         :: supercell
   type(RealMode)              :: mode
@@ -129,6 +137,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
   type(IFile)  :: potential_file
+  type(IFile)  :: stress_file
   type(String) :: qpoint_dir
   type(String) :: subspace_dir
   type(OFile)  :: supercell_file
@@ -143,6 +152,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Read in inputs and previously calculated data.
   ! --------------------------------------------------
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
+  calculate_stress = lgcl(arguments%value('calculate_stress'))
   validate_potential = lgcl(arguments%value('validate_potential'))
   run_script = arguments%value('run_script')
   no_cores = int(arguments%value('no_cores'))
@@ -168,9 +178,13 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   subspaces = anharmonic_data%degenerate_subspaces
   frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
   
-  ! Read in anharmonic potential.
+  ! Read in anharmonic potential and stress.
   potential_file = IFile('potential.dat')
   potential = PotentialPointer(potential_file%lines())
+  if (calculate_stress) then
+    stress_file = IFile('stress.dat')
+    stress = StressPointer(stress_file%lines())
+  endif
   
   ! --------------------------------------------------
   ! Initialise calculation handlers.
@@ -188,7 +202,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
      & calculation_type    = calculation_type, &
      & use_forces          = .true.,           &
      & use_hessians        = .false.,          &
-     & calculate_stress    = .false.,          &
+     & calculate_stress    = calculate_stress, &
      & exit_on_error       = .true.,           &
      & repeat_calculations = .true.            )
   
@@ -216,6 +230,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
     mode_maps(i) = ModeMap( scaled_displacements, &
                           & real_modes(i),        &
                           & potential,            &
+                          & stress,               &
                           & anharmonic_data       )
   enddo
   
@@ -224,6 +239,13 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   !    the same points as the model potential.
   ! --------------------------------------------------
   if (validate_potential) then
+    allocate( sampled_energies(size(displacements)), &
+            & sampled_forces(size(displacements)),   &
+            & stat=ialloc); call err(ialloc)
+    if (calculate_stress) then
+      allocate( sampled_pressures(size(displacements)), &
+              & stat=ialloc); call err(ialloc)
+    endif
     do i=1,size(qpoints)
       if (qpoints(i)%paired_qpoint_id<qpoints(i)%id) then
         cycle
@@ -249,9 +271,6 @@ subroutine map_anharmonic_modes_subroutine(arguments)
         mode_dir = qpoint_dir//'/real_mode_'// &
                  & left_pad(mode%id, str(maxval(real_modes%id)))
         call mkdir(mode_dir)
-        allocate( sampled_energies(size(displacements)), &
-                & sampled_forces(size(displacements)),   &
-                & stat=ialloc); call err(ialloc)
         do k=1,size(sampled_energies)
           real_mode_displacement = RealModeDisplacement(     &
              & [mode],                                       &
@@ -279,6 +298,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
                                        & real_modes,                    &
                                        & qpoints                        )
           sampled_forces(k) = sampled_force%force(mode)
+          if (calculate_stress) then
+            sampled_pressures(k) = trace(electronic_structure%stress())/3
+          endif
         enddo
         sampled_energies = sampled_energies               &
                        & / supercell%sc_size              &
@@ -286,10 +308,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
                        & / anharmonic_supercell%sc_size
         mode_maps(qpoint_modes(j))%sampled_energies = sampled_energies
         mode_maps(qpoint_modes(j))%sampled_forces   = sampled_forces
-        
-        deallocate( sampled_energies, &
-                  & sampled_forces,   &
-                  & stat=ialloc); call err(ialloc)
+        if (calculate_stress) then
+          mode_maps(qpoint_modes(j))%sampled_pressures = sampled_pressures
+        endif
       enddo
     enddo
   endif

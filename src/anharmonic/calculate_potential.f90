@@ -25,6 +25,12 @@ subroutine startup_calculate_potential()
   mode%description = 'Uses the results of run_anharmonic to calculate &
      &the anharmonic potential. Should be run after run_anharmonic.'
   mode%keywords = [                                                           &
+     & KeywordData( 'energy_to_force_ratio',                                  &
+     &              'energy_to_force_ratio is the same as &
+     &energy_to_force_ratio in setup_anharmonic. If unset, this will default &
+     &to the value set in setup_anharmonic. This may be varied here to check &
+     &that it does not have a large effect on the observables.',              &
+     &              is_optional=.true.),                                      &
      & KeywordData( 'loto_direction',                                         &
      &              'loto_direction specifies the direction (in reciprocal &
      &co-ordinates from which the gamma point is approached when calculating &
@@ -95,9 +101,16 @@ subroutine calculate_potential_subroutine(arguments)
      & setup_anharmonic_arguments%value('potential_representation')
   potential_expansion_order = &
      & int(setup_anharmonic_arguments%value('potential_expansion_order'))
-  energy_to_force_ratio = &
-     & dble(setup_anharmonic_arguments%value('energy_to_force_ratio'))
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
+  
+  ! Initialise energy_to_force_ratio.
+  if (arguments%is_set('energy_to_force_ratio')) then
+    energy_to_force_ratio = &
+       & dble(arguments%value('energy_to_force_ratio'))
+  else
+    energy_to_force_ratio = &
+       & dble(setup_anharmonic_arguments%value('energy_to_force_ratio'))
+  endif
   
   ! Read in anharmonic data.
   anharmonic_data_file = IFile('anharmonic_data.dat')
