@@ -9,7 +9,7 @@ module polynomial_stress_module
   
   use polynomial_interpolator_module
   use coupling_stress_basis_functions_module
-  use interpolation_module
+  use polynomial_interpolation_module
   implicit none
   
   private
@@ -50,10 +50,11 @@ module polynomial_stress_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PolynomialStress
-    procedure, public :: calculate_interpolated_stress => &
-                       & calculate_interpolated_stress_PolynomialStress
+    procedure, public :: interpolate => &
+                       & interpolate_PolynomialStress
     
-    procedure, public :: interpolate => interpolate_PolynomialStress
+    procedure, public :: interpolate_coefficients => &
+                       & interpolate_coefficients_PolynomialStress
     
     procedure, public :: expansion_order => expansion_order_PolynomialStress
     
@@ -324,142 +325,23 @@ function can_be_interpolated_PolynomialStress(this) result(output)
   output = .true.
 end function
 
-function calculate_interpolated_stress_PolynomialStress(this,           &
-   & degenerate_frequency,fine_qpoints,thermal_energy,min_frequency,    &
-   & harmonic_supercell,harmonic_hessian,harmonic_min_images,subspaces, &
-   & subspace_bases,basis_states,anharmonic_min_images,anharmonic_data) &
-   & result(output)
+function interpolate_PolynomialStress(this,qpoint,subspace,subspace_modes, &
+   & anharmonic_min_images,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialStress),  intent(in) :: this
-  real(dp),                 intent(in) :: degenerate_frequency
-  type(RealVector),         intent(in) :: fine_qpoints(:)
-  real(dp),                 intent(in) :: thermal_energy
-  real(dp),                 intent(in) :: min_frequency
-  type(StructureData),      intent(in) :: harmonic_supercell
-  type(CartesianHessian),   intent(in) :: harmonic_hessian
-  type(MinImages),          intent(in) :: harmonic_min_images(:,:)
-  type(DegenerateSubspace), intent(in) :: subspaces(:)
-  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(BasisStates),       intent(in) :: basis_states(:)
+  type(RealVector),         intent(in) :: qpoint
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(ComplexMode),        intent(in) :: subspace_modes(:)
   type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(RealMatrix)                     :: output
+  type(StressPointer)                  :: output
   
-  type(DynamicalMatrix)          :: dynamical_matrix
-  type(ComplexMode), allocatable :: qpoint_modes(:)
   type(ComplexMode), allocatable :: modes(:)
-  type(RealVector),  allocatable :: qpoints(:)
+  
+  type(RealVector), allocatable :: qpoints(:)
   
   type(PolynomialInterpolator) :: interpolator
-  
-  type(DegenerateSubspace), allocatable :: fine_subspaces(:)
-  type(StressPrefactors),   allocatable :: stress_prefactors(:)
-  type(ComplexMode),        allocatable :: subspace_modes(:)
-  type(PolynomialStress)                :: fine_stress
-  
-  type(RealMatrix)        :: potential_stress
-  type(ThermodynamicData) :: thermodynamic_data
-  
-  integer :: i,j,k
-  
-  output = dblemat(zeroes(3,3))
-  do i=1,size(fine_qpoints)
-    ! Construct normal modes from harmonic potential.
-    ! Include modes from both q and -q.
-    dynamical_matrix = DynamicalMatrix( fine_qpoints(i),    &
-                                      & harmonic_supercell, &
-                                      & harmonic_hessian,   &
-                                      & harmonic_min_images )
-    
-    qpoint_modes = ComplexMode(dynamical_matrix, harmonic_supercell)
-    qpoint_modes%id = [(j,j=1,size(qpoint_modes))]
-    qpoint_modes%paired_id = [(j+size(qpoint_modes),j=1,size(qpoint_modes))]
-    
-    modes = [( [qpoint_modes(j),conjg(qpoint_modes(j))], &
-             & j=1,                                      &
-             & size(qpoint_modes)                        )]
-    
-    qpoints = [([fine_qpoints(i),-fine_qpoints(i)], j=1, size(qpoint_modes))]
-    
-    ! Construct the polynomial interpolator.
-    interpolator = PolynomialInterpolator(                &
-       & fine_modes      = modes,                         &
-       & fine_qpoints    = qpoints,                       &
-       & coarse_modes    = anharmonic_data%complex_modes, &
-       & min_images      = anharmonic_min_images,         &
-       & anharmonic_data = anharmonic_data                )
-    
-    ! Split modes into subspaces.
-    fine_subspaces = generate_fine_subspaces( qpoint_modes,        &
-                                            & degenerate_frequency )
-    
-    ! Calculate stress prefactors.
-    stress_prefactors = [(                                   &
-       & StressPrefactors( fine_subspaces(j),                &
-       &                   fine_subspaces(j)%modes(modes) ), &
-       & j=1,                                                &
-       & size(fine_subspaces)                                )]
-    
-    do j=1,size(fine_subspaces)
-      if (fine_subspaces(j)%frequency>min_frequency) then
-        ! Interpolate stress.
-        subspace_modes = qpoint_modes(filter([(                   &
-           & any(qpoint_modes(k)%id==fine_subspaces(j)%mode_ids), &
-           & k=1,                                                 &
-           & size(qpoint_modes)                                   )]))
-        
-        fine_stress = generate_fine_stress( fine_subspaces(j), &
-                                          & subspace_modes,    &
-                                          & this,              &
-                                          & interpolator       )
-        
-        ! Take the harmonic expectation of the stress.
-        potential_stress = fine_stress%harmonic_expectation(   &
-                       &        fine_subspaces(j)%frequency,   &
-                       &        thermal_energy,                &
-                       &        anharmonic_data              ) &
-                       & / (2*size(subspace_modes))
-        
-        ! Calculate total stress, including kinetic stress.
-        thermodynamic_data =                                                &
-           & ThermodynamicData( thermal_energy,                             &
-           &                    fine_subspaces(j)%frequency,                &
-           &                    stress_prefactors(j)%average_prefactor(),   &
-           &                    potential_stress,                           &
-           &                    anharmonic_data%structure%volume          ) &
-           & * (2*size(subspace_modes))
-        
-        output = output + thermodynamic_data%stress
-      endif
-    enddo
-    
-    if (modulo(i,size(fine_qpoints)/10)==0) then
-      call print_line('Stress: '//i//' of '//size(fine_qpoints)// &
-         & ' q-points sampled.')
-    endif
-  enddo
-  
-  ! Normalise to be per primitive cell.
-  ! N.B. at each q-point, q and -q are both considered, hence the factor of 2.
-  output = output / (2*size(fine_qpoints))
-  
-  ! Add in the static-lattice stress.
-  ! TODO: Correct VSCF form for when stress is not harmonic.
-  output = output + this%undisplaced_stress() &
-                & / anharmonic_data%anharmonic_supercell%sc_size
-end function
-
-! Helper functions for interpolation.
-function generate_fine_stress(subspace,modes,stress,interpolator) &
-   & result(output)
-  implicit none
-  
-  type(DegenerateSubspace),     intent(in) :: subspace
-  type(ComplexMode),            intent(in) :: modes(:)
-  type(PolynomialStress),       intent(in) :: stress
-  type(PolynomialInterpolator), intent(in) :: interpolator
-  type(PolynomialStress)                   :: output
   
   integer :: expansion_order
   integer :: power
@@ -477,7 +359,7 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
   
   integer :: i,j,k,l,ialloc
   
-  expansion_order = stress%expansion_order()
+  expansion_order = this%expansion_order()
   
   if (modulo(expansion_order,2)/=0) then
     call print_line(ERROR//': stress expansion order must be even.')
@@ -486,6 +368,25 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
     call print_line(ERROR//': stress expansion order must be at least 2.')
     call err()
   endif
+  
+  modes = subspace_modes(filter(subspace_modes%id<=subspace_modes%paired_id))
+  
+  allocate(qpoints(size(subspace_modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(qpoints)
+    if (subspace_modes(i)%id<=subspace_modes(i)%paired_id) then
+      qpoints(i) = qpoint
+    else
+      qpoints(i) = -qpoint
+    endif
+  enddo
+  
+  ! Construct the polynomial interpolator.
+  interpolator = PolynomialInterpolator(                &
+     & fine_modes      = subspace_modes,                &
+     & fine_qpoints    = qpoints,                       &
+     & coarse_modes    = anharmonic_data%complex_modes, &
+     & min_images      = anharmonic_min_images,         &
+     & anharmonic_data = anharmonic_data                )
   
   do power=1,expansion_order/2
     ! Construct the monomial containing no modes.
@@ -548,13 +449,15 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
       k = first( monomials(i)%powers()>monomials(i)%paired_powers(), &
                & default=size(monomials(i))+1                        )
       if (j==k) then
-        coefficients = stress%interpolate(monomials(i), interpolator)
+        coefficients = this%interpolate_coefficients( monomials(i), &
+                                                    & interpolator  )
         new_basis_functions(l+1:l+6) = generate_stress_elements( &
                                            & [monomials(i)],     &
                                            & real(coefficients)  )
         l = l+6
       elseif (j<k) then
-        coefficients = stress%interpolate(monomials(i), interpolator)
+        coefficients = this%interpolate_coefficients( monomials(i), &
+                                                    & interpolator  )
         new_basis_functions(l+1:l+6) = generate_stress_elements( &
                           & [monomials(i), conjg(monomials(i))], &
                           & real(coefficients)                   )
@@ -576,12 +479,12 @@ function generate_fine_stress(subspace,modes,stress,interpolator) &
     endif
   enddo
   
-  output = PolynomialStress(                                        &
+  output = StressPointer(PolynomialStress(                          &
      & stress_expansion_order = expansion_order,                    &
      & reference_stress       = dblemat(zeroes(3,3)),               &
      & basis_functions        = [CouplingStressBasisFunctions(      &
      &    coupling        = SubspaceCoupling(ids=[subspace%id]),    &
-     &    basis_functions = basis_functions                      )] )
+     &    basis_functions = basis_functions                      )] ))
 end function
 
 ! Constructs the six tensor elements from an array of monomials and a matrix
@@ -618,8 +521,8 @@ function generate_stress_elements(monomials,coefficients) result(output)
   enddo
 end function
 
-impure elemental function interpolate_PolynomialStress(this,monomial, &
-   & interpolator) result(output)
+impure elemental function interpolate_coefficients_PolynomialStress(this, &
+   & monomial,interpolator) result(output)
   implicit none
   
   class(PolynomialStress),      intent(in) :: this
@@ -627,7 +530,8 @@ impure elemental function interpolate_PolynomialStress(this,monomial, &
   type(PolynomialInterpolator), intent(in) :: interpolator
   type(ComplexMatrix)                      :: output
   
-  output = sum(this%basis_functions_%interpolate(monomial, interpolator))
+  output = sum(this%basis_functions_%interpolate_coefficients( monomial,    &
+                                                             & interpolator ))
 end function
 
 ! Expansion order.

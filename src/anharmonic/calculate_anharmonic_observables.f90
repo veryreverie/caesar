@@ -11,8 +11,6 @@ module calculate_anharmonic_observables_module
   use generate_subspace_potentials_module
   use vscf_module
   use stress_prefactors_module
-  
-  ! TODO: remove this.
   use interpolation_module
   implicit none
   
@@ -659,21 +657,22 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! Interpolate stress under the effective harmonic approximation.
     if (calculate_stress) then
       if (stress%can_be_interpolated()) then
-        call vscha_thermodynamics(i)%set_stress(      &
-           & stress%calculate_interpolated_stress(    &
-           &            1e-30_dp,                     &
-           &            phonon_dos%qpoints%qpoint,    &
-           &            thermal_energies(i),          &
-           &            min_frequency,                &
-           &            supercell,                    &
-           &            hessian,                      &
-           &            min_images,                   &
-           &            subspaces,                    &
-           &            vscha_basis,                  &
-           &            vscha_states,                 &
-           &            min_images,                   &
-           &            anharmonic_data            ), &
-           & anharmonic_data%structure%volume         )
+        call vscha_thermodynamics(i)%set_stress( &
+           & calculate_interpolated_stress(      &
+           &     stress,                         &
+           &     1e-30_dp,                       &
+           &     phonon_dos%qpoints%qpoint,      &
+           &     thermal_energies(i),            &
+           &     min_frequency,                  &
+           &     supercell,                      &
+           &     hessian,                        &
+           &     min_images,                     &
+           &     subspaces,                      &
+           &     vscha_basis,                    &
+           &     vscha_states,                   &
+           &     min_images,                     &
+           &     anharmonic_data            ),   &
+           & anharmonic_data%structure%volume    )
       endif
     endif
     
@@ -682,14 +681,15 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! --------------------------------------------------
     if (potential%can_be_interpolated()) then
       call print_line('Interpolating VSCF results.')
-      call potential%calculate_interpolated_thermodynamics( &
-                                     & thermal_energies(i), &
-                                     & min_frequency,       &
-                                     & subspaces,           &
-                                     & subspace_potentials, &
-                                     & vscf_basis,          &
-                                     & subspace_states,     &
-                                     & anharmonic_data      )
+      !thermodynamics(i) = calculate_interpolated_thermodynamics(...)
+      !call potential%calculate_interpolated_thermodynamics( &
+      !                               & thermal_energies(i), &
+      !                               & min_frequency,       &
+      !                               & subspaces,           &
+      !                               & subspace_potentials, &
+      !                               & vscf_basis,          &
+      !                               & subspace_states,     &
+      !                               & anharmonic_data      )
     endif
   enddo
   

@@ -53,8 +53,8 @@ module coupling_stress_basis_functions_module
     
     procedure, public :: append => append_CouplingStressBasisFunctions
     
-    procedure, public :: interpolate => &
-                       & interpolate_CouplingStressBasisFunctions
+    procedure, public :: interpolate_coefficients => &
+                       & interpolate_coefficients_CouplingStressBasisFunctions
     
     ! I/O.
     procedure, public :: read  => read_CouplingStressBasisFunctions
@@ -346,8 +346,9 @@ end function
 ! Calculate the contribution to a given monomial from the interpolation of
 !    this basis function.
 ! The result is given as a cartesian tensor.
-impure elemental function interpolate_CouplingStressBasisFunctions(this, &
-   & monomial,interpolator) result(output)
+impure elemental function                                                 &
+   & interpolate_coefficients_CouplingStressBasisFunctions(this,monomial, &
+   & interpolator) result(output)
   implicit none
   
   class(CouplingStressBasisFunctions), intent(in) :: this
@@ -355,7 +356,8 @@ impure elemental function interpolate_CouplingStressBasisFunctions(this, &
   type(PolynomialInterpolator),        intent(in) :: interpolator
   type(ComplexMatrix)                             :: output
   
-  output = sum(this%basis_functions_%interpolate(monomial, interpolator))
+  output = sum(this%basis_functions_%interpolate_coefficients( monomial,    &
+                                                             & interpolator ))
 end function
 
 ! ----------------------------------------------------------------------

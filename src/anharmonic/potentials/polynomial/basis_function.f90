@@ -66,7 +66,8 @@ module basis_function_module
     procedure, public  :: coefficient => coefficient_BasisFunction
     procedure, public  :: set_coefficient => set_coefficient_BasisFunction
     
-    procedure, public :: interpolate => interpolate_BasisFunction
+    procedure, public :: interpolate_coefficient => &
+                       & interpolate_coefficient_BasisFunction
     
     procedure, public :: terms => terms_BasisFunction
     
@@ -913,8 +914,8 @@ end function
 
 ! Calculate the contribution to a given monomial from the interpolation of
 !    this basis function.
-impure elemental function interpolate_BasisFunction(this,monomial, &
-   & interpolator) result(output)
+impure elemental function interpolate_coefficient_BasisFunction(this, &
+   & monomial,interpolator) result(output)
   implicit none
   
   class(BasisFunction),         intent(in) :: this

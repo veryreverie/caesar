@@ -2,7 +2,7 @@
 ! Interpolate a polynomial to a single q-point and its pair,
 !    integrating across all other q-points
 ! ======================================================================
-module interpolation_module
+module polynomial_interpolation_module
   use common_module
   use anharmonic_common_module
   use permutation_module
@@ -108,41 +108,5 @@ function size_SplitMonomial(this) result(output)
   integer                         :: output
   
   output = size(this%head)
-end function
-
-function generate_fine_subspaces(modes,degenerate_frequency) result(output)
-  implicit none
-  
-  type(ComplexMode), intent(in)         :: modes(:)
-  real(dp),          intent(in)         :: degenerate_frequency
-  type(DegenerateSubspace), allocatable :: output(:)
-  
-  integer, allocatable :: splits(:)
-  integer              :: no_splits
-  
-  integer :: i,ialloc
-  
-  allocate(splits(size(modes)+1), stat=ialloc); call err(ialloc)
-  no_splits = 1
-  splits(no_splits) = 1
-  do i=2,size(modes)
-    if (abs(modes(i)%frequency-modes(i-1)%frequency)>degenerate_frequency) then
-      no_splits = no_splits+1
-      splits(no_splits) = i
-    endif
-  enddo
-  no_splits = no_splits+1
-  splits(no_splits) = size(modes)+1
-  
-  allocate(output(no_splits-1), stat=ialloc); call err(ialloc)
-  do i=1,no_splits-1
-    associate(subspace_modes=>modes(splits(i):splits(i+1)-1))
-      output(i) = DegenerateSubspace(                                  &
-         & id         = i,                                             &
-         & frequency  = subspace_modes(1)%frequency,                   &
-         & mode_ids   = [subspace_modes%id, subspace_modes%paired_id], &
-         & paired_ids = [subspace_modes%paired_id, subspace_modes%id]  )
-    end associate
-  enddo
 end function
 end module

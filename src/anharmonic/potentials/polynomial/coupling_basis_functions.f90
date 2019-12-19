@@ -62,7 +62,8 @@ module coupling_basis_functions_module
     
     procedure, public :: append => append_CouplingBasisFunctions
     
-    procedure, public :: interpolate => interpolate_CouplingBasisFunctions
+    procedure, public :: interpolate_coefficient => &
+                       & interpolate_coefficient_CouplingBasisFunctions
     
     ! I/O.
     procedure, public :: read  => read_CouplingBasisFunctions
@@ -445,8 +446,8 @@ end subroutine
 
 ! Calculate the contribution to a given monomial from the interpolation of
 !    this basis function.
-impure elemental function interpolate_CouplingBasisFunctions(this,monomial, &
-   & interpolator) result(output)
+impure elemental function interpolate_coefficient_CouplingBasisFunctions( &
+   & this,monomial,interpolator) result(output)
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
@@ -454,7 +455,8 @@ impure elemental function interpolate_CouplingBasisFunctions(this,monomial, &
   type(PolynomialInterpolator),  intent(in) :: interpolator
   complex(dp)                               :: output
   
-  output = sum(this%basis_functions_%interpolate(monomial, interpolator))
+  output = sum(this%basis_functions_%interpolate_coefficient( monomial,    &
+                                                            & interpolator ))
 end function
 
 ! ----------------------------------------------------------------------

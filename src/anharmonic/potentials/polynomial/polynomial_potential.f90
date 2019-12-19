@@ -77,9 +77,6 @@ module polynomial_potential_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PolynomialPotential
-    procedure, public :: calculate_interpolated_thermodynamics => &
-                    & calculate_interpolated_thermodynamics_PolynomialPotential
-    
     procedure, public :: interpolate => &
                        & interpolate_PolynomialPotential
     
@@ -996,9 +993,9 @@ function can_be_interpolated_PolynomialPotential(this) result(output)
   output = .true.
 end function
 
-subroutine calculate_interpolated_thermodynamics_PolynomialPotential(this, &
+function interpolate_PolynomialPotential(this, &
    & thermal_energy,min_frequency,subspaces,subspace_potentials,           &
-   & subspace_bases,subspace_states,anharmonic_data)
+   & subspace_bases,subspace_states,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in)    :: this
@@ -1009,14 +1006,15 @@ subroutine calculate_interpolated_thermodynamics_PolynomialPotential(this, &
   class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
   class(BasisStates),         intent(inout) :: subspace_states(:)
   type(AnharmonicData),       intent(in)    :: anharmonic_data
+  type(PotentialPointer)                    :: output
   
   ! TODO
-end subroutine
+end function
 
 ! Calculate the contribution to a given monomial from the interpolation of
 !    this potential.
-impure elemental function interpolate_PolynomialPotential(this,monomial, &
-   & interpolator) result(output)
+impure elemental function interpolate_coefficient_PolynomialPotential(this, &
+   & monomial,interpolator) result(output)
   implicit none
   
   class(PolynomialPotential),   intent(in) :: this
@@ -1024,7 +1022,8 @@ impure elemental function interpolate_PolynomialPotential(this,monomial, &
   type(PolynomialInterpolator), intent(in) :: interpolator
   complex(dp)                              :: output
   
-  output = sum(this%basis_functions_%interpolate(monomial, interpolator))
+  output = sum(this%basis_functions_%interpolate_coefficient( monomial,    &
+                                                            & interpolator ))
 end function
 
 ! Expansion order.

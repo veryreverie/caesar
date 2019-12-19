@@ -49,7 +49,8 @@ module stress_basis_function_module
     procedure, public :: undisplaced_stress => &
                        & undisplaced_stress_StressBasisFunction
     
-    procedure, public :: interpolate => interpolate_StressBasisFunction
+    procedure, public :: interpolate_coefficients => &
+                       & interpolate_coefficients_StressBasisFunction
     
     ! I/O.
     procedure, public :: read  => read_StressBasisFunction
@@ -545,8 +546,8 @@ end function
 ! Calculate the contribution to a given monomial from the interpolation of
 !    this basis function.
 ! The result is given as a cartesian tensor.
-impure elemental function interpolate_StressBasisFunction(this,monomial, &
-   & interpolator) result(output)
+impure elemental function interpolate_coefficients_StressBasisFunction(this, &
+   & monomial,interpolator) result(output)
   implicit none
   
   class(StressBasisFunction),   intent(in) :: this

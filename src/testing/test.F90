@@ -36,8 +36,6 @@ end subroutine
 ! Main function.
 ! ----------------------------------------------------------------------
 subroutine test_subroutine(arguments)
-  use interpolation_module
-  use permutation_module
   implicit none
   
   type(Dictionary), intent(in) :: arguments

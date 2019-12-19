@@ -228,8 +228,8 @@ module abstract_classes_module
     ! Interpolation of the potential.
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PotentialData
-    procedure, public :: calculate_interpolated_thermodynamics => &
-                       & calculate_interpolated_thermodynamics_PotentialData
+    procedure, public :: interpolate => &
+                       & interpolate_PotentialData
   end type
   
   type, extends(PotentialData) :: PotentialPointer
@@ -282,8 +282,8 @@ module abstract_classes_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PotentialPointer
-    procedure, public :: calculate_interpolated_thermodynamics => &
-                       & calculate_interpolated_thermodynamics_PotentialPointer
+    procedure, public :: interpolate => &
+                       & interpolate_PotentialPointer
     
     ! I/O.
     procedure, public :: read  => read_PotentialPointer
@@ -333,8 +333,8 @@ module abstract_classes_module
     ! Interpolation of the stress.
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_StressData
-    procedure, public :: calculate_interpolated_stress => &
-                       & calculate_interpolated_stress_StressData
+    procedure, public :: interpolate => &
+                       & interpolate_StressData
   end type
   
   type, extends(StressData) :: StressPointer
@@ -366,8 +366,8 @@ module abstract_classes_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_StressPointer
-    procedure, public :: calculate_interpolated_stress => &
-                       & calculate_interpolated_stress_StressPointer
+    procedure, public :: interpolate => &
+                       & interpolate_StressPointer
     
     ! I/O.
     procedure, public :: read  => read_StressPointer
@@ -1762,9 +1762,9 @@ function can_be_interpolated_PotentialPointer(this) result(output)
   output = this%potential_%can_be_interpolated()
 end function
 
-subroutine calculate_interpolated_thermodynamics_PotentialPointer(this, &
+function interpolate_PotentialPointer(this, &
    & thermal_energy,min_frequency,subspaces,subspace_potentials,        &
-   & subspace_bases,subspace_states,anharmonic_data)
+   & subspace_bases,subspace_states,anharmonic_data) result(output)
   implicit none
   
   class(PotentialPointer),  intent(in)    :: this
@@ -1775,18 +1775,18 @@ subroutine calculate_interpolated_thermodynamics_PotentialPointer(this, &
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
   type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(PotentialPointer)                  :: output
   
   call this%check()
   
-  call this%potential_%calculate_interpolated_thermodynamics( &
-                                       & thermal_energy,      &
-                                       & min_frequency,       &
-                                       & subspaces,           &
-                                       & subspace_potentials, &
-                                       & subspace_bases,      &
-                                       & subspace_states,     &
-                                       & anharmonic_data      )
-end subroutine
+  output = this%potential_%interpolate( thermal_energy,      &
+                                      & min_frequency,       &
+                                      & subspaces,           &
+                                      & subspace_potentials, &
+                                      & subspace_bases,      &
+                                      & subspace_states,     &
+                                      & anharmonic_data      )
+end function
 
 ! I/O.
 subroutine read_PotentialPointer(this,input)
@@ -2027,42 +2027,25 @@ function can_be_interpolated_StressPointer(this) result(output)
   output = this%stress_%can_be_interpolated()
 end function
 
-function calculate_interpolated_stress_StressPointer(this,              &
-   & degenerate_frequency,fine_qpoints,thermal_energy,min_frequency,    &
-   & harmonic_supercell,harmonic_hessian,harmonic_min_images,subspaces, &
-   & subspace_bases,basis_states,anharmonic_min_images,anharmonic_data) &
-   & result(output)
+function interpolate_StressPointer(this,qpoint,subspace,subspace_modes, &
+   & anharmonic_min_images,anharmonic_data) result(output)
   implicit none
   
   class(StressPointer),     intent(in) :: this
-  real(dp),                 intent(in) :: degenerate_frequency
-  type(RealVector),         intent(in) :: fine_qpoints(:)
-  real(dp),                 intent(in) :: thermal_energy
-  real(dp),                 intent(in) :: min_frequency
-  type(StructureData),      intent(in) :: harmonic_supercell
-  type(CartesianHessian),   intent(in) :: harmonic_hessian
-  type(MinImages),          intent(in) :: harmonic_min_images(:,:)
-  type(DegenerateSubspace), intent(in) :: subspaces(:)
-  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(BasisStates),       intent(in) :: basis_states(:)
+  type(RealVector),         intent(in) :: qpoint
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(ComplexMode),        intent(in) :: subspace_modes(:)
   type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(RealMatrix)                     :: output
+  type(StressPointer)                  :: output
   
   call this%check()
   
-  output = this%stress_%calculate_interpolated_stress( degenerate_frequency,  &
-                                                     & fine_qpoints,          &
-                                                     & thermal_energy,        &
-                                                     & min_frequency,         &
-                                                     & harmonic_supercell,    &
-                                                     & harmonic_hessian,      &
-                                                     & harmonic_min_images,   &
-                                                     & subspaces,             &
-                                                     & subspace_bases,        &
-                                                     & basis_states,          &
-                                                     & anharmonic_min_images, &
-                                                     & anharmonic_data        )
+  output = this%stress_%interpolate( qpoint,                &
+                                   & subspace,              &
+                                   & subspace_modes,        &
+                                   & anharmonic_min_images, &
+                                   & anharmonic_data        )
 end function
 
 ! I/O.
@@ -2194,9 +2177,9 @@ function can_be_interpolated_PotentialData(this) result(output)
   output = .false.
 end function
 
-subroutine calculate_interpolated_thermodynamics_PotentialData(this, &
+function interpolate_PotentialData(this, &
    & thermal_energy,min_frequency,subspaces,subspace_potentials,     &
-   & subspace_bases,subspace_states,anharmonic_data)
+   & subspace_bases,subspace_states,anharmonic_data) result(output)
   implicit none
   
   class(PotentialData),     intent(in)    :: this
@@ -2207,12 +2190,13 @@ subroutine calculate_interpolated_thermodynamics_PotentialData(this, &
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
   type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(PotentialPointer)                  :: output
   
   ! This should be gated behind can_be_interpolated.
   call print_line(CODE_ERROR//': calculate_interpolated_thermodynamics not &
      &implemented for this potential.')
   call err()
-end subroutine
+end function
 
 ! StressData methods.
 function undisplaced_stress(this) result(output)
@@ -2235,27 +2219,17 @@ function can_be_interpolated_StressData(this) result(output)
   output = .false.
 end function
 
-function calculate_interpolated_stress_StressData(this,                 &
-   & degenerate_frequency,fine_qpoints,thermal_energy,min_frequency,    &
-   & harmonic_supercell,harmonic_hessian,harmonic_min_images,subspaces, &
-   & subspace_bases,basis_states,anharmonic_min_images,anharmonic_data) &
-   & result(output)
+function interpolate_StressData(this,qpoint,subspace,subspace_modes, &
+   & anharmonic_min_images,anharmonic_data) result(output)
   implicit none
   
   class(StressData),        intent(in) :: this
-  real(dp),                 intent(in) :: degenerate_frequency
-  type(RealVector),         intent(in) :: fine_qpoints(:)
-  real(dp),                 intent(in) :: thermal_energy
-  real(dp),                 intent(in) :: min_frequency
-  type(StructureData),      intent(in) :: harmonic_supercell
-  type(CartesianHessian),   intent(in) :: harmonic_hessian
-  type(MinImages),          intent(in) :: harmonic_min_images(:,:)
-  type(DegenerateSubspace), intent(in) :: subspaces(:)
-  class(SubspaceBasis),     intent(in) :: subspace_bases(:)
-  class(BasisStates),       intent(in) :: basis_states(:)
+  type(RealVector),         intent(in) :: qpoint
+  type(DegenerateSubspace), intent(in) :: subspace
+  type(ComplexMode),        intent(in) :: subspace_modes(:)
   type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
   type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(RealMatrix)                     :: output
+  type(StressPointer)                  :: output
   
   ! This should be gated behind can_be_interpolated.
   call print_line(CODE_ERROR//': calculate_interpolated_stress not &
