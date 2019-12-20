@@ -118,15 +118,20 @@ contains
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-impure elemental function new_BasisFunction(complex_representation) &
-   & result(this)
+impure elemental function new_BasisFunction(complex_representation, &
+   & coefficient) result(this)
   implicit none
   
-  type(ComplexPolynomial), intent(in) :: complex_representation
-  type(BasisFunction)                 :: this
+  type(ComplexPolynomial), intent(in)           :: complex_representation
+  real(dp),                intent(in), optional :: coefficient
+  type(BasisFunction)                           :: this
   
   this%complex_representation_ = complex_representation
-  this%coefficient_            = 1.0_dp
+  if (present(coefficient)) then
+    this%coefficient_ = coefficient
+  else
+    this%coefficient_ = 1.0_dp
+  endif
 end function
 
 ! ----------------------------------------------------------------------

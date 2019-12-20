@@ -894,20 +894,15 @@ impure elemental function initial_states_WavevectorBasis(this,subspace, &
 end function
 
 impure elemental function calculate_states_WavevectorBasis(this,subspace, &
-   & subspace_potential,thermal_energy,energy_convergence,                &
-   & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
-   & pre_pulay_damping,anharmonic_data) result(output)
+   & subspace_potential,thermal_energy,convergence_data,anharmonic_data)  &
+   & result(output)
   implicit none
   
   class(WavevectorBasis),   intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
   class(PotentialData),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
-  real(dp),                 intent(in) :: energy_convergence
-  integer,                  intent(in) :: no_converged_calculations
-  integer,                  intent(in) :: max_pulay_iterations
-  integer,                  intent(in) :: pre_pulay_iterations
-  real(dp),                 intent(in) :: pre_pulay_damping
+  type(ConvergenceData),    intent(in) :: convergence_data
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   

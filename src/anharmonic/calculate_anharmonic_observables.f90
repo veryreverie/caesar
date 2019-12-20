@@ -118,7 +118,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer               :: random_generator_seed
   logical               :: split_qpoints
   real(dp)              :: energy_convergence
-  integer               :: no_converged_calculations_vscf
+  integer               :: no_converged_calculations
   integer               :: max_pulay_iterations
   integer               :: pre_pulay_iterations
   real(dp)              :: pre_pulay_damping
@@ -144,6 +144,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(QpointData),         allocatable :: qpoints(:)
   type(DegenerateSubspace), allocatable :: subspaces(:)
   type(StructureData)                   :: supercell
+  
+  ! Convergence data.
+  type(ConvergenceData) :: convergence_data
   
   ! Subspace variables.
   type(ComplexMode),      allocatable :: subspace_modes(:)
@@ -172,9 +175,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! VSCF basis, states, potential and stress.
   type(SubspaceBasisPointer), allocatable :: vscf_basis(:)
   type(VscfOutput),           allocatable :: vscf_output(:)
-  type(PotentialPointer),     allocatable :: subspace_potentials(:)
-  type(BasisStatesPointer),   allocatable :: subspace_states(:)
-  type(StressPointer),        allocatable :: subspace_stresses(:)
+  type(PotentialPointer),     allocatable :: vscf_potentials(:)
+  type(BasisStatesPointer),   allocatable :: vscf_states(:)
+  type(StressPointer),        allocatable :: vscf_stresses(:)
   
   ! Interpolated VSCHA variables; modes and dynamical matrices at each q-point.
   type(ComplexMode),     allocatable :: vscha_modes(:,:)
@@ -195,6 +198,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: vscha1_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: vscha2_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
+  
+  ! Interpolated thermodynamics.
+  type(InterpolatedThermodynamics), allocatable :: &
+     & interpolated_thermodynamics(:)
   
   type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
   
@@ -235,7 +242,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   random_generator_seed = random_generator%get_seed()
   split_qpoints = lgcl(arguments%value('split_q-points'))
   energy_convergence = dble(arguments%value('energy_convergence'))
-  no_converged_calculations_vscf = int(                  &
+  no_converged_calculations = int(                       &
      & arguments%value('no_converged_calculations_vscf') )
   max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
   pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
@@ -273,6 +280,13 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call print_line(ERROR//': max_pulay_iterations must be at least 2.')
     call quit()
   endif
+  
+  ! Construct convergence data.
+  convergence_data = ConvergenceData( pre_pulay_iterations,     &
+                                    & pre_pulay_damping,        &
+                                    & max_pulay_iterations,     &
+                                    & energy_convergence,       &
+                                    & no_converged_calculations )
   
   ! Read in setup_harmonic settings.
   setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
@@ -358,19 +372,20 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Run calculations at each temperature.
   ! --------------------------------------------------
-  allocate( vscha_frequencies( size(subspaces),                 &
-          &                    size(thermal_energies) ),        &
-          & vscf_basis(size(subspaces)),                        &
-          & vscha_modes( anharmonic_data%structure%no_modes,    &
-          &              size(qpoints)                       ), &
-          & dynamical_matrices(size(qpoints)),                  &
-          & vscf_thermodynamics( size(subspaces),               &
-          &                      size(thermal_energies) ),      &
-          & vscha_thermodynamics(size(thermal_energies)),       &
-          & vscha1_thermodynamics( size(subspaces),             &
-          &                        size(thermal_energies) ),    &
-          & vscha2_thermodynamics( size(subspaces),             &
-          &                        size(thermal_energies) ),    &
+  allocate( vscha_frequencies( size(subspaces),                  &
+          &                    size(thermal_energies) ),         &
+          & vscf_basis(size(subspaces)),                         &
+          & vscha_modes( anharmonic_data%structure%no_modes,     &
+          &              size(qpoints)                       ),  &
+          & dynamical_matrices(size(qpoints)),                   &
+          & vscf_thermodynamics( size(subspaces),                &
+          &                      size(thermal_energies) ),       &
+          & vscha_thermodynamics(size(thermal_energies)),        &
+          & vscha1_thermodynamics( size(subspaces),              &
+          &                        size(thermal_energies) ),     &
+          & vscha2_thermodynamics( size(subspaces),              &
+          &                        size(thermal_energies) ),     &
+          & interpolated_thermodynamics(size(thermal_energies)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     call print_line('')
@@ -406,12 +421,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                            & subspaces,                          &
                            & vscha_basis,                        &
                            & thermal_energies(i),                &
-                           & energy_convergence,                 &
                            & starting_frequencies,               &
-                           & no_converged_calculations_vscf,     &
-                           & max_pulay_iterations,               &
-                           & pre_pulay_iterations,               &
-                           & pre_pulay_damping,                  &
+                           & convergence_data,                   &
                            & anharmonic_data,                    &
                            & random_generator,                   &
                            & starting_configuration=vscha_output )
@@ -508,20 +519,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                           & subspaces,                         &
                           & vscf_basis,                        &
                           & thermal_energies(i),               &
-                          & energy_convergence,                &
                           & vscha_frequencies(:,i),            &
-                          & no_converged_calculations_vscf,    &
-                          & max_pulay_iterations,              &
-                          & pre_pulay_iterations,              &
-                          & pre_pulay_damping,                 &
+                          & convergence_data,                  &
                           & anharmonic_data,                   &
                           & random_generator,                  &
                           & starting_configuration=vscf_output )
     
-    subspace_potentials = [(vscf_output(j)%potential, j=1, size(vscf_output))]
-    subspace_states = [(vscf_output(j)%states, j=1, size(vscf_output))]
+    vscf_potentials = [(vscf_output(j)%potential, j=1, size(vscf_output))]
+    vscf_states = [(vscf_output(j)%states, j=1, size(vscf_output))]
     if (calculate_stress) then
-      subspace_stresses = [(vscf_output(j)%stress, j=1, size(vscf_output))]
+      vscf_stresses = [(vscf_output(j)%stress, j=1, size(vscf_output))]
     endif
     call print_line('')
     
@@ -533,26 +540,26 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     if (calculate_stress) then
       vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data( &
                              &           thermal_energies(i),   &
-                             &           subspace_states,       &
+                             &           vscf_states,           &
                              &           subspaces,             &
-                             &           subspace_potentials,   &
-                             &           subspace_stresses,     &
+                             &           vscf_potentials,       &
+                             &           vscf_stresses,         &
                              &           stress_prefactors,     &
                              &           anharmonic_data      ) &
                              & / supercell%sc_size
     else
       vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data(              &
                              &           thermal_energies(i),                &
-                             &           subspace_states,                    &
+                             &           vscf_states,                        &
                              &           subspaces,                          &
-                             &           subspace_potentials,                &
+                             &           vscf_potentials,                    &
                              &           anharmonic_data = anharmonic_data ) &
                              & / supercell%sc_size
     endif
     
     !! Print VSCF spectra and wavefunction information.
     !subspace_wavefunctions = SubspaceWavefunctionsPointer( &
-    !         & vscf_basis%wavefunctions( subspace_states,  &
+    !         & vscf_basis%wavefunctions( vscf_states,      &
     !         &                           subspaces,        &
     !         &                           anharmonic_data ) )
     !do j=1,size(subspaces)
@@ -657,6 +664,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! Interpolate stress under the effective harmonic approximation.
     if (calculate_stress) then
       if (stress%can_be_interpolated()) then
+        call print_line('Interpolating stress under VSCHA')
+        ! TODO: degenerate_frequency.
         call vscha_thermodynamics(i)%set_stress( &
            & calculate_interpolated_stress(      &
            &     stress,                         &
@@ -681,15 +690,23 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! --------------------------------------------------
     if (potential%can_be_interpolated()) then
       call print_line('Interpolating VSCF results.')
-      !thermodynamics(i) = calculate_interpolated_thermodynamics(...)
-      !call potential%calculate_interpolated_thermodynamics( &
-      !                               & thermal_energies(i), &
-      !                               & min_frequency,       &
-      !                               & subspaces,           &
-      !                               & subspace_potentials, &
-      !                               & vscf_basis,          &
-      !                               & subspace_states,     &
-      !                               & anharmonic_data      )
+      ! TODO: degenerate_frequency.
+      ! TODO: replace supercell, hessian and min_images with harmonic versions
+      !    from full harmonic grid.
+      interpolated_thermodynamics(i) = calculate_interpolated_thermodynamics( &
+                         & potential             = potential,                 &
+                         & degenerate_frequency  = 1e-30_dp,                  &
+                         & fine_qpoints          = phonon_dos%qpoints%qpoint, &
+                         & thermal_energy        = thermal_energies(i),       &
+                         & min_frequency         = min_frequency,             &
+                         & harmonic_supercell    = supercell,                 &
+                         & harmonic_hessian      = hessian,                   &
+                         & harmonic_min_images   = min_images,                &
+                         & subspaces             = subspaces,                 &
+                         & subspace_bases        = vscf_basis,                &
+                         & subspace_states       = vscf_states,               &
+                         & anharmonic_min_images = min_images,                &
+                         & anharmonic_data       = anharmonic_data            )
     endif
   enddo
   

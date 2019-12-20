@@ -59,9 +59,8 @@ end function
 
 ! Vscf routine.
 function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
-   & energy_convergence,frequencies,no_converged_calculations,              &
-   & max_pulay_iterations,pre_pulay_iterations,pre_pulay_damping,           &
-   & anharmonic_data,random_generator,starting_configuration) result(output)
+   & frequencies,convergence_data,anharmonic_data,random_generator,         &
+   & starting_configuration) result(output)
   implicit none
   
   class(PotentialData),     intent(in)           :: potential
@@ -69,12 +68,8 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
   type(DegenerateSubspace), intent(in)           :: subspaces(:)
   class(SubspaceBasis),     intent(in)           :: subspace_bases(:)
   real(dp),                 intent(in)           :: thermal_energy
-  real(dp),                 intent(in)           :: energy_convergence
   real(dp),                 intent(in)           :: frequencies(:)
-  integer,                  intent(in)           :: no_converged_calculations
-  integer,                  intent(in)           :: max_pulay_iterations
-  integer,                  intent(in)           :: pre_pulay_iterations
-  real(dp),                 intent(in)           :: pre_pulay_damping
+  type(ConvergenceData),    intent(in)           :: convergence_data
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(RandomReal),         intent(in)           :: random_generator
   type(VscfOutput),         intent(in), optional :: starting_configuration(:)
@@ -128,13 +123,9 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
   enddo
   
   ! Initialise Pulay solver.
-  solver = PulaySolver( pre_pulay_iterations,      &
-                      & pre_pulay_damping,         &
-                      & max_pulay_iterations,      &
-                      & energy_convergence,        &
-                      & no_converged_calculations, &
-                      & random_generator,          &
-                      & coefficients               )
+  solver = PulaySolver( convergence_data, &
+                      & random_generator, &
+                      & coefficients      )
   
   ! Run Pulay scheme.
   i = 1
@@ -150,16 +141,12 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
     
     ! Use single-subspace potentials to calculate new single-subspace states.
     call print_line('Generating single-subspace ground states.')
-    subspace_states = BasisStatesPointer(                              &
-       & subspace_bases%calculate_states( subspaces,                   &
-       &                                  subspace_potentials,         &
-       &                                  thermal_energy,              &
-       &                                  energy_convergence,          &
-       &                                  no_converged_calculations,   &
-       &                                  max_pulay_iterations,        &
-       &                                  pre_pulay_iterations,        &
-       &                                  pre_pulay_damping,           &
-       &                                  anharmonic_data            ) )
+    subspace_states = BasisStatesPointer(                      &
+       & subspace_bases%calculate_states( subspaces,           &
+       &                                  subspace_potentials, &
+       &                                  thermal_energy,      &
+       &                                  convergence_data,    &
+       &                                  anharmonic_data      ) )
     
     ! Calculate the free energy from the potentials and states.
     thermodynamic_data = subspace_bases%thermodynamic_data( &

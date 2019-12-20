@@ -284,10 +284,15 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
       complex_representation = ComplexPolynomial( complex_coefficients &
                                               & * complex_monomials    )
       
-      elements(x(j),y(j)) = complex_representation
-      call elements(x(j),y(j))%simplify()
-      elements(y(j),x(j)) = complex_representation
-      call elements(y(j),x(j))%simplify()
+      if (x(j)==y(j)) then
+        elements(x(j),y(j)) = complex_representation
+        call elements(x(j),y(j))%simplify()
+      else
+        elements(x(j),y(j)) = complex_representation/sqrt(2.0_dp)
+        call elements(x(j),y(j))%simplify()
+        elements(y(j),x(j)) = complex_representation/sqrt(2.0_dp)
+        call elements(y(j),x(j))%simplify()
+      endif
     enddo
     
     output(i) = StressBasisFunction(elements)

@@ -19,8 +19,21 @@ module pulay_module
   
   private
   
+  public :: ConvergenceData
   public :: PulaySolver
   public :: pulay_solver_example
+  
+  type, extends(NoDefaultConstructor) :: ConvergenceData
+    integer  :: pre_pulay_iterations
+    real(dp) :: pre_pulay_damping
+    integer  :: max_pulay_iterations
+    real(dp) :: energy_convergence
+    integer  :: no_converged_calculations
+  end type
+  
+  interface ConvergenceData
+    module procedure new_ConvergenceData
+  end interface
   
   type, extends(NoDefaultConstructor) :: PulaySolver
     ! Starting parameters.
@@ -61,22 +74,17 @@ module pulay_module
   end interface
 contains
 
-function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping,           &
-   & max_pulay_iterations,convergence_threshold,no_converged_calculations, &
-   & random_generator,initial_x,bound_at_zero) result(this)
+impure elemental function new_ConvergenceData(pre_pulay_iterations, &
+   & pre_pulay_damping,max_pulay_iterations,energy_convergence,     &
+   & no_converged_calculations) result(this)
   implicit none
   
-  integer,          intent(in)           :: pre_pulay_iterations
-  real(dp),         intent(in)           :: pre_pulay_damping
-  integer,          intent(in)           :: max_pulay_iterations
-  real(dp),         intent(in)           :: convergence_threshold
-  integer,          intent(in)           :: no_converged_calculations
-  type(RandomReal), intent(in)           :: random_generator
-  real(dp),         intent(in)           :: initial_x(:)
-  logical,          intent(in), optional :: bound_at_zero
-  type(PulaySolver)                      :: this
-  
-  integer :: ialloc
+  integer,  intent(in)  :: pre_pulay_iterations
+  real(dp), intent(in)  :: pre_pulay_damping
+  integer,  intent(in)  :: max_pulay_iterations
+  real(dp), intent(in)  :: energy_convergence
+  integer,  intent(in)  :: no_converged_calculations
+  type(ConvergenceData) :: this
   
   if (pre_pulay_iterations<2) then
     call print_line(ERROR//': pre_pulay_iterations must be at least 2.')
@@ -86,11 +94,30 @@ function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping,           &
     call quit()
   endif
   
-  this%pre_pulay_iterations_ = pre_pulay_iterations
-  this%pre_pulay_damping_ = pre_pulay_damping
-  this%max_pulay_iterations_ = max_pulay_iterations
-  this%convergence_threshold_ = convergence_threshold
-  this%no_converged_calculations_ = no_converged_calculations
+  this%pre_pulay_iterations      = pre_pulay_iterations
+  this%pre_pulay_damping         = pre_pulay_damping
+  this%max_pulay_iterations      = max_pulay_iterations
+  this%energy_convergence        = energy_convergence
+  this%no_converged_calculations = no_converged_calculations
+end function
+
+function new_PulaySolver(convergence_data,random_generator,initial_x, &
+   & bound_at_zero) result(this)
+  implicit none
+  
+  type(ConvergenceData), intent(in)           :: convergence_data
+  type(RandomReal),      intent(in)           :: random_generator
+  real(dp),              intent(in)           :: initial_x(:)
+  logical,               intent(in), optional :: bound_at_zero
+  type(PulaySolver)                           :: this
+  
+  integer :: ialloc
+  
+  this%pre_pulay_iterations_ = convergence_data%pre_pulay_iterations
+  this%pre_pulay_damping_ = convergence_data%pre_pulay_damping
+  this%max_pulay_iterations_ = convergence_data%max_pulay_iterations
+  this%convergence_threshold_ = convergence_data%energy_convergence
+  this%no_converged_calculations_ = convergence_data%no_converged_calculations
   this%random_generator_ = random_generator
   if (present(bound_at_zero)) then
     this%bound_at_zero_ = bound_at_zero
@@ -98,9 +125,9 @@ function new_PulaySolver(pre_pulay_iterations,pre_pulay_damping,           &
     this%bound_at_zero_ = .false.
   endif
   
-  allocate( this%xs_(max_pulay_iterations),            &
-          & this%fs_(max_pulay_iterations),            &
-          & this%free_energies_(max_pulay_iterations), &
+  allocate( this%xs_(this%max_pulay_iterations_),            &
+          & this%fs_(this%max_pulay_iterations_),            &
+          & this%free_energies_(this%max_pulay_iterations_), &
           & stat=ialloc); call err(ialloc)
   this%xs_(1) = vec(initial_x)
   
@@ -476,7 +503,8 @@ subroutine pulay_solver_example()
   type(RandomReal)      :: random_generator
   real(dp), allocatable :: initial_x(:)
   
-  type(PulaySolver) :: solver
+  type(ConvergenceData) :: convergence_data
+  type(PulaySolver)     :: solver
   
   real(dp), allocatable :: x(:)
   real(dp), allocatable :: f(:)
@@ -516,13 +544,15 @@ subroutine pulay_solver_example()
   ! ------------------------------
   ! Initialise solver.
   ! ------------------------------
-  solver = PulaySolver( pre_pulay_iterations,      &
-                      & pre_pulay_damping,         &
-                      & max_pulay_iterations,      &
-                      & convergence_threshold,     &
-                      & no_converged_calculations, &
-                      & random_generator,          &
-                      & initial_x                  )
+  convergence_data = ConvergenceData( pre_pulay_iterations,     &
+                                    & pre_pulay_damping,        &
+                                    & max_pulay_iterations,     &
+                                    & convergence_threshold,    &
+                                    & no_converged_calculations )
+  
+  solver = PulaySolver( convergence_data, &
+                      & random_generator, &
+                      & initial_x         )
   
   ! ------------------------------
   ! Run Pulay scheme.

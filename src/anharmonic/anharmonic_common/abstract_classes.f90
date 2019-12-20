@@ -406,14 +406,14 @@ module abstract_classes_module
       type(BasisStatesPointer)             :: output
     end function
     
-    impure elemental function calculate_states_SubspaceBasis(this,subspace,   &
-       & subspace_potential,thermal_energy,energy_convergence,                &
-       & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
-       & pre_pulay_damping,anharmonic_data) result(output)
+    impure elemental function calculate_states_SubspaceBasis(this,subspace,  &
+       & subspace_potential,thermal_energy,convergence_data,anharmonic_data) &
+       & result(output)
       import SubspaceBasis
       import DegenerateSubspace
       import PotentialData
       import dp
+      import ConvergenceData
       import AnharmonicData
       import BasisStatesPointer
       implicit none
@@ -422,11 +422,7 @@ module abstract_classes_module
       type(DegenerateSubspace), intent(in) :: subspace
       class(PotentialData),     intent(in) :: subspace_potential
       real(dp),                 intent(in) :: thermal_energy
-      real(dp),                 intent(in) :: energy_convergence
-      integer,                  intent(in) :: no_converged_calculations
-      integer,                  intent(in) :: max_pulay_iterations
-      integer,                  intent(in) :: pre_pulay_iterations
-      real(dp),                 intent(in) :: pre_pulay_damping
+      type(ConvergenceData),    intent(in) :: convergence_data
       type(AnharmonicData),     intent(in) :: anharmonic_data
       type(BasisStatesPointer)             :: output
     end function
@@ -1101,35 +1097,26 @@ impure elemental function initial_states_SubspaceBasisPointer(this,subspace, &
                                      & anharmonic_data )
 end function
 
-impure elemental function calculate_states_SubspaceBasisPointer(this,     &
-   & subspace,subspace_potential,thermal_energy,energy_convergence,       &
-   & no_converged_calculations,max_pulay_iterations,pre_pulay_iterations, &
-   & pre_pulay_damping,anharmonic_data) result(output)
+impure elemental function calculate_states_SubspaceBasisPointer(this, &
+   & subspace,subspace_potential,thermal_energy,convergence_data,     &
+   & anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in) :: this
   type(DegenerateSubspace),    intent(in) :: subspace
   class(PotentialData),        intent(in) :: subspace_potential
   real(dp),                    intent(in) :: thermal_energy
-  real(dp),                    intent(in) :: energy_convergence
-  integer,                     intent(in) :: no_converged_calculations
-  integer,                     intent(in) :: max_pulay_iterations
-  integer,                     intent(in) :: pre_pulay_iterations
-  real(dp),                    intent(in) :: pre_pulay_damping
+  type(ConvergenceData),       intent(in) :: convergence_data
   type(AnharmonicData),        intent(in) :: anharmonic_data
   type(BasisStatesPointer)                :: output
   
   call this%check()
   
-  output = this%basis_%calculate_states( subspace,                  &
-                                       & subspace_potential,        &
-                                       & thermal_energy,            &
-                                       & energy_convergence,        &
-                                       & no_converged_calculations, &
-                                       & max_pulay_iterations,      &
-                                       & pre_pulay_iterations,      &
-                                       & pre_pulay_damping,         &
-                                       & anharmonic_data            )
+  output = this%basis_%calculate_states( subspace,           &
+                                       & subspace_potential, &
+                                       & thermal_energy,     &
+                                       & convergence_data,   &
+                                       & anharmonic_data     )
 end function
 
 impure elemental function process_subspace_potential_SubspaceBasisPointer( &
@@ -1762,16 +1749,18 @@ function can_be_interpolated_PotentialPointer(this) result(output)
   output = this%potential_%can_be_interpolated()
 end function
 
-function interpolate_PotentialPointer(this, &
-   & thermal_energy,min_frequency,subspaces,subspace_potentials,        &
-   & subspace_bases,subspace_states,anharmonic_data) result(output)
+function interpolate_PotentialPointer(this,qpoint,subspace,subspace_modes, &
+   & anharmonic_min_images, thermal_energy,subspaces,subspace_bases,       &
+   & subspace_states,anharmonic_data) result(output)
   implicit none
   
   class(PotentialPointer),  intent(in)    :: this
+  type(RealVector),         intent(in)    :: qpoint
+  type(DegenerateSubspace), intent(in)    :: subspace
+  type(ComplexMode),        intent(in)    :: subspace_modes(:)
+  type(MinImages),          intent(in)    :: anharmonic_min_images(:,:)
   real(dp),                 intent(in)    :: thermal_energy
-  real(dp),                 intent(in)    :: min_frequency
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(PotentialData),     intent(in)    :: subspace_potentials(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
   type(AnharmonicData),     intent(in)    :: anharmonic_data
@@ -1779,10 +1768,12 @@ function interpolate_PotentialPointer(this, &
   
   call this%check()
   
-  output = this%potential_%interpolate( thermal_energy,      &
-                                      & min_frequency,       &
+  output = this%potential_%interpolate( qpoint, &
+                                      & subspace, &
+                                      & subspace_modes, &
+                                      & anharmonic_min_images, &
+                                      & thermal_energy,      &
                                       & subspaces,           &
-                                      & subspace_potentials, &
                                       & subspace_bases,      &
                                       & subspace_states,     &
                                       & anharmonic_data      )
@@ -2177,16 +2168,18 @@ function can_be_interpolated_PotentialData(this) result(output)
   output = .false.
 end function
 
-function interpolate_PotentialData(this, &
-   & thermal_energy,min_frequency,subspaces,subspace_potentials,     &
-   & subspace_bases,subspace_states,anharmonic_data) result(output)
+function interpolate_PotentialData(this,qpoint,subspace,subspace_modes,  &
+   & anharmonic_min_images,thermal_energy,subspaces,subspace_bases,      &
+   & subspace_states,anharmonic_data) result(output)
   implicit none
   
   class(PotentialData),     intent(in)    :: this
+  type(RealVector),         intent(in)    :: qpoint
+  type(DegenerateSubspace), intent(in)    :: subspace
+  type(ComplexMode),        intent(in)    :: subspace_modes(:)
+  type(MinImages),          intent(in)    :: anharmonic_min_images(:,:)
   real(dp),                 intent(in)    :: thermal_energy
-  real(dp),                 intent(in)    :: min_frequency
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(PotentialData),     intent(in)    :: subspace_potentials(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
   type(AnharmonicData),     intent(in)    :: anharmonic_data

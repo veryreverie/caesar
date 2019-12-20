@@ -21,6 +21,7 @@ module polynomial_interpolator_module
   private
   
   public :: PolynomialInterpolator
+  public :: construct_fine_monomials
   
   type, extends(NoDefaultConstructor) :: PolynomialInterpolator
     complex(dp), allocatable :: absolute_(:,:,:)
@@ -286,5 +287,65 @@ impure elemental function overlap_ComplexMonomial_ComplexPolynomial( &
   complex(dp)                               :: output
   
   output = sum(this%overlap(fine,coarse%terms))
+end function
+
+! Construct the monomials at q-point on the fine grid.
+function construct_fine_monomials(power,modes) result(output)
+  implicit none
+  
+  integer,           intent(in)      :: power
+  type(ComplexMode), intent(in)      :: modes(:)
+  type(ComplexMonomial), allocatable :: output(:)
+  
+  type(ComplexUnivariate)            :: no_modes(0)
+  type(ComplexMonomial), allocatable :: old(:)
+  
+  integer :: i,j,k,l
+  
+  ! Construct the monomial containing no modes.
+  old = [ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                        & modes       = no_modes                 )]
+  
+  ! Loop over each mode in modes.
+  ! For each mode, loop over all monomials containing the previous modes,
+  !    and for each monomial append the new mode with all valid powers and
+  !    paired_powers such that sum(monomial%powers()) and
+  !    sum(monomial%paired_powers()) are both between 0 and power inclusive.
+  do i=1,size(modes)-1
+    output = [(                                                       &
+       & (                                                            &
+       &   ( ComplexMonomial(                                         &
+       &        coefficient = cmplx(1.0_dp,0.0_dp,dp),                &
+       &        modes       = [ old(l)%modes(),                       &
+       &                        ComplexUnivariate(                    &
+       &                           id           = modes(i)%id,        &
+       &                           paired_id    = modes(i)%paired_id, &
+       &                           power        = j,                  &
+       &                           paired_power = k            )] ),  &
+       &     j=0,                                                     &
+       &     power-sum(old(l)%powers()) ),                            &
+       &   k=0,                                                       &
+       &   power-sum(old(l)%paired_powers()) ),                       &
+       & l=1,                                                         &
+       & size(old)                                                    )]
+    old = output
+  enddo
+  
+  ! Add powers and paired_powers of the final mode such that
+  !    sum(monomial%powers()) = sum(monomial%paired_powers()) = power.
+  output = [(                                                        &
+     & ComplexMonomial(                                                 &
+     &    coefficient = cmplx(1.0_dp,0.0_dp,dp),                        &
+     &    modes       = [                                               &
+     &       old(i)%modes(),                                            &
+     &       ComplexUnivariate(                                         &
+     &          id           = modes(size(modes))%id,                   &
+     &          paired_id    = modes(size(modes))%paired_id,            &
+     &          power        = power-sum(old(i)%powers()),              &
+     &          paired_power = power-sum(old(i)%paired_powers()) ) ] ), &
+     & i=1,                                                             &
+     & size(old)                                                        )]
+  
+  call output%simplify()
 end function
 end module

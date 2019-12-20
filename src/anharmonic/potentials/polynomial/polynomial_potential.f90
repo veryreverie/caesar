@@ -80,6 +80,9 @@ module polynomial_potential_module
     procedure, public :: interpolate => &
                        & interpolate_PolynomialPotential
     
+    procedure, public :: interpolate_coefficient => &
+                       & interpolate_coefficient_PolynomialPotential
+    
     procedure, public :: expansion_order => expansion_order_PolynomialPotential
     
     ! I/O.
@@ -993,22 +996,129 @@ function can_be_interpolated_PolynomialPotential(this) result(output)
   output = .true.
 end function
 
-function interpolate_PolynomialPotential(this, &
-   & thermal_energy,min_frequency,subspaces,subspace_potentials,           &
-   & subspace_bases,subspace_states,anharmonic_data) result(output)
+! TODO: integrate and unintegrate polynomial, to give interpolation under
+!    VSCF rather than raw interpolation.
+function interpolate_PolynomialPotential(this,qpoint,subspace,subspace_modes, &
+   & anharmonic_min_images,thermal_energy,subspaces,subspace_bases,           &
+   & subspace_states,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in)    :: this
+  type(RealVector),           intent(in)    :: qpoint
+  type(DegenerateSubspace),   intent(in)    :: subspace
+  type(ComplexMode),          intent(in)    :: subspace_modes(:)
+  type(MinImages),            intent(in)    :: anharmonic_min_images(:,:)
   real(dp),                   intent(in)    :: thermal_energy
-  real(dp),                   intent(in)    :: min_frequency
   type(DegenerateSubspace),   intent(in)    :: subspaces(:)
-  class(PotentialData),       intent(in)    :: subspace_potentials(:)
   class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
   class(BasisStates),         intent(inout) :: subspace_states(:)
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   type(PotentialPointer)                    :: output
   
-  ! TODO
+  integer :: expansion_order
+  
+  type(ComplexMode), allocatable :: modes(:)
+  
+  type(RealVector), allocatable :: qpoints(:)
+  
+  type(PolynomialInterpolator) :: interpolator
+  
+  integer :: power
+  
+  type(ComplexMonomial), allocatable :: monomials(:)
+  
+  type(BasisFunction), allocatable :: basis_functions(:)
+  type(BasisFunction), allocatable :: new_basis_functions(:)
+  type(BasisFunction), allocatable :: old_basis_functions(:)
+  
+  complex(dp) :: coefficient
+  
+  type(CouplingBasisFunctions) :: coupling_basis_functions
+  
+  integer :: i,j,k,l,ialloc
+  
+  expansion_order = this%expansion_order()
+  
+  modes = subspace_modes(filter(subspace_modes%id<=subspace_modes%paired_id))
+  
+  allocate(qpoints(size(subspace_modes)), stat=ialloc); call err(ialloc)
+  do i=1,size(qpoints)
+    if (subspace_modes(i)%id<=subspace_modes(i)%paired_id) then
+      qpoints(i) = qpoint
+    else
+      qpoints(i) = -qpoint
+    endif
+  enddo
+  
+  ! Construct the polynomial interpolator.
+  interpolator = PolynomialInterpolator(                &
+     & fine_modes      = subspace_modes,                &
+     & fine_qpoints    = qpoints,                       &
+     & coarse_modes    = anharmonic_data%complex_modes, &
+     & min_images      = anharmonic_min_images,         &
+     & anharmonic_data = anharmonic_data                )
+  
+  do power=1,expansion_order/2
+    ! Construct all translationally-invariant monomials of the given power
+    !    using the given modes.
+    monomials = construct_fine_monomials(power, modes)
+    
+    ! Interpolate the stress to find monomial coefficients,
+    !    then convert the monomials into real basis functions.
+    ! If power=paired_power, construct the u                 basis function.
+    ! If power<paired_power, construct the u+u* and (u-u*)/i basis function.
+    ! If power>paired_power, ignore the monomial, as it is included above.
+    l = 0
+    allocate( new_basis_functions(size(monomials)), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(monomials)
+      j = first( monomials(i)%powers()<monomials(i)%paired_powers(), &
+               & default=size(monomials(i))+1                        )
+      k = first( monomials(i)%powers()>monomials(i)%paired_powers(), &
+               & default=size(monomials(i))+1                        )
+      if (j==k) then
+        coefficient = this%interpolate_coefficient( monomials(i), &
+                                                  & interpolator  )
+        l = l+1
+        new_basis_functions(l) = BasisFunction( &
+           & ComplexPolynomial([monomials(i)]), &
+           & real(coefficient)                  )
+      elseif (j<k) then
+        coefficient = this%interpolate_coefficient( monomials(i), &
+                                                  & interpolator  )
+        l = l+1
+        new_basis_functions(l) = BasisFunction(                      &
+           & ComplexPolynomial([monomials(i), conjg(monomials(i))]), &
+           & real(coefficient)                                       )
+        l = l+1
+        new_basis_functions(l) = BasisFunction(                         &
+           & ComplexPolynomial( [monomials(i), -conjg(monomials(i))]    &
+           &                  / cmplx(0.0_dp,1.0_dp,dp)              ), &
+           & aimag(coefficient)                                         )
+      endif
+    enddo
+    
+    ! Append the new basis functions to the basis functions
+    !    from previous powers.
+    if (power==1) then
+      basis_functions = new_basis_functions
+    else
+      old_basis_functions = basis_functions
+      basis_functions = [old_basis_functions, new_basis_functions]
+    endif
+    deallocate(new_basis_functions, stat=ialloc); call err(ialloc)
+  enddo
+  
+  ! Construct output.
+  coupling_basis_functions = CouplingBasisFunctions(           &
+     & coupling        = SubspaceCoupling(ids=[subspaces%id]), &
+     & basis_functions = basis_functions                       )
+  
+  ! TODO: calculate reference energy correctly.
+  output = PotentialPointer(PolynomialPotential(              &
+     & potential_expansion_order = expansion_order,           &
+     & reference_energy          = 0.0_dp,                    &
+     & basis_functions           = [coupling_basis_functions] ))
 end function
 
 ! Calculate the contribution to a given monomial from the interpolation of

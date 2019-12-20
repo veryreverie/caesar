@@ -325,6 +325,8 @@ function can_be_interpolated_PolynomialStress(this) result(output)
   output = .true.
 end function
 
+! TODO: integrate and unintegrate polynomial, to give interpolation under
+!    VSCF rather than raw interpolation.
 function interpolate_PolynomialStress(this,qpoint,subspace,subspace_modes, &
    & anharmonic_min_images,anharmonic_data) result(output)
   implicit none
@@ -346,16 +348,15 @@ function interpolate_PolynomialStress(this,qpoint,subspace,subspace_modes, &
   integer :: expansion_order
   integer :: power
   
-  type(ComplexUnivariate) :: no_modes(0)
-  
   type(ComplexMonomial), allocatable :: monomials(:)
-  type(ComplexMonomial), allocatable :: old(:)
   
   type(ComplexMatrix) :: coefficients
   
   type(StressBasisFunction), allocatable :: basis_functions(:)
   type(StressBasisFunction), allocatable :: old_basis_functions(:)
   type(StressBasisFunction), allocatable :: new_basis_functions(:)
+  
+  type(CouplingStressBasisFunctions) :: coupling_basis_functions
   
   integer :: i,j,k,l,ialloc
   
@@ -389,54 +390,12 @@ function interpolate_PolynomialStress(this,qpoint,subspace,subspace_modes, &
      & anharmonic_data = anharmonic_data                )
   
   do power=1,expansion_order/2
-    ! Construct the monomial containing no modes.
-    old = [ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
-                          & modes       = no_modes                 )]
-    
-    ! Loop over each mode in modes.
-    ! For each mode, loop over all monomials containing the previous modes,
-    !    and for each monomial append the new mode with all valid powers and
-    !    paired_powers such that sum(monomial%powers()) and
-    !    sum(monomial%paired_powers()) are both between 0 and power inclusive.
-    do i=1,size(modes)-1
-      monomials = [(                                                    &
-         & (                                                            &
-         &   ( ComplexMonomial(                                         &
-         &        coefficient = cmplx(1.0_dp,0.0_dp,dp),                &
-         &        modes       = [ old(l)%modes(),                       &
-         &                        ComplexUnivariate(                    &
-         &                           id           = modes(i)%id,        &
-         &                           paired_id    = modes(i)%paired_id, &
-         &                           power        = j,                  &
-         &                           paired_power = k            )] ),  &
-         &     j=0,                                                     &
-         &     power-sum(old(l)%powers()) ),                            &
-         &   k=0,                                                       &
-         &   power-sum(old(l)%paired_powers()) ),                       &
-         & l=1,                                                         &
-         & size(old)                                                    )]
-      old = monomials
-    enddo
-    
-    ! Add powers and paired_powers of the final mode such that
-    !    sum(monomial%powers()) = sum(monomial%paired_powers()) = power.
-    monomials = [(                                                        &
-       & ComplexMonomial(                                                 &
-       &    coefficient = cmplx(1.0_dp,0.0_dp,dp),                        &
-       &    modes       = [                                               &
-       &       old(i)%modes(),                                            &
-       &       ComplexUnivariate(                                         &
-       &          id           = modes(size(modes))%id,                   &
-       &          paired_id    = modes(size(modes))%paired_id,            &
-       &          power        = power-sum(old(i)%powers()),              &
-       &          paired_power = power-sum(old(i)%paired_powers()) ) ] ), &
-       & i=1,                                                             &
-       & size(old)                                                        )]
-    
-    call monomials%simplify()
+    ! Construct all translationally-invariant monomials of the given power
+    !    using the given modes.
+    monomials = construct_fine_monomials(power, modes)
     
     ! Interpolate the stress to find monomial coefficients,
-    !  then convert the monomials into real basis functions.
+    !    then convert the monomials into real basis functions.
     ! If power=paired_power, construct the u                 basis function.
     ! If power<paired_power, construct the u+u* and (u-u*)/i basis function.
     ! If power>paired_power, ignore the monomial, as it is included above.
@@ -477,14 +436,19 @@ function interpolate_PolynomialStress(this,qpoint,subspace,subspace_modes, &
       old_basis_functions = basis_functions
       basis_functions = [old_basis_functions, new_basis_functions]
     endif
+    deallocate(new_basis_functions, stat=ialloc); call err(ialloc)
   enddo
   
-  output = StressPointer(PolynomialStress(                          &
-     & stress_expansion_order = expansion_order,                    &
-     & reference_stress       = dblemat(zeroes(3,3)),               &
-     & basis_functions        = [CouplingStressBasisFunctions(      &
-     &    coupling        = SubspaceCoupling(ids=[subspace%id]),    &
-     &    basis_functions = basis_functions                      )] ))
+  ! Construct output.
+  coupling_basis_functions = CouplingStressBasisFunctions(    &
+     & coupling        = SubspaceCoupling(ids=[subspace%id]), &
+     & basis_functions = basis_functions                      )
+  
+  ! TODO: calculate reference stress correctly.
+  output = StressPointer(PolynomialStress(                 &
+     & stress_expansion_order = expansion_order,           &
+     & reference_stress       = dblemat(zeroes(3,3)),      &
+     & basis_functions        = [coupling_basis_functions] ))
 end function
 
 ! Constructs the six tensor elements from an array of monomials and a matrix
