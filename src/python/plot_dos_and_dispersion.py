@@ -5,6 +5,7 @@ import numpy as np
 import operator
 from matplotlib import rc
 import os.path
+import sys
 
 rc('font', **{'family':'serif','serif':['sffamily']})
 rc('text', usetex=True)
@@ -82,7 +83,7 @@ def main():
     fig, ax_grid = plt.subplots(1,1)
     axes = {'dos':ax_grid}
   else:
-    print('Error: dos and dispersion filed missing.')
+    print('Error: dos and dispersion files missing.')
     sys.exit()
   
   # Calculate y-axis range.

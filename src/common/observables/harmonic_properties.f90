@@ -173,7 +173,7 @@ function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
   type(PhononDispersion)                :: this
   
   ! q-point and dynamical matrix variables.
-  type(QpointPath),            allocatable :: path
+  type(QpointPath)                         :: path
   type(PathQpointAndFraction), allocatable :: path_qpoints(:)
   type(RealVector)                         :: qpoint
   type(DynamicalMatrix)                    :: dynamical_matrix

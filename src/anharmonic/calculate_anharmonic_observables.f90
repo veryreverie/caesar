@@ -200,8 +200,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
   
   ! Interpolated thermodynamics.
-  type(InterpolatedThermodynamics), allocatable :: &
-     & interpolated_thermodynamics(:)
+  type(PhononDispersion)           :: interpolated_dispersion
+  type(PhononDos)                  :: interpolated_dos
+  type(InterpolatedThermodynamics) :: interpolated_thermodynamics
   
   type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
   
@@ -227,6 +228,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(OFile)  :: vscha2_thermodynamic_file
   type(OFile)  :: vscf_thermodynamic_file
   type(OFile)  :: pdos_file
+  type(String) :: interpolated_output_dir
+  type(String) :: interpolated_temperature_dir
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -353,6 +356,15 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   
   logfile = OFile(output_dir//'/anharmonic_observables_log.dat')
   
+  if (potential%can_be_interpolated()) then
+    interpolated_output_dir = output_dir//'/interpolated'
+    call mkdir(interpolated_output_dir)
+    
+    temperature_file = OFile(interpolated_output_dir//'/temperatures.dat')
+    call temperature_file%print_line('Thermal energies, KbT, (Ha):')
+    call temperature_file%print_lines(thermal_energies)
+  endif
+  
   ! Construct minimum image data.
   min_images = calculate_min_images(supercell)
   
@@ -385,7 +397,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
           &                        size(thermal_energies) ),     &
           & vscha2_thermodynamics( size(subspaces),              &
           &                        size(thermal_energies) ),     &
-          & interpolated_thermodynamics(size(thermal_energies)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     call print_line('')
@@ -630,6 +641,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                         & no_path_points, &
                                         & logfile         )
     
+    ! Write out dispersion at this temperature.
     symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
     call symmetry_points_file%print_lines(phonon_dispersion%path())
     
@@ -650,7 +662,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                           & logfile,               &
                           & random_generator       )
     
-    ! Write out dos and dispersion at this temperature.
+    ! Write out dos at this temperature.
     sampled_qpoints_file = OFile(temperature_dir//'/sampled_qpoints.dat')
     call sampled_qpoints_file%print_line('q-point (x,y,z) | &
                                          &number of frequencies ignored')
@@ -693,20 +705,63 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       ! TODO: degenerate_frequency.
       ! TODO: replace supercell, hessian and min_images with harmonic versions
       !    from full harmonic grid.
-      interpolated_thermodynamics(i) = calculate_interpolated_thermodynamics( &
-                         & potential             = potential,                 &
-                         & degenerate_frequency  = 1e-30_dp,                  &
-                         & fine_qpoints          = phonon_dos%qpoints%qpoint, &
-                         & thermal_energy        = thermal_energies(i),       &
-                         & min_frequency         = min_frequency,             &
-                         & harmonic_supercell    = supercell,                 &
-                         & harmonic_hessian      = hessian,                   &
-                         & harmonic_min_images   = min_images,                &
-                         & subspaces             = subspaces,                 &
-                         & subspace_bases        = vscf_basis,                &
-                         & subspace_states       = vscf_states,               &
-                         & anharmonic_min_images = min_images,                &
-                         & anharmonic_data       = anharmonic_data            )
+      interpolated_dispersion = calculate_interpolated_dispersion( &
+              & potential             = potential,                 &
+              & degenerate_frequency  = 1e-30_dp,                  &
+              & path_string           = path,                      &
+              & no_path_points        = no_path_points,            &
+              & thermal_energy        = thermal_energies(i),       &
+              & min_frequency         = min_frequency,             &
+              & harmonic_supercell    = supercell,                 &
+              & harmonic_hessian      = hessian,                   &
+              & harmonic_min_images   = min_images,                &
+              & subspaces             = subspaces,                 &
+              & subspace_bases        = vscf_basis,                &
+              & subspace_states       = vscf_states,               &
+              & anharmonic_min_images = min_images,                &
+              & convergence_data      = convergence_data,          &
+              & anharmonic_data       = anharmonic_data            )
+      
+      interpolated_thermodynamics = calculate_interpolated_thermodynamics( &
+                      & potential             = potential,                 &
+                      & degenerate_frequency  = 1e-30_dp,                  &
+                      & harmonic_dos          = phonon_dos,                &
+                      & thermal_energy        = thermal_energies(i),       &
+                      & min_frequency         = min_frequency,             &
+                      & harmonic_supercell    = supercell,                 &
+                      & harmonic_hessian      = hessian,                   &
+                      & harmonic_min_images   = min_images,                &
+                      & subspaces             = subspaces,                 &
+                      & subspace_bases        = vscf_basis,                &
+                      & subspace_states       = vscf_states,               &
+                      & anharmonic_min_images = min_images,                &
+                      & convergence_data      = convergence_data,          &
+                      & anharmonic_data       = anharmonic_data            )
+      
+      interpolated_dos = interpolated_thermodynamics%vscha_dos
+      
+      ! Write out dos and dispersion at this temperature.
+      interpolated_temperature_dir = output_dir//'/interpolated/&
+         &temperature_'//left_pad(i,str(size(thermal_energies)))
+      call mkdir(interpolated_temperature_dir)
+      
+      symmetry_points_file = OFile( interpolated_temperature_dir// &
+                                  & '/high_symmetry_points.dat'    )
+      call symmetry_points_file%print_lines(interpolated_dispersion%path())
+      
+      dispersion_file = OFile( interpolated_temperature_dir// &
+                             & '/phonon_dispersion_curve.dat' )
+      call dispersion_file%print_lines(interpolated_dispersion%frequencies())
+      
+      sampled_qpoints_file = OFile( interpolated_temperature_dir// &
+                                  & '/sampled_qpoints.dat'        )
+      call sampled_qpoints_file%print_line('q-point (x,y,z) | &
+                                           &number of frequencies ignored')
+      call sampled_qpoints_file%print_lines(interpolated_dos%qpoints)
+      
+      pdos_file = OFile( interpolated_temperature_dir//  &
+                       & '/phonon_density_of_states.dat' )
+      call pdos_file%print_lines(interpolated_dos%pdos)
     endif
   enddo
   
