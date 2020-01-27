@@ -32,6 +32,9 @@ module logic_module
   public :: ComparisonLambda
   public :: OperationLambda
   
+  ! Operators.
+  public :: operator(.in.)
+  
   interface first
     module procedure first_logicals
     module procedure first_LogicalLambda
@@ -112,6 +115,11 @@ module logic_module
       
       class(*), intent(inout) :: this
     end subroutine
+  end interface
+  
+  interface operator(.in.)
+    module procedure element_in_list
+    module procedure elements_in_list
   end interface
 contains
 
@@ -1317,6 +1325,32 @@ impure elemental function set_default(optional_argument,default_value) &
   else
     output = default_value
   endif
+end function
+
+! ----------------------------------------------------------------------
+! Given an integer lhs and a list of integers rhs, lhs.in.rhs returns
+!   .true. if lhs appears in rhs, and .false. otherwise.
+! Given a list of integers lhs and a list of integers rhs, lhs.in.rhs applies
+!    element-wise to lhs, so output(i) = lhs(i).in.rhs.
+! ----------------------------------------------------------------------
+function element_in_list(lhs,rhs) result(output)
+  implicit none
+  
+  integer, intent(in) :: lhs
+  integer, intent(in) :: rhs(:)
+  logical             :: output
+  
+  output = any(lhs==rhs)
+end function
+
+function elements_in_list(lhs,rhs) result(output)
+  integer, intent(in)  :: lhs(:)
+  integer, intent(in)  :: rhs(:)
+  logical, allocatable :: output(:)
+  
+  integer :: i
+  
+  output = [(any(lhs(i)==rhs), i=1, size(lhs))]
 end function
 end module
 

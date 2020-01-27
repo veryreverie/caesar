@@ -319,10 +319,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Write out output.
   ! --------------------------------------------------
   do i=1,size(subspaces)
-    subspace_modes = filter([(                         &
-       & any(subspaces(i)%mode_ids==real_modes(j)%id), &
-       & j=1,                                          &
-       & size(real_modes)                              )])
+    subspace_modes = filter(real_modes%id .in. subspaces(i)%mode_ids)
     subspace_mode_maps = mode_maps(subspace_modes)
     subspace_dir = 'subspace_'//left_pad( subspaces(i)%id,          &
                                         & str(maxval(subspaces%id)) )

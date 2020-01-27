@@ -83,6 +83,9 @@ module polynomial_potential_module
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_PolynomialPotential
     
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_PolynomialPotential
+    
     procedure, public :: expansion_order => expansion_order_PolynomialPotential
     
     ! I/O.
@@ -929,19 +932,20 @@ end subroutine
 ! Calculate the thermal expectation of the potential, <V>, for a set of
 !    harmonic states.
 impure elemental function harmonic_expectation_PolynomialPotential(this, &
-   & frequency,thermal_energy,anharmonic_data) result(output)
+   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
   implicit none
   
   class(PolynomialPotential), intent(in) :: this
   real(dp),                   intent(in) :: frequency
   real(dp),                   intent(in) :: thermal_energy
+  integer,                    intent(in) :: supercell_size
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp)                               :: output
   
   output = this%reference_energy_                                          &
        & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
        &                                                   thermal_energy, &
-       &                                                   anharmonic_data ))
+       &                                                   supercell_size  ))
 end function
 
 function coefficients_PolynomialPotential(this,anharmonic_data) &
@@ -1134,6 +1138,40 @@ impure elemental function interpolate_coefficient_PolynomialPotential(this, &
   
   output = sum(this%basis_functions_%interpolate_coefficient( monomial,    &
                                                             & interpolator ))
+end function
+
+! Calculate the effective dynamical matrix from which the potential can be
+!    interpolated in the large-supercell limit.
+function calculate_dynamical_matrices_PolynomialPotential(this,qpoints,       &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(PolynomialPotential), intent(in)    :: this
+  type(QpointData),           intent(in)    :: qpoints(:)
+  real(dp),                   intent(in)    :: thermal_energy
+  type(DegenerateSubspace),   intent(in)    :: subspaces(:)
+  class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
+  class(BasisStates),         intent(inout) :: subspace_states(:)
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  type(DynamicalMatrix), allocatable        :: output(:)
+  
+  integer :: i
+  
+  output = [( DynamicalMatrix(anharmonic_data%structure%no_atoms), &
+            & i=1,                                                 &
+            & size(qpoints)                                        )]
+  
+  do i=1,size(this%basis_functions_)
+    output = output                                                 &
+         & + this%basis_functions_(i)%calculate_dynamical_matrices( &
+         &                                         qpoints,         &
+         &                                         thermal_energy,  &
+         &                                         subspaces,       &
+         &                                         subspace_bases,  &
+         &                                         subspace_states, &
+         &                                         anharmonic_data  )
+  enddo
 end function
 
 ! Expansion order.

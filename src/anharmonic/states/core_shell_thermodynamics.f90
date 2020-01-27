@@ -39,13 +39,14 @@ module core_shell_thermodynamics_module
   public :: core_shell_thermodynamics
 contains
 
-function core_shell_thermodynamics(thermal_energy,frequency,no_modes, &
-   & subspace,bases,states,potential,stress,stress_prefactors,        &
-   & anharmonic_data) result(output)
+function core_shell_thermodynamics(thermal_energy,frequency,supercell_size, &
+   & no_modes,subspace,bases,states,potential,stress,stress_prefactors,     &
+   & anharmonic_data) result(output) 
   implicit none
   
   real(dp),                 intent(in)           :: thermal_energy
   real(dp),                 intent(in)           :: frequency
+  integer,                  intent(in)           :: supercell_size
   integer,                  intent(in)           :: no_modes
   type(DegenerateSubspace), intent(in)           :: subspace
   type(WavevectorBasis),    intent(in)           :: bases(:)
@@ -90,6 +91,7 @@ function core_shell_thermodynamics(thermal_energy,frequency,no_modes, &
      & stress_prefactor = stress_prefactor, &
      & frequency        = frequency,        &
      & num_dimensions   = no_modes,         &
+     & supercell_size   = supercell_size,   &
      & anharmonic_data  = anharmonic_data   )
   
   core_harmonic = core_harmonic_observables( bases,             &
@@ -105,6 +107,7 @@ function core_shell_thermodynamics(thermal_energy,frequency,no_modes, &
             & stress_prefactor = stress_prefactor, &
             & frequency        = frequency,        &
             & num_dimensions   = no_modes,         &
+            & supercell_size   = supercell_size,   &
             & anharmonic_data  = anharmonic_data   )
   
   core_effective = core_effective_harmonic_observables( bases,             &

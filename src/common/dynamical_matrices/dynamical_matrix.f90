@@ -16,6 +16,11 @@ module dynamical_matrix_module
   public :: reconstruct_hessian
   public :: ComplexMode
   
+  public :: operator(+)
+  public :: operator(-)
+  public :: operator(*)
+  public :: operator(/)
+  
   type, extends(Stringsable) :: DynamicalMatrix
     type(ComplexMatrix), allocatable, private :: elements_(:,:)
   contains
@@ -29,9 +34,11 @@ module dynamical_matrix_module
   end type
   
   interface DynamicalMatrix
+    module procedure new_DynamicalMatrix_zeroes
     module procedure new_DynamicalMatrix
     module procedure new_DynamicalMatrix_interpolated
     module procedure new_DynamicalMatrix_ComplexModes
+    module procedure new_DynamicalMatrix_ComplexMode_ComplexMode
     module procedure new_DynamicalMatrix_Strings
     module procedure new_DynamicalMatrix_StringArray
   end interface
@@ -44,6 +51,27 @@ module dynamical_matrix_module
     module procedure calculate_modes_complex
     module procedure calculate_modes_real
   end interface
+  
+  interface operator(+)
+    module procedure add_DynamicalMatrix_DynamicalMatrix
+  end interface
+  
+  interface operator(-)
+    module procedure negative_DynamicalMatrix
+    module procedure subtract_DynamicalMatrix_DynamicalMatrix
+  end interface
+  
+  interface operator(*)
+    module procedure multiply_DynamicalMatrix_real
+    module procedure multiply_real_DynamicalMatrix
+    module procedure multiply_DynamicalMatrix_complex
+    module procedure multiply_complex_DynamicalMatrix
+  end interface
+  
+  interface operator(/)
+    module procedure divide_DynamicalMatrix_real
+    module procedure divide_DynamicalMatrix_complex
+  end interface
 contains
 
 ! Constructors.
@@ -54,6 +82,18 @@ function new_DynamicalMatrix(elements) result(this)
   type(DynamicalMatrix)           :: this
   
   this%elements_ = elements
+end function
+
+function new_DynamicalMatrix_zeroes(no_atoms) result(this)
+  implicit none
+  
+  integer, intent(in)   :: no_atoms
+  type(DynamicalMatrix) :: this
+  
+  integer :: ialloc
+  
+  allocate(this%elements_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
+  this%elements_ = cmplxmat(zeroes(3,3))
 end function
 
 ! Getter for elements.
@@ -301,7 +341,7 @@ function new_DynamicalMatrix_ComplexModes(modes,frequencies) result(this)
   
   integer :: no_atoms
   
-  integer :: i,j,k,ialloc
+  integer :: i
   
   if (present(frequencies)) then
     if (size(modes)/=size(frequencies)) then
@@ -339,21 +379,81 @@ function new_DynamicalMatrix_ComplexModes(modes,frequencies) result(this)
     enddo
   endif
   
-  ! A dynamical matrix is D = sum_i e_i u_i^(u_i)*.
+  ! Construct the dynamical matrix as the sum of the outer products of each
+  !    mode times that mode's eigenvalue, e_i.
   ! The eigenvalue e_i is the negative of the mode's spring constant.
-  allocate(this%elements_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
-  this%elements_ = cmplxmat(zeroes(3,3))
+  this = DynamicalMatrix(no_atoms)
   do i=1,size(modes)
-    do j=1,no_atoms
-      do k=1,no_atoms
-        this%elements_(k,j) =                                    &
-           &   this%elements_(k,j)                               &
-           & - new_modes(i)%spring_constant                      &
-           & * outer_product( new_modes(i)%unit_vector(k),       &
-           &                  conjg(new_modes(i)%unit_vector(j)) )
+    this = this                                           &
+       & + DynamicalMatrix( new_modes(i),                 &
+       &                    new_modes(i),                 &
+       &                    -new_modes(i)%spring_constant )
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Construct the contribution to a DynamicalMatrix two ComplexModes.
+! If they are at the same q-point, the conjugate of the second mode is taken.
+! If they are at paired q-points, no conjugate is taken.
+! If they are neither at the same q-point nor at paired q-points,
+!    an error is thrown.
+! ----------------------------------------------------------------------
+function new_DynamicalMatrix_ComplexMode_ComplexMode(mode1,mode2,coefficient) &
+   & result(this)
+  implicit none
+  
+  type(ComplexMode), intent(in)           :: mode1
+  type(ComplexMode), intent(in)           :: mode2
+  real(dp),          intent(in), optional :: coefficient
+  type(DynamicalMatrix)                   :: this
+  
+  real(dp) :: coefficient_
+  
+  integer :: no_atoms
+  
+  integer :: i,j
+  
+  if (present(coefficient)) then
+    coefficient_ = coefficient
+  else
+    coefficient_ = 1
+  endif
+  
+  no_atoms = size(mode1%unit_vector)
+  if (size(mode2%unit_vector)/=no_atoms) then
+    call print_line(CODE_ERROR//': Trying to construct a dynamical matrix &
+       &from two modes with different numbers of atoms.')
+    call err()
+  endif
+  
+  this = DynamicalMatrix(no_atoms)
+  if (mode1%qpoint_id==mode2%qpoint_id) then
+    ! If q_1 = q_2 then the ij element of D is the outer product of the i
+    !    component of mode1 with the j component of (mode2)*.
+    do i=1,no_atoms
+      do j=1,no_atoms
+        this%elements_(j,i) = this%elements_(j,i)                        &
+                          & + coefficient                                &
+                          & * outer_product( mode1%unit_vector(j),       &
+                          &                  conjg(mode2%unit_vector(i)) )
       enddo
     enddo
-  enddo
+  elseif (mode1%qpoint_id==mode2%paired_qpoint_id) then
+    ! If q_1 = -q_2 then the ij element of D is the outer product of the i
+    !    component of mode1 with the j component of mode2.
+    do i=1,no_atoms
+      do j=1,no_atoms
+        this%elements_(j,i) = this%elements_(j,i)                  &
+                          & + coefficient                          &
+                          & * outer_product( mode1%unit_vector(j), &
+                          &                  mode2%unit_vector(i)  )
+      enddo
+    enddo
+  else
+    call print_line(CODE_ERROR//': Trying to construct a dynamical matrix &
+       &from two modes at q-points which are neither q1=q2 nor q1=-q2.')
+    call err()
+  endif
 end function
 
 ! ----------------------------------------------------------------------
@@ -410,6 +510,106 @@ function reconstruct_hessian(large_supercell,qpoints,dynamical_matrices, &
                            & elements       = hessian,         &
                            & check_symmetry = .true.,          &
                            & logfile        = logfile          )
+end function
+
+! ----------------------------------------------------------------------
+! Algebra involving dynamical matrices.
+! ----------------------------------------------------------------------
+impure elemental function add_DynamicalMatrix_DynamicalMatrix(this,that) &
+   & result(output)
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: this
+  type(DynamicalMatrix), intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this%elements_ + that%elements_)
+end function
+
+impure elemental function negative_DynamicalMatrix(this) result(output)
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: this
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(-this%elements_)
+end function
+
+impure elemental function subtract_DynamicalMatrix_DynamicalMatrix(this,that) &
+   & result(output)
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: this
+  type(DynamicalMatrix), intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this%elements_ - that%elements_)
+end function
+
+impure elemental function multiply_DynamicalMatrix_real(this,that) &
+   & result(output) 
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: this
+  real(dp),              intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this%elements_*that)
+end function
+
+impure elemental function multiply_real_DynamicalMatrix(this,that) &
+   & result(output) 
+  implicit none
+  
+  real(dp),              intent(in) :: this
+  type(DynamicalMatrix), intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this*that%elements_)
+end function
+
+impure elemental function multiply_DynamicalMatrix_complex(this,that) &
+   & result(output) 
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: this
+  complex(dp),           intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this%elements_*that)
+end function
+
+impure elemental function multiply_complex_DynamicalMatrix(this,that) &
+   & result(output) 
+  implicit none
+  
+  complex(dp),           intent(in) :: this
+  type(DynamicalMatrix), intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this*that%elements_)
+end function
+
+impure elemental function divide_DynamicalMatrix_real(this,that) &
+   & result(output) 
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: this
+  real(dp),              intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this%elements_/that)
+end function
+
+impure elemental function divide_DynamicalMatrix_complex(this,that) &
+   & result(output) 
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: this
+  complex(dp),           intent(in) :: that
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(this%elements_/that)
 end function
 
 ! ----------------------------------------------------------------------

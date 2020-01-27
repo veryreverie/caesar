@@ -360,7 +360,7 @@ impure elemental function stress_RealModeDisplacement_StressBasisFunction( &
   
   do i=1,3
     do j=1,3
-      elements(j,i) = this%elements_(j,i)%energy(displacement)
+      elements(j,i) = real(this%elements_(j,i)%energy(displacement))
     enddo
   enddo
   
@@ -469,13 +469,13 @@ end subroutine
 ! Returns the thermal expectation of the basis function.
 ! ----------------------------------------------------------------------
 impure elemental function harmonic_expectation_StressBasisFunction(this, &
-   & frequency,thermal_energy,anharmonic_data) result(output)
+   & frequency,thermal_energy,supercell_size) result(output)
   implicit none
   
   class(StressBasisFunction), intent(in) :: this
   real(dp),                   intent(in) :: frequency
   real(dp),                   intent(in) :: thermal_energy
-  type(AnharmonicData),       intent(in) :: anharmonic_data
+  integer,                    intent(in) :: supercell_size
   type(RealMatrix)                       :: output
   
   real(dp) :: elements(3,3)
@@ -485,9 +485,9 @@ impure elemental function harmonic_expectation_StressBasisFunction(this, &
   do i=1,3
     do j=1,3
       elements(j,i) = this%elements_(j,i)%harmonic_expectation( &
-                         & frequency,                           &
-                         & thermal_energy,                      &
-                         & anharmonic_data%anharmonic_supercell )
+                                              & frequency,      &
+                                              & thermal_energy, &
+                                              & supercell_size  )
     enddo
   enddo
   

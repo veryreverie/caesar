@@ -230,6 +230,8 @@ module abstract_classes_module
                        & can_be_interpolated_PotentialData
     procedure, public :: interpolate => &
                        & interpolate_PotentialData
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_PotentialData
   end type
   
   type, extends(PotentialData) :: PotentialPointer
@@ -284,6 +286,8 @@ module abstract_classes_module
                        & can_be_interpolated_PotentialPointer
     procedure, public :: interpolate => &
                        & interpolate_PotentialPointer
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_PotentialPointer
     
     ! I/O.
     procedure, public :: read  => read_PotentialPointer
@@ -795,7 +799,8 @@ module abstract_classes_module
     end subroutine
     
     impure elemental function harmonic_expectation_PotentialData(this, &
-       & frequency,thermal_energy,anharmonic_data) result(output)
+       & frequency,thermal_energy,supercell_size,anharmonic_data)      &
+       & result(output)
       import PotentialData
       import dp
       import AnharmonicData
@@ -804,6 +809,7 @@ module abstract_classes_module
       class(PotentialData), intent(in) :: this
       real(dp),             intent(in) :: frequency
       real(dp),             intent(in) :: thermal_energy
+      integer,              intent(in) :: supercell_size
       type(AnharmonicData), intent(in) :: anharmonic_data
       real(dp)                         :: output
     end function
@@ -932,7 +938,7 @@ module abstract_classes_module
     end subroutine
     
     impure elemental function harmonic_expectation_StressData(this,frequency, &
-       & thermal_energy,anharmonic_data) result(output)
+       & thermal_energy,supercell_size,anharmonic_data) result(output)
       import StressData
       import dp
       import AnharmonicData
@@ -942,6 +948,7 @@ module abstract_classes_module
       class(StressData),    intent(in) :: this
       real(dp),             intent(in) :: frequency
       real(dp),             intent(in) :: thermal_energy
+      integer,              intent(in) :: supercell_size
       type(AnharmonicData), intent(in) :: anharmonic_data
       type(RealMatrix)                 :: output
     end function
@@ -1694,12 +1701,13 @@ subroutine braket_BasisStates_PotentialPointer(this,states,thermal_energy, &
 end subroutine
 
 impure elemental function harmonic_expectation_PotentialPointer(this, &
-   & frequency,thermal_energy,anharmonic_data) result(output)
+   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
   implicit none
   
   class(PotentialPointer), intent(in) :: this
   real(dp),                intent(in) :: frequency
   real(dp),                intent(in) :: thermal_energy
+  integer,                 intent(in) :: supercell_size
   type(AnharmonicData),    intent(in) :: anharmonic_data
   real(dp)                            :: output
   
@@ -1707,6 +1715,7 @@ impure elemental function harmonic_expectation_PotentialPointer(this, &
   
   output = this%potential_%harmonic_expectation( frequency,      &
                                                & thermal_energy, &
+                                               & supercell_size, &
                                                & anharmonic_data )
 end function
 
@@ -1777,6 +1786,30 @@ function interpolate_PotentialPointer(this,qpoint,subspace,subspace_modes, &
                                       & subspace_bases,      &
                                       & subspace_states,     &
                                       & anharmonic_data      )
+end function
+
+function calculate_dynamical_matrices_PotentialPointer(this,qpoints,          &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(PotentialPointer),  intent(in)    :: this
+  type(QpointData),         intent(in)    :: qpoints(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(DynamicalMatrix), allocatable      :: output(:)
+  
+  call this%check()
+  
+  output = this%potential_%calculate_dynamical_matrices( qpoints,             &
+                                                       & thermal_energy,      &
+                                                       & subspaces,           &
+                                                       & subspace_bases,      &
+                                                       & subspace_states,     &
+                                                       & anharmonic_data      )
 end function
 
 ! I/O.
@@ -1991,12 +2024,13 @@ subroutine braket_BasisStates_StressPointer(this,states,thermal_energy, &
 end subroutine
 
 impure elemental function harmonic_expectation_StressPointer(this,frequency, &
-   & thermal_energy,anharmonic_data) result(output)
+   & thermal_energy,supercell_size,anharmonic_data) result(output)
   implicit none
   
   class(StressPointer), intent(in) :: this
   real(dp),             intent(in) :: frequency
   real(dp),             intent(in) :: thermal_energy
+  integer,              intent(in) :: supercell_size
   type(AnharmonicData), intent(in) :: anharmonic_data
   type(RealMatrix)                 :: output
   
@@ -2004,6 +2038,7 @@ impure elemental function harmonic_expectation_StressPointer(this,frequency, &
   
   output = this%stress_%harmonic_expectation( frequency,      &
                                             & thermal_energy, &
+                                            & supercell_size, &
                                             & anharmonic_data )
 end function
 
@@ -2187,6 +2222,26 @@ function interpolate_PotentialData(this,qpoint,subspace,subspace_modes,  &
   
   ! This should be gated behind can_be_interpolated.
   call print_line(CODE_ERROR//': calculate_interpolated_thermodynamics not &
+     &implemented for this potential.')
+  call err()
+end function
+
+function calculate_dynamical_matrices_PotentialData(this,qpoints,             &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(PotentialData),     intent(in)    :: this
+  type(QpointData),         intent(in)    :: qpoints(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(DynamicalMatrix), allocatable      :: output(:)
+  
+  ! This should be gated behind can_be_interpolated.
+  call print_line(CODE_ERROR//': calculate_dynamical_matrices not &
      &implemented for this potential.')
   call err()
 end function

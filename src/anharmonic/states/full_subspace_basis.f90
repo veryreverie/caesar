@@ -24,6 +24,8 @@ module full_subspace_basis_module
   
   ! All states spanning the subspace.
   type, extends(SubspaceBasis) :: FullSubspaceBasis
+    ! The number of primitive cells in the supercell.
+    integer :: supercell_size
     ! The maximum power of the monomial states.
     ! This is also the maximum occupation of the harmonic basis states.
     integer  :: maximum_power
@@ -99,10 +101,11 @@ end subroutine
 ! FullSubspaceBasis methods.
 ! ----------------------------------------------------------------------
 ! Constructors.
-function new_FullSubspaceBasis(maximum_power,expansion_order,subspace_id, &
-   & frequency,wavevectors) result(this)
+function new_FullSubspaceBasis(supercell_size,maximum_power,expansion_order, &
+   & subspace_id,frequency,wavevectors) result(this)
   implicit none
   
+  integer,               intent(in) :: supercell_size
   integer,               intent(in) :: maximum_power
   integer,               intent(in) :: expansion_order
   integer,               intent(in) :: subspace_id
@@ -110,6 +113,7 @@ function new_FullSubspaceBasis(maximum_power,expansion_order,subspace_id, &
   type(WavevectorBasis), intent(in) :: wavevectors(:)
   type(FullSubspaceBasis)           :: this
   
+  this%supercell_size  = supercell_size
   this%maximum_power   = maximum_power
   this%expansion_order = expansion_order
   this%subspace_id     = subspace_id
@@ -170,7 +174,8 @@ function new_FullSubspaceBasis_subspace(subspace,frequency,modes,qpoints, &
                                & potential_expansion_order, &
                                & symmetries                 )
   
-  output = FullSubspaceBasis( maximum_power,             &
+  output = FullSubspaceBasis( supercell%sc_size,         &
+                            & maximum_power,             &
                             & potential_expansion_order, &
                             & subspace%id,               &
                             & frequency,                 &
@@ -515,6 +520,7 @@ impure elemental function thermodynamic_data_FullSubspaceBasis(this,    &
   output = core_shell_thermodynamics( &
               & thermal_energy,       &
               & this%frequency,       &
+              & this%supercell_size,  &
               & size(subspace),       &
               & subspace,             &
               & this%wavevectors,     &
@@ -603,6 +609,7 @@ subroutine read_FullSubspaceBasis(this,input)
   class(FullSubspaceBasis), intent(out) :: this
   type(String),             intent(in)  :: input(:)
   
+  integer                            :: supercell_size
   integer                            :: maximum_power
   integer                            :: expansion_order
   integer                            :: subspace_id
@@ -619,19 +626,22 @@ subroutine read_FullSubspaceBasis(this,input)
   
   select type(this); type is(FullSubspaceBasis)
     line = split_line(input(1))
-    maximum_power = int(line(4))
+    supercell_size = int(line(4))
     
     line = split_line(input(2))
-    expansion_order = int(line(4))
+    maximum_power = int(line(4))
     
     line = split_line(input(3))
-    subspace_id = int(line(3))
+    expansion_order = int(line(4))
     
     line = split_line(input(4))
+    subspace_id = int(line(3))
+    
+    line = split_line(input(5))
     frequency = dble(line(3))
     
     starting_lines = [integer::]
-    do i=5,size(input)
+    do i=6,size(input)
       line = split_line(input(i))
       if (size(line)>0) then
         if (line(1)=='Wavevector') then
@@ -644,11 +654,12 @@ subroutine read_FullSubspaceBasis(this,input)
     
     allocate(wavevectors(size(starting_lines)), stat=ialloc); call err(ialloc)
     do i=1,size(starting_lines)
-      wavevector_lines = [input(:4), input(starting_lines(i):ending_lines(i))]
+      wavevector_lines = [input(:5), input(starting_lines(i):ending_lines(i))]
       wavevectors(i) = WavevectorBasis(wavevector_lines)
     enddo
     
-    this = FullSubspaceBasis( maximum_power,   &
+    this = FullSubspaceBasis( supercell_size,  &
+                            & maximum_power,   &
                             & expansion_order, &
                             & subspace_id,     &
                             & frequency,       &
@@ -669,7 +680,8 @@ function write_FullSubspaceBasis(this) result(output)
   integer :: i
   
   select type(this); type is(FullSubspaceBasis)
-    output = [ 'Maximum power   : '//this%maximum_power,   &
+    output = [ 'Supercell size  : '//this%supercell_size,  &
+             & 'Maximum power   : '//this%maximum_power,   &
              & 'Expansion order : '//this%expansion_order, &
              & 'Subspace        : '//this%subspace_id,     &
              & 'Frequency       : '//this%frequency        ]

@@ -1615,44 +1615,44 @@ end function
 
 ! The harmonic expectation of a monomial or polynomial.
 impure elemental function harmonic_expectation_ComplexPolynomial(this, &
-   & frequency,thermal_energy,supercell) result(output)
+   & frequency,thermal_energy,supercell_size) result(output)
   implicit none
   
   class(ComplexPolynomial), intent(in) :: this
   real(dp),                 intent(in) :: frequency
   real(dp),                 intent(in) :: thermal_energy
-  type(StructureData),      intent(in) :: supercell
+  integer,                  intent(in) :: supercell_size
   real(dp)                             :: output
   
   output = sum(this%terms%harmonic_expectation( frequency,      &
                                               & thermal_energy, &
-                                              & supercell       ))
+                                              & supercell_size  ))
 end function
 
 impure elemental function harmonic_expectation_ComplexMonomial(this, &
-   & frequency,thermal_energy,supercell) result(output)
+   & frequency,thermal_energy,supercell_size) result(output)
   implicit none
   
   class(ComplexMonomial), intent(in) :: this
   real(dp),               intent(in) :: frequency
   real(dp),               intent(in) :: thermal_energy
-  type(StructureData),    intent(in) :: supercell
+  integer,                intent(in) :: supercell_size
   real(dp)                           :: output
   
   output = this%coefficient                                          &
        & * product(this%modes_%harmonic_expectation( frequency,      &
        &                                             thermal_energy, &
-       &                                             supercell       ))
+       &                                             supercell_size  ))
 end function
 
 impure elemental function harmonic_expectation_ComplexUnivariate(this, &
-   & frequency,thermal_energy,supercell) result(output)
+   & frequency,thermal_energy,supercell_size) result(output)
   implicit none
   
   class(ComplexUnivariate), intent(in) :: this
   real(dp),                 intent(in) :: frequency
   real(dp),                 intent(in) :: thermal_energy
-  type(StructureData),      intent(in) :: supercell
+  integer,                  intent(in) :: supercell_size
   real(dp)                             :: output
   
   integer :: n
@@ -1723,10 +1723,10 @@ impure elemental function harmonic_expectation_ComplexUnivariate(this, &
   ! Calculate the output.
   if (this%id==this%paired_id) then
     output = odd_factorial(n) &
-         & * (factor/(2.0_dp*supercell%sc_size*frequency))**n
+         & * (factor/(2.0_dp*supercell_size*frequency))**n
   else
     output = factorial(n) &
-         & * (factor/(2.0_dp*supercell%sc_size*frequency))**n
+         & * (factor/(2.0_dp*supercell_size*frequency))**n
   endif
 end function
 

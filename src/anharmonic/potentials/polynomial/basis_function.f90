@@ -69,6 +69,9 @@ module basis_function_module
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_BasisFunction
     
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_BasisFunction
+    
     procedure, public :: terms => terms_BasisFunction
     
     procedure, public :: read  => read_BasisFunction
@@ -792,20 +795,19 @@ end subroutine
 ! Returns the thermal expectation of the basis function.
 ! ----------------------------------------------------------------------
 impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
-   & thermal_energy,anharmonic_data) result(output)
+   & thermal_energy,supercell_size) result(output)
   implicit none
   
   class(BasisFunction), intent(in) :: this
   real(dp),             intent(in) :: frequency
   real(dp),             intent(in) :: thermal_energy
-  type(AnharmonicData), intent(in) :: anharmonic_data
+  integer,              intent(in) :: supercell_size
   real(dp)                         :: output
   
-  output = this%coefficient_                                  &
-       & * this%complex_representation_%harmonic_expectation( &
-       &                 frequency,                           &
-       &                 thermal_energy,                      &
-       &                 anharmonic_data%anharmonic_supercell )
+  output = this%coefficient_                                                  &
+       & * this%complex_representation_%harmonic_expectation( frequency,      &
+       &                                                      thermal_energy, &
+       &                                                      supercell_size  )
 end function
 
 ! ----------------------------------------------------------------------
@@ -930,6 +932,199 @@ impure elemental function interpolate_coefficient_BasisFunction(this, &
   
   output = interpolator%overlap(monomial, this%complex_representation_) &
        & * this%coefficient_
+end function
+
+! Calculate this basis function's contribution to the effective dynamical
+!    matrix from which the potential can be interpolated in the large-supercell
+!    limit.
+function calculate_dynamical_matrices_BasisFunction(this,qpoints, &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,     &
+   & subspaces_in_coupling,anharmonic_data) result(output) 
+  implicit none
+  
+  class(BasisFunction),     intent(in)    :: this
+  type(QpointData),         intent(in)    :: qpoints(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  integer,                  intent(in)    :: subspaces_in_coupling(:)
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(DynamicalMatrix), allocatable      :: output(:)
+  
+  integer :: i
+  
+  output = [( DynamicalMatrix(anharmonic_data%structure%no_atoms), &
+            & i=1,                                                 &
+            & size(qpoints)                                        )]
+  do i=1,size(this%complex_representation_%terms)
+    output = output                                        &
+         & + calculate_dynamical_matrices_ComplexMonomial( &
+         &          this%complex_representation_%terms(i), &
+         &          qpoints,                               &
+         &          thermal_energy,                        &
+         &          subspaces,                             &
+         &          subspace_bases,                        &
+         &          subspace_states,                       &
+         &          subspaces_in_coupling,                 &
+         &          anharmonic_data                        )
+  enddo
+  
+  output = output * this%coefficient_
+end function
+
+! Calculate this basis function's contribution to the effective dynamical
+!    matrix from which the potential can be interpolated in the large-supercell
+!    limit.
+function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,       &
+   & subspaces_in_coupling,anharmonic_data) result(output) 
+  implicit none
+  
+  type(ComplexMonomial),    intent(in)    :: term
+  type(QpointData),         intent(in)    :: qpoints(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  integer,                  intent(in)    :: subspaces_in_coupling(:)
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(DynamicalMatrix), allocatable      :: output(:)
+  
+  integer                              :: prefactor
+  type(ComplexUnivariate), allocatable :: modes(:)
+  type(ComplexUnivariate), allocatable :: univariates(:)
+  type(ComplexMode),       allocatable :: subspace_modes(:)
+  type(ComplexMonomial)                :: monomial
+  
+  real(dp), allocatable :: expectations(:)
+  real(dp)              :: coefficient
+  
+  type(ComplexMode) :: mode_k
+  type(ComplexMode) :: mode_l
+  
+  integer :: i,j,k,l,m,ialloc
+  
+  allocate( expectations(size(subspaces_in_coupling)), &
+          & stat=ialloc); call err(ialloc)
+  output = [( DynamicalMatrix(anharmonic_data%structure%no_atoms), &
+            & i=1,                                                 &
+            & size(qpoints)                                        )]
+  prefactor = (term%total_power()*(term%total_power()-1))/2
+  modes = term%modes()
+  
+  ! Calculate the expectation of the part of term in each subspace.
+  do i=1,size(subspaces_in_coupling)
+    j = subspaces_in_coupling(i)
+    univariates = modes(filter(modes%id .in. subspaces(j)%mode_ids))
+    
+    monomial = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+                              & modes       = univariates     )
+    monomial = integrate( subspace_states(j), &
+                        & thermal_energy,     &
+                        & monomial,           &
+                        & subspaces(j),       &
+                        & subspace_bases(j),  &
+                        & anharmonic_data     )
+    expectations(i) = real(monomial%coefficient)
+  enddo
+  
+  ! Calculate the contribution to the dynamical matrices
+  !    from each subspace.
+  ! If a term is prod_{i=1}^n [u_i], then the u_i u_j* coefficient is
+  !   binom(n,2) * <term / (u_i u_j*)>.
+  do i=1,size(subspaces_in_coupling)
+    j = subspaces_in_coupling(i)
+    univariates = modes(filter(     &
+       & modes%id .in. subspaces(j)%mode_ids ))
+    subspace_modes = anharmonic_data%complex_modes([( &
+         & first( univariates(k)%id          &
+         &     == anharmonic_data%complex_modes%id ), &
+         & k=1,                                       &
+         & size(univariates)                 )])
+    
+    do k=1,size(univariates)
+      ! If (u_l)^{n_l} has n_l==0, a factor of u_l cannot be removed.
+      if (univariates(k)%total_power()==0) then
+        cycle
+      endif
+      
+      mode_k = subspace_modes(k)
+      
+      m = first(mode_k%qpoint_id==qpoints%id)
+      do l=1,size(univariates)
+        mode_l = subspace_modes(l)
+        
+        ! If u_l = (u_l)*, then only loop over l<=k.
+        if ( univariates(k)%id        &
+        & == univariates(k)%paired_id ) then
+          if (l>k) then
+            exit
+          endif
+        endif
+        
+        ! If q_l/=q_m, <u_l u_m*> must be zero by translational symmetry.
+        ! If (u_m*)^{n_m} has n_m==0, a factor of u_m cannot be removed.
+        if (mode_l%qpoint_id/=mode_k%qpoint_id) then
+          cycle
+        elseif (univariates(l)%paired_power==0) then
+          cycle
+        endif
+        
+        ! Construct the monomial corresponding to the part of the term in
+        !    subspace j, but with u_l (u_m)* removed.
+        if (univariates(k)%id==univariates(k)%paired_id) then
+          if (k==l .and. univariates(k)%power<2) then
+            cycle
+          endif
+          univariates(k)%power = univariates(k)%power-1
+          univariates(k)%paired_power = univariates(k)%paired_power-1
+          univariates(l)%power = univariates(l)%power-1
+          univariates(l)%paired_power = univariates(l)%paired_power-1
+          monomial = ComplexMonomial(                 &
+             & coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+             & modes       = univariates     )
+          univariates(k)%power = univariates(k)%power+1
+          univariates(k)%paired_power = univariates(k)%paired_power+1
+          univariates(l)%power = univariates(l)%power+1
+          univariates(l)%paired_power = univariates(l)%paired_power+1
+        else
+          univariates(k)%power = univariates(k)%power-1
+          univariates(l)%paired_power = univariates(l)%paired_power-1
+          monomial = ComplexMonomial(                 &
+             & coefficient = cmplx(1.0_dp,0.0_dp,dp), &
+             & modes       = univariates           )
+          univariates(k)%power = univariates(k)%power+1
+          univariates(l)%paired_power = univariates(l)%paired_power+1
+        endif
+        
+        ! Integrate this monomial, and multiply the result by the integrated
+        !    parts of the term which are not in subspace j.
+        ! This gives <term / u_lu_m*>.
+        monomial = integrate( subspace_states(j), &
+                            & thermal_energy,     &
+                            & monomial,           &
+                            & subspaces(j),       &
+                            & subspace_bases(j),  &
+                            & anharmonic_data     )
+        coefficient = product(expectations(:i-1)) &
+                  & * real(monomial%coefficient)  &
+                  & * product(expectations(i+1:)) &
+                  & * prefactor
+        
+        ! Construct the u_m u_l* matrix, multiply by the coefficient,
+        !    and add it to the relevant q-point's dynamical matrix.
+        output(m) = output(m) + DynamicalMatrix(mode_k,mode_l,coefficient)
+      enddo
+    enddo
+  enddo
+  
+  ! Multiply by the term's coefficient, then convert from a term coefficient to
+  !    a dynamical matrix.
+  ! The dynamical matrix elements are -2/N times the term coefficients.
+  output = output           &
+       & * term%coefficient &
+       & / (-0.5_dp*anharmonic_data%anharmonic_supercell%sc_size)
 end function
 
 ! Return the monomial terms of this basis function.

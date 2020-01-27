@@ -16,7 +16,8 @@ module harmonic_basis_module
   public :: HarmonicBasis
   
   type, extends(SubspaceBasis) :: HarmonicBasis
-    integer  :: subspace_id
+    integer :: subspace_id
+    integer :: supercell_size
   contains
     procedure, public, nopass :: representation => representation_HarmonicBasis
     
@@ -77,16 +78,18 @@ impure elemental function representation_HarmonicBasis() result(output)
 end function
 
 ! Constructor.
-impure elemental function new_HarmonicBasis(subspace_id,frequency) &
-   & result(this)
+impure elemental function new_HarmonicBasis(subspace_id,frequency, &
+   & supercell_size) result(this)
   implicit none
   
   integer,  intent(in) :: subspace_id
   real(dp), intent(in) :: frequency
+  integer,  intent(in) :: supercell_size
   type(HarmonicBasis)  :: this
   
   this%subspace_id = subspace_id
   this%frequency = frequency
+  this%supercell_size = supercell_size
 end function
 
 ! Calculate states.
@@ -139,11 +142,12 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,  &
     frequencies = solver%get_inputs()
     
     observables = effective_harmonic_observables( &
-          & thermal_energy  = thermal_energy,     &
-          & potential       = subspace_potential, &
-          & frequency       = frequencies,        &
-          & num_dimensions  = size(subspace),     &
-          & anharmonic_data = anharmonic_data     )
+         & thermal_energy  = thermal_energy,      &
+         & potential       = subspace_potential,  &
+         & frequency       = frequencies,         &
+         & num_dimensions  = size(subspace),      &
+         & supercell_size  = this%supercell_size, &
+         & anharmonic_data = anharmonic_data      )
     
     call solver%set_outputs(observables%free_energy)
     
@@ -310,6 +314,7 @@ impure elemental function thermodynamic_data_HarmonicBasis(this,    &
      & potential       = subspace_potential,          &
      & frequency       = harmonic_states%frequency,   &
      & num_dimensions  = size(subspace),              &
+     & supercell_size  = this%supercell_size,         &
      & anharmonic_data = anharmonic_data              )
 end function
 
@@ -343,9 +348,9 @@ impure elemental function integrate_BasisStates_HarmonicBasis(this, &
   harmonic_states = HarmonicStates(states)
   
   output = product(monomial%modes%harmonic_expectation( &
-                 & harmonic_states%frequency,           &
-                 & thermal_energy,                      &
-                 & anharmonic_data%anharmonic_supercell ))
+                           & harmonic_states%frequency, &
+                           & thermal_energy,            &
+                           & this%supercell_size        ))
 end function
 
 ! I/O.
@@ -357,12 +362,14 @@ subroutine read_HarmonicBasis(this,input)
   
   integer  :: subspace_id
   real(dp) :: frequency
+  integer  :: supercell_size
   
   select type(this); type is(HarmonicBasis)
     subspace_id = int(token(input(1),3))
     frequency = dble(token(input(2),3))
+    supercell_size = int(token(input(3),4))
     
-    this = HarmonicBasis(subspace_id, frequency)
+    this = HarmonicBasis(subspace_id, frequency, supercell_size)
   class default
     call err()
   end select
@@ -375,8 +382,9 @@ function write_HarmonicBasis(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(HarmonicBasis)
-    output = [ 'Subspace  : '//this%subspace_id, &
-             & 'Frequency : '//this%frequency    ]
+    output = [ 'Subspace       : '//this%subspace_id,   &
+             & 'Frequency      : '//this%frequency,     &
+             & 'Supercell Size : '//this%supercell_size ]
   class default
     call err()
   end select

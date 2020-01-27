@@ -39,6 +39,8 @@ module split_qpoints_basis_module
   
   ! All states spanning the subspace.
   type, extends(SubspaceBasis) :: SplitQpointsBasis
+    ! The number of primitive cells in the supercell.
+    integer :: supercell_size
     ! The maximum power of the monomial states.
     ! This is also the maximum occupation of the harmonic basis states.
     integer  :: maximum_power
@@ -142,10 +144,11 @@ end function
 ! SplitQpointsBasis methods.
 ! ----------------------------------------------------------------------
 ! Constructors.
-function new_SplitQpointsBasis(maximum_power,expansion_order,subspace_id, &
-   & frequency,wavevectors,qpoints) result(this)
+function new_SplitQpointsBasis(supercell_size,maximum_power,expansion_order, &
+   & subspace_id,frequency,wavevectors,qpoints) result(this) 
   implicit none
   
+  integer,               intent(in) :: supercell_size
   integer,               intent(in) :: maximum_power
   integer,               intent(in) :: expansion_order
   integer,               intent(in) :: subspace_id
@@ -156,6 +159,7 @@ function new_SplitQpointsBasis(maximum_power,expansion_order,subspace_id, &
   
   integer :: i
   
+  this%supercell_size        = supercell_size
   this%maximum_power         = maximum_power
   this%expansion_order       = expansion_order
   this%subspace_id           = subspace_id
@@ -247,7 +251,8 @@ function new_SplitQpointsBasis_subspace(subspace,frequency,modes,qpoints, &
                                & symmetries,                &
                                & subspace_qpoints(1)        )
   
-  output = SplitQpointsBasis( maximum_power,             &
+  output = SplitQpointsBasis( supercell%sc_size,         &
+                            & maximum_power,             &
                             & potential_expansion_order, &
                             & subspace%id,               &
                             & frequency,                 &
@@ -826,6 +831,7 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
   output = core_shell_thermodynamics(     &
      & thermal_energy,                    &
      & this%frequency,                    &
+     & this%supercell_size,               &
      & size(subspace)/size(this%qpoints), &
      & subspace,                          &
      & this%wavevectors,                  &
@@ -993,6 +999,7 @@ subroutine read_SplitQpointsBasis(this,input)
   class(SplitQpointsBasis), intent(out) :: this
   type(String),             intent(in)  :: input(:)
   
+  integer                            :: supercell_size
   integer                            :: maximum_power
   integer                            :: expansion_order
   integer                            :: subspace_id
@@ -1062,7 +1069,8 @@ function write_SplitQpointsBasis(this) result(output)
   integer :: i
   
   select type(this); type is(SplitQpointsBasis)
-    output = [ 'Maximum power    : '//this%maximum_power,   &
+    output = [ 'Supercell size   : '//this%supercell_size,  &
+             & 'Maximum power    : '//this%maximum_power,   &
              & 'Expansion order  : '//this%expansion_order, &
              & 'Subspace         : '//this%subspace_id,     &
              & 'Frequency        : '//this%frequency,       &

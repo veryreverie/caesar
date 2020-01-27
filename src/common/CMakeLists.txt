@@ -15,6 +15,9 @@ target_link_libraries(common normal_mode)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dynamical_matrices dynamical_matrices/)
 target_link_libraries(common dynamical_matrices)
 
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/harmonic_stress harmonic_stress/)
+target_link_libraries(common harmonic_stress)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/electronic_structure electronic_structure/)
 target_link_libraries(common electronic_structure)
 

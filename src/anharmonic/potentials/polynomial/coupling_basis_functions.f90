@@ -65,6 +65,9 @@ module coupling_basis_functions_module
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_CouplingBasisFunctions
     
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_CouplingBasisFunctions
+    
     ! I/O.
     procedure, public :: read  => read_CouplingBasisFunctions
     procedure, public :: write => write_CouplingBasisFunctions
@@ -301,18 +304,18 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
 end subroutine
 
 impure elemental function harmonic_expectation_CouplingBasisFunctions(this, &
-   & frequency,thermal_energy,anharmonic_data) result(output)
+   & frequency,thermal_energy,supercell_size) result(output)
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
   real(dp),                      intent(in) :: frequency
   real(dp),                      intent(in) :: thermal_energy
-  type(AnharmonicData),          intent(in) :: anharmonic_data
+  integer,                       intent(in) :: supercell_size
   real(dp)                                  :: output
   
   output = sum(this%basis_functions_%harmonic_expectation( frequency,      &
                                                          & thermal_energy, &
-                                                         & anharmonic_data ))
+                                                         & supercell_size  ))
 end function
 
 function generate_basis_functions_SubspaceCoupling(coupling,               &
@@ -457,6 +460,45 @@ impure elemental function interpolate_coefficient_CouplingBasisFunctions( &
   
   output = sum(this%basis_functions_%interpolate_coefficient( monomial,    &
                                                             & interpolator ))
+end function
+
+! Calculate this basis function's contribution to the effective dynamical
+!    matrix from which the potential can be interpolated in the large-supercell
+!    limit.
+function calculate_dynamical_matrices_CouplingBasisFunctions(this,qpoints,    &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in)    :: this
+  type(QpointData),              intent(in)    :: qpoints(:)
+  real(dp),                      intent(in)    :: thermal_energy
+  type(DegenerateSubspace),      intent(in)    :: subspaces(:)
+  class(SubspaceBasis),          intent(in)    :: subspace_bases(:)
+  class(BasisStates),            intent(inout) :: subspace_states(:)
+  type(AnharmonicData),          intent(in)    :: anharmonic_data
+  type(DynamicalMatrix), allocatable           :: output(:)
+  
+  integer, allocatable :: subspaces_in_coupling(:)
+  
+  integer :: i
+  
+  subspaces_in_coupling = filter(subspaces%id .in. this%coupling%ids)
+  
+  output = [( DynamicalMatrix(anharmonic_data%structure%no_atoms), &
+            & i=1,                                                 &
+            & size(qpoints)                                        )]
+  do i=1,size(this%basis_functions_)
+    output = output                                                 &
+         & + this%basis_functions_(i)%calculate_dynamical_matrices( &
+         &                                   qpoints,               &
+         &                                   thermal_energy,        &
+         &                                   subspaces,             &
+         &                                   subspace_bases,        &
+         &                                   subspace_states,       &
+         &                                   subspaces_in_coupling, &
+         &                                   anharmonic_data        )
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

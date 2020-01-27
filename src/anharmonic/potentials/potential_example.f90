@@ -291,12 +291,13 @@ subroutine braket_BasisStates_PotentialDataExample(this,states, &
 end subroutine
 
 impure elemental function harmonic_expectation_PotentialDataExample(this, &
-   & frequency,thermal_energy,anharmonic_data) result(output)
+   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
   implicit none
   
   class(PotentialDataExample), intent(in) :: this
   real(dp),                    intent(in) :: frequency
   real(dp),                    intent(in) :: thermal_energy
+  integer,                     intent(in) :: supercell_size
   type(AnharmonicData),        intent(in) :: anharmonic_data
   real(dp)                                :: output
   

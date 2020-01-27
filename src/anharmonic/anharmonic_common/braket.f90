@@ -344,9 +344,9 @@ end function
 ! Calculate observables for harmonic basis, using a harmonic potential.
 ! N.B. the result is extensive, so will in general need to be normalised
 !    to be per unit cell or similar.
-impure elemental function harmonic_observables(thermal_energy,         &
-   & stress,stress_prefactor,frequency,num_dimensions,anharmonic_data) &
-   & result(output)
+impure elemental function harmonic_observables(thermal_energy,stress, &
+   & stress_prefactor,frequency,num_dimensions,supercell_size,        &
+   & anharmonic_data) result(output) 
   implicit none
   
   real(dp),             intent(in)           :: thermal_energy
@@ -354,6 +354,7 @@ impure elemental function harmonic_observables(thermal_energy,         &
   type(RealMatrix),     intent(in), optional :: stress_prefactor
   real(dp),             intent(in)           :: frequency
   integer,              intent(in)           :: num_dimensions
+  integer,              intent(in)           :: supercell_size
   type(AnharmonicData), intent(in)           :: anharmonic_data
   type(ThermodynamicData)                    :: output
   
@@ -369,6 +370,7 @@ impure elemental function harmonic_observables(thermal_energy,         &
   if (present(stress)) then
     potential_stress = stress%harmonic_expectation( frequency,        &
                    &                                thermal_energy,   &
+                   &                                supercell_size,   &
                    &                                anharmonic_data ) &
                    & / num_dimensions
     volume = anharmonic_data%structure%volume
@@ -387,7 +389,7 @@ end function
 !    to be per unit cell or similar.
 impure elemental function effective_harmonic_observables(thermal_energy, &
    & potential,stress,stress_prefactor,frequency,num_dimensions,         &
-   & anharmonic_data) result(output)
+   & supercell_size,anharmonic_data) result(output) 
   implicit none
   
   real(dp),             intent(in)           :: thermal_energy
@@ -396,6 +398,7 @@ impure elemental function effective_harmonic_observables(thermal_energy, &
   type(RealMatrix),     intent(in), optional :: stress_prefactor
   real(dp),             intent(in)           :: frequency
   integer,              intent(in)           :: num_dimensions
+  integer,              intent(in)           :: supercell_size
   type(AnharmonicData), intent(in)           :: anharmonic_data
   type(ThermodynamicData)                    :: output
   
@@ -413,6 +416,7 @@ impure elemental function effective_harmonic_observables(thermal_energy, &
                                & stress_prefactor, &
                                & frequency,        &
                                & num_dimensions,   &
+                               & supercell_size,   &
                                & anharmonic_data   )
   
   ! Subtract <V> for the effective harmonic potential,
@@ -423,6 +427,7 @@ impure elemental function effective_harmonic_observables(thermal_energy, &
   potential_expectation = potential%harmonic_expectation( &
                                         & frequency,      &
                                         & thermal_energy, &
+                                        & supercell_size, &
                                         & anharmonic_data )
   
   output%energy = output%energy        &

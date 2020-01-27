@@ -39,5 +39,13 @@ subroutine test_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
+  
+  call print_line(1 .in. [1,2,3])
+  call print_line(1 .in. [2,3])
+  call print_line([1,3] .in. [2,3])
+  call print_line([4,3] .in. [2,3])
+  call print_line([integer::] .in. [2,3])
+  call print_line([4,3] .in. [integer::])
+  call print_line([integer::] .in. [integer::])
 end subroutine
 end module

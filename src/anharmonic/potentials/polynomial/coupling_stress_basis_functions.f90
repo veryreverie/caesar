@@ -241,13 +241,13 @@ impure elemental subroutine braket_BasisStates_CouplingStressBasisFunctions( &
 end subroutine
 
 impure elemental function harmonic_expectation_CouplingStressBasisFunctions( &
-   & this,frequency,thermal_energy,anharmonic_data) result(output)
+   & this,frequency,thermal_energy,supercell_size) result(output)
   implicit none
   
   class(CouplingStressBasisFunctions), intent(in) :: this
   real(dp),                            intent(in) :: frequency
   real(dp),                            intent(in) :: thermal_energy
-  type(AnharmonicData),                intent(in) :: anharmonic_data
+  integer,                             intent(in) :: supercell_size
   type(RealMatrix)                                :: output
   
   if (size(this%basis_functions_)==0) then
@@ -255,7 +255,7 @@ impure elemental function harmonic_expectation_CouplingStressBasisFunctions( &
   else
     output = sum(this%basis_functions_%harmonic_expectation( frequency,      &
                                                            & thermal_energy, &
-                                                           & anharmonic_data ))
+                                                           & supercell_size  ))
   endif
 end function
 
