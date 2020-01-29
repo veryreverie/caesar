@@ -105,8 +105,8 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   real(dp)                              :: frequency_of_max_displacement
   
   ! Anharmonic potential and stress.
-  type(PotentialPointer)           :: potential
-  type(StressPointer), allocatable :: stress
+  type(PotentialPointer)         :: potential
+  class(StressData), allocatable :: stress
   
   ! Electronic structure calculation handlers.
   type(CalculationWriter) :: calculation_writer

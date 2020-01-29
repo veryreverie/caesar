@@ -200,7 +200,7 @@ function construct_sample_vector(sampling_points,sample_results,potential, &
     endif
     
     ! Construct the vector.
-    output((i-1)*dims+1:i+dims) = make_sample_vector( energy,            &
+    output((i-1)*dims+1:i*dims) = make_sample_vector( energy,            &
                                                     & forces,            &
                                                     & modes,             &
                                                     & energy_force_ratio )

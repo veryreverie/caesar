@@ -153,7 +153,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(QpointData),       allocatable :: subspace_qpoints(:)
   type(StressPrefactors), allocatable :: stress_prefactors(:)
   type(RealMatrix),       allocatable :: stress_prefactor
-  type(StressPointer),    allocatable :: subspace_stress
+  class(StressData),      allocatable :: subspace_stress
   
   ! max(harmonic frequencies, frequency of max displacement).
   real(dp), allocatable :: starting_frequencies(:)
@@ -162,7 +162,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(PotentialPointer) :: potential
   
   ! Anharmonic stress.
-  type(StressPointer), allocatable :: stress
+  class(StressData), allocatable :: stress
   
   ! VSCHA basis, states, potential and stress.
   type(HarmonicBasis),    allocatable :: vscha_basis(:)
@@ -720,8 +720,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                    & dynamical_matrices, &
                                    & logfile             )
       
-      ! Generate self-consistent phonon dispersion curve by interpolating between
-      !    calculated q-points using Fourier interpolation.
+      ! Generate self-consistent phonon dispersion curve by interpolating
+      !    between calculated q-points using Fourier interpolation.
       phonon_dispersion = PhononDispersion( supercell,      &
                                           & min_images,     &
                                           & hessian,        &
@@ -731,8 +731,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       
       ! Generate self-consistent phonon density of states,
       !    interpolating as above.
-      ! Re-seed the random generator each time, so that the results at different
-      !    temperatures can be compared free from random noise.
+      ! Re-seed the random generator each time, so that the results at
+      !    different temperatures can be compared free from random noise.
       random_generator = RandomReal(random_generator_seed)
       phonon_dos = PhononDos( supercell,             &
                             & min_images,            &

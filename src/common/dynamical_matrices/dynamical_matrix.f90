@@ -15,6 +15,7 @@ module dynamical_matrix_module
   public :: DynamicalMatrix
   public :: reconstruct_hessian
   public :: ComplexMode
+  public :: conjg
   
   public :: operator(+)
   public :: operator(-)
@@ -71,6 +72,10 @@ module dynamical_matrix_module
   interface operator(/)
     module procedure divide_DynamicalMatrix_real
     module procedure divide_DynamicalMatrix_complex
+  end interface
+  
+  interface conjg
+    module procedure conjg_DynamicalMatrix
   end interface
 contains
 
@@ -610,6 +615,15 @@ impure elemental function divide_DynamicalMatrix_complex(this,that) &
   type(DynamicalMatrix)             :: output
   
   output = DynamicalMatrix(this%elements_/that)
+end function
+
+impure elemental function conjg_DynamicalMatrix(input) result(output)
+  implicit none
+  
+  type(DynamicalMatrix), intent(in) :: input
+  type(DynamicalMatrix)             :: output
+  
+  output = DynamicalMatrix(conjg(input%elements_))
 end function
 
 ! ----------------------------------------------------------------------

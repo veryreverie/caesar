@@ -35,11 +35,14 @@ def main():
       directories.append('temperature_' + \
                          str(i+1).zfill(len(str(len(temperature_file)))))
     cmap = plt.get_cmap('inferno')
-    temp_colours = []
-    for temperature in temperatures:
-      fraction = 0.9*(temperature-temperatures[0])/ \
-                 (temperatures[-1]-temperatures[0])
-      temp_colours.append(cmap(fraction))
+    if len(temperatures)==1:
+      temperatures = [0.0]
+    else:
+      temp_colours = []
+      for temperature in temperatures:
+        fraction = 0.9*(temperature-temperatures[0])/ \
+                   (temperatures[-1]-temperatures[0])
+        temp_colours.append(cmap(fraction))
   else:
     temperatures = [0.0]
     directories = ['.']

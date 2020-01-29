@@ -1003,7 +1003,10 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
   type(ComplexMode) :: mode_k
   type(ComplexMode) :: mode_l
   
-  integer :: i,j,k,l,m,ialloc
+  integer :: q1
+  integer :: q2
+  
+  integer :: i,j,k,l,ialloc
   
   allocate( expectations(size(subspaces_in_coupling)), &
           & stat=ialloc); call err(ialloc)
@@ -1044,18 +1047,19 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
          & size(univariates)                 )])
     
     do k=1,size(univariates)
-      ! If (u_l)^{n_l} has n_l==0, a factor of u_l cannot be removed.
+      ! If (u_k)^{n_k} has n_k==0, a factor of u_k cannot be removed.
       if (univariates(k)%total_power()==0) then
         cycle
       endif
       
       mode_k = subspace_modes(k)
       
-      m = first(mode_k%qpoint_id==qpoints%id)
+      q1 = first(qpoints%id==mode_k%qpoint_id)
+      q2 = first(qpoints%id==mode_k%paired_qpoint_id)
       do l=1,size(univariates)
         mode_l = subspace_modes(l)
         
-        ! If u_l = (u_l)*, then only loop over l<=k.
+        ! If u_k = u_k*, then only loop over l<=k.
         if ( univariates(k)%id        &
         & == univariates(k)%paired_id ) then
           if (l>k) then
@@ -1063,8 +1067,8 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
           endif
         endif
         
-        ! If q_l/=q_m, <u_l u_m*> must be zero by translational symmetry.
-        ! If (u_m*)^{n_m} has n_m==0, a factor of u_m cannot be removed.
+        ! If q_l/=q_k, <u_k u_l*> must be zero by translational symmetry.
+        ! If (u_l*)^{n_l} has n_l==0, a factor of u_l cannot be removed.
         if (mode_l%qpoint_id/=mode_k%qpoint_id) then
           cycle
         elseif (univariates(l)%paired_power==0) then
@@ -1072,7 +1076,7 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
         endif
         
         ! Construct the monomial corresponding to the part of the term in
-        !    subspace j, but with u_l (u_m)* removed.
+        !    subspace j, but with (u_k u_l*) removed.
         if (univariates(k)%id==univariates(k)%paired_id) then
           if (k==l .and. univariates(k)%power<2) then
             cycle
@@ -1100,7 +1104,7 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
         
         ! Integrate this monomial, and multiply the result by the integrated
         !    parts of the term which are not in subspace j.
-        ! This gives <term / u_lu_m*>.
+        ! This gives <term / u_ku_l*>.
         monomial = integrate( subspace_states(j), &
                             & thermal_energy,     &
                             & monomial,           &
@@ -1112,9 +1116,15 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
                   & * product(expectations(i+1:)) &
                   & * prefactor
         
-        ! Construct the u_m u_l* matrix, multiply by the coefficient,
+        ! Construct the u_k u_l* matrix, multiply by the coefficient,
         !    and add it to the relevant q-point's dynamical matrix.
-        output(m) = output(m) + DynamicalMatrix(mode_k,mode_l,coefficient)
+        output(q1) = output(q1) + DynamicalMatrix(mode_k,mode_l,coefficient)
+        
+        ! If u_k/=u_k* then the u_l u_k* term is just the conjugate of the
+        !    u_k u_l* term.
+        if (q2/=q2) then
+          output(q2) = output(q2) + DynamicalMatrix(mode_l,mode_k,coefficient)
+        endif
       enddo
     enddo
   enddo
