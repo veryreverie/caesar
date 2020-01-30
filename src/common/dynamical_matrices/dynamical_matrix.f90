@@ -35,8 +35,8 @@ module dynamical_matrix_module
   end type
   
   interface DynamicalMatrix
-    module procedure new_DynamicalMatrix_zeroes
     module procedure new_DynamicalMatrix
+    module procedure new_DynamicalMatrix_zeroes
     module procedure new_DynamicalMatrix_interpolated
     module procedure new_DynamicalMatrix_ComplexModes
     module procedure new_DynamicalMatrix_ComplexMode_ComplexMode

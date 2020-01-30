@@ -1140,7 +1140,7 @@ impure elemental function interpolate_coefficient_PolynomialPotential(this, &
                                                             & interpolator ))
 end function
 
-! Calculate the effective dynamical matrix from which the potential can be
+! Calculate the effective dynamical matrices from which the potential can be
 !    interpolated in the large-supercell limit.
 function calculate_dynamical_matrices_PolynomialPotential(this,qpoints,       &
    & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &

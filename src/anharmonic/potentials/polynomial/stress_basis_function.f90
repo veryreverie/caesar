@@ -8,6 +8,7 @@ module stress_basis_function_module
   
   use polynomial_interpolator_module
   use basis_function_module
+  use polynomial_dynamical_matrices_module
   implicit none
   
   private
@@ -51,6 +52,9 @@ module stress_basis_function_module
     
     procedure, public :: interpolate_coefficients => &
                        & interpolate_coefficients_StressBasisFunction
+    
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_StressBasisFunction
     
     ! I/O.
     procedure, public :: read  => read_StressBasisFunction
@@ -576,6 +580,49 @@ impure elemental function interpolate_coefficients_StressBasisFunction(this, &
   elements(2,3) = elements(3,2)
   
   output = mat(elements)
+end function
+
+! Calculate this basis function's contribution to the effective stress
+!    dynamical matrix from which the stress can be interpolated in the
+!    large-supercell limit.
+function calculate_dynamical_matrices_StressBasisFunction(this,qpoints, &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,           &
+   & subspaces_in_coupling,anharmonic_data) result(output) 
+  implicit none
+  
+  class(StressBasisFunction), intent(in)    :: this
+  type(QpointData),           intent(in)    :: qpoints(:)
+  real(dp),                   intent(in)    :: thermal_energy
+  type(DegenerateSubspace),   intent(in)    :: subspaces(:)
+  class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
+  class(BasisStates),         intent(inout) :: subspace_states(:)
+  integer,                    intent(in)    :: subspaces_in_coupling(:)
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  type(StressDynamicalMatrix), allocatable  :: output(:)
+  
+  type(DynamicalMatrix), allocatable :: matrices(:)
+  
+  integer :: i,j,k
+  
+  output = [( StressDynamicalMatrix(anharmonic_data%structure%no_atoms), &
+            & i=1,                                                       &
+            & size(qpoints)                                              )]
+  
+  do i=1,3
+    do j=1,3
+      matrices = calculate_dynamical_matrices( this%elements_(j,i),   &
+                                             & qpoints,               &
+                                             & thermal_energy,        &
+                                             & subspaces,             &
+                                             & subspace_bases,        &
+                                             & subspace_states,       &
+                                             & subspaces_in_coupling, &
+                                             & anharmonic_data        )
+      do k=1,size(output)
+        output(k)%elements(j,i) = matrices(k) * this%coefficient_
+      enddo
+    enddo
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

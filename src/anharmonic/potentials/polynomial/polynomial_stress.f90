@@ -56,6 +56,9 @@ module polynomial_stress_module
     procedure, public :: interpolate_coefficients => &
                        & interpolate_coefficients_PolynomialStress
     
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_PolynomialStress
+    
     procedure, public :: expansion_order => expansion_order_PolynomialStress
     
     ! I/O.
@@ -497,6 +500,40 @@ impure elemental function interpolate_coefficients_PolynomialStress(this, &
   
   output = sum(this%basis_functions_%interpolate_coefficients( monomial,    &
                                                              & interpolator ))
+end function
+
+! Calculate the effective dynamical matrices from which the stress can be
+!    interpolated in the large-supercell limit.
+function calculate_dynamical_matrices_PolynomialStress(this,qpoints,          &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(PolynomialStress),  intent(in)     :: this
+  type(QpointData),         intent(in)     :: qpoints(:)
+  real(dp),                 intent(in)     :: thermal_energy
+  type(DegenerateSubspace), intent(in)     :: subspaces(:)
+  class(SubspaceBasis),     intent(in)     :: subspace_bases(:)
+  class(BasisStates),       intent(inout)  :: subspace_states(:)
+  type(AnharmonicData),     intent(in)     :: anharmonic_data
+  type(StressDynamicalMatrix), allocatable :: output(:)
+  
+  integer :: i
+  
+  output = [( StressDynamicalMatrix(anharmonic_data%structure%no_atoms), &
+            & i=1,                                                       &
+            & size(qpoints)                                              )]
+  
+  do i=1,size(this%basis_functions_)
+    output = output                                                 &
+         & + this%basis_functions_(i)%calculate_dynamical_matrices( &
+         &                                         qpoints,         &
+         &                                         thermal_energy,  &
+         &                                         subspaces,       &
+         &                                         subspace_bases,  &
+         &                                         subspace_states, &
+         &                                         anharmonic_data  )
+  enddo
 end function
 
 ! Expansion order.

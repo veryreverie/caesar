@@ -56,6 +56,9 @@ module coupling_stress_basis_functions_module
     procedure, public :: interpolate_coefficients => &
                        & interpolate_coefficients_CouplingStressBasisFunctions
     
+    procedure, public :: calculate_dynamical_matrices => &
+                    & calculate_dynamical_matrices_CouplingStressBasisFunctions
+    
     ! I/O.
     procedure, public :: read  => read_CouplingStressBasisFunctions
     procedure, public :: write => write_CouplingStressBasisFunctions
@@ -358,6 +361,45 @@ impure elemental function                                                 &
   
   output = sum(this%basis_functions_%interpolate_coefficients( monomial,    &
                                                              & interpolator ))
+end function
+
+! Calculate this basis function's contribution to the effective dynamical
+!    matrix from which the potential can be interpolated in the large-supercell
+!    limit.
+function calculate_dynamical_matrices_CouplingStressBasisFunctions(this, &
+   & qpoints,thermal_energy,subspaces,subspace_bases,subspace_states,    &
+   & anharmonic_data) result(output) 
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(in)    :: this
+  type(QpointData),                    intent(in)    :: qpoints(:)
+  real(dp),                            intent(in)    :: thermal_energy
+  type(DegenerateSubspace),            intent(in)    :: subspaces(:)
+  class(SubspaceBasis),                intent(in)    :: subspace_bases(:)
+  class(BasisStates),                  intent(inout) :: subspace_states(:)
+  type(AnharmonicData),                intent(in)    :: anharmonic_data
+  type(StressDynamicalMatrix), allocatable           :: output(:)
+  
+  integer, allocatable :: subspaces_in_coupling(:)
+  
+  integer :: i
+  
+  subspaces_in_coupling = filter(subspaces%id .in. this%coupling%ids)
+  
+  output = [( StressDynamicalMatrix(anharmonic_data%structure%no_atoms), &
+            & i=1,                                                       &
+            & size(qpoints)                                              )]
+  do i=1,size(this%basis_functions_)
+    output = output                                                 &
+         & + this%basis_functions_(i)%calculate_dynamical_matrices( &
+         &                                   qpoints,               &
+         &                                   thermal_energy,        &
+         &                                   subspaces,             &
+         &                                   subspace_bases,        &
+         &                                   subspace_states,       &
+         &                                   subspaces_in_coupling, &
+         &                                   anharmonic_data        )
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

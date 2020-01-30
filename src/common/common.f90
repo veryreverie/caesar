@@ -11,9 +11,10 @@ module common_module
   use utils_module
   
   use structure_module
-  use electronic_structure_module
   use normal_mode_module
   use dynamical_matrices_module
+  use harmonic_stress_module
+  use electronic_structure_module
   use observables_module
   use bands_module
   implicit none

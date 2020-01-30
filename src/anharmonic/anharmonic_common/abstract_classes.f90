@@ -339,6 +339,8 @@ module abstract_classes_module
                        & can_be_interpolated_StressData
     procedure, public :: interpolate => &
                        & interpolate_StressData
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_StressData
   end type
   
   type, extends(StressData) :: StressPointer
@@ -372,6 +374,8 @@ module abstract_classes_module
                        & can_be_interpolated_StressPointer
     procedure, public :: interpolate => &
                        & interpolate_StressPointer
+    procedure, public :: calculate_dynamical_matrices => &
+                       & calculate_dynamical_matrices_StressPointer
     
     ! I/O.
     procedure, public :: read  => read_StressPointer
@@ -2074,6 +2078,30 @@ function interpolate_StressPointer(this,qpoint,subspace,subspace_modes, &
                                    & anharmonic_data        )
 end function
 
+function calculate_dynamical_matrices_StressPointer(this,qpoints,             &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(StressPointer),     intent(in)     :: this
+  type(QpointData),         intent(in)     :: qpoints(:)
+  real(dp),                 intent(in)     :: thermal_energy
+  type(DegenerateSubspace), intent(in)     :: subspaces(:)
+  class(SubspaceBasis),     intent(in)     :: subspace_bases(:)
+  class(BasisStates),       intent(inout)  :: subspace_states(:)
+  type(AnharmonicData),     intent(in)     :: anharmonic_data
+  type(StressDynamicalMatrix), allocatable :: output(:)
+  
+  call this%check()
+  
+  output = this%stress_%calculate_dynamical_matrices( qpoints,             &
+                                                    & thermal_energy,      &
+                                                    & subspaces,           &
+                                                    & subspace_bases,      &
+                                                    & subspace_states,     &
+                                                    & anharmonic_data      )
+end function
+
 ! I/O.
 subroutine read_StressPointer(this,input)
   implicit none
@@ -2281,6 +2309,26 @@ function interpolate_StressData(this,qpoint,subspace,subspace_modes, &
   
   ! This should be gated behind can_be_interpolated.
   call print_line(CODE_ERROR//': calculate_interpolated_stress not &
+     &implemented for this stress.')
+  call err()
+end function
+
+function calculate_dynamical_matrices_StressData(this,qpoints,                &
+   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(StressData),        intent(in)     :: this
+  type(QpointData),         intent(in)     :: qpoints(:)
+  real(dp),                 intent(in)     :: thermal_energy
+  type(DegenerateSubspace), intent(in)     :: subspaces(:)
+  class(SubspaceBasis),     intent(in)     :: subspace_bases(:)
+  class(BasisStates),       intent(inout)  :: subspace_states(:)
+  type(AnharmonicData),     intent(in)     :: anharmonic_data
+  type(StressDynamicalMatrix), allocatable :: output(:)
+  
+  ! This should be gated behind can_be_interpolated.
+  call print_line(CODE_ERROR//': calculate_dynamical_matrices not &
      &implemented for this stress.')
   call err()
 end function
