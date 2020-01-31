@@ -119,6 +119,8 @@ module complex_polynomial_module
     procedure, public :: paired_power  => paired_power_ComplexMonomial
     procedure, public :: paired_powers => paired_powers_ComplexMonomial
     
+    procedure, public :: set_modes => set_modes_ComplexMonomial
+    
     procedure, public :: simplify => simplify_ComplexMonomial
     
     procedure, public :: total_power => total_power_ComplexMonomial
@@ -700,6 +702,16 @@ function paired_powers_ComplexMonomial(this,indices) result(output)
   endif
 end function
 
+! Set the modes of a monomial.
+subroutine set_modes_ComplexMonomial(this,modes)
+  implicit none
+  
+  class(ComplexMonomial),  intent(inout) :: this
+  type(ComplexUnivariate), intent(in)    :: modes(:)
+  
+  this%modes_ = modes
+end subroutine
+
 ! Simplify a monomial or polynomial.
 impure elemental subroutine simplify_ComplexMonomial(this)
   implicit none
@@ -737,24 +749,27 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
   
   class(ComplexPolynomial), intent(inout) :: this
   
-  type(ComplexMonomial), allocatable :: equivalent_monomials(:)
-  type(ComplexMonomial), allocatable :: monomials(:)
+  integer,     allocatable :: unique_terms(:)
+  complex(dp), allocatable :: coefficients(:)
   
-  real(dp) :: max_coefficient
-  
-  integer :: i,ialloc
+  integer :: i,j,ialloc
   
   call this%terms%simplify()
   
   ! Add together monomials with the same powers.
-  monomials = this%terms(set(this%terms, compare_complex_monomials))
-  do i=1,size(monomials)
-    equivalent_monomials = this%terms(                          &
-       & filter(this%terms,compare_complex_monomials,monomials(i)) )
-    monomials(i)%coefficient = sum(equivalent_monomials%coefficient)
+  unique_terms = set(this%terms, compare_complex_monomials)
+  coefficients = [(cmplx(0.0_dp,0.0_dp,dp), i=1, size(unique_terms))]
+  do i=1,size(this%terms)
+    do j=1,size(unique_terms)
+      if (compare_complex_monomials( this%terms(i),              &
+                                   & this%terms(unique_terms(j)) )) then
+        coefficients(j) = coefficients(j) + this%terms(i)%coefficient
+      endif
+    enddo
   enddo
   
-  this%terms = monomials
+  this%terms = this%terms(unique_terms)
+  this%terms%coefficient = coefficients
 end subroutine
 
 ! Find the conjugate of a univariate or monomial.

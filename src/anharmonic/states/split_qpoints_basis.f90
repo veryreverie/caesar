@@ -933,12 +933,12 @@ impure elemental function integrate_BasisStates_SplitQpointsBasis(this, &
   ! Integrate across all q-points to be integrated.
   output = 1.0_dp
   do i=1,size(this%qpoints_to_integrate_)
-    output = output                       &
-         & * integrate( this%wavevectors, &
-         &              split_states,     &
-         &              thermal_energy,   &
-         &              monomials(i),     &
-         &              anharmonic_data   )
+    output = output                                &
+         & * integrate_monomial( this%wavevectors, &
+         &                       split_states,     &
+         &                       thermal_energy,   &
+         &                       monomials(i),     &
+         &                       anharmonic_data   )
   enddo
     
 end function

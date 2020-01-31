@@ -408,10 +408,10 @@ subroutine braket_SubspaceState_StressBasisFunction(this,bra,ket, &
   
   do i=1,3
     do j=1,3
-      this%elements_(j,i)%terms = integrate( bra,                       &
-                                           & this%elements_(j,i)%terms, &
-                                           & ket,                       &
-                                           & anharmonic_data            )
+      call integrate( this%elements_(j,i)%terms, &
+                    & bra,                       &
+                    & ket,                       &
+                    & anharmonic_data            )
     enddo
   enddo
 end subroutine
@@ -431,12 +431,12 @@ subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
   
   do i=1,3
     do j=1,3
-      this%elements_(j,i)%terms = integrate( bra,                       &
-                                           & this%elements_(j,i)%terms, &
-                                           & ket,                       &
-                                           & subspace,                  &
-                                           & subspace_basis,            &
-                                           & anharmonic_data            )
+      call integrate( this%elements_(j,i)%terms, &
+                    & bra,                       &
+                    & ket,                       &
+                    & subspace,                  &
+                    & subspace_basis,            &
+                    & anharmonic_data            )
     enddo
   enddo
 end subroutine
@@ -457,13 +457,12 @@ subroutine braket_BasisStates_StressBasisFunction(this,states,thermal_energy, &
   do i=1,3
     do j=1,3
       do k=1,size(this%elements_(j,i)%terms)
-        this%elements_(j,i)%terms(k) = integrate( &
-                  & states,                       &
-                  & thermal_energy,               &
-                  & this%elements_(j,i)%terms(k), &
-                  & subspace,                     &
-                  & subspace_basis,               &
-                  & anharmonic_data               )
+        call integrate( this%elements_(j,i)%terms(k), &
+                      & states,                       &
+                      & thermal_energy,               &
+                      & subspace,                     &
+                      & subspace_basis,               &
+                      & anharmonic_data               )
       enddo
     enddo
   enddo

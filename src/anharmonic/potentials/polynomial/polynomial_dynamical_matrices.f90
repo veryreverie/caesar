@@ -68,12 +68,12 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
     
     monomial = ComplexMonomial( coefficient = cmplx(1.0_dp,0.0_dp,dp), &
                               & modes       = univariates     )
-    monomial = integrate( subspace_states(j), &
-                        & thermal_energy,     &
-                        & monomial,           &
-                        & subspaces(j),       &
-                        & subspace_bases(j),  &
-                        & anharmonic_data     )
+    call integrate( monomial,           &
+                  & subspace_states(j), &
+                  & thermal_energy,     &
+                  & subspaces(j),       &
+                  & subspace_bases(j),  &
+                  & anharmonic_data     )
     expectations(i) = real(monomial%coefficient)
   enddo
   
@@ -150,12 +150,12 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
         ! Integrate this monomial, and multiply the result by the integrated
         !    parts of the term which are not in subspace j.
         ! This gives <term / u_ku_l*>.
-        monomial = integrate( subspace_states(j), &
-                            & thermal_energy,     &
-                            & monomial,           &
-                            & subspaces(j),       &
-                            & subspace_bases(j),  &
-                            & anharmonic_data     )
+        call integrate( monomial,           &
+                      & subspace_states(j), &
+                      & thermal_energy,     &
+                      & subspaces(j),       &
+                      & subspace_bases(j),  &
+                      & anharmonic_data     )
         coefficient = product(expectations(:i-1)) &
                   & * real(monomial%coefficient)  &
                   & * product(expectations(i+1:)) &

@@ -70,6 +70,11 @@ module polynomial_potential_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PolynomialPotential
     
+    procedure, public :: potential_energy_BasisState => &
+                       & potential_energy_BasisState_PolynomialPotential
+    procedure, public :: potential_energy_SubspaceState => &
+                       & potential_energy_SubspaceState_PolynomialPotential
+    
     procedure, public :: coefficients => &
                        & coefficients_PolynomialPotential
     procedure, public :: set_coefficients => &
@@ -946,6 +951,48 @@ impure elemental function harmonic_expectation_PolynomialPotential(this, &
        & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
        &                                                   thermal_energy, &
        &                                                   supercell_size  ))
+end function
+
+recursive function potential_energy_BasisState_PolynomialPotential(this,bra, &
+   & ket,subspace,subspace_basis,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PolynomialPotential), intent(in)           :: this
+  class(BasisState),          intent(in)           :: bra
+  class(BasisState),          intent(in), optional :: ket
+  type(DegenerateSubspace),   intent(in)           :: subspace
+  class(SubspaceBasis),       intent(in)           :: subspace_basis
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  real(dp)                                         :: output
+  
+  output = this%reference_energy_                                      &
+       & * subspace_basis%inner_product( bra,                          &
+       &                                 ket,                          &
+       &                                 subspace,                     &
+       &                                 anharmonic_data )             &
+       & + sum(this%basis_functions_%potential_energy( bra,            &
+       &                                               ket,            &
+       &                                               subspace,       &
+       &                                               subspace_basis, &
+       &                                               anharmonic_data ))
+end function
+
+recursive function potential_energy_SubspaceState_PolynomialPotential(this, &
+   & bra,ket,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PolynomialPotential), intent(in)           :: this
+  class(SubspaceState),       intent(in)           :: bra
+  class(SubspaceState),       intent(in), optional :: ket
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  real(dp)                                         :: output
+  
+  output = this%reference_energy_                                      &
+       & * bra%inner_product( ket,                                     &
+       &                      anharmonic_data )                        &
+       & + sum(this%basis_functions_%potential_energy( bra,            &
+       &                                               ket,            &
+       &                                               anharmonic_data ))
 end function
 
 function coefficients_PolynomialPotential(this,anharmonic_data) &

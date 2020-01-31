@@ -218,6 +218,15 @@ module abstract_classes_module
     procedure(harmonic_expectation_PotentialData), public, deferred :: &
        & harmonic_expectation
     
+    ! Calculate the potential energy of the potential w/r/t a given state.
+    generic,   public :: potential_energy =>             &
+                       & potential_energy_SubspaceState, &
+                       & potential_energy_BasisState
+    procedure, public :: potential_energy_SubspaceState => &
+                       & potential_energy_SubspaceState_PotentialData
+    procedure, public :: potential_energy_BasisState => &
+                       & potential_energy_BasisState_PotentialData
+    
     ! Convert the potential to and from a set of real coefficients.
     ! Required for Pulay scheme.
     procedure(coefficients_PotentialData), public, deferred :: &
@@ -277,6 +286,11 @@ module abstract_classes_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PotentialPointer
     
+    procedure, public :: potential_energy_SubspaceState => &
+                       & potential_energy_SubspaceState_PotentialPointer
+    procedure, public :: potential_energy_BasisState => &
+                       & potential_energy_BasisState_PotentialPointer
+    
     procedure, public :: coefficients => &
                        & coefficients_PotentialPointer
     procedure, public :: set_coefficients => &
@@ -334,6 +348,15 @@ module abstract_classes_module
     procedure(harmonic_expectation_StressData), public, deferred :: &
        & harmonic_expectation
     
+    ! Calculate the potential stress of the stress w/r/t a given state.
+    generic,   public :: potential_stress =>             &
+                       & potential_stress_SubspaceState, &
+                       & potential_stress_BasisState
+    procedure, public :: potential_stress_SubspaceState => &
+                       & potential_stress_SubspaceState_StressData
+    procedure, public :: potential_stress_BasisState => &
+                       & potential_stress_BasisState_StressData
+    
     ! Interpolation of the stress.
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_StressData
@@ -369,6 +392,11 @@ module abstract_classes_module
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_StressPointer
+    
+    procedure, public :: potential_stress_SubspaceState => &
+                       & potential_stress_SubspaceState_StressPointer
+    procedure, public :: potential_stress_BasisState => &
+                       & potential_stress_BasisState_StressPointer
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_StressPointer
@@ -1723,6 +1751,44 @@ impure elemental function harmonic_expectation_PotentialPointer(this, &
                                                & anharmonic_data )
 end function
 
+recursive function potential_energy_SubspaceState_PotentialPointer(this,bra, &
+   & ket,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PotentialPointer), intent(in)           :: this
+  class(SubspaceState),    intent(in)           :: bra
+  class(SubspaceState),    intent(in), optional :: ket
+  type(AnharmonicData),    intent(in)           :: anharmonic_data
+  real(dp)                                      :: output
+  
+  call this%check()
+  
+  output = this%potential_%potential_energy( bra,            &
+                                           & ket,            &
+                                           & anharmonic_data )
+end function
+
+recursive function potential_energy_BasisState_PotentialPointer(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PotentialPointer),  intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  call this%check()
+  
+  output = this%potential_%potential_energy( bra,            &
+                                           & ket,            &
+                                           & subspace,       &
+                                           & subspace_basis, &
+                                           & anharmonic_data )
+end function
+
 ! Gets or sets the potential from a set of real coefficients.
 function coefficients_PotentialPointer(this,anharmonic_data) &
    & result(output)
@@ -2046,6 +2112,44 @@ impure elemental function harmonic_expectation_StressPointer(this,frequency, &
                                             & anharmonic_data )
 end function
 
+recursive function potential_stress_SubspaceState_StressPointer(this,bra, &
+   & ket,anharmonic_data) result(output) 
+  implicit none
+  
+  class(StressPointer), intent(in)           :: this
+  class(SubspaceState), intent(in)           :: bra
+  class(SubspaceState), intent(in), optional :: ket
+  type(AnharmonicData), intent(in)           :: anharmonic_data
+  type(RealMatrix)                           :: output
+  
+  call this%check()
+  
+  output = this%stress_%potential_stress( bra,            &
+                                        & ket,            &
+                                        & anharmonic_data )
+end function
+
+recursive function potential_stress_BasisState_StressPointer(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output) 
+  implicit none
+  
+  class(StressPointer),     intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  call this%check()
+  
+  output = this%stress_%potential_stress( bra,            &
+                                        & ket,            &
+                                        & subspace,       &
+                                        & subspace_basis, &
+                                        & anharmonic_data )
+end function
+
 function can_be_interpolated_StressPointer(this) result(output)
   implicit none
   
@@ -2210,6 +2314,48 @@ function undisplaced_energy(this) result(output)
   output = this%energy(RealModeDisplacement(zero_displacement))
 end function
 
+recursive function potential_energy_SubspaceState_PotentialData(this,bra,ket, &
+   & anharmonic_data) result(output) 
+  implicit none
+  
+  class(PotentialData), intent(in)           :: this
+  class(SubspaceState), intent(in)           :: bra
+  class(SubspaceState), intent(in), optional :: ket
+  type(AnharmonicData), intent(in)           :: anharmonic_data
+  real(dp)                                   :: output
+  
+  type(PotentialPointer), allocatable :: integrated_potential
+  
+  integrated_potential = PotentialPointer(this)
+  call integrated_potential%braket( bra             = bra,            &
+                                  & ket             = ket,            &
+                                  & anharmonic_data = anharmonic_data )
+  output = integrated_potential%undisplaced_energy()
+end function
+
+recursive function potential_energy_BasisState_PotentialData(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PotentialData),     intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(PotentialPointer), allocatable :: integrated_potential
+  
+  integrated_potential = PotentialPointer(this)
+  call integrated_potential%braket( bra             = bra,            &
+                                  & ket             = ket,            &
+                                  & subspace        = subspace,       &
+                                  & subspace_basis  = subspace_basis, &
+                                  & anharmonic_data = anharmonic_data )
+  output = integrated_potential%undisplaced_energy()
+end function
+
 impure elemental subroutine finalise_subspace_potential_PotentialData(this, &
    & subspace,subspace_basis,anharmonic_data)
   implicit none
@@ -2284,6 +2430,48 @@ function undisplaced_stress(this) result(output)
   type(RealSingleDisplacement) :: zero_displacement(0)
   
   output = this%stress(RealModeDisplacement(zero_displacement))
+end function
+
+recursive function potential_stress_SubspaceState_StressData(this,bra,ket, &
+   & anharmonic_data) result(output) 
+  implicit none
+  
+  class(StressData),    intent(in)           :: this
+  class(SubspaceState), intent(in)           :: bra
+  class(SubspaceState), intent(in), optional :: ket
+  type(AnharmonicData), intent(in)           :: anharmonic_data
+  type(RealMatrix)                           :: output
+  
+  type(StressPointer), allocatable :: integrated_stress
+  
+  integrated_stress = StressPointer(this)
+  call integrated_stress%braket( bra             = bra,            &
+                               & ket             = ket,            &
+                               & anharmonic_data = anharmonic_data )
+  output = integrated_stress%undisplaced_stress()
+end function
+
+recursive function potential_stress_BasisState_StressData(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output) 
+  implicit none
+  
+  class(StressData),        intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  type(StressPointer), allocatable :: integrated_stress
+  
+  integrated_stress = StressPointer(this)
+  call integrated_stress%braket( bra             = bra,            &
+                               & ket             = ket,            &
+                               & subspace        = subspace,       &
+                               & subspace_basis  = subspace_basis, &
+                               & anharmonic_data = anharmonic_data )
+  output = integrated_stress%undisplaced_stress()
 end function
 
 function can_be_interpolated_StressData(this) result(output)

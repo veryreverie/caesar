@@ -593,11 +593,11 @@ impure elemental function integrate_BasisStates_FullSubspaceBasis(this, &
   ! Convert the states to type WavevectorStates.
   full_states = WavevectorStates(states)
   
-  output = integrate( this%wavevectors, &
-                    & full_states,      &
-                    & thermal_energy,   &
-                    & monomial,         &
-                    & anharmonic_data   )
+  output = integrate_monomial( this%wavevectors, &
+                             & full_states,      &
+                             & thermal_energy,   &
+                             & monomial,         &
+                             & anharmonic_data   )
 end function
 
 ! ----------------------------------------------------------------------

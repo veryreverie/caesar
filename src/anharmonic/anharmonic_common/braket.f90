@@ -16,8 +16,7 @@ module braket_module
   private
   
   public :: integrate
-  public :: potential_energy
-  public :: potential_stress
+  public :: integrate_to_constant
   public :: harmonic_observables
   public :: effective_harmonic_observables
   
@@ -27,63 +26,56 @@ module braket_module
     module procedure integrate_BasisStates
   end interface
   
-  interface potential_energy
-    module procedure potential_energy_BasisState
-    module procedure potential_energy_BasisState_BasisState
-    module procedure potential_energy_SubspaceState
-    module procedure potential_energy_SubspaceState_SubspaceState
-  end interface
-  
-  interface potential_stress
-    module procedure potential_stress_BasisState
-    module procedure potential_stress_BasisState_BasisState
-    module procedure potential_stress_SubspaceState
-    module procedure potential_stress_SubspaceState_SubspaceState
+  interface integrate_to_constant
+    module procedure integrate_to_constant_SubspaceState_ComplexMonomial
+    module procedure integrate_to_constant_BasisState_ComplexMonomial
+    module procedure integrate_to_constant_BasisStates_ComplexMonomial
+    
+    module procedure integrate_to_constant_SubspaceState_ComplexPolynomial
+    module procedure integrate_to_constant_BasisState_ComplexPolynomial
+    module procedure integrate_to_constant_BasisStates_ComplexPolynomial
   end interface
 contains
 
-! Integrate a ComplexMonomial.
-impure elemental function integrate_SubspaceState(bra,monomial,ket, &
-   & anharmonic_data) result(output)
+! Integrate a the parts of a ComplexMonomial in a given subspace.
+impure elemental subroutine integrate_SubspaceState(monomial,bra,ket, &
+   & anharmonic_data)
   implicit none
   
+  type(ComplexMonomial), intent(inout)        :: monomial
   class(SubspaceState),  intent(in)           :: bra
-  type(ComplexMonomial), intent(in)           :: monomial
   class(SubspaceState),  intent(in), optional :: ket
   type(AnharmonicData),  intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                       :: output
   
   type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
   type(ComplexUnivariate), allocatable :: integrated_modes(:)
   
   unintegrated_modes = monomial%modes(exclude_ids = bra%mode_ids())
   
-  output = ComplexMonomial( coefficient = monomial%coefficient, &
-                          & modes       = unintegrated_modes    )
-  
   integrated_modes = monomial%modes(      &
      & ids        = bra%mode_ids(),       &
      & paired_ids = bra%paired_mode_ids() )
   
+  call monomial%set_modes(unintegrated_modes)
+  
   if (any(integrated_modes%total_power()/=0)) then
-    output = output                                           &
-         & * bra%integrate( SparseMonomial(integrated_modes), &
-         &                  ket,                              &
-         &                  anharmonic_data                   )
+    monomial%coefficient = monomial%coefficient                             &
+                       & * bra%integrate( SparseMonomial(integrated_modes), &
+                       &                  ket,                              &
+                       &                  anharmonic_data                   )
   endif
-end function
+end subroutine
 
-impure elemental function integrate_BasisState(bra,monomial,ket,subspace, &
-   & basis,anharmonic_data) result(output)
+impure elemental subroutine integrate_BasisState(monomial,bra,ket,subspace, &
+   & basis,anharmonic_data)
   implicit none
   
+  type(ComplexMonomial),    intent(inout)        :: monomial
   class(BasisState),        intent(in)           :: bra
-  type(ComplexMonomial),    intent(in)           :: monomial
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: basis
   type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ComplexMonomial)                          :: output
   
   type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
   type(ComplexUnivariate), allocatable :: integrated_modes(:)
@@ -91,34 +83,32 @@ impure elemental function integrate_BasisState(bra,monomial,ket,subspace, &
   unintegrated_modes = monomial%modes(                        &
      & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
   
-  output = ComplexMonomial( coefficient = monomial%coefficient, &
-                          & modes       = unintegrated_modes    )
-  
   integrated_modes = monomial%modes(                                &
      & ids        = basis%mode_ids(subspace,anharmonic_data),       &
      & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
   
+  call monomial%set_modes(unintegrated_modes)
+  
   if (any(integrated_modes%total_power()/=0)) then
-    output = output                                             &
-         & * basis%integrate( bra,                              &
-         &                    SparseMonomial(integrated_modes), &
-         &                    ket,                              &
-         &                    subspace,                         &
-         &                    anharmonic_data                   )
+    monomial%coefficient = monomial%coefficient                               &
+                       & * basis%integrate( bra,                              &
+                       &                    SparseMonomial(integrated_modes), &
+                       &                    ket,                              &
+                       &                    subspace,                         &
+                       &                    anharmonic_data                   )
   endif
-end function
+end subroutine
 
-impure elemental function integrate_BasisStates(states,thermal_energy, &
-   & monomial,subspace,basis,anharmonic_data) result(output)
+impure elemental subroutine integrate_BasisStates(monomial,states, &
+   & thermal_energy,subspace,basis,anharmonic_data) 
   implicit none
   
+  type(ComplexMonomial),    intent(inout) :: monomial
   class(BasisStates),       intent(inout) :: states
   real(dp),                 intent(in)    :: thermal_energy
-  type(ComplexMonomial),    intent(in)    :: monomial
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(ComplexMonomial)                   :: output
   
   type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
   type(ComplexUnivariate), allocatable :: integrated_modes(:)
@@ -130,12 +120,11 @@ impure elemental function integrate_BasisStates(states,thermal_energy, &
   unintegrated_modes = monomial%modes(                        &
      & exclude_ids = basis%mode_ids(subspace,anharmonic_data) )
   
-  output = ComplexMonomial( coefficient = monomial%coefficient, &
-                          & modes       = unintegrated_modes    )
-  
   integrated_modes = monomial%modes(                                &
      & ids        = basis%mode_ids(subspace,anharmonic_data),       &
      & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
+  
+  call monomial%set_modes(unintegrated_modes)
   
   if (any(integrated_modes%total_power()/=0)) then
     sparse = SparseMonomial(integrated_modes)
@@ -150,192 +139,156 @@ impure elemental function integrate_BasisStates(states,thermal_energy, &
     else
       expectation = states%expectation_cache%cached_expectation(cache_location)
     endif
-    output = output * expectation
+    monomial%coefficient = monomial%coefficient * expectation
   endif
-end function
+end subroutine
 
-! ----------------------------------------------------------------------
-! The bra-ket of an arbitrary potential.
-! Integrates across all dimensions and returns a real scalar.
-! ----------------------------------------------------------------------
-! Calculates <state|V|state> as a constant.
-recursive function potential_energy_BasisState(state,potential,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisState),        intent(in) :: state
-  class(PotentialData),     intent(in) :: potential
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp)                             :: output
-  
-  type(PotentialPointer), allocatable :: integrated_potential
-  
-  integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( bra             = state,          &
-                                  & subspace        = subspace,       &
-                                  & subspace_basis  = subspace_basis, &
-                                  & anharmonic_data = anharmonic_data )
-  output = integrated_potential%undisplaced_energy()
-end function
-
-! Calculates <bra|V|ket> as a constant.
-recursive function potential_energy_BasisState_BasisState(bra,potential,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisState),        intent(in) :: bra
-  class(PotentialData),     intent(in) :: potential
-  class(BasisState),        intent(in) :: ket
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  real(dp)                             :: output
-  
-  type(PotentialPointer), allocatable :: integrated_potential
-  
-  integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( bra             = bra,            &
-                                  & ket             = ket,            &
-                                  & subspace        = subspace,       &
-                                  & subspace_basis  = subspace_basis, &
-                                  & anharmonic_data = anharmonic_data )
-  output = integrated_potential%undisplaced_energy()
-end function
-
-! ----------------------------------------------------------------------
-! The bra-ket of an arbitrary stress.
-! Integrates across all dimensions and returns a constant tensor.
-! ----------------------------------------------------------------------
-! Calculates <state|stress|state> as a constant, for the potential stress.
-recursive function potential_stress_BasisState(state,stress,subspace, &
-   & subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisState),        intent(in) :: state
-  class(StressData),        intent(in) :: stress
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(RealMatrix)                     :: output
-  
-  type(StressPointer), allocatable :: integrated_stress
-  
-  integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( bra             = state,          &
-                               & subspace        = subspace,       &
-                               & subspace_basis  = subspace_basis, &
-                               & anharmonic_data = anharmonic_data )
-  output = integrated_stress%undisplaced_stress()
-end function
-
-! Calculates <bra|stress|ket> as a constant, for the potential stress.
-recursive function potential_stress_BasisState_BasisState(bra,stress,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
-  implicit none
-  
-  class(BasisState),        intent(in) :: bra
-  class(StressData),        intent(in) :: stress
-  class(BasisState),        intent(in) :: ket
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(RealMatrix)                     :: output
-  
-  type(StressPointer), allocatable :: integrated_stress
-  
-  integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( bra             = bra,            &
-                               & ket             = ket,            &
-                               & subspace        = subspace,       &
-                               & subspace_basis  = subspace_basis, &
-                               & anharmonic_data = anharmonic_data )
-  output = integrated_stress%undisplaced_stress()
-end function
-
-! ----------------------------------------------------------------------
-! The bra-ket of an arbitrary potential.
-! Integrates across all dimensions and returns a real scalar.
-! ----------------------------------------------------------------------
-! Calculates <state|V|state> as a constant.
-recursive function potential_energy_SubspaceState(state,potential, &
+! As integrate, except that the whole ComplexMonomial must be in the given
+!    subspace.
+! Since the resulting ComplexMonomial would just be a constant, just the
+!    constant is returned.
+impure elemental function                                                  &
+   & integrate_to_constant_SubspaceState_ComplexMonomial(monomial,bra,ket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceState), intent(in) :: state
-  class(PotentialData), intent(in) :: potential
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  real(dp)                         :: output
+  type(ComplexMonomial), intent(in)           :: monomial
+  class(SubspaceState),  intent(in)           :: bra
+  class(SubspaceState),  intent(in), optional :: ket
+  type(AnharmonicData),  intent(in)           :: anharmonic_data
+  complex(dp)                                 :: output
   
-  type(PotentialPointer), allocatable :: integrated_potential
+  type(SparseMonomial) :: sparse_monomial
   
-  integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( bra             = state,          &
-                                  & anharmonic_data = anharmonic_data )
-  output = integrated_potential%undisplaced_energy()
+  sparse_monomial = SparseMonomial(monomial%modes( &
+              & ids        = bra%mode_ids(),       &
+              & paired_ids = bra%paired_mode_ids() ))
+  
+  output = monomial%coefficient            &
+       & * bra%integrate( sparse_monomial, &
+       &                  ket,             &
+       &                  anharmonic_data  )
 end function
 
-! Calculates <bra|V|ket> as a constant.
-recursive function potential_energy_SubspaceState_SubspaceState(bra, &
-   & potential,ket,anharmonic_data) result(output)
+impure elemental function integrate_to_constant_BasisState_ComplexMonomial( &
+   & monomial,bra,ket,subspace,basis,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceState), intent(in) :: bra
-  class(PotentialData), intent(in) :: potential
-  class(SubspaceState), intent(in) :: ket
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  real(dp)                         :: output
+  type(ComplexMonomial),    intent(in)           :: monomial
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  complex(dp)                                    :: output
   
-  type(PotentialPointer), allocatable :: integrated_potential
+  type(SparseMonomial) :: sparse_monomial
   
-  integrated_potential = PotentialPointer(potential)
-  call integrated_potential%braket( bra             = bra,            &
-                                  & ket             = ket,            &
-                                  & anharmonic_data = anharmonic_data )
-  output = integrated_potential%undisplaced_energy()
+  sparse_monomial = SparseMonomial(monomial%modes(                  &
+     & ids        = basis%mode_ids(subspace,anharmonic_data),       &
+     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) ))
+  
+  output = monomial%coefficient              &
+       & * basis%integrate( bra,             &
+       &                    sparse_monomial, &
+       &                    ket,             &
+       &                    subspace,        &
+       &                    anharmonic_data  )
 end function
 
-! ----------------------------------------------------------------------
-! The bra-ket of an arbitrary stress.
-! Integrates across all dimensions and returns a constant tensor.
-! ----------------------------------------------------------------------
-! Calculates <state|stress|state> as a constant, for the potential stress.
-recursive function potential_stress_SubspaceState(state,stress, &
-   & anharmonic_data) result(output)
+impure elemental function integrate_to_constant_BasisStates_ComplexMonomial( &
+   & monomial,states,thermal_energy,subspace,basis,anharmonic_data)          &
+   & result(output) 
   implicit none
   
-  class(SubspaceState), intent(in) :: state
-  class(StressData),    intent(in) :: stress
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  type(RealMatrix)                 :: output
+  type(ComplexMonomial),    intent(in)    :: monomial
+  class(BasisStates),       intent(inout) :: states
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspace
+  class(SubspaceBasis),     intent(in)    :: basis
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  complex(dp)                             :: output
   
-  type(StressPointer), allocatable :: integrated_stress
+  type(SparseMonomial) :: sparse_monomial
   
-  integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( bra             = state,          &
-                               & anharmonic_data = anharmonic_data )
-  output = integrated_stress%undisplaced_stress()
+  integer     :: cache_location
+  complex(dp) :: expectation
+  
+  sparse_monomial = SparseMonomial(monomial%modes(                  &
+     & ids        = basis%mode_ids(subspace,anharmonic_data),       &
+     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) ))
+  
+  cache_location = states%expectation_cache%cached_location(sparse_monomial)
+  if (cache_location==0) then
+    expectation = basis%integrate( states,          &
+                                 & thermal_energy,  &
+                                 & sparse_monomial, &
+                                 & subspace,        &
+                                 & anharmonic_data  )
+    call states%expectation_cache%cache(sparse_monomial, expectation)
+  else
+    expectation = states%expectation_cache%cached_expectation(cache_location)
+  endif
+  
+  output = monomial%coefficient * expectation
 end function
 
-! Calculates <bra|stress|ket> as a constant, for the potential stress.
-recursive function potential_stress_SubspaceState_SubspaceState(bra,stress, &
+impure elemental function                                                  &
+   & integrate_to_constant_SubspaceState_ComplexPolynomial(polynomial,bra, &
    & ket,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceState), intent(in) :: bra
-  class(StressData),    intent(in) :: stress
-  class(SubspaceState), intent(in) :: ket
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  type(RealMatrix)                 :: output
+  type(ComplexPolynomial), intent(in)           :: polynomial
+  class(SubspaceState),    intent(in)           :: bra
+  class(SubspaceState),    intent(in), optional :: ket
+  type(AnharmonicData),    intent(in)           :: anharmonic_data
+  complex(dp)                                   :: output
   
-  type(StressPointer), allocatable :: integrated_stress
+  output = sum(integrate_to_constant( polynomial%terms, &
+                                    & bra,              &
+                                    & ket,              &
+                                    & anharmonic_data   ))
+end function
+
+impure elemental function integrate_to_constant_BasisState_ComplexPolynomial( &
+   & polynomial,bra,ket,subspace,basis,anharmonic_data) result(output)
+  implicit none
   
-  integrated_stress = StressPointer(stress)
-  call integrated_stress%braket( bra             = bra,            &
-                               & ket             = ket,            &
-                               & anharmonic_data = anharmonic_data )
-  output = integrated_stress%undisplaced_stress()
+  type(ComplexPolynomial),  intent(in)           :: polynomial
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  complex(dp)                                    :: output
+  
+  output = sum(integrate_to_constant( polynomial%terms, &
+                                    & bra,              &
+                                    & ket,              &
+                                    & subspace,         &
+                                    & basis,            &
+                                    & anharmonic_data   ))
+end function
+
+impure elemental function                                                   &
+   & integrate_to_constant_BasisStates_ComplexPolynomial(polynomial,states, &
+   & thermal_energy,subspace,basis,anharmonic_data) result(output)
+  implicit none
+  
+  type(ComplexPolynomial),  intent(in)    :: polynomial
+  class(BasisStates),       intent(inout) :: states
+  real(dp),                 intent(in)    :: thermal_energy
+  type(DegenerateSubspace), intent(in)    :: subspace
+  class(SubspaceBasis),     intent(in)    :: basis
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  complex(dp)                             :: output
+  
+  output = sum(integrate_to_constant( polynomial%terms, &
+                                    & states,           &
+                                    & thermal_energy,   &
+                                    & subspace,         &
+                                    & basis,            &
+                                    & anharmonic_data   ))
 end function
 
 ! ----------------------------------------------------------------------

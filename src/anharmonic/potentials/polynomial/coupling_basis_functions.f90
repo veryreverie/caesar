@@ -52,6 +52,12 @@ module coupling_basis_functions_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_CouplingBasisFunctions
     
+    generic,   public :: potential_energy =>          &
+                       & potential_energy_BasisState, &
+                       & potential_energy_SubspaceState
+    procedure, public :: potential_energy_BasisState
+    procedure, public :: potential_energy_SubspaceState
+    
     procedure, public :: undisplaced_energy => &
                        & undisplaced_energy_CouplingBasisFunctions
     
@@ -316,6 +322,40 @@ impure elemental function harmonic_expectation_CouplingBasisFunctions(this, &
   output = sum(this%basis_functions_%harmonic_expectation( frequency,      &
                                                          & thermal_energy, &
                                                          & supercell_size  ))
+end function
+
+impure elemental function potential_energy_SubspaceState(this,bra,ket, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in)           :: this
+  class(SubspaceState),          intent(in)           :: bra
+  class(SubspaceState),          intent(in), optional :: ket
+  type(AnharmonicData),          intent(in)           :: anharmonic_data
+  real(dp)                                            :: output
+  
+  output = sum(this%basis_functions_%potential_energy( bra,            &
+                                                     & ket,            &
+                                                     & anharmonic_data ))
+end function
+
+impure elemental function potential_energy_BasisState(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in)           :: this
+  class(BasisState),             intent(in)           :: bra
+  class(BasisState),             intent(in), optional :: ket
+  type(DegenerateSubspace),      intent(in)           :: subspace
+  class(SubspaceBasis),          intent(in)           :: subspace_basis
+  type(AnharmonicData),          intent(in)           :: anharmonic_data
+  real(dp)                                            :: output
+  
+  output = sum(this%basis_functions_%potential_energy( bra,            &
+                                                     & ket,            &
+                                                     & subspace,       &
+                                                     & subspace_basis, &
+                                                     & anharmonic_data ))
 end function
 
 function generate_basis_functions_SubspaceCoupling(coupling,               &

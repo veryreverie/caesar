@@ -28,7 +28,7 @@ module wavevector_basis_module
   public :: core_harmonic_observables
   public :: core_effective_harmonic_observables
   public :: core_vci_observables
-  public :: integrate
+  public :: integrate_monomial
   
   type, extends(SubspaceBasis) :: WavevectorBasis
     integer                                          :: maximum_power
@@ -97,8 +97,8 @@ module wavevector_basis_module
     module procedure core_vci_observables_WavevectorBasis
   end interface
   
-  interface integrate
-    module procedure integrate_SparseMonomial_WavevectorBases
+  interface integrate_monomial
+    module procedure integrate_monomial_WavevectorBases
   end interface
 contains
 
@@ -658,7 +658,7 @@ impure elemental function integrate_BasisState_WavevectorBasis(this,bra, &
 end function
 
 ! Integrate a monomial between sets of states.
-function integrate_SparseMonomial_WavevectorBases(bases,states, &
+function integrate_monomial_WavevectorBases(bases,states, &
    & thermal_energy,monomial,anharmonic_data) result(output)
   implicit none
   
@@ -671,19 +671,23 @@ function integrate_SparseMonomial_WavevectorBases(bases,states, &
   
   type(WavevectorStates) :: states_
   
-  integer, allocatable :: at_wavevector(:)
+  real(dp), allocatable :: density_matrix(:,:)
   
   complex(dp) :: term
   
-  integer :: i,j,k,l,m
+  integer :: i,j,k,l
   
   states_ = WavevectorStates(states)
   
   output = 0.0_dp
   ! Loop over wavevector bases, summing the contribution from each.
   do i=1,size(bases)
-    ! Filter the states to get only the states at this wavevector.
-    at_wavevector = filter(states_%states%wavevector==bases(i)%wavevector)
+    ! Get the density matrix at this wavevector.
+    density_matrix = dble(states_%density_matrix(bases(i)%wavevector))
+    
+    if (size(density_matrix,1)==0) then
+      cycle
+    endif
     
     ! Perform a double loop across harmonic states, including only those
     !   for which <j|X|l> can be non-zero.
@@ -696,25 +700,13 @@ function integrate_SparseMonomial_WavevectorBases(bases,states, &
           cycle
         endif
         
-        ! Calculate <j|X|l> in the harmonic basis.
-        term = bases(i)%harmonic_states_(j)%integrate( &
-                       & monomial,                     &
-                       & bases(i)%harmonic_states_(l), &
-                       & anharmonic_data               )
-        
-        ! Calculate the contribution to the thermal average of <X>
-        !    from <j|X|l>.
-        ! <X> = sum_m <m|X|m> * w(m), where {|m>} are the eigenstates,
-        !    and w(m) is the thermal weight of eigenstate m.
-        ! <X> = sum_m (sum_j U(m,j)<j|) X (sum_l U(m,l)|l>) w(m)
-        !     = sum_j sum_l ( <j|X|l> * sum_m(U(m,j) U(m,l) w(m)) )
-        ! U(m,j) is the j'th component of the m'th eigenvector.
-        term = term                                                      &
-           & * sum([(   states_%states(at_wavevector(m))%coefficients(j) &
-           &          * states_%states(at_wavevector(m))%coefficients(l) &
-           &          * states_%weights(at_wavevector(m)),               &
-           &          m=1,                                               &
-           &          size(at_wavevector)                                )])
+        ! Calculate <j|X|l> in the harmonic basis,
+        !    and thermally weight by the density matrix.
+        term = bases(i)%harmonic_states_(j)%integrate(   &
+           &             monomial,                       &
+           &             bases(i)%harmonic_states_(l),   &
+           &             anharmonic_data               ) &
+           & * density_matrix(j,l)
         
         ! If j==l, only include <j|X|j>, otherwise include <l|X|j> and <j|X|l>.
         if (l==j) then
@@ -925,12 +917,11 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
       k = this%harmonic_couplings_(i)%id(j)
       ket = this%harmonic_states_(k)
       
-      hamiltonian(i,k) = bra%kinetic_energy( ket,              &
-                     &                       anharmonic_data ) &
-                     & + potential_energy( bra,                &
-                     &                     subspace_potential, &
-                     &                     ket,                &
-                     &                     anharmonic_data )
+      hamiltonian(i,k) = bra%kinetic_energy( ket,                             &
+                     &                       anharmonic_data )                &
+                     & + subspace_potential%potential_energy( bra,            &
+                     &                                        ket,            &
+                     &                                        anharmonic_data )
     enddo
   enddo
   
@@ -944,11 +935,10 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
   
   ! N.B. there is not enough information at this stage to calculate weights.
   ! These must be calculated once the states from each wavevector are collated.
-  output = BasisStatesPointer(WavevectorStates(  &
-     & subspace_id = this%subspace_id,           &
-     & states      = wavevector_states,          &
-     & energies    = estuff%eval,                &
-     & weights     = [(0.0_dp,i=1,size(estuff))] ))
+  output = BasisStatesPointer(WavevectorStates( &
+             & subspace_id = this%subspace_id,  &
+             & states      = wavevector_states, &
+             & energies    = estuff%eval        ))
 end function
 
 ! ----------------------------------------------------------------------
@@ -997,9 +987,8 @@ function core_harmonic_observables_WavevectorBasis(bases,thermal_energy, &
         stresses(k) = bases(i)%harmonic_states_(j)%kinetic_stress(       &
                   &         stress_prefactors = stress_prefactors,       &
                   &         anharmonic_data   = anharmonic_data    )     &
-                  & + potential_stress(                                  &
-                  &      state           = bases(i)%harmonic_states_(j), &
-                  &      stress          = stress,                       &
+                  & + stress%potential_stress(                           &
+                  &      bra             = bases(i)%harmonic_states_(j), &
                   &      anharmonic_data = anharmonic_data               )
       enddo
     enddo
@@ -1065,14 +1054,14 @@ function core_effective_harmonic_observables_WavevectorBasis(bases,     &
                                 & - harmonic_kinetic_energies(ground_state) )
   
   ! Calculate <|V|> for the input potential.
-  anharmonic_potential_energies = [(                          &
-     & [( potential_energy( bases(i)%harmonic_states_(j),     &
-     &                      potential,                        &
-     &                      anharmonic_data           ),      &
-     &    j=1,                                                &
-     &    size(bases(i)%harmonic_states_)                 )], &
-     & i=1,                                                   &
-     & size(bases)                                            )]
+  anharmonic_potential_energies = [(                                &
+     & [( potential%potential_energy(                               &
+     &       bra             = bases(i)%harmonic_states_(j),        &
+     &       anharmonic_data = anharmonic_data               ),     &
+     &    j=1,                                                      &
+     &    size(bases(i)%harmonic_states_)                       )], &
+     & i=1,                                                         &
+     & size(bases)                                                  )]
   
   ! Calculate the difference in <|V|> between the harmonic
   !    and anharmonic potentials.
@@ -1137,11 +1126,11 @@ function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
     do i=1,size(wavevector_states%states)
       associate(state => wavevector_states%states(i))
         j = first(bases%wavevector==state%wavevector)
-        stress(i) = potential_stress( state,                  &
-                &                     subspace_stress,        &
-                &                     subspace,               &
-                &                     bases(j),               &
-                &                     anharmonic_data  )      &
+        stress(i) = subspace_stress%potential_stress(         &
+                &      bra             = state,               &
+                &      subspace        = subspace,            &
+                &      subspace_basis  = bases(j),            &
+                &      anharmonic_data = anharmonic_data  )   &
                 & + bases(j)%kinetic_stress(                  &
                 &      bra               = state,             &
                 &      subspace          = subspace,          &

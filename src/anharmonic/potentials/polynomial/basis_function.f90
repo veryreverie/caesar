@@ -62,6 +62,12 @@ module basis_function_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_BasisFunction
     
+    generic,   public :: potential_energy =>          &
+                       & potential_energy_BasisState, &
+                       & potential_energy_SubspaceState
+    procedure, public :: potential_energy_BasisState
+    procedure, public :: potential_energy_SubspaceState
+    
     procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
     procedure, public  :: coefficient => coefficient_BasisFunction
@@ -569,7 +575,13 @@ function finalise_BasisFunctions(input,subspace,subspace_basis, &
           & stat=ialloc); call err(ialloc)
   k = 0
   do i=1,order
-    energy_scale = subspace_basis%frequency**(0.5_dp*i)
+    ! A term |u|^(2n) scales like (2Nw)^{-n}.
+    ! w must be capped so that it is not considered to be too small, otherwise
+    !    some terms become excessively weighted.
+    energy_scale = ( 2                                              &
+              &    * anharmonic_data%anharmonic_supercell%sc_size   &
+              &    * max(subspace_basis%frequency,1e-4_dp)        ) &
+              & ** (0.5_dp*i)
     
     associate (terms => output(k+1:k+size(complex_polynomials(i)%terms)))
       conjugates = find_monomial_conjugates(complex_polynomials(i)%terms)
@@ -739,11 +751,10 @@ impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
   type(AnharmonicData), intent(in)           :: anharmonic_data
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_%terms = integrate( &
-            & bra,                                &
-            & this%complex_representation_%terms, &
-            & ket,                                &
-            & anharmonic_data                     )
+  call integrate( this%complex_representation_%terms, &
+                & bra,                                &
+                & ket,                                &
+                & anharmonic_data                     )
 end subroutine
 
 impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
@@ -758,13 +769,12 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   
   ! Perform integration in complex co-ordinates.
-  this%complex_representation_%terms = integrate( &
-            & bra,                                &
-            & this%complex_representation_%terms, &
-            & ket,                                &
-            & subspace,                           &
-            & subspace_basis,                     &
-            & anharmonic_data                     )
+  call integrate( this%complex_representation_%terms, &
+                & bra,                                &
+                & ket,                                &
+                & subspace,                           &
+                & subspace_basis,                     &
+                & anharmonic_data                     )
 end subroutine
 
 impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
@@ -782,13 +792,12 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   
   ! Perform integration in complex co-ordinates.
   do i=1,size(this%complex_representation_%terms) 
-    this%complex_representation_%terms(i) = integrate( &
-              & states,                                &
-              & thermal_energy,                        &
-              & this%complex_representation_%terms(i), &
-              & subspace,                              &
-              & subspace_basis,                        &
-              & anharmonic_data                        )
+    call integrate( this%complex_representation_%terms(i), &
+                  & states,                                &
+                  & thermal_energy,                        &
+                  & subspace,                              &
+                  & subspace_basis,                        &
+                  & anharmonic_data                        )
   enddo
 end subroutine
 
@@ -809,6 +818,44 @@ impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
        & * this%complex_representation_%harmonic_expectation( frequency,      &
        &                                                      thermal_energy, &
        &                                                      supercell_size  )
+end function
+
+impure elemental function potential_energy_SubspaceState(this,bra,ket, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in)           :: this
+  class(SubspaceState), intent(in)           :: bra
+  class(SubspaceState), intent(in), optional :: ket
+  type(AnharmonicData), intent(in)           :: anharmonic_data
+  real(dp)                                   :: output
+  
+  output = this%coefficient_                                         &
+       & * real(integrate_to_constant( this%complex_representation_, &
+       &                               bra,                          &
+       &                               ket,                          &
+       &                               anharmonic_data               ))
+end function
+
+impure elemental function potential_energy_BasisState(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output)
+  implicit none
+  
+  class(BasisFunction),     intent(in)           :: this
+  class(BasisState),        intent(in)           :: bra
+  class(BasisState),        intent(in), optional :: ket
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  real(dp)                                       :: output
+  
+  output = this%coefficient_                                         &
+       & * real(integrate_to_constant( this%complex_representation_, &
+       &                               bra,                          &
+       &                               ket,                          &
+       &                               subspace,                     &
+       &                               subspace_basis,               &
+       &                               anharmonic_data               ))
 end function
 
 ! ----------------------------------------------------------------------
@@ -953,8 +1000,7 @@ function calculate_dynamical_matrices_BasisFunction(this,qpoints, &
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   type(DynamicalMatrix), allocatable      :: output(:)
   
-  output = output                                                        &
-       & + calculate_dynamical_matrices( this%complex_representation_,   &
+  output = calculate_dynamical_matrices( this%complex_representation_,   &
        &                                 qpoints,                        &
        &                                 thermal_energy,                 &
        &                                 subspaces,                      &
