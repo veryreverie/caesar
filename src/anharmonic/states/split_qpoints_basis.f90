@@ -22,8 +22,6 @@ module split_qpoints_basis_module
   
   public :: SplitQpointsBasis
   
-  public :: initial_ground_state
-  
   type, extends(Stringable) :: QpointModeIDs
     integer, allocatable :: mode_ids(:)
     integer, allocatable :: paired_mode_ids(:)
@@ -312,43 +310,15 @@ impure elemental function initial_states_SplitQpointsBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  type(WavevectorState) :: ground_state
-  
-  integer :: ialloc
-  
-  ! Generate the state |0>.
-  ground_state = initial_ground_state(this)
-  
-  ! Generate the set of states {|0>}.
-  output = BasisStatesPointer(WavevectorStates( &
-                & subspace_id = subspace%id,    &
-                & states      = [ground_state], &
-                & energies    = [0.0_dp],       &
-                & weights     = [1.0_dp]        ))
-end function
-
-! Generate initial guess. This is simply the basis state |0>, i.e. the
-!    ground state of the effective harmonic potential from which the basis
-!    states were generated.
-impure elemental function initial_ground_state(basis) result(output)
-  implicit none
-  
-  type(SplitQpointsBasis), intent(in) :: basis
-  type(WavevectorState)               :: output
-  
-  type(WavevectorBasis) :: wavevector_basis
-  
-  ! Find the basis at wavevector [0,0,0].
-  wavevector_basis = basis%wavevectors(            &
-     & first(is_int(basis%wavevectors%wavevector)) )
-  
-  ! Construct the ground state at [0,0,0].
-  output = wavevector_basis%initial_ground_state()
+  associate( gamma_basis =>                                               &
+           & this%wavevectors(first(is_int(this%wavevectors%wavevector))) )
+    output = gamma_basis%initial_states( subspace,       &
+                                       & thermal_energy, &
+                                       & anharmonic_data )
+  end associate
 end function
 
 ! Calculate the eigenstates of a single-subspace potential.
-! Uses a VSCF scheme between q-points in the subspace.
-! See vscf.90 for details.
 impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
    & subspace_potential,thermal_energy,convergence_data,anharmonic_data)    &
    & result(output)
@@ -362,34 +332,12 @@ impure elemental function calculate_states_SplitQpointsBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  type(WavevectorStates)             :: wavevector_states
-  type(WavevectorState), allocatable :: states(:)
-  real(dp),              allocatable :: energies(:)
-  real(dp),              allocatable :: weights(:)
-  
-  integer :: i,ialloc
-  
-  allocate( states(0),   &
-          & energies(0), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this%wavevectors)
-    wavevector_states = WavevectorStates(        &
-       & this%wavevectors(i)%calculate_states(   &
-       &            subspace,                    &
-       &            subspace_potential,          &
-       &            thermal_energy,              &
-       &            convergence_data,            &
-       &            anharmonic_data            ) )
-    states = [states, wavevector_states%states]
-    energies = [energies, wavevector_states%energies]
-  enddo
-  
-  weights = calculate_weights(energies, thermal_energy)
-  
-  output = BasisStatesPointer(WavevectorStates( subspace%id, &
-                                              & states,      &
-                                              & energies,    &
-                                              & weights      ))
+  output = calculate_states( this%wavevectors,   &
+                           & subspace,           &
+                           & subspace_potential, &
+                           & thermal_energy,     &
+                           & convergence_data,   &
+                           & anharmonic_data     )
 end function
 
 ! Integrates the potential over all but the first q-point in the subspace.

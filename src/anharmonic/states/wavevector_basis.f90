@@ -14,9 +14,10 @@ module wavevector_basis_module
   use harmonic_state_real_module
   use harmonic_state_complex_module
   use coupled_states_module
+  use density_matrix_module
   use wavevector_state_module
   use wavevector_states_module
-  use anharmonic_data_module
+  use calculate_weights_module
   implicit none
   
   private
@@ -25,6 +26,7 @@ module wavevector_basis_module
   
   public :: WavevectorBasis
   
+  public :: calculate_states
   public :: core_harmonic_observables
   public :: core_effective_harmonic_observables
   public :: core_vci_observables
@@ -671,21 +673,20 @@ function integrate_monomial_WavevectorBases(bases,states, &
   
   type(WavevectorStates) :: states_
   
-  real(dp), allocatable :: density_matrix(:,:)
-  
   complex(dp) :: term
   
-  integer :: i,j,k,l
+  integer :: i,j,k,l,m
   
   states_ = WavevectorStates(states)
   
   output = 0.0_dp
   ! Loop over wavevector bases, summing the contribution from each.
   do i=1,size(bases)
-    ! Get the density matrix at this wavevector.
-    density_matrix = dble(states_%density_matrix(bases(i)%wavevector))
-    
-    if (size(density_matrix,1)==0) then
+    m = first( states_%density_matrices%wavevector==bases(i)%wavevector, &
+             & default=0)
+    if (m==0) then
+      cycle
+    elseif (.not. allocated(states_%density_matrices(m)%keys)) then
       cycle
     endif
     
@@ -706,7 +707,8 @@ function integrate_monomial_WavevectorBases(bases,states, &
            &             monomial,                       &
            &             bases(i)%harmonic_states_(l),   &
            &             anharmonic_data               ) &
-           & * density_matrix(j,l)
+           & * states_%density_matrices(m)%values(       &
+           &      states_%density_matrices(m)%keys(j)+k )
         
         ! If j==l, only include <j|X|j>, otherwise include <l|X|j> and <j|X|l>.
         if (l==j) then
@@ -851,6 +853,9 @@ end function
 ! ----------------------------------------------------------------------
 ! Operations which generate WavevectorStates.
 ! ----------------------------------------------------------------------
+! Generate initial guess. This is simply the basis state |0>, i.e. the
+!    ground state of the effective harmonic potential from which the basis
+!    states were generated.
 impure elemental function initial_ground_state_WavevectorBasis(this) &
    & result(output)
   implicit none
@@ -878,11 +883,20 @@ impure elemental function initial_states_WavevectorBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  output = BasisStatesPointer(WavevectorStates(     &
-     & subspace_id = this%subspace_id,              &
-     & states      = [this%initial_ground_state()], &
-     & energies    = [0.0_dp],                      &
-     & weights     = [1.0_dp]                       ))
+  type(WavevectorState)  :: state
+  type(WavevectorStates) :: states
+  
+  state = this%initial_ground_state()
+  
+  states = WavevectorStates( subspace_id = this%subspace_id, &
+                           & states      = [state],          &
+                           & energies    = [0.0_dp]          )
+  
+  states%density_matrices = [calculate_density_matrix( basis   = this,    &
+                                                     & states  = [state], &
+                                                     & weights = [1.0_dp] )]
+
+  output = BasisStatesPointer(states)
 end function
 
 impure elemental function calculate_states_WavevectorBasis(this,subspace, &
@@ -939,6 +953,172 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
              & subspace_id = this%subspace_id,  &
              & states      = wavevector_states, &
              & energies    = estuff%eval        ))
+end function
+
+! Generate the density matrices associated with a WavevectorStates.
+function calculate_density_matrix(basis,states,weights) result(output)
+  implicit none
+  
+  type(WavevectorBasis), intent(in) :: basis
+  type(WavevectorState), intent(in) :: states(:)
+  real(dp),              intent(in) :: weights(:)
+  type(DensityMatrix)               :: output
+  
+  integer              :: no_states
+  integer              :: key
+  integer, allocatable :: couplings(:)
+  
+  integer :: i,j,ialloc
+  
+  output%wavevector = basis%wavevector
+  
+  if (size(states)==0) then
+    return
+  endif
+  
+  ! Initialise keys.
+  no_states = size(states(1)%coefficients)
+  allocate(output%keys(no_states), stat=ialloc); call err(ialloc)
+  key = 0
+  do i=1,no_states
+    output%keys(i) = key
+    key = key+size(basis%harmonic_couplings_(i)%ids())
+  enddo
+  
+  ! Calculate matrix elements.
+  allocate(output%values(key), stat=ialloc); call err(ialloc)
+  output%values = 0
+  do i=1,no_states
+    couplings = basis%harmonic_couplings_(i)%ids()
+    key = output%keys(i)
+    do j=1,size(states)
+      output%values(key+1:key+size(couplings)) =      &
+         &   output%values(key+1:key+size(couplings)) &
+         & + states(j)%coefficients(couplings)        &
+         & * states(j)%coefficients(i)                &
+         & * weights(j)
+    enddo
+  enddo
+end function
+
+subroutine calculate_density_matrices(states,bases,weights)
+  implicit none
+  
+  type(WavevectorStates), intent(inout) :: states
+  type(WavevectorBasis),  intent(in)    :: bases(:)
+  real(dp),               intent(in)    :: weights(:)
+  
+  integer, allocatable :: wavevectors(:)
+  
+  integer,  allocatable :: wavevector_states(:)
+  integer               :: no_states
+  
+  integer, allocatable :: couplings(:)
+  
+  integer :: key
+  
+  integer :: i,j,k,ialloc
+  
+  wavevectors = filter([(                                  &
+     & any(states%states%wavevector==bases(i)%wavevector), &
+     & i=1,                                                &
+     & size(bases)                                         )])
+  
+  allocate( states%density_matrices(size(wavevectors)), &
+          & stat=ialloc); call err(ialloc)
+  states%density_matrices%wavevector = bases(wavevectors)%wavevector
+  do i=1,size(wavevectors)
+    do j=1,size(states%states)
+      if (states%states(j)%wavevector==bases(wavevectors(i))%wavevector) then
+        no_states = size(states%states(j)%coefficients)
+        if (.not. allocated(states%density_matrices(i)%keys)) then
+          allocate( states%density_matrices(i)%keys(no_states), &
+                  & stat=ialloc); call err(ialloc)
+          key = 0
+          do k=1,no_states
+            couplings = bases(i)%harmonic_couplings_(k)%ids()
+            states%density_matrices(i)%keys(k) = key
+            key = key+size(couplings)
+          enddo
+          allocate( states%density_matrices(i)%values(key), &
+                  & stat=ialloc); call err(ialloc)
+          states%density_matrices(i)%values = 0
+        endif
+        
+        do k=1,no_states
+          couplings = bases(i)%harmonic_couplings_(k)%ids()
+          key = states%density_matrices(i)%keys(k)
+          states%density_matrices(i)%values(key+1:key+size(couplings)) = &
+             &   states%density_matrices(i)%values(key+1:key+size(couplings)) &
+             & + states%states(j)%coefficients(couplings) &
+             & * states%states(j)%coefficients(k)         &
+             & * weights(j)
+        enddo
+      endif
+    enddo
+  enddo
+end subroutine
+
+! Calculate the eigenstates of a wavevector basis.
+function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
+   & convergence_data,anharmonic_data) result(output) 
+  implicit none
+  
+  type(WavevectorBasis),    intent(in) :: basis(:)
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(PotentialData),     intent(in) :: subspace_potential
+  real(dp),                 intent(in) :: thermal_energy
+  type(ConvergenceData),    intent(in) :: convergence_data
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(BasisStatesPointer)             :: output
+  
+  type(WavevectorStates)             :: wavevector_states
+  type(WavevectorState), allocatable :: states(:)
+  real(dp),              allocatable :: energies(:)
+  real(dp),              allocatable :: weights(:)
+  
+  integer              :: key
+  integer, allocatable :: keys(:,:)
+  
+  integer :: i,ialloc
+  
+  allocate(keys(2,size(basis)), stat=ialloc); call err(ialloc)
+  
+  allocate( states(0),   &
+          & energies(0), &
+          & stat=ialloc); call err(ialloc)
+  key = 0
+  do i=1,size(basis)
+    wavevector_states = WavevectorStates( &
+       & basis(i)%calculate_states(       &
+       &            subspace,             &
+       &            subspace_potential,   &
+       &            thermal_energy,       &
+       &            convergence_data,     &
+       &            anharmonic_data     ) )
+    keys(1,i) = key+1
+    keys(2,i) = key+size(wavevector_states%states)
+    key = keys(2,i)
+    states = [states, wavevector_states%states]
+    energies = [energies, wavevector_states%energies]
+  enddo
+  
+  wavevector_states = WavevectorStates( subspace%id, &
+                                      & states,      &
+                                      & energies     )
+  
+  weights = calculate_weights(energies, thermal_energy)
+  
+  allocate( wavevector_states%density_matrices(size(basis)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(basis)
+    wavevector_states%density_matrices(i) = calculate_density_matrix( &
+                                       & basis(i),                    &
+                                       & states(keys(1,i):keys(2,i)), &
+                                       & weights(keys(1,i):keys(2,i)) )
+  enddo
+  
+  output = BasisStatesPointer(wavevector_states)
 end function
 
 ! ----------------------------------------------------------------------

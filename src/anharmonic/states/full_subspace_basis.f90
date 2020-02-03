@@ -20,8 +20,6 @@ module full_subspace_basis_module
   
   public :: FullSubspaceBasis
   
-  public :: initial_ground_state
-  
   ! All states spanning the subspace.
   type, extends(SubspaceBasis) :: FullSubspaceBasis
     ! The number of primitive cells in the supercell.
@@ -234,38 +232,12 @@ impure elemental function initial_states_FullSubspaceBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  type(WavevectorState) :: ground_state
-  
-  integer :: ialloc
-  
-  ! Generate the state |0>.
-  ground_state = initial_ground_state(this)
-  
-  ! Generate the set of states {|0>}.
-  output = BasisStatesPointer(WavevectorStates( &
-                & subspace_id = subspace%id,    &
-                & states      = [ground_state], &
-                & energies    = [0.0_dp],       &
-                & weights     = [1.0_dp]        ))
-end function
-
-! Generate initial guess. This is simply the basis state |0>, i.e. the
-!    ground state of the effective harmonic potential from which the basis
-!    states were generated.
-impure elemental function initial_ground_state(basis) result(output)
-  implicit none
-  
-  type(FullSubspaceBasis), intent(in) :: basis
-  type(WavevectorState)               :: output
-  
-  type(WavevectorBasis) :: wavevector_basis
-  
-  ! Find the basis at wavevector [0,0,0].
-  wavevector_basis = basis%wavevectors(            &
-     & first(is_int(basis%wavevectors%wavevector)) )
-  
-  ! Construct the ground state at [0,0,0].
-  output = wavevector_basis%initial_ground_state()
+  associate( gamma_basis =>                                               &
+           & this%wavevectors(first(is_int(this%wavevectors%wavevector))) )
+    output = gamma_basis%initial_states( subspace,       &
+                                       & thermal_energy, &
+                                       & anharmonic_data )
+  end associate
 end function
 
 ! Calculate the eigenstates of a single-subspace potential.
@@ -282,36 +254,12 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  type(WavevectorState)              :: state
-  type(WavevectorState), allocatable :: states(:)
-  real(dp),              allocatable :: energies(:)
-  real(dp),              allocatable :: weights(:)
-  
-  type(WavevectorStates) :: wavevector_states
-  
-  integer :: i,ialloc
-  
-  allocate( states(0),   &
-          & energies(0), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this%wavevectors)
-    wavevector_states = WavevectorStates(        &
-       & this%wavevectors(i)%calculate_states(   &
-       &            subspace,                    &
-       &            subspace_potential,          &
-       &            thermal_energy,              &
-       &            convergence_data,            &
-       &            anharmonic_data            ) )
-    states = [states, wavevector_states%states]
-    energies = [energies, wavevector_states%energies]
-  enddo
-  
-  weights = calculate_weights(energies, thermal_energy)
-  
-  output = BasisStatesPointer(WavevectorStates( subspace%id, &
-                                              & states,      &
-                                              & energies,    &
-                                              & weights      ))
+  output = calculate_states( this%wavevectors,   &
+                           & subspace,           &
+                           & subspace_potential, &
+                           & thermal_energy,     &
+                           & convergence_data,   &
+                           & anharmonic_data     )
 end function
 
 impure elemental function wavefunction_FullSubspaceBasis(this,state, &
