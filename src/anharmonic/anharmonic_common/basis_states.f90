@@ -31,6 +31,7 @@ module basis_states_module
                                & representation_BasisStatesPointer
     
     procedure, public :: states => states_BasisStatesPointer
+    procedure, public :: states_pointer => states_pointer_BasisStatesPointer
     
     ! I/O.
     procedure, public :: read  => read_BasisStatesPointer
@@ -129,6 +130,17 @@ function states_BasisStatesPointer(this) result(output)
   call this%check()
   
   output = this%states_
+end function
+
+function states_pointer_BasisStatesPointer(this) result(output)
+  implicit none
+  
+  class(BasisStatesPointer), intent(in), target :: this
+  class(BasisStates), pointer                   :: output
+  
+  call this%check()
+  
+  output => this%states_
 end function
 
 ! I/O.

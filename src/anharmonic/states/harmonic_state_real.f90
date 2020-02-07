@@ -16,6 +16,8 @@ module harmonic_state_real_module
   
   public :: HarmonicStateReal
   
+  public :: harmonic_state_real_pointer
+  
   public :: prod_real
   
   type, extends(SubspaceState) :: HarmonicStateReal
@@ -111,8 +113,24 @@ recursive function new_HarmonicStateReal_SubspaceState(input) result(this)
   type is(SubspaceStatePointer)
     ! WORKAROUND: ifort doesn't recognise the interface to this function
     !    from within this function, so the full name is used instead.
-    !this = HarmonicStateReal(input%state())
     this = new_HarmonicStateReal_SubspaceState(input%state())
+  class default
+    call err()
+  end select
+end function
+
+! Cast a class(SubspaceState) to a pointer of type(HarmonicStateReal).
+! N.B. this must only be called on inputs with the TARGET attribute.
+recursive function harmonic_state_real_pointer(input) result(this)
+  implicit none
+  
+  class(SubspaceState), intent(in), target :: input
+  type(HarmonicStateReal), pointer         :: this
+  
+  select type(input); type is(HarmonicStateReal)
+    this => input
+  type is(SubspaceStatePointer)
+    this => harmonic_state_real_pointer(input%state_pointer())
   class default
     call err()
   end select
@@ -221,15 +239,15 @@ impure elemental function inner_product_HarmonicStateReal(this, &
    & ket,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicStateReal), intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(HarmonicStateReal), intent(in)                   :: this
+  class(SubspaceState),     intent(in), optional, target :: ket
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
-  type(HarmonicStateReal) :: harmonic_ket
+  type(HarmonicStateReal), pointer :: harmonic_ket
   
   if (present(ket)) then
-    harmonic_ket = HarmonicStateReal(ket)
+    harmonic_ket => harmonic_state_real_pointer(ket)
     output = product(this%modes_%inner_product(harmonic_ket%modes_))
   else
     ! Modes are normalised, so <p|p>=1.
@@ -241,11 +259,13 @@ impure elemental function integrate_HarmonicStateReal(this, &
    & monomial,ket,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicStateReal), intent(in)           :: this
-  type(SparseMonomial),     intent(in)           :: monomial
-  class(SubspaceState),     intent(in), optional :: ket
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  complex(dp)                                    :: output
+  class(HarmonicStateReal), intent(in)                   :: this
+  type(SparseMonomial),     intent(in)                   :: monomial
+  class(SubspaceState),     intent(in), optional, target :: ket
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  complex(dp)                                            :: output
+  
+  type(HarmonicStateReal), pointer :: harmonic_ket
   
   integer :: i
   
@@ -259,21 +279,9 @@ impure elemental function integrate_HarmonicStateReal(this, &
   !    SubspaceStatePointer%state_ directly rather than calling
   !    HarmonicStateReal(ket), in order to improve runtimes.
   if (present(ket)) then
-    select type(ket); type is(SubspaceStatePointer)
-      associate(ket2=>ket%state_)
-        select type(ket2); type is(HarmonicStateReal)
-          output = product(this%modes_%braket( ket2%modes_,   &
-                                             & monomial%modes ))
-        class default
-          call err()
-        end select
-      end associate
-    type is(HarmonicStateReal)
-      output = product(this%modes_%braket( ket%modes_,    &
-                                         & monomial%modes ))
-    class default
-      call err()
-    end select
+    harmonic_ket => harmonic_state_real_pointer(ket)
+    output = product(this%modes_%braket( harmonic_ket%modes_, &
+                                       & monomial%modes       ))
   else
     output = product(this%modes_%braket( this%modes_,   &
                                        & monomial%modes ))
@@ -291,12 +299,13 @@ impure elemental function kinetic_energy_HarmonicStateReal(this,ket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicStateReal), intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(HarmonicStateReal), intent(in)                   :: this
+  class(SubspaceState),     intent(in), optional, target :: ket
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
-  type(HarmonicStateReal)            :: harmonic_ket
+  type(HarmonicStateReal), pointer :: harmonic_ket
+  
   type(HarmonicState1D), allocatable :: bra_modes(:)
   type(HarmonicState1D), allocatable :: ket_modes(:)
   
@@ -312,7 +321,7 @@ impure elemental function kinetic_energy_HarmonicStateReal(this,ket, &
   bra_modes = this%modes_
   
   if (present(ket)) then
-    harmonic_ket = HarmonicStateReal(ket)
+    harmonic_ket => harmonic_state_real_pointer(ket)
     ket_modes = harmonic_ket%modes_
     
     if (all(bra_modes%finite_overlap(ket_modes))) then
@@ -339,12 +348,13 @@ impure elemental function harmonic_potential_energy_HarmonicStateReal( &
    & this,ket,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicStateReal), intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(HarmonicStateReal), intent(in)                   :: this
+  class(SubspaceState),     intent(in), optional, target :: ket
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
-  type(HarmonicStateReal)              :: harmonic_ket
+  type(HarmonicStateReal), pointer :: harmonic_ket
+  
   type(HarmonicState1D),   allocatable :: bra_modes(:)
   type(HarmonicState1D),   allocatable :: ket_modes(:)
   type(ComplexUnivariate), allocatable :: harmonic_potential(:)
@@ -366,7 +376,7 @@ impure elemental function harmonic_potential_energy_HarmonicStateReal( &
                                         & paired_power = 2               )
   
   if (present(ket)) then
-    harmonic_ket = HarmonicStateReal(ket)
+    harmonic_ket => harmonic_state_real_pointer(ket)
     ket_modes = harmonic_ket%modes_
     
     if (all(bra_modes%finite_overlap(ket_modes))) then
@@ -397,13 +407,13 @@ impure elemental function kinetic_stress_HarmonicStateReal(this,ket, &
    & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicStateReal), intent(in)           :: this
-  class(SubspaceState),     intent(in), optional :: ket
-  type(StressPrefactors),   intent(in)           :: stress_prefactors
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(RealMatrix)                               :: output
+  class(HarmonicStateReal), intent(in)                   :: this
+  class(SubspaceState),     intent(in), optional, target :: ket
+  type(StressPrefactors),   intent(in)                   :: stress_prefactors
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  type(RealMatrix)                                       :: output
   
-  type(HarmonicStateReal) :: harmonic_ket
+  type(HarmonicStateReal), pointer :: harmonic_ket
   
   logical,  allocatable :: finite_overlap(:)
   real(dp), allocatable :: first_derivatives(:)
@@ -427,7 +437,7 @@ impure elemental function kinetic_stress_HarmonicStateReal(this,ket, &
   output = dblemat(zeroes(3,3))
   
   if (present(ket)) then
-    harmonic_ket = HarmonicStateReal(ket)
+    harmonic_ket => harmonic_state_real_pointer(ket)
     
     finite_overlap = this%modes_%finite_overlap(harmonic_ket%modes_)
     if (count(.not.finite_overlap)==0) then

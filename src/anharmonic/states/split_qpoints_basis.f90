@@ -110,7 +110,6 @@ module split_qpoints_basis_module
   
   interface SplitQpointsBasis
     module procedure new_SplitQpointsBasis
-    module procedure new_SplitQpointsBasis_SubspaceBasis
     module procedure new_SplitQpointsBasis_subspace
     module procedure new_SplitQpointsBasis_Strings
     module procedure new_SplitQpointsBasis_StringArray
@@ -165,24 +164,6 @@ function new_SplitQpointsBasis(supercell_size,maximum_power,expansion_order, &
   this%wavevectors           = wavevectors
   this%qpoints               = qpoints
   this%qpoints_to_integrate_ = [(i, i=1, size(qpoints))]
-end function
-
-recursive function new_SplitQpointsBasis_SubspaceBasis(input) result(this)
-  implicit none
-  
-  class(SubspaceBasis), intent(in) :: input
-  type(SplitQpointsBasis)          :: this
-  
-  select type(input); type is(SplitQpointsBasis)
-    this = input
-  type is(SubspaceBasisPointer)
-    ! WORKAROUND: ifort doesn't recognise the interface to this function
-    !    from within this function, so the full name is used instead.
-    !this = SplitQpointsBasis(input%basis())
-    this = new_SplitQpointsBasis_SubspaceBasis(input%basis())
-  class default
-    call err()
-  end select
 end function
 
 ! Type representation.
@@ -345,13 +326,13 @@ impure elemental function process_subspace_potential_SplitQpointsBasis(this, &
    & potential,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)    :: this
-  class(PotentialData),     intent(in)    :: potential
-  class(BasisStates),       intent(inout) :: states
-  type(DegenerateSubspace), intent(in)    :: subspace
-  real(dp),                 intent(in)    :: thermal_energy
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(PotentialPointer)                  :: output
+  class(SplitQpointsBasis), intent(in)            :: this
+  class(PotentialData),     intent(in)            :: potential
+  class(BasisStates),       intent(inout), target :: states
+  type(DegenerateSubspace), intent(in)            :: subspace
+  real(dp),                 intent(in)            :: thermal_energy
+  type(AnharmonicData),     intent(in)            :: anharmonic_data
+  type(PotentialPointer)                          :: output
   
   type(SplitQpointsBasis) :: basis
   
@@ -400,13 +381,13 @@ impure elemental function process_subspace_stress_SplitQpointsBasis(this, &
    & stress,states,subspace,thermal_energy,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)    :: this
-  class(StressData),        intent(in)    :: stress
-  class(BasisStates),       intent(inout) :: states
-  type(DegenerateSubspace), intent(in)    :: subspace
-  real(dp),                 intent(in)    :: thermal_energy
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(StressPointer)                     :: output
+  class(SplitQpointsBasis), intent(in)            :: this
+  class(StressData),        intent(in)            :: stress
+  class(BasisStates),       intent(inout), target :: states
+  type(DegenerateSubspace), intent(in)            :: subspace
+  real(dp),                 intent(in)            :: thermal_energy
+  type(AnharmonicData),     intent(in)            :: anharmonic_data
+  type(StressPointer)                             :: output
   
   type(SplitQpointsBasis) :: basis
   
@@ -559,12 +540,12 @@ impure elemental function inner_product_SplitQpointsBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(SplitQpointsBasis), intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
   type(WavevectorState)              :: split_bra
   type(WavevectorState), allocatable :: split_ket
@@ -590,13 +571,13 @@ impure elemental function integrate_BasisState_SplitQpointsBasis(this, &
    & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  type(SparseMonomial),     intent(in)           :: monomial
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  complex(dp)                                    :: output
+  class(SplitQpointsBasis), intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  type(SparseMonomial),     intent(in)                   :: monomial
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  complex(dp)                                            :: output
   
   type(WavevectorState)              :: split_bra
   type(WavevectorState), allocatable :: split_ket
@@ -664,12 +645,12 @@ impure elemental function kinetic_energy_SplitQpointsBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(SplitQpointsBasis), intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
   type(WavevectorState)              :: split_bra
   type(WavevectorState), allocatable :: split_ket
@@ -695,12 +676,12 @@ impure elemental function harmonic_potential_energy_SplitQpointsBasis(this, &
    & bra,ket,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(SplitQpointsBasis), intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
   type(WavevectorState)              :: split_bra
   type(WavevectorState), allocatable :: split_ket
@@ -726,13 +707,13 @@ impure elemental function kinetic_stress_SplitQpointsBasis(this,bra,ket, &
    & subspace,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(StressPrefactors),   intent(in)           :: stress_prefactors
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(RealMatrix)                               :: output
+  class(SplitQpointsBasis), intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(StressPrefactors),   intent(in)                   :: stress_prefactors
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  type(RealMatrix)                                       :: output
   
   type(WavevectorState)              :: split_bra
   type(WavevectorState), allocatable :: split_ket
@@ -761,15 +742,15 @@ impure elemental function thermodynamic_data_SplitQpointsBasis(this,    &
    & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis), intent(in)           :: this
-  real(dp),                 intent(in)           :: thermal_energy
-  class(BasisStates),       intent(in)           :: states
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(PotentialData),     intent(in)           :: subspace_potential
-  class(StressData),        intent(in), optional :: subspace_stress
-  type(StressPrefactors),   intent(in), optional :: stress_prefactors
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ThermodynamicData)                        :: output
+  class(SplitQpointsBasis), intent(in)                  :: this
+  real(dp),                 intent(in)                  :: thermal_energy
+  class(BasisStates),       intent(in),          target :: states
+  type(DegenerateSubspace), intent(in)                  :: subspace
+  class(PotentialData),     intent(in)                  :: subspace_potential
+  class(StressData),        intent(in), optional        :: subspace_stress
+  type(StressPrefactors),   intent(in), optional        :: stress_prefactors
+  type(AnharmonicData),     intent(in)                  :: anharmonic_data
+  type(ThermodynamicData)                               :: output
   
   type(RealMatrix) :: stress
   
@@ -815,11 +796,11 @@ impure elemental function wavefunctions_SplitQpointsBasis(this,states, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis),  intent(in) :: this
-  class(BasisStates),        intent(in) :: states
-  type(DegenerateSubspace),  intent(in) :: subspace
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(SubspaceWavefunctionsPointer)    :: output
+  class(SplitQpointsBasis),  intent(in)         :: this
+  class(BasisStates),        intent(in), target :: states
+  type(DegenerateSubspace),  intent(in)         :: subspace
+  type(AnharmonicData),      intent(in)         :: anharmonic_data
+  type(SubspaceWavefunctionsPointer)            :: output
   
   type(WavevectorStates)          :: split_states
   type(String)                    :: ground_state
@@ -858,13 +839,13 @@ impure elemental function integrate_BasisStates_SplitQpointsBasis(this, &
    & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(SplitQpointsBasis),  intent(in) :: this
-  class(BasisStates),        intent(in) :: states
-  real(dp),                  intent(in) :: thermal_energy
-  type(SparseMonomial),      intent(in) :: monomial
-  type(DegenerateSubspace),  intent(in) :: subspace
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  complex(dp)                           :: output
+  class(SplitQpointsBasis),  intent(in)         :: this
+  class(BasisStates),        intent(in), target :: states
+  real(dp),                  intent(in)         :: thermal_energy
+  type(SparseMonomial),      intent(in)         :: monomial
+  type(DegenerateSubspace),  intent(in)         :: subspace
+  type(AnharmonicData),      intent(in)         :: anharmonic_data
+  complex(dp)                                   :: output
   
   type(WavevectorStates)  :: split_states
   

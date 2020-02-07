@@ -2,6 +2,12 @@
 ! The SubspaceState abstract class, defining states which do not need to
 !    reference a basis.
 ! ======================================================================
+! N.B. the Basis and State methods take other Basis and State class() arguments
+!    with the TARGET attribute, so that they can be cast to their concrete type
+!    pointers.
+! The %state_pointer() and %states_pointer() methods should
+!    not be called on objects which do not have the TARGET attribute,
+!    as this will silently lead to undefined behaviour.
 module subspace_state_module
   use common_module
   
@@ -66,7 +72,8 @@ module subspace_state_module
     procedure, public, nopass :: representation => &
                                & representation_SubspaceStatePointer
     
-    procedure, public :: state => state_SubspaceStatePointer
+    procedure, public :: state         => state_SubspaceStatePointer
+    procedure, public :: state_pointer => state_pointer_SubspaceStatePointer
     
     procedure, public :: mode_ids => &
                        & mode_ids_SubspaceStatePointer
@@ -152,10 +159,10 @@ module subspace_state_module
       import dp
       implicit none
       
-      class(SubspaceState), intent(in)           :: this
-      class(SubspaceState), intent(in), optional :: ket
-      type(AnharmonicData), intent(in)           :: anharmonic_data
-      real(dp)                                   :: output
+      class(SubspaceState), intent(in)                   :: this
+      class(SubspaceState), intent(in), optional, target :: ket
+      type(AnharmonicData), intent(in)                   :: anharmonic_data
+      real(dp)                                           :: output
     end function
     
     impure elemental function integrate_SubspaceState(this,monomial,ket, &
@@ -166,11 +173,11 @@ module subspace_state_module
       import dp
       implicit none
       
-      class(SubspaceState), intent(in)           :: this
-      type(SparseMonomial), intent(in)           :: monomial
-      class(SubspaceState), intent(in), optional :: ket
-      type(AnharmonicData), intent(in)           :: anharmonic_data
-      complex(dp)                                :: output
+      class(SubspaceState), intent(in)                   :: this
+      type(SparseMonomial), intent(in)                   :: monomial
+      class(SubspaceState), intent(in), optional, target :: ket
+      type(AnharmonicData), intent(in)                   :: anharmonic_data
+      complex(dp)                                        :: output
     end function
     
     impure elemental function kinetic_energy_SubspaceState(this,ket, &
@@ -180,10 +187,10 @@ module subspace_state_module
       import dp
       implicit none
       
-      class(SubspaceState), intent(in)           :: this
-      class(SubspaceState), intent(in), optional :: ket
-      type(AnharmonicData), intent(in)           :: anharmonic_data
-      real(dp)                                   :: output
+      class(SubspaceState), intent(in)                   :: this
+      class(SubspaceState), intent(in), optional, target :: ket
+      type(AnharmonicData), intent(in)                   :: anharmonic_data
+      real(dp)                                           :: output
     end function
     
     impure elemental function harmonic_potential_energy_SubspaceState(this, &
@@ -193,10 +200,10 @@ module subspace_state_module
       import dp
       implicit none
       
-      class(SubspaceState), intent(in)           :: this
-      class(SubspaceState), intent(in), optional :: ket
-      type(AnharmonicData), intent(in)           :: anharmonic_data
-      real(dp)                                   :: output
+      class(SubspaceState), intent(in)                   :: this
+      class(SubspaceState), intent(in), optional, target :: ket
+      type(AnharmonicData), intent(in)                   :: anharmonic_data
+      real(dp)                                           :: output
     end function
     
     impure elemental function kinetic_stress_SubspaceState(this,ket, &
@@ -207,11 +214,11 @@ module subspace_state_module
       import RealMatrix
       implicit none
       
-      class(SubspaceState),   intent(in)           :: this
-      class(SubspaceState),   intent(in), optional :: ket
-      type(StressPrefactors), intent(in)           :: stress_prefactors
-      type(AnharmonicData),   intent(in)           :: anharmonic_data
-      type(RealMatrix)                             :: output
+      class(SubspaceState),   intent(in)                   :: this
+      class(SubspaceState),   intent(in), optional, target :: ket
+      type(StressPrefactors), intent(in)                   :: stress_prefactors
+      type(AnharmonicData),   intent(in)                   :: anharmonic_data
+      type(RealMatrix)                                     :: output
     end function
   end interface
   
@@ -296,6 +303,15 @@ function state_SubspaceStatePointer(this) result(output)
   output = this%state_
 end function
 
+function state_pointer_SubspaceStatePointer(this) result(output)
+  implicit none
+  
+  class(SubspaceStatePointer), intent(in), target :: this
+  class(SubspaceState), pointer                   :: output
+  
+  output => this%state_
+end function
+
 ! --------------------------------------------------
 ! SubspaceStatePointer wrappers for SubspaceState methods.
 ! --------------------------------------------------
@@ -349,10 +365,10 @@ impure elemental function inner_product_SubspaceStatePointer(this,ket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceStatePointer), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  real(dp)                                          :: output
+  class(SubspaceStatePointer), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  real(dp)                                                  :: output
   
   call this%check()
   
@@ -363,11 +379,11 @@ impure elemental function integrate_SubspaceStatePointer(this,monomial,ket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceStatePointer), intent(in)           :: this
-  type(SparseMonomial),        intent(in)           :: monomial
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  complex(dp)                                       :: output
+  class(SubspaceStatePointer), intent(in)                   :: this
+  type(SparseMonomial),        intent(in)                   :: monomial
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  complex(dp)                                               :: output
   
   call this%check()
   
@@ -378,10 +394,10 @@ impure elemental function kinetic_energy_SubspaceStatePointer(this,ket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceStatePointer), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  real(dp)                                          :: output
+  class(SubspaceStatePointer), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  real(dp)                                                  :: output
   
   call this%check()
   
@@ -392,10 +408,10 @@ impure elemental function harmonic_potential_energy_SubspaceStatePointer( &
    & this,ket,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceStatePointer), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  real(dp)                                          :: output
+  class(SubspaceStatePointer), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  real(dp)                                                  :: output
   
   call this%check()
   
@@ -406,11 +422,11 @@ impure elemental function kinetic_stress_SubspaceStatePointer(this,ket, &
    & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(SubspaceStatePointer), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(StressPrefactors),      intent(in)           :: stress_prefactors
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(RealMatrix)                                  :: output
+  class(SubspaceStatePointer), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(StressPrefactors),      intent(in)                   :: stress_prefactors
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  type(RealMatrix)                                          :: output
   
   call this%check()
   

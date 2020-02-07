@@ -211,12 +211,12 @@ impure elemental function inner_product_HarmonicBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(HarmonicBasis),     intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
   call print_line(CODE_ERROR//': Procedures involving individual states have &
      &not been implemented for HarmonicBasis.')
@@ -227,13 +227,13 @@ impure elemental function integrate_BasisState_HarmonicBasis(this, &
    & bra,monomial,ket,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  type(SparseMonomial),     intent(in)           :: monomial
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  complex(dp)                                    :: output
+  class(HarmonicBasis),     intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  type(SparseMonomial),     intent(in)                   :: monomial
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  complex(dp)                                            :: output
   
   call print_line(CODE_ERROR//': Procedures involving individual states have &
      &not been implemented for HarmonicBasis.')
@@ -244,12 +244,12 @@ impure elemental function kinetic_energy_HarmonicBasis(this,bra,ket, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(HarmonicBasis),     intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
   call print_line(CODE_ERROR//': Procedures involving individual states have &
      &not been implemented for HarmonicBasis.')
@@ -260,12 +260,12 @@ impure elemental function harmonic_potential_energy_HarmonicBasis( &
    & this,bra,ket,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
+  class(HarmonicBasis),     intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  real(dp)                                               :: output
   
   call print_line(CODE_ERROR//': Procedures involving individual states have &
      &not been implemented for HarmonicBasis.')
@@ -276,13 +276,13 @@ impure elemental function kinetic_stress_HarmonicBasis(this,bra,ket, &
    & subspace,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  type(StressPrefactors),   intent(in)           :: stress_prefactors
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(RealMatrix)                               :: output
+  class(HarmonicBasis),     intent(in)                   :: this
+  class(BasisState),        intent(in),           target :: bra
+  class(BasisState),        intent(in), optional, target :: ket
+  type(DegenerateSubspace), intent(in)                   :: subspace
+  type(StressPrefactors),   intent(in)                   :: stress_prefactors
+  type(AnharmonicData),     intent(in)                   :: anharmonic_data
+  type(RealMatrix)                                       :: output
   
   call print_line(CODE_ERROR//': Procedures involving individual states have &
      &not been implemented for HarmonicBasis.')
@@ -295,15 +295,15 @@ impure elemental function thermodynamic_data_HarmonicBasis(this,    &
    & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),     intent(in)           :: this
-  real(dp),                 intent(in)           :: thermal_energy
-  class(BasisStates),       intent(in)           :: states
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(PotentialData),     intent(in)           :: subspace_potential
-  class(StressData),        intent(in), optional :: subspace_stress
-  type(StressPrefactors),   intent(in), optional :: stress_prefactors
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(ThermodynamicData)                        :: output
+  class(HarmonicBasis),     intent(in)                  :: this
+  real(dp),                 intent(in)                  :: thermal_energy
+  class(BasisStates),       intent(in),          target :: states
+  type(DegenerateSubspace), intent(in)                  :: subspace
+  class(PotentialData),     intent(in)                  :: subspace_potential
+  class(StressData),        intent(in), optional        :: subspace_stress
+  type(StressPrefactors),   intent(in), optional        :: stress_prefactors
+  type(AnharmonicData),     intent(in)                  :: anharmonic_data
+  type(ThermodynamicData)                               :: output
   
   type(HarmonicStates) :: harmonic_states
   
@@ -322,11 +322,11 @@ impure elemental function wavefunctions_HarmonicBasis(this,states, &
    & subspace,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),      intent(in) :: this
-  class(BasisStates),        intent(in) :: states
-  type(DegenerateSubspace),  intent(in) :: subspace
-  type(AnharmonicData),      intent(in) :: anharmonic_data
-  type(SubspaceWavefunctionsPointer)    :: output
+  class(HarmonicBasis),      intent(in)         :: this
+  class(BasisStates),        intent(in), target :: states
+  type(DegenerateSubspace),  intent(in)         :: subspace
+  type(AnharmonicData),      intent(in)         :: anharmonic_data
+  type(SubspaceWavefunctionsPointer)            :: output
   
   call err()
 end function
@@ -335,13 +335,13 @@ impure elemental function integrate_BasisStates_HarmonicBasis(this, &
    & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(HarmonicBasis),     intent(in) :: this
-  class(BasisStates),       intent(in) :: states
-  real(dp),                 intent(in) :: thermal_energy
-  type(SparseMonomial),     intent(in) :: monomial
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  complex(dp)                          :: output
+  class(HarmonicBasis),     intent(in)         :: this
+  class(BasisStates),       intent(in), target :: states
+  real(dp),                 intent(in)         :: thermal_energy
+  type(SparseMonomial),     intent(in)         :: monomial
+  type(DegenerateSubspace), intent(in)         :: subspace
+  type(AnharmonicData),     intent(in)         :: anharmonic_data
+  complex(dp)                                  :: output
   
   type(HarmonicStates) :: harmonic_states
   

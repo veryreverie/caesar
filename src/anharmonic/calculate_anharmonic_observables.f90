@@ -377,9 +377,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   
   ! Calculate starting frequencies.
-  starting_frequencies = [                                  &
-     & max( subspaces%frequency,                            &
-     &      anharmonic_data%frequency_of_max_displacement ) ]
+  ! If the subspace frequencies are large enough, then the starting frequency
+  !    is simply the harmonic frequency.
+  ! The starting frequencies must be at least equal to a number of values
+  !    to ensure that convergence isn't falsely reached early
+  !    because the frequency changes with each step are too small.
+  starting_frequencies = [max(                                    &
+     & subspaces%frequency,                                       &
+     & maxval([ anharmonic_data%frequency_of_max_displacement,    &
+     &          min_frequency,                                    &
+     &          energy_convergence                             ]) )]
   
   ! --------------------------------------------------
   ! Run calculations at each temperature.

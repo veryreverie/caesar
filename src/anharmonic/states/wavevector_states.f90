@@ -17,6 +17,8 @@ module wavevector_states_module
   
   public :: WavevectorStates
   
+  public :: wavevector_states_pointer
+  
   type, extends(BasisStates) :: WavevectorStates
     type(WavevectorState), allocatable :: states(:)
     real(dp),              allocatable :: energies(:)
@@ -75,8 +77,24 @@ recursive function new_WavevectorStates_BasisStates(input) result(this)
   type is(BasisStatesPointer)
     ! WORKAROUND: ifort doesn't recognise the interface to this function
     !    from within this function, so the full name is used instead.
-    !this = WavevectorStates(input%states())
     this = new_WavevectorStates_BasisStates(input%states())
+  class default
+    call err()
+  end select
+end function
+
+! Cast a class(BasisStates) to a pointer of type(WavevectorStates).
+! N.B. this must only be called on inputs with the TARGET attribute.
+recursive function wavevector_states_pointer(input) result(this)
+  implicit none
+  
+  class(BasisStates), intent(in), target :: input
+  type(WavevectorStates), pointer        :: this
+  
+  select type(input); type is(WavevectorStates)
+    this => input
+  type is(BasisStatesPointer)
+    this => wavevector_states_pointer(input%states_pointer())
   class default
     call err()
   end select

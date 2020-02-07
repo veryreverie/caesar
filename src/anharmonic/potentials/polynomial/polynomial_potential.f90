@@ -100,7 +100,6 @@ module polynomial_potential_module
   
   interface PolynomialPotential
     module procedure new_PolynomialPotential
-    module procedure new_PolynomialPotential_PotentialData
     module procedure new_PolynomialPotential_BasisFunctions
     module procedure new_PolynomialPotential_Strings
     module procedure new_PolynomialPotential_StringArray
@@ -124,24 +123,6 @@ function new_PolynomialPotential(potential_expansion_order) result(this)
   type(PolynomialPotential) :: this
   
   this%potential_expansion_order_ = potential_expansion_order
-end function
-
-recursive function new_PolynomialPotential_PotentialData(input) result(this)
-  implicit none
-  
-  class(PotentialData), intent(in) :: input
-  type(PolynomialPotential)        :: this
-  
-  select type(input); type is(PolynomialPotential)
-    this = input
-  type is(PotentialPointer)
-    ! WORKAROUND: ifort doesn't recognise the interface to this function
-    !    from within this function, so the full name is used instead.
-    !this = PolynomialPotential(input%potential())
-    this = new_PolynomialPotential_PotentialData(input%potential())
-  class default
-    call err()
-  end select
 end function
 
 function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &

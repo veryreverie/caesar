@@ -16,6 +16,8 @@ module monomial_state_complex_module
   
   public :: MonomialStateComplex
   
+  public :: monomial_state_complex_pointer
+  
   type, extends(SubspaceState) :: MonomialStateComplex
     real(dp)                                    :: frequency
     type(MonomialState2D), private, allocatable :: modes_(:)
@@ -98,8 +100,24 @@ recursive function new_MonomialStateComplex_SubspaceState(input) result(this)
   type is(SubspaceStatePointer)
     ! WORKAROUND: ifort doesn't recognise the interface to this function
     !    from within this function, so the full name is used instead.
-    !this = MonomialStateComplex(input%state())
     this = new_MonomialStateComplex_SubspaceState(input%state())
+  class default
+    call err()
+  end select
+end function
+
+! Cast a class(SubspaceState) to a pointer of type(MonomialStateComplex).
+! N.B. this must only be called on inputs with the TARGET attribute.
+recursive function monomial_state_complex_pointer(input) result(this)
+  implicit none
+  
+  class(SubspaceState), intent(in), target :: input
+  type(MonomialStateComplex), pointer      :: this
+  
+  select type(input); type is(MonomialStateComplex)
+    this => input
+  type is(SubspaceStatePointer)
+    this => monomial_state_complex_pointer(input%state_pointer())
   class default
     call err()
   end select
@@ -232,15 +250,15 @@ impure elemental function inner_product_MonomialStateComplex(this, &
    & ket,anharmonic_data) result(output)
   implicit none
   
-  class(MonomialStateComplex), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  real(dp)                                          :: output
+  class(MonomialStateComplex), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  real(dp)                                                  :: output
   
-  type(MonomialStateComplex) :: monomial_ket
+  type(MonomialStateComplex), pointer :: monomial_ket
   
   if (present(ket)) then
-    monomial_ket = MonomialStateComplex(ket)
+    monomial_ket => monomial_state_complex_pointer(ket)
     output = product(this%modes_%inner_product(monomial_ket%modes_))
   else
     ! Modes are normalised, so <p|p>=1.
@@ -252,13 +270,13 @@ impure elemental function integrate_MonomialStateComplex(this, &
    & monomial,ket,anharmonic_data) result(output)
   implicit none
   
-  class(MonomialStateComplex), intent(in)           :: this
-  type(SparseMonomial),        intent(in)           :: monomial
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  complex(dp)                                       :: output
+  class(MonomialStateComplex), intent(in)                   :: this
+  type(SparseMonomial),        intent(in)                   :: monomial
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  complex(dp)                                               :: output
   
-  type(MonomialStateComplex) :: monomial_ket
+  type(MonomialStateComplex), pointer :: monomial_ket
   
   integer :: i
   
@@ -268,7 +286,7 @@ impure elemental function integrate_MonomialStateComplex(this, &
   !    - w is the frequency of the modes in the subspace.
   !    - n is the power of the modes in the monomial which are integrated.
   if (present(ket)) then
-    monomial_ket = MonomialStateComplex(ket)
+    monomial_ket => monomial_state_complex_pointer(ket)
     output = product(this%modes_%braket( monomial_ket%modes_, &
                                        & monomial%modes       ))
   else
@@ -288,12 +306,13 @@ impure elemental function kinetic_energy_MonomialStateComplex(this,ket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(MonomialStateComplex), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  real(dp)                                          :: output
+  class(MonomialStateComplex), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  real(dp)                                                  :: output
   
-  type(MonomialStateComplex)         :: monomial_ket
+  type(MonomialStateComplex), pointer :: monomial_ket
+  
   type(MonomialState2D), allocatable :: bra_modes(:)
   type(MonomialState2D), allocatable :: ket_modes(:)
   real(dp),              allocatable :: overlap(:)
@@ -307,7 +326,7 @@ impure elemental function kinetic_energy_MonomialStateComplex(this,ket, &
   bra_modes = this%modes_
   
   if (present(ket)) then
-    monomial_ket = MonomialStateComplex(ket)
+    monomial_ket => monomial_state_complex_pointer(ket)
     ket_modes = monomial_ket%modes_
     
     if (all(bra_modes%finite_overlap(ket_modes))) then
@@ -333,12 +352,13 @@ impure elemental function harmonic_potential_energy_MonomialStateComplex( &
    & this,ket,anharmonic_data) result(output)
   implicit none
   
-  class(MonomialStateComplex), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  real(dp)                                          :: output
+  class(MonomialStateComplex), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  real(dp)                                                  :: output
   
-  type(MonomialStateComplex)           :: monomial_ket
+  type(MonomialStateComplex), pointer :: monomial_ket
+  
   type(MonomialState2D),   allocatable :: bra_modes(:)
   type(MonomialState2D),   allocatable :: ket_modes(:)
   type(ComplexUnivariate), allocatable :: harmonic_potential(:)
@@ -361,7 +381,7 @@ impure elemental function harmonic_potential_energy_MonomialStateComplex( &
      & paired_power = 1                      )
   
   if (present(ket)) then
-    monomial_ket = MonomialStateComplex(ket)
+    monomial_ket => monomial_state_complex_pointer(ket)
     ket_modes = monomial_ket%modes_
     
     if (all(bra_modes%finite_overlap(ket_modes))) then
@@ -388,13 +408,13 @@ impure elemental function kinetic_stress_MonomialStateComplex(this,ket, &
    & stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  class(MonomialStateComplex), intent(in)           :: this
-  class(SubspaceState),        intent(in), optional :: ket
-  type(StressPrefactors),      intent(in)           :: stress_prefactors
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  type(RealMatrix)                                  :: output
+  class(MonomialStateComplex), intent(in)                   :: this
+  class(SubspaceState),        intent(in), optional, target :: ket
+  type(StressPrefactors),      intent(in)                   :: stress_prefactors
+  type(AnharmonicData),        intent(in)                   :: anharmonic_data
+  type(RealMatrix)                                          :: output
   
-  type(MonomialStateComplex) :: monomial_ket
+  type(MonomialStateComplex), pointer :: monomial_ket
   
   logical,  allocatable :: finite_overlap(:)
   real(dp), allocatable :: overlaps(:)
@@ -416,7 +436,7 @@ impure elemental function kinetic_stress_MonomialStateComplex(this,ket, &
   output = dblemat(zeroes(3,3))
   
   if (present(ket)) then
-    monomial_ket = MonomialStateComplex(ket)
+    monomial_ket => monomial_state_complex_pointer(ket)
     
     finite_overlap = this%modes_%finite_overlap(monomial_ket%modes_)
     if (count(.not.finite_overlap)==0) then

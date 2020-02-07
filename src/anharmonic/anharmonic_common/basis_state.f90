@@ -28,6 +28,7 @@ module basis_state_module
                                & representation_BasisStatePointer
     
     procedure, public :: state => state_BasisStatePointer
+    procedure, public :: state_pointer => state_pointer_BasisStatePointer
     
     ! I/O.
     procedure, public :: read  => read_BasisStatePointer
@@ -125,6 +126,15 @@ function state_BasisStatePointer(this) result(output)
   class(BasisState), allocatable       :: output
   
   output = this%state_
+end function
+
+function state_pointer_BasisStatePointer(this) result(output)
+  implicit none
+  
+  class(BasisStatePointer), intent(in), target :: this
+  class(BasisState), pointer                   :: output
+  
+  output => this%state_
 end function
 
 ! I/O.

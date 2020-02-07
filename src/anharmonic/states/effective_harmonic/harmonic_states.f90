@@ -13,6 +13,8 @@ module harmonic_states_module
   
   public :: HarmonicStates
   
+  public :: harmonic_states_pointer
+  
   type, extends(BasisStates) :: HarmonicStates
     real(dp) :: frequency
   contains
@@ -72,8 +74,24 @@ recursive function new_HarmonicStates_BasisStates(input) result(this)
   type is(BasisStatesPointer)
     ! WORKAROUND: ifort doesn't recognise the interface to this function
     !    from within this function, so the full name is used instead.
-    !this = HarmonicStates(input%states())
     this = new_HarmonicStates_BasisStates(input%states())
+  class default
+    call err()
+  end select
+end function
+
+! Cast a class(BasisStates) to a pointer of type(HarmonicStates).
+! N.B. this must only be called on inputs with the TARGET attribute.
+recursive function harmonic_states_pointer(input) result(this)
+  implicit none
+  
+  class(BasisStates), intent(in), target :: input
+  type(HarmonicStates), pointer          :: this
+  
+  select type(input); type is(HarmonicStates)
+    this => input
+  type is(BasisStatesPointer)
+    this => harmonic_states_pointer(input%states_pointer())
   class default
     call err()
   end select
