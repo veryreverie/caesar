@@ -40,8 +40,8 @@ module potential_example_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialDataExample
     
-    procedure, public :: braket_SubspaceState  => &
-                       & braket_SubspaceState_PotentialDataExample
+    procedure, public :: braket_SubspaceBraKet  => &
+                       & braket_SubspaceBraKet_PotentialDataExample
     procedure, public :: braket_BasisState  => &
                        & braket_BasisState_PotentialDataExample
     procedure, public :: braket_BasisStates => &
@@ -238,13 +238,12 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
   ! Code to calculate forces at complex displacements goes here.
 end function
 
-subroutine braket_SubspaceState_PotentialDataExample(this,bra,ket, &
+subroutine braket_SubspaceBraKet_PotentialDataExample(this,braket, &
    & whole_subspace,anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
-  class(SubspaceState),        intent(in)           :: bra
-  class(SubspaceState),        intent(in), optional :: ket
+  class(SubspaceBraKet),       intent(in)           :: braket
   logical,                     intent(in), optional :: whole_subspace
   type(AnharmonicData),        intent(in)           :: anharmonic_data
   
@@ -404,10 +403,11 @@ subroutine potential_example_subroutine()
   type(ComplexModeForce)        :: complex_force
   
   ! Variables for integrating potential.
-  type(DegenerateSubspace)   :: subspace
-  type(SubspaceBasisPointer) :: subspace_basis
-  type(HarmonicStateReal)    :: state_1
-  type(HarmonicStateReal)    :: state_2
+  type(DegenerateSubspace)        :: subspace
+  type(SubspaceBasisPointer)      :: subspace_basis
+  type(HarmonicStateReal), target :: state_1
+  type(HarmonicStateReal), target :: state_2
+  type(HarmonicBraKetReal)        :: braket
   
   ! Files.
   type(OFile) :: output_file
@@ -451,8 +451,9 @@ subroutine potential_example_subroutine()
   ! The potential can also be integrated between two states.
   ! If whole_subspace is .true., then the potential will be integrated across
   !    the whole subspace. whole_subspace default to true.
-  call potential%braket( bra             = state_1,        &
-                       & ket             = state_2,        &
+  braket%bra_ => state_1
+  braket%ket_ => state_2
+  call potential%braket( braket          = braket,         &
                        & whole_subspace  = .true.,         &
                        & anharmonic_data = anharmonic_data )
   

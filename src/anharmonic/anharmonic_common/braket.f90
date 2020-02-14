@@ -5,6 +5,7 @@ module braket_module
   use common_module
   
   use subspace_state_module
+  use subspace_braket_module
   use basis_state_module
   use basis_states_module
   use anharmonic_data_module
@@ -21,48 +22,47 @@ module braket_module
   public :: effective_harmonic_observables
   
   interface integrate
-    module procedure integrate_SubspaceState
+    module procedure integrate_SubspaceBraKet
     module procedure integrate_BasisState
     module procedure integrate_BasisStates
   end interface
   
   interface integrate_to_constant
-    module procedure integrate_to_constant_SubspaceState_ComplexMonomial
+    module procedure integrate_to_constant_SubspaceBraKet_ComplexMonomial
     module procedure integrate_to_constant_BasisState_ComplexMonomial
     module procedure integrate_to_constant_BasisStates_ComplexMonomial
     
-    module procedure integrate_to_constant_SubspaceState_ComplexPolynomial
+    module procedure integrate_to_constant_SubspaceBraKet_ComplexPolynomial
     module procedure integrate_to_constant_BasisState_ComplexPolynomial
     module procedure integrate_to_constant_BasisStates_ComplexPolynomial
   end interface
 contains
 
 ! Integrate a the parts of a ComplexMonomial in a given subspace.
-impure elemental subroutine integrate_SubspaceState(monomial,bra,ket, &
+impure elemental subroutine integrate_SubspaceBraKet(monomial,braket, &
    & anharmonic_data)
   implicit none
   
-  type(ComplexMonomial), intent(inout)        :: monomial
-  class(SubspaceState),  intent(in)           :: bra
-  class(SubspaceState),  intent(in), optional :: ket
-  type(AnharmonicData),  intent(in)           :: anharmonic_data
+  type(ComplexMonomial), intent(inout) :: monomial
+  class(SubspaceBraKet), intent(in)    :: braket
+  type(AnharmonicData),  intent(in)    :: anharmonic_data
   
   type(ComplexUnivariate), allocatable :: unintegrated_modes(:)
   type(ComplexUnivariate), allocatable :: integrated_modes(:)
   
-  unintegrated_modes = monomial%modes(exclude_ids = bra%mode_ids())
+  unintegrated_modes = monomial%modes(exclude_ids = braket%mode_ids)
   
-  integrated_modes = monomial%modes(      &
-     & ids        = bra%mode_ids(),       &
-     & paired_ids = bra%paired_mode_ids() )
+  integrated_modes = monomial%modes(       &
+     & ids        = braket%mode_ids,       &
+     & paired_ids = braket%paired_mode_ids )
   
   call monomial%set_modes(unintegrated_modes)
   
   if (any(integrated_modes%total_power()/=0)) then
-    monomial%coefficient = monomial%coefficient                             &
-                       & * bra%integrate( SparseMonomial(integrated_modes), &
-                       &                  ket,                              &
-                       &                  anharmonic_data                   )
+    monomial%coefficient = monomial%coefficient                 &
+                       & * braket%integrate(                    &
+                       &      SparseMonomial(integrated_modes), &
+                       &      anharmonic_data                   )
   endif
 end subroutine
 
@@ -148,26 +148,24 @@ end subroutine
 ! Since the resulting ComplexMonomial would just be a constant, just the
 !    constant is returned.
 impure elemental function                                                  &
-   & integrate_to_constant_SubspaceState_ComplexMonomial(monomial,bra,ket, &
+   & integrate_to_constant_SubspaceBraKet_ComplexMonomial(monomial,braket, &
    & anharmonic_data) result(output)
   implicit none
   
-  type(ComplexMonomial), intent(in)           :: monomial
-  class(SubspaceState),  intent(in)           :: bra
-  class(SubspaceState),  intent(in), optional :: ket
-  type(AnharmonicData),  intent(in)           :: anharmonic_data
-  complex(dp)                                 :: output
+  type(ComplexMonomial), intent(in) :: monomial
+  class(SubspaceBraKet), intent(in) :: braket
+  type(AnharmonicData),  intent(in) :: anharmonic_data
+  complex(dp)                       :: output
   
   type(SparseMonomial) :: sparse_monomial
   
   sparse_monomial = SparseMonomial(monomial%modes( &
-              & ids        = bra%mode_ids(),       &
-              & paired_ids = bra%paired_mode_ids() ))
+             & ids        = braket%mode_ids,       &
+             & paired_ids = braket%paired_mode_ids ))
   
-  output = monomial%coefficient            &
-       & * bra%integrate( sparse_monomial, &
-       &                  ket,             &
-       &                  anharmonic_data  )
+  output = monomial%coefficient               &
+       & * braket%integrate( sparse_monomial, &
+       &                     anharmonic_data  )
 end function
 
 impure elemental function integrate_to_constant_BasisState_ComplexMonomial( &
@@ -233,21 +231,24 @@ impure elemental function integrate_to_constant_BasisStates_ComplexMonomial( &
   output = monomial%coefficient * expectation
 end function
 
-impure elemental function                                                  &
-   & integrate_to_constant_SubspaceState_ComplexPolynomial(polynomial,bra, &
-   & ket,anharmonic_data) result(output)
+impure elemental function                                               &
+   & integrate_to_constant_SubspaceBraKet_ComplexPolynomial(polynomial, &
+   & braket,anharmonic_data) result(output)
   implicit none
   
-  type(ComplexPolynomial), intent(in)           :: polynomial
-  class(SubspaceState),    intent(in)           :: bra
-  class(SubspaceState),    intent(in), optional :: ket
-  type(AnharmonicData),    intent(in)           :: anharmonic_data
-  complex(dp)                                   :: output
+  type(ComplexPolynomial), intent(in) :: polynomial
+  class(SubspaceBraKet),   intent(in) :: braket
+  type(AnharmonicData),    intent(in) :: anharmonic_data
+  complex(dp)                         :: output
   
-  output = sum(integrate_to_constant( polynomial%terms, &
-                                    & bra,              &
-                                    & ket,              &
-                                    & anharmonic_data   ))
+  integer :: i
+  
+  output = 0
+  do i=1,size(polynomial%terms)
+    output = output + integrate_to_constant( polynomial%terms(i), &
+                                           & braket,              &
+                                           & anharmonic_data      )
+  enddo
 end function
 
 impure elemental function integrate_to_constant_BasisState_ComplexPolynomial( &
@@ -262,12 +263,17 @@ impure elemental function integrate_to_constant_BasisState_ComplexPolynomial( &
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   complex(dp)                                    :: output
   
-  output = sum(integrate_to_constant( polynomial%terms, &
-                                    & bra,              &
-                                    & ket,              &
-                                    & subspace,         &
-                                    & basis,            &
-                                    & anharmonic_data   ))
+  integer :: i
+  
+  output = 0
+  do i=1,size(polynomial%terms)
+    output = output + integrate_to_constant( polynomial%terms(i), &
+                                           & bra,                 &
+                                           & ket,                 &
+                                           & subspace,            &
+                                           & basis,               &
+                                           & anharmonic_data      )
+  enddo
 end function
 
 impure elemental function                                                   &
@@ -283,12 +289,17 @@ impure elemental function                                                   &
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   complex(dp)                             :: output
   
-  output = sum(integrate_to_constant( polynomial%terms, &
-                                    & states,           &
-                                    & thermal_energy,   &
-                                    & subspace,         &
-                                    & basis,            &
-                                    & anharmonic_data   ))
+  integer :: i
+  
+  output = 0
+  do i=1,size(polynomial%terms)
+    output = output + integrate_to_constant( polynomial%terms(i), &
+                                           & states,              &
+                                           & thermal_energy,      &
+                                           & subspace,            &
+                                           & basis,               &
+                                           & anharmonic_data      )
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

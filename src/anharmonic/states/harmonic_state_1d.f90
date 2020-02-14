@@ -185,17 +185,15 @@ end function
 !     * sum_{k=0}^{min((n-d)/2,p,q)}[ 2^k 
 !                                   * binom((n+d)/2,d+k)
 !                                   * binom(min(p,q),k)  ] otherwise.
-!
-!
-! N.B. the factor of 1/sqrt(2Nw)^{n} is neglected.
-impure elemental function braket_HarmonicState1D(bra,ket,potential) &
+impure elemental function braket_HarmonicState1D(bra,ket,potential,log_2nw) &
    & result(output)
   implicit none
   
-  class(HarmonicState1D), intent(in) :: bra
-  class(HarmonicState1D), intent(in) :: ket
-  type(ComplexUnivariate),intent(in) :: potential
-  real(dp)                           :: output
+  class(HarmonicState1D),  intent(in) :: bra
+  class(HarmonicState1D),  intent(in) :: ket
+  type(ComplexUnivariate), intent(in) :: potential
+  real(dp),                intent(in) :: log_2nw
+  real(dp)                            :: output
   
   integer :: p,q,n,d,k
   
@@ -213,7 +211,8 @@ impure elemental function braket_HarmonicState1D(bra,ket,potential) &
          &      - log_factorial((n+d)/2)               &
          &      - ((n-d)/2) * log(2.0_dp)              &
          &      + 0.5_dp*( log_factorial(max(p,q))     &
-         &               - log_factorial(min(p,q)) ) ) &
+         &               - log_factorial(min(p,q)) )   &
+         &      - 0.5_dp*n*log_2nw                   ) &
          & * sum([( exp( k*log(2.0_dp)                 &
          &             + log_binomial((n+d)/2, d+k)    &
          &             + log_binomial(min(p,q), k)  ), &

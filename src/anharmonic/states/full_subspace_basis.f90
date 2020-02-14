@@ -151,6 +151,7 @@ function new_FullSubspaceBasis_subspace(subspace,frequency,modes,qpoints, &
                                & qpoints,                   &
                                & maximum_power,             &
                                & potential_expansion_order, &
+                               & supercell%sc_size,         &
                                & symmetries                 )
   
   output = FullSubspaceBasis( supercell%sc_size,         &
@@ -471,14 +472,15 @@ impure elemental function wavefunctions_FullSubspaceBasis(this,states, &
   type(AnharmonicData),      intent(in)         :: anharmonic_data
   type(SubspaceWavefunctionsPointer)            :: output
   
-  type(WavevectorStates)          :: full_states
+  type(WavevectorStates), pointer :: full_states
+  
   type(String)                    :: ground_state
   type(String), allocatable       :: state_wavefunctions(:)
   type(FullSubspaceWavefunctions) :: wavefunctions
   
   integer :: ialloc
   
-  full_states = WavevectorStates(states)
+  full_states => wavevector_states_pointer(states)
   
   ! Construct the wavefunction of |0>.
   ground_state = this%ground_state_wavefunction(      &
@@ -517,10 +519,10 @@ impure elemental function integrate_BasisStates_FullSubspaceBasis(this, &
   type(AnharmonicData),     intent(in)         :: anharmonic_data
   complex(dp)                                  :: output
   
-  type(WavevectorStates) :: full_states
+  type(WavevectorStates), pointer :: full_states
   
   ! Convert the states to type WavevectorStates.
-  full_states = WavevectorStates(states)
+  full_states => wavevector_states_pointer(states)
   
   output = integrate_monomial( this%wavevectors, &
                              & full_states,      &

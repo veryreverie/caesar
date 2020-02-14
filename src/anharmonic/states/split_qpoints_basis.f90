@@ -227,6 +227,7 @@ function new_SplitQpointsBasis_subspace(subspace,frequency,modes,qpoints, &
                                & qpoints,                   &
                                & maximum_power,             &
                                & potential_expansion_order, &
+                               & supercell%sc_size,         &
                                & symmetries,                &
                                & subspace_qpoints(1)        )
   
@@ -802,14 +803,15 @@ impure elemental function wavefunctions_SplitQpointsBasis(this,states, &
   type(AnharmonicData),      intent(in)         :: anharmonic_data
   type(SubspaceWavefunctionsPointer)            :: output
   
-  type(WavevectorStates)          :: split_states
+  type(WavevectorStates), pointer :: split_states
+  
   type(String)                    :: ground_state
   type(String), allocatable       :: state_wavefunctions(:)
   type(SplitQpointsWavefunctions) :: wavefunctions
   
   integer :: ialloc
   
-  split_states = WavevectorStates(states)
+  split_states => wavevector_states_pointer(states)
   
   ! Construct the wavefunction of |0>.
   ground_state = this%ground_state_wavefunction( &
@@ -847,14 +849,14 @@ impure elemental function integrate_BasisStates_SplitQpointsBasis(this, &
   type(AnharmonicData),      intent(in)         :: anharmonic_data
   complex(dp)                                   :: output
   
-  type(WavevectorStates)  :: split_states
+  type(WavevectorStates), pointer :: split_states
   
   type(SparseMonomial), allocatable :: monomials(:)
   
   integer :: i
   
   ! Convert the states to type WavevectorStates.
-  split_states = WavevectorStates(states)
+  split_states => wavevector_states_pointer(states)
   
   ! Split the monomial by q-point.
   monomials = split_monomial(this,monomial)

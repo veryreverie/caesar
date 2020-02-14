@@ -230,15 +230,14 @@ end function
 !                                  * binom(n_j,q_i-k)
 !                                  * (n_i+p_j-p_i+k)!
 !                                  / k!               ] otherwise.
-!
-! N.B. the factor of 1/sqrt(2Nw)^{n_i+n_j} is neglected.
-impure elemental function braket_HarmonicState2D(bra,ket,potential) &
+impure elemental function braket_HarmonicState2D(bra,ket,potential,log_2nw) &
    & result(output)
   implicit none
   
   class(HarmonicState2D),  intent(in) :: bra
   class(HarmonicState2D),  intent(in) :: ket
   type(ComplexUnivariate), intent(in) :: potential
+  real(dp),                intent(in) :: log_2nw
   real(dp)                            :: output
   
   integer :: p_i,p_j,q_i,q_j,n_i,n_j
@@ -257,7 +256,8 @@ impure elemental function braket_HarmonicState2D(bra,ket,potential) &
     output = exp(0.5_dp*( log_factorial(p_i)             &
          &              + log_factorial(q_i)             &
          &              - log_factorial(p_j)             &
-         &              - log_factorial(q_j) ))          &
+         &              - log_factorial(q_j)             &
+         &              - (n_i+n_j)*log_2nw  ))          &
          & * sum([( exp( log_binomial(n_i,p_i-k)         &
          &             + log_binomial(n_j,q_i-k)         &
          &             + log_factorial(n_i+p_j-p_i+k)    &

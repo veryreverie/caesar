@@ -4,6 +4,9 @@
 !    not the wavevector of the mode.
 ! e.g. the state |p> along a mode at q-point q has a wavevector of p*q.
 ! ======================================================================
+! N.B. The WavevectorBasis has a polymorphic allocatable component,
+!   harmonic_states_. Since compiler support for such things is not fantastic,
+!   care should be taken when modifying the code referring to this component.
 module wavevector_basis_module
   use common_module
   
@@ -13,6 +16,8 @@ module wavevector_basis_module
   use harmonic_state_2d_module
   use harmonic_state_real_module
   use harmonic_state_complex_module
+  use harmonic_braket_real_module
+  use harmonic_braket_complex_module
   use coupled_states_module
   use density_matrix_module
   use wavevector_state_module
@@ -33,12 +38,13 @@ module wavevector_basis_module
   public :: integrate_monomial
   
   type, extends(SubspaceBasis) :: WavevectorBasis
-    integer                                          :: maximum_power
-    integer                                          :: expansion_order
-    integer                                          :: subspace_id
-    type(FractionVector)                             :: wavevector
-    type(SubspaceStatePointer), allocatable, private :: harmonic_states_(:)
-    type(CoupledStates),        allocatable, private :: harmonic_couplings_(:)
+    integer                                    :: maximum_power
+    integer                                    :: expansion_order
+    integer                                    :: subspace_id
+    type(FractionVector)                       :: wavevector
+    logical,                           private :: states_are_real_
+    class(SubspaceState), allocatable, private :: harmonic_states_(:)
+    type(CoupledStates),  allocatable, private :: harmonic_couplings_(:)
   contains
     procedure, public, nopass :: representation => &
                                & representation_WavevectorBasis
@@ -127,14 +133,16 @@ function new_WavevectorBasis(maximum_power,expansion_order,subspace_id, &
    & frequency,wavevector,harmonic_states,harmonic_couplings) result(this)
   implicit none
   
-  integer,                    intent(in) :: maximum_power
-  integer,                    intent(in) :: expansion_order
-  integer,                    intent(in) :: subspace_id
-  real(dp),                   intent(in) :: frequency
-  type(FractionVector),       intent(in) :: wavevector
-  type(SubspaceStatePointer), intent(in) :: harmonic_states(:)
-  type(CoupledStates),        intent(in) :: harmonic_couplings(:)
-  type(WavevectorBasis)                  :: this
+  integer,              intent(in) :: maximum_power
+  integer,              intent(in) :: expansion_order
+  integer,              intent(in) :: subspace_id
+  real(dp),             intent(in) :: frequency
+  type(FractionVector), intent(in) :: wavevector
+  class(SubspaceState), intent(in) :: harmonic_states(:)
+  type(CoupledStates),  intent(in) :: harmonic_couplings(:)
+  type(WavevectorBasis)            :: this
+  
+  integer :: ialloc
   
   if (size(harmonic_couplings)/=size(harmonic_states)) then
     call print_line(CODE_ERROR//': harmonic states and harmonic couplings do &
@@ -146,8 +154,17 @@ function new_WavevectorBasis(maximum_power,expansion_order,subspace_id, &
   this%subspace_id         = subspace_id
   this%frequency           = frequency
   this%wavevector          = wavevector
-  this%harmonic_states_    = harmonic_states
   this%harmonic_couplings_ = harmonic_couplings
+  
+  allocate( this%harmonic_states_, source=harmonic_states, &
+          & stat=ialloc); call err(ialloc)
+  select type(harmonic_states); type is(HarmonicStateReal)
+    this%states_are_real_ = .true.
+  type is(HarmonicStateComplex)
+    this%states_are_real_ = .false.
+  class default
+    call err()
+  end select
 end function
 
 ! ----------------------------------------------------------------------
@@ -155,7 +172,8 @@ end function
 ! ----------------------------------------------------------------------
 ! If qpoint is specified, only modes at that q-point are included.
 function new_WavevectorBasis_subspace(subspace,frequency,modes,qpoints, &
-   & maximum_power,potential_expansion_order,symmetries,qpoint) result(output)
+   & maximum_power,potential_expansion_order,supercell_size,symmetries, &
+   & qpoint) result(output) 
   implicit none
   
   type(DegenerateSubspace), intent(in)           :: subspace
@@ -164,6 +182,7 @@ function new_WavevectorBasis_subspace(subspace,frequency,modes,qpoints, &
   type(QpointData),         intent(in)           :: qpoints(:)
   integer,                  intent(in)           :: maximum_power
   integer,                  intent(in)           :: potential_expansion_order
+  integer,                  intent(in)           :: supercell_size
   type(SymmetryOperator),   intent(in)           :: symmetries(:)
   type(QpointData),         intent(in), optional :: qpoint
   type(WavevectorBasis), allocatable             :: output(:)
@@ -191,11 +210,12 @@ function new_WavevectorBasis_subspace(subspace,frequency,modes,qpoints, &
   
   do i=1,size(subspace_modes)
     ! Generate the basis along a single mode (or a mode and its pair).
-    mode_basis = generate_mode_basis( subspace,                 &
-                                    & frequency,                &
-                                    & subspace_modes(i),        &
-                                    & maximum_power,            &
-                                    & potential_expansion_order )
+    mode_basis = generate_mode_basis( subspace,                  &
+                                    & frequency,                 &
+                                    & subspace_modes(i),         &
+                                    & maximum_power,             &
+                                    & potential_expansion_order, &
+                                    & supercell_size             )
     
     if (i==1) then
       ! Seed the basis as the single-mode basis.
@@ -210,7 +230,7 @@ function new_WavevectorBasis_subspace(subspace,frequency,modes,qpoints, &
 end function
 
 function generate_mode_basis(subspace,frequency,mode,maximum_power, &
-   & potential_expansion_order) result(output)
+   & potential_expansion_order,supercell_size) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
@@ -218,25 +238,28 @@ function generate_mode_basis(subspace,frequency,mode,maximum_power, &
   type(ComplexMode),        intent(in) :: mode
   integer,                  intent(in) :: maximum_power
   integer,                  intent(in) :: potential_expansion_order
+  integer,                  intent(in) :: supercell_size
   type(WavevectorBasis)                :: output
   
   if (mode%paired_id==mode%id) then
-    output = generate_mode_basis_1d( subspace,                 &
-                                   & frequency,                &
-                                   & mode,                     &
-                                   & maximum_power,            &
-                                   & potential_expansion_order )
+    output = generate_mode_basis_1d( subspace,                  &
+                                   & frequency,                 &
+                                   & mode,                      &
+                                   & maximum_power,             &
+                                   & potential_expansion_order, &
+                                   & supercell_size             )
   else
-    output = generate_mode_basis_2d( subspace,                 &
-                                   & frequency,                &
-                                   & mode,                     &
-                                   & maximum_power,            &
-                                   & potential_expansion_order )
+    output = generate_mode_basis_2d( subspace,                  &
+                                   & frequency,                 &
+                                   & mode,                      &
+                                   & maximum_power,             &
+                                   & potential_expansion_order, &
+                                   & supercell_size             )
   endif
 end function
 
 function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
-   & potential_expansion_order) result(output)
+   & potential_expansion_order,supercell_size) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
@@ -244,11 +267,12 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
   type(ComplexMode),        intent(in) :: mode
   integer,                  intent(in) :: maximum_power
   integer,                  intent(in) :: potential_expansion_order
+  integer,                  intent(in) :: supercell_size
   type(WavevectorBasis)                :: output
   
-  type(HarmonicState1D),      allocatable :: harmonic_states_1d(:)
-  type(SubspaceStatePointer), allocatable :: harmonic_states(:)
-  type(CoupledStates),        allocatable :: harmonic_couplings(:)
+  type(HarmonicState1D),   allocatable :: harmonic_states_1d(:)
+  type(HarmonicStateReal), allocatable :: harmonic_states(:)
+  type(CoupledStates),     allocatable :: harmonic_couplings(:)
   
   integer  :: power
   integer  :: state
@@ -264,12 +288,12 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
                                       & occupation = [( power,          &
                                       &                 power=0,        &
                                       &                 maximum_power)] )
-  harmonic_states = [( SubspaceStatePointer(HarmonicStateReal(     &
-                     &                 subspace%id,                &
-                     &                 frequency,                  &
-                     &                 [harmonic_states_1d(i)] )), &
-                     & i=1,                                        &
-                     & size(harmonic_states_1d)                    )]
+  harmonic_states = [( HarmonicStateReal( subspace%id,               &
+                     &                    supercell_size,            &
+                     &                    frequency,                 &
+                     &                    [harmonic_states_1d(i)] ), &
+                     & i=1,                                          &
+                     & size(harmonic_states_1d)                      )]
   
   ! Calculate which states have non-zero <i|H|j> elements.
   ! |i> = a^n|0> and |j> = a^m|0>.
@@ -297,7 +321,7 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
 end function
 
 function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
-   & potential_expansion_order) result(output)
+   & potential_expansion_order,supercell_size) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
@@ -305,10 +329,11 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
   type(ComplexMode),        intent(in) :: mode
   integer,                  intent(in) :: maximum_power
   integer,                  intent(in) :: potential_expansion_order
+  integer,                  intent(in) :: supercell_size
   type(WavevectorBasis)                :: output
   
   type(HarmonicState2D),      allocatable :: harmonic_states_2d(:)
-  type(SubspaceStatePointer), allocatable :: harmonic_states(:)
+  type(HarmonicStateComplex), allocatable :: harmonic_states(:)
   type(CoupledStates),        allocatable :: harmonic_couplings(:)
   
   integer :: total_power
@@ -337,12 +362,12 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
      &       -1                                                        )], &
      & total_power=0,                                                      &
      & maximum_power                                                       )]
-  harmonic_states = [( SubspaceStatePointer(HarmonicStateComplex(     &
-                     &                    subspace%id,                &
-                     &                    frequency,                  &
-                     &                    [harmonic_states_2d(i)] )), &
-                     & i=1,                                           &
-                     & size(harmonic_states_2d)                       )]
+  harmonic_states = [( HarmonicStateComplex( subspace%id,                &
+                     &                       supercell_size,             &
+                     &                       frequency,                  &
+                     &                       [harmonic_states_2d(i)] ),  &
+                     & i=1,                                              &
+                     & size(harmonic_states_2d)                          )]
   
   ! Calculate which states have non-zero <i|H|j> elements.
   ! |i> = (a+)^(m+).(a-)^(m-).|0>
@@ -403,7 +428,9 @@ function tensor_product(this,that) result(output)
   integer                                 :: subspace_id
   real(dp)                                :: frequency
   type(FractionVector)                    :: wavevector
-  type(SubspaceStatePointer), allocatable :: harmonic_states(:)
+  type(HarmonicStateReal),    allocatable :: harmonic_states_real(:)
+  type(HarmonicStateComplex), allocatable :: harmonic_states_complex(:)
+  class(SubspaceState),       allocatable :: harmonic_states(:)
   type(CoupledStates),        allocatable :: harmonic_couplings(:)
   
   integer :: i,j,k,l,ialloc
@@ -427,25 +454,48 @@ function tensor_product(this,that) result(output)
   !    of total occupation.
   this_occupations = this%harmonic_states_%occupation()
   that_occupations = that%harmonic_states_%occupation()
-  if (any(that_occupations(2:)<that_occupations(:size(that%harmonic_states_)-1))) then
+  if ( any(that_occupations(2:)                          &
+   & < that_occupations(:size(that%harmonic_states_)-1)) ) then
     call print_line(CODE_ERROR//': Powers are not in ascending order.')
     call err()
   endif
   
   ! Count the number of output states corresponding to each state in 'this'.
-  no_states = [( count(that_occupations + this_occupations(i) <= maximum_power), &
-               & i=1,                                                  &
-               & size(this%harmonic_states_)                          )]
+  no_states = [( count( that_occupations+this_occupations(i)    &
+               &    <= maximum_power                         ), &
+               & i=1,                                           &
+               & size(this%harmonic_states_)                    )]
   this_to_output = [( sum(no_states(:i-1)),        &
                     & i=1,                         &
                     & size(this%harmonic_states_) )]
   
   ! Generate monomial and harmonic states.
-  allocate(harmonic_states(sum(no_states)), stat=ialloc); call err(ialloc)
-  do i=1,size(this%harmonic_states_)
-    harmonic_states(this_to_output(i)+1:this_to_output(i)+no_states(i)) = &
-       & prod(this%harmonic_states_(i),that%harmonic_states_(:no_states(i)))
-  enddo
+  associate( this_states=>this%harmonic_states_, &
+           & that_states=>that%harmonic_states_  )
+    select type(this_states); type is(HarmonicStateReal)
+      select type(that_states); type is(HarmonicStateReal)
+        harmonic_states_real = [( [( prod_real( this_states(i),        &
+                                &               that_states(j)  ),     &
+                                &    j=1,                              &
+                                &    no_states(i)                  )], &
+                                & i=1,                                 &
+                                & size(this_states)                    )]
+        allocate( harmonic_states, source=harmonic_states_real, &
+                & stat=ialloc); call err(ialloc)
+      end select
+    type is(HarmonicStateComplex)
+      select type(that_states); type is(HarmonicStateComplex)
+        harmonic_states_complex = [( [( prod_complex( this_states(i),        &
+                                   &                  that_states(j)  ),     &
+                                   &    j=1,                                 &
+                                   &    no_states(i)                     )], &
+                                   & i=1,                                    &
+                                   & size(this_states)                       )]
+        allocate( harmonic_states, source=harmonic_states_complex, &
+                & stat=ialloc); call err(ialloc)
+      end select
+    end select
+  end associate
   
   ! Generate harmonic couplings.
   allocate( harmonic_couplings(size(harmonic_states)), &
@@ -483,30 +533,6 @@ function tensor_product(this,that) result(output)
                           & harmonic_couplings = harmonic_couplings )
 end function
 
-impure elemental function prod(lhs,rhs) result(output)
-  implicit none
-  
-  type(SubspaceStatePointer), intent(in) :: lhs
-  type(SubspaceStatePointer), intent(in) :: rhs
-  type(SubspaceStatePointer)             :: output
-  
-  class(SubspaceState), allocatable :: lhs2
-  class(SubspaceState), allocatable :: rhs2
-  
-  lhs2 = lhs%state()
-  rhs2 = rhs%state()
-  
-  select type(lhs2); type is(HarmonicStateReal)
-    select type(rhs2); type is (HarmonicStateReal)
-      output = SubspaceStatePointer(prod_real(lhs2,rhs2))
-    end select
-  type is(HarmonicStateComplex)
-    select type(rhs2); type is(HarmonicStateComplex)
-      output = SubspaceStatePointer(prod_complex(lhs2,rhs2))
-    end select
-  end select
-end function
-
 ! Splits up a WavevectorBasis by wavevector.
 function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   implicit none
@@ -528,7 +554,9 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   integer, allocatable :: allowed_couplings(:)
   
   ! Output variables.
-  type(SubspaceStatePointer), allocatable :: harmonic_states(:)
+  type(HarmonicStateReal),    allocatable :: harmonic_states_real(:)
+  type(HarmonicStateComplex), allocatable :: harmonic_states_complex(:)
+  class(SubspaceState),       allocatable :: harmonic_states(:)
   type(CoupledStates),        allocatable :: couplings(:)
   
   integer :: i,j,ialloc
@@ -551,8 +579,18 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   do i=1,size(output)
     ! Identify the states at the given wavevector.
     wavevector_states = filter(wavevector_qpoints==basis_qpoints(i))
-    harmonic_states = input%harmonic_states_(wavevector_states)
-    couplings       = input%harmonic_couplings_(wavevector_states)
+    couplings         = input%harmonic_couplings_(wavevector_states)
+    associate(states=>input%harmonic_states_)
+      select type(states); type is(HarmonicStateReal)
+        harmonic_states_real = states(wavevector_states)
+        allocate( harmonic_states, source=harmonic_states_real, &
+                & stat=ialloc); call err(ialloc)
+      type is(HarmonicStateComplex)
+        harmonic_states_complex = states(wavevector_states)
+        allocate( harmonic_states, source=harmonic_states_complex, &
+                & stat=ialloc); call err(ialloc)
+      end select
+    end associate
     
     ! Re-map IDs to correspond to states at the given wavevector only.
     new_ids = 0
@@ -574,6 +612,7 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
                                & basis_qpoints(i)%qpoint, &
                                & harmonic_states,         &
                                & couplings                )
+    deallocate(harmonic_states, stat=ialloc); call err(ialloc)
   enddo
 end function
 
@@ -633,21 +672,122 @@ impure elemental function integrate_BasisState_WavevectorBasis(this,bra, &
     ket_ = bra_
   endif
   
+  associate(harmonic_states=>this%harmonic_states_)
+    select type(harmonic_states); type is(HarmonicStateReal)
+      output = calculate_integral_real( harmonic_states,          &
+                                      & this%harmonic_couplings_, &
+                                      & bra_,                     &
+                                      & ket_,                     &
+                                      & monomial,                 &
+                                      & anharmonic_data           )
+    type is(HarmonicStateComplex)
+      output = calculate_integral_complex( harmonic_states,          &
+                                         & this%harmonic_couplings_, &
+                                         & bra_,                     &
+                                         & ket_,                     &
+                                         & monomial,                 &
+                                         & anharmonic_data           )
+    end select
+  end associate
+end function
+
+function calculate_integral_real(harmonic_states,harmonic_couplings,bra,ket, &
+   & monomial,anharmonic_data) result(output)
+  implicit none
+  
+  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),     intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),   intent(in)         :: bra
+  type(WavevectorState),   intent(in)         :: ket
+  type(SparseMonomial),    intent(in)         :: monomial
+  type(AnharmonicData),    intent(in)         :: anharmonic_data
+  complex(dp)                                 :: output
+  
+  type(HarmonicBraKetReal) :: braket
+  
+  complex(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetReal(                      &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the integral of the potential.
   output = 0.0_dp
-  do i=1,size(this%harmonic_states_)
-    do j=1,size(this%harmonic_couplings_(i))
-      k = this%harmonic_couplings_(i)%id(j)
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
       
       ! Ignore terms with k<i. These are added when i and k are reversed.
       if (k<i) then
         cycle
       endif
       
-      term = this%harmonic_states_(i)%integrate( monomial,                 &
-                                               & this%harmonic_states_(k), &
-                                               & anharmonic_data           )
+      braket%ket_ => harmonic_states(k)
       
-      term = bra_%coefficients(i) * term * ket_%coefficients(k)
+      term = bra%coefficients(i)                         &
+         & * braket%integrate(monomial, anharmonic_data) &
+         & * ket%coefficients(k)
+      
+      if (k==i) then
+        output = output + term
+      else
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
+      endif
+    enddo
+  enddo
+end function
+
+function calculate_integral_complex(harmonic_states,harmonic_couplings,bra, &
+   & ket,monomial,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),        intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),      intent(in)         :: bra
+  type(WavevectorState),      intent(in)         :: ket
+  type(SparseMonomial),       intent(in)         :: monomial
+  type(AnharmonicData),       intent(in)         :: anharmonic_data
+  complex(dp)                                    :: output
+  
+  type(HarmonicBraKetComplex) :: braket
+  
+  complex(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetComplex(                   &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the integral of the potential.
+  output = 0.0_dp
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      term = bra%coefficients(i)                         &
+         & * braket%integrate(monomial, anharmonic_data) &
+         & * ket%coefficients(k)
       
       if (k==i) then
         output = output + term
@@ -664,59 +804,156 @@ function integrate_monomial_WavevectorBases(bases,states, &
    & thermal_energy,monomial,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in)         :: bases(:)
-  class(BasisStates),     intent(in), target :: states
-  real(dp),               intent(in)         :: thermal_energy
-  type(SparseMonomial),   intent(in)         :: monomial
-  type(AnharmonicData),   intent(in)         :: anharmonic_data
-  complex(dp)                                :: output
+  class(WavevectorBasis), intent(in) :: bases(:)
+  type(WavevectorStates), intent(in) :: states
+  real(dp),               intent(in) :: thermal_energy
+  type(SparseMonomial),   intent(in) :: monomial
+  type(AnharmonicData),   intent(in) :: anharmonic_data
+  complex(dp)                        :: output
   
-  type(WavevectorStates) :: states_
-  
-  complex(dp) :: term
-  
-  integer :: i,j,k,l,m
-  
-  states_ = WavevectorStates(states)
+  integer :: i,j
   
   output = 0.0_dp
   ! Loop over wavevector bases, summing the contribution from each.
   do i=1,size(bases)
-    m = first( states_%density_matrices%wavevector==bases(i)%wavevector, &
-             & default=0)
-    if (m==0) then
-      cycle
-    elseif (.not. allocated(states_%density_matrices(m)%keys)) then
+    if (size(bases(i)%harmonic_States_)==0) then
       cycle
     endif
     
-    ! Perform a double loop across harmonic states, including only those
-    !   for which <j|X|l> can be non-zero.
-    do j=1,size(bases(i)%harmonic_states_)
-      do k=1,size(bases(i)%harmonic_couplings_(j))
-        l = bases(i)%harmonic_couplings_(j)%id(k)
-        
-        ! Ignore terms with l<j. These are added when j and l are reversed.
-        if (l<j) then
-          cycle
-        endif
-        
-        ! Calculate <j|X|l> in the harmonic basis,
-        !    and thermally weight by the density matrix.
-        term = bases(i)%harmonic_states_(j)%integrate(   &
-           &             monomial,                       &
-           &             bases(i)%harmonic_states_(l),   &
-           &             anharmonic_data               ) &
-           & * states_%density_matrices(m)%values(       &
-           &      states_%density_matrices(m)%keys(j)+k )
-        
-        ! If j==l, only include <j|X|j>, otherwise include <l|X|j> and <j|X|l>.
-        if (l==j) then
-          output = output + term
-        else
-          output = output + 2*term
-        endif
-      enddo
+    j = first( states%density_matrices%wavevector==bases(i)%wavevector, &
+             & default=0                                                )
+    if (j==0) then
+      cycle
+    elseif (.not. allocated(states%density_matrices(j)%keys)) then
+      cycle
+    endif
+    
+    associate(harmonic_states=>bases(i)%harmonic_states_)
+      select type(harmonic_states); type is(HarmonicStateReal)
+        output = output                                                 &
+             & + integrate_monomial_real( harmonic_states,              &
+             &                            bases(i)%harmonic_couplings_, &
+             &                            states%density_matrices(j),   &
+             &                            monomial,                     &
+             &                            anharmonic_data               )
+      type is(HarmonicStateComplex)
+        output = output                                                    &
+             & + integrate_monomial_complex( harmonic_states,              &
+             &                               bases(i)%harmonic_couplings_, &
+             &                               states%density_matrices(j),   &
+             &                               monomial,                     &
+             &                               anharmonic_data               )
+      end select
+    end associate
+  enddo
+end function
+
+function integrate_monomial_real(harmonic_states,harmonic_couplings, &
+   & density_matrix,monomial,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),     intent(in)         :: harmonic_couplings(:)
+  type(DensityMatrix),     intent(in)         :: density_matrix
+  type(SparseMonomial),    intent(in)         :: monomial
+  type(AnharmonicData),    intent(in)         :: anharmonic_data
+  complex(dp)                                 :: output
+  
+  type(HarmonicBraKetReal) :: braket
+  
+  complex(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetReal(                      &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Perform a double loop across harmonic states, including only those
+  !   for which <i|X|k> can be non-zero.
+  output = 0
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      ! Calculate <i|X|k> in the harmonic basis,
+      !    and thermally weight by the density matrix.
+      term = braket%integrate(monomial, anharmonic_data) &
+         & * density_matrix%values(density_matrix%keys(i)+j)
+      
+      ! If i==k, only include <i|X|i>, otherwise include <k|X|i> and <i|X|k>.
+      if (k==i) then
+        output = output + term
+      else
+        output = output + 2*term
+      endif
+    enddo
+  enddo
+end function
+
+function integrate_monomial_complex(harmonic_states,harmonic_couplings, &
+   & density_matrix,monomial,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),        intent(in)         :: harmonic_couplings(:)
+  type(DensityMatrix),        intent(in)         :: density_matrix
+  type(SparseMonomial),       intent(in)         :: monomial
+  type(AnharmonicData),       intent(in)         :: anharmonic_data
+  complex(dp)                                    :: output
+  
+  type(HarmonicBraKetComplex) :: braket
+  
+  complex(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetComplex(                   &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Perform a double loop across harmonic states, including only those
+  !   for which <i|X|k> can be non-zero.
+  output = 0
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      ! Calculate <i|X|k> in the harmonic basis,
+      !    and thermally weight by the density matrix.
+      term = braket%integrate(monomial, anharmonic_data) &
+         & * density_matrix%values(density_matrix%keys(i)+j)
+      
+      ! If i==k, only include <i|X|i>, otherwise include <k|X|i> and <i|X|k>.
+      if (k==i) then
+        output = output + term
+      else
+        output = output + 2*term
+      endif
     enddo
   enddo
 end function
@@ -746,17 +983,125 @@ impure elemental function kinetic_energy_WavevectorBasis(this,bra,ket, &
     ket_ = bra_
   endif
   
-  output = 0
-  do i=1,size(this%harmonic_states_)
-    do j=1,size(this%harmonic_couplings_(i))
-      k = this%harmonic_couplings_(i)%id(j)
-      term = this%harmonic_states_(i)%kinetic_energy( &
-                          & this%harmonic_states_(k), &
-                          & anharmonic_data            )
-      output = output               &
-           & + bra_%coefficients(i) &
-           & * term                 &
-           & * ket_%coefficients(k)
+  associate(harmonic_states=>this%harmonic_states_)
+    select type(harmonic_states); type is(HarmonicStateReal)
+      output = kinetic_energy_real( harmonic_states,          &
+                                  & this%harmonic_couplings_, &
+                                  & bra_,                     &
+                                  & ket_,                     &
+                                  & anharmonic_data           )
+    type is(HarmonicStateComplex)
+      output = kinetic_energy_complex( harmonic_states,          &
+                                     & this%harmonic_couplings_, &
+                                     & bra_,                     &
+                                     & ket_,                     &
+                                     & anharmonic_data           )
+    end select
+  end associate
+end function
+
+function kinetic_energy_real(harmonic_states,harmonic_couplings,bra,ket, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),     intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),   intent(in)         :: bra
+  type(WavevectorState),   intent(in)         :: ket
+  type(AnharmonicData),    intent(in)         :: anharmonic_data
+  real(dp)                                    :: output
+  
+  type(HarmonicBraKetReal) :: braket
+  
+  real(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetReal(                      &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the kinetic energy.
+  output = 0.0_dp
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      term = bra%coefficients(i)                    &
+         & * braket%kinetic_energy(anharmonic_data) &
+         & * ket%coefficients(k)
+      
+      if (k==i) then
+        output = output + term
+      else
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
+      endif
+    enddo
+  enddo
+end function
+
+function kinetic_energy_complex(harmonic_states,harmonic_couplings,bra, &
+   & ket,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),        intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),      intent(in)         :: bra
+  type(WavevectorState),      intent(in)         :: ket
+  type(AnharmonicData),       intent(in)         :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(HarmonicBraKetComplex) :: braket
+  
+  real(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetComplex(                   &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the kinetic energy.
+  output = 0.0_dp
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      term = bra%coefficients(i)                    &
+         & * braket%kinetic_energy(anharmonic_data) &
+         & * ket%coefficients(k)
+      
+      if (k==i) then
+        output = output + term
+      else
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
+      endif
     enddo
   enddo
 end function
@@ -786,23 +1131,124 @@ impure elemental function harmonic_potential_energy_WavevectorBasis(this, &
     ket_ = bra_
   endif
   
-  output = 0
-  do i=1,size(this%harmonic_states_)
-    do j=1,size(this%harmonic_couplings_(i))
-      k = this%harmonic_couplings_(i)%id(j)
-      term = this%harmonic_states_(i)%harmonic_potential_energy( &
-                                     & this%harmonic_states_(k), &
-                                     & anharmonic_data           )
-      if (present(ket)) then
-        output = output               &
-             & + bra_%coefficients(i) &
-             & * term                 &
-             & * ket_%coefficients(k)
+  associate(harmonic_states=>this%harmonic_states_)
+    select type(harmonic_states); type is(HarmonicStateReal)
+      output = harmonic_potential_energy_real( harmonic_states,          &
+                                             & this%harmonic_couplings_, &
+                                             & bra_,                     &
+                                             & ket_,                     &
+                                             & anharmonic_data           )
+    type is(HarmonicStateComplex)
+      output = harmonic_potential_energy_complex( harmonic_states,          &
+                                                & this%harmonic_couplings_, &
+                                                & bra_,                     &
+                                                & ket_,                     &
+                                                & anharmonic_data           )
+    end select
+  end associate
+end function
+
+function harmonic_potential_energy_real(harmonic_states,harmonic_couplings, &
+   & bra,ket,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),     intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),   intent(in)         :: bra
+  type(WavevectorState),   intent(in)         :: ket
+  type(AnharmonicData),    intent(in)         :: anharmonic_data
+  real(dp)                                    :: output
+  
+  type(HarmonicBraKetReal) :: braket
+  
+  real(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetReal(                      &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the integral of the potential.
+  output = 0.0_dp
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      term = bra%coefficients(i)                               &
+         & * braket%harmonic_potential_energy(anharmonic_data) &
+         & * ket%coefficients(k)
+      
+      if (k==i) then
+        output = output + term
       else
-        output = output               &
-             & + bra_%coefficients(i) &
-             & * term                 &
-             & * bra_%coefficients(k)
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
+      endif
+    enddo
+  enddo
+end function
+
+function harmonic_potential_energy_complex(harmonic_states, &
+   & harmonic_couplings,bra,ket,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),        intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),      intent(in)         :: bra
+  type(WavevectorState),      intent(in)         :: ket
+  type(AnharmonicData),       intent(in)         :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(HarmonicBraKetComplex) :: braket
+  
+  real(dp) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetComplex(                   &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the integral of the potential.
+  output = 0.0_dp
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      term = bra%coefficients(i)                               &
+         & * braket%harmonic_potential_energy(anharmonic_data) &
+         & * ket%coefficients(k)
+      
+      if (k==i) then
+        output = output + term
+      else
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
       endif
     enddo
   enddo
@@ -834,18 +1280,129 @@ impure elemental function kinetic_stress_WavevectorBasis(this,bra,ket, &
     ket_ = bra_
   endif
   
+  associate(harmonic_states=>this%harmonic_states_)
+    select type(harmonic_states); type is(HarmonicStateReal)
+      output = kinetic_stress_real( harmonic_states,          &
+                                  & this%harmonic_couplings_, &
+                                  & bra_,                     &
+                                  & ket_,                     &
+                                  & stress_prefactors,        &
+                                  & anharmonic_data           )
+    type is(HarmonicStateComplex)
+      output = kinetic_stress_complex( harmonic_states,          &
+                                     & this%harmonic_couplings_, &
+                                     & bra_,                     &
+                                     & ket_,                     &
+                                     & stress_prefactors,        &
+                                     & anharmonic_data           )
+    end select
+  end associate
+end function
+
+function kinetic_stress_real(harmonic_states,harmonic_couplings,bra,ket, &
+   & stress_prefactors,anharmonic_data) result(output)
+  implicit none
+  
+  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),     intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),   intent(in)         :: bra
+  type(WavevectorState),   intent(in)         :: ket
+  type(StressPrefactors),  intent(in)         :: stress_prefactors
+  type(AnharmonicData),    intent(in)         :: anharmonic_data
+  type(RealMatrix)                            :: output
+  
+  type(HarmonicBraKetReal) :: braket
+  
+  type(RealMatrix) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetReal(                      &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the kinetic stress.
   output = dblemat(zeroes(3,3))
-  do i=1,size(this%harmonic_states_)
-    do j=1,size(this%harmonic_couplings_(i))
-      k = this%harmonic_couplings_(i)%id(j)
-      term = this%harmonic_states_(i)%kinetic_stress( &
-                          & this%harmonic_states_(k), &
-                          & stress_prefactors,        &
-                          & anharmonic_data           )
-      output = output               &
-           & + bra_%coefficients(i) &
-           & * term                 &
-           & * ket_%coefficients(k)
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      term = bra%coefficients(i)                                       &
+         & * braket%kinetic_stress(stress_prefactors, anharmonic_data) &
+         & * ket%coefficients(k)
+      
+      if (k==i) then
+        output = output + term
+      else
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
+      endif
+    enddo
+  enddo
+end function
+
+function kinetic_stress_complex(harmonic_states,harmonic_couplings,bra,ket, &
+   & stress_prefactors,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),        intent(in)         :: harmonic_couplings(:)
+  type(WavevectorState),      intent(in)         :: bra
+  type(WavevectorState),      intent(in)         :: ket
+  type(StressPrefactors),     intent(in)         :: stress_prefactors
+  type(AnharmonicData),       intent(in)         :: anharmonic_data
+  type(RealMatrix)                               :: output
+  
+  type(HarmonicBraKetComplex) :: braket
+  
+  type(RealMatrix) :: term
+  
+  integer :: i,j,k
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetComplex(                   &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  ! Calculate the kinetic stress.
+  output = dblemat(zeroes(3,3))
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore terms with k<i. These are added when i and k are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      term = bra%coefficients(i)                                       &
+         & * braket%kinetic_stress(stress_prefactors, anharmonic_data) &
+         & * ket%coefficients(k)
+      
+      if (k==i) then
+        output = output + term
+      else
+        ! Include both <k||i> and <i||k>.
+        output = output + 2*term
+      endif
     enddo
   enddo
 end function
@@ -912,8 +1469,9 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  type(SubspaceStatePointer)             :: bra
-  type(SubspaceStatePointer)             :: ket
+  class(SubspaceState), allocatable :: bra
+  class(SubspaceState), allocatable :: ket
+  
   real(dp),                  allocatable :: hamiltonian(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
@@ -921,23 +1479,20 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
   
   integer :: i,j,k,ialloc
   
-  allocate( hamiltonian( size(this%harmonic_states_),    &
-          &              size(this%harmonic_states_)  ), &
-          & stat=ialloc); call err(ialloc)
-  hamiltonian = 0
-  do i=1,size(this%harmonic_states_)
-    bra = this%harmonic_states_(i)
-    do j=1,size(this%harmonic_couplings_(i))
-      k = this%harmonic_couplings_(i)%id(j)
-      ket = this%harmonic_states_(k)
-      
-      hamiltonian(i,k) = bra%kinetic_energy( ket,                             &
-                     &                       anharmonic_data )                &
-                     & + subspace_potential%potential_energy( bra,            &
-                     &                                        ket,            &
-                     &                                        anharmonic_data )
-    enddo
-  enddo
+  ! Calculate the Hamiltonian.
+  associate(harmonic_states=>this%harmonic_states_)
+    select type(harmonic_states); type is(HarmonicStateReal)
+      hamiltonian = calculate_hamiltonian_real( harmonic_states,          &
+                                              & this%harmonic_couplings_, &
+                                              & subspace_potential,       &
+                                              & anharmonic_data           )
+    type is(HarmonicStateComplex)
+      hamiltonian = calculate_hamiltonian_complex( harmonic_states,          &
+                                                 & this%harmonic_couplings_, &
+                                                 & subspace_potential,       &
+                                                 & anharmonic_data           )
+    end select
+  end associate
   
   estuff = diagonalise_symmetric(hamiltonian)
   
@@ -953,6 +1508,102 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
              & subspace_id = this%subspace_id,  &
              & states      = wavevector_states, &
              & energies    = estuff%eval        ))
+end function
+
+function calculate_hamiltonian_real(harmonic_states,harmonic_couplings, &
+   & subspace_potential,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),     intent(in)         :: harmonic_couplings(:)
+  class(PotentialData),    intent(in)         :: subspace_potential
+  type(AnharmonicData),    intent(in)         :: anharmonic_data
+  real(dp), allocatable                       :: output(:,:)
+  
+  type(HarmonicBraKetReal) :: braket
+  
+  integer :: i,j,k,ialloc
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetReal(                      &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  allocate( output( size(harmonic_states),    &
+          &         size(harmonic_states)  ), &
+          & stat=ialloc); call err(ialloc)
+  output = 0
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore k<i. These are added when k and i are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      output(i,k) = braket%kinetic_energy(anharmonic_data)               &
+                & + subspace_potential%potential_energy( braket,         &
+                &                                        anharmonic_data )
+      if (k/=i) then
+        output(k,i) = output(i,k)
+      endif
+    enddo
+  enddo
+end function
+
+function calculate_hamiltonian_complex(harmonic_states,harmonic_couplings, &
+   & subspace_potential,anharmonic_data) result(output) 
+  implicit none
+  
+  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
+  type(CoupledStates),        intent(in)         :: harmonic_couplings(:)
+  class(PotentialData),       intent(in)         :: subspace_potential
+  type(AnharmonicData),       intent(in)         :: anharmonic_data
+  real(dp), allocatable                          :: output(:,:)
+  
+  type(HarmonicBraKetComplex) :: braket
+  
+  integer :: i,j,k,ialloc
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetComplex(                   &
+     & harmonic_states(1)%subspace_id,              &
+     & harmonic_states(1)%mode_ids(),               &
+     & harmonic_states(1)%paired_mode_ids(),        &
+     & harmonic_states(1)%frequency,                &
+     & anharmonic_data%anharmonic_supercell%sc_size )
+  
+  allocate( output( size(harmonic_states),    &
+          &         size(harmonic_states)  ), &
+          & stat=ialloc); call err(ialloc)
+  output = 0
+  do i=1,size(harmonic_states)
+    braket%bra_ => harmonic_states(i)
+    do j=1,size(harmonic_couplings(i))
+      k = harmonic_couplings(i)%id(j)
+      
+      ! Ignore k<i. These are added when k and i are reversed.
+      if (k<i) then
+        cycle
+      endif
+      
+      braket%ket_ => harmonic_states(k)
+      
+      output(i,k) = braket%kinetic_energy(anharmonic_data)               &
+                & + subspace_potential%potential_energy( braket,         &
+                &                                        anharmonic_data )
+      if (k/=i) then
+        output(k,i) = output(i,k)
+      endif
+    enddo
+  enddo
 end function
 
 ! Generate the density matrices associated with a WavevectorStates.
@@ -1143,49 +1794,86 @@ function core_harmonic_observables_WavevectorBasis(bases,thermal_energy, &
    & stress,stress_prefactors,anharmonic_data) result(output)
   implicit none
   
-  type(WavevectorBasis),  intent(in)           :: bases(:)
+  type(WavevectorBasis),  intent(in), target   :: bases(:)
   real(dp),               intent(in)           :: thermal_energy
   class(StressData),      intent(in), optional :: stress
   type(StressPrefactors), intent(in), optional :: stress_prefactors
   type(AnharmonicData),   intent(in)           :: anharmonic_data
   type(ThermodynamicData)                      :: output
   
+  type(HarmonicBraKetReal)    :: braket_real
+  type(HarmonicBraKetComplex) :: braket_complex
+  
   real(dp), allocatable :: kinetic_energies(:)
   
   type(RealMatrix), allocatable :: stresses(:)
   real(dp),         allocatable :: volume
   
-  integer :: i,j,k,ialloc
+  integer :: no_states
   
-  ! Calculate <|T|>. N.B. this is also <|V|> for the harmonic potential.
-  kinetic_energies = [( bases(i)%harmonic_states_%kinetic_energy(    &
-                      &           anharmonic_data=anharmonic_data ), &
-                      & i=1,                                         &
-                      & size(bases)                                  )]
+  integer :: i,j,k,ialloc
   
   if (present(stress) .neqv. present(stress_prefactors)) then
     call print_line(CODE_ERROR//': Either both or neither of stress and &
        &stress_prefactors must be present.')
     call err()
   endif
+  
+  no_states = sum([(size(bases(i)%harmonic_states_), i=1, size(bases))])
+  
+  allocate(kinetic_energies(no_states), stat=ialloc); call err(ialloc)
   if (present(stress)) then
-    allocate(stresses(size(kinetic_energies)), stat=ialloc); call err(ialloc)
-    k = 0
-    do i=1,size(bases)
-      do j=1,size(bases(i)%harmonic_states_)
-        k = k+1
-        stresses(k) = bases(i)%harmonic_states_(j)%kinetic_stress(       &
-                  &         stress_prefactors = stress_prefactors,       &
-                  &         anharmonic_data   = anharmonic_data    )     &
-                  & + stress%potential_stress(                           &
-                  &      bra             = bases(i)%harmonic_states_(j), &
-                  &      anharmonic_data = anharmonic_data               )
-      enddo
-    enddo
-    
+    allocate(stresses(no_states), stat=ialloc); call err(ialloc)
     volume = anharmonic_data%structure%volume
   endif
   
+  k = 0
+  do i=1,size(bases)
+    associate(harmonic_states=>bases(i)%harmonic_states_)
+      select type(harmonic_states); type is(HarmonicStateReal)
+        braket_real = HarmonicBraKetReal(                 &
+           & harmonic_states(1)%subspace_id,              &
+           & harmonic_states(1)%mode_ids(),               &
+           & harmonic_states(1)%paired_mode_ids(),        &
+           & harmonic_states(1)%frequency,                &
+           & anharmonic_data%anharmonic_supercell%sc_size )
+        do j=1,size(harmonic_states)
+          braket_real%bra_ => harmonic_states(j)
+          braket_real%ket_ => harmonic_states(j)
+          kinetic_energies(j+k) = braket_real%kinetic_energy(anharmonic_data)
+          if (present(stress)) then
+            stresses(j+k) = braket_real%kinetic_stress( stress_prefactors,   &
+                        &                               anharmonic_data    ) &
+                        & + stress%potential_stress( braket_real,            &
+                        &                            anharmonic_data )
+          endif
+        enddo
+      type is(HarmonicStateComplex)
+        braket_complex = HarmonicBraKetComplex(           &
+           & harmonic_states(1)%subspace_id,              &
+           & harmonic_states(1)%mode_ids(),               &
+           & harmonic_states(1)%paired_mode_ids(),        &
+           & harmonic_states(1)%frequency,                &
+           & anharmonic_data%anharmonic_supercell%sc_size )
+        do j=1,size(harmonic_states)
+          braket_complex%bra_ => harmonic_states(j)
+          braket_complex%ket_ => harmonic_states(j)
+          kinetic_energies(j+k) = braket_complex%kinetic_energy( &
+                                               & anharmonic_data )
+          if (present(stress)) then
+            stresses(j+k) = braket_complex%kinetic_stress(           &
+                        &               stress_prefactors,           &
+                        &               anharmonic_data    )         &
+                        & + stress%potential_stress( braket_complex, &
+                        &                            anharmonic_data )
+          endif
+        enddo
+      end select
+    end associate
+    k = k+size(bases)
+  enddo
+  
+  ! N.B. U = <|T+V|> = 2<|T|> for the harmonic potential.
   output = ThermodynamicData( thermal_energy,     &
                             & 2*kinetic_energies, &
                             & stresses,           &
@@ -1202,13 +1890,18 @@ function core_effective_harmonic_observables_WavevectorBasis(bases,     &
    & result(output)
   implicit none
   
-  type(WavevectorBasis),  intent(in)           :: bases(:)
+  type(WavevectorBasis),  intent(in), target   :: bases(:)
   real(dp),               intent(in)           :: thermal_energy
   class(PotentialData),   intent(in)           :: potential
   class(StressData),      intent(in), optional :: stress
   type(StressPrefactors), intent(in), optional :: stress_prefactors
   type(AnharmonicData),   intent(in)           :: anharmonic_data
   type(ThermodynamicData)                      :: output
+  
+  integer :: no_states
+  
+  type(HarmonicBraKetReal)    :: braket_real
+  type(HarmonicBraKetComplex) :: braket_complex
   
   real(dp), allocatable :: harmonic_kinetic_energies(:)
   real(dp), allocatable :: harmonic_energy_differences(:)
@@ -1219,7 +1912,7 @@ function core_effective_harmonic_observables_WavevectorBasis(bases,     &
   
   real(dp) :: anharmonic_minus_harmonic
   
-  integer :: i,j
+  integer :: i,j,k,ialloc
   
   ! Calculate properties with a harmonic potential.
   output = core_harmonic_observables( bases,             &
@@ -1228,12 +1921,50 @@ function core_effective_harmonic_observables_WavevectorBasis(bases,     &
                                     & stress_prefactors, &
                                     & anharmonic_data    )
   
-  ! Calculate <|T|> for the harmonic potential.
-  harmonic_kinetic_energies = [(                    &
-     & bases(i)%harmonic_states_%kinetic_energy(    &
-     &           anharmonic_data=anharmonic_data ), &
-     & i=1,                                         &
-     & size(bases)                                  )]
+  no_states = sum([(size(bases(i)%harmonic_states_), i=1, size(bases))])
+  
+  ! Calculate <|T|> for the harmonic potential,
+  !    and <|V|> for the input potential.
+  allocate( harmonic_kinetic_energies(no_states),     &
+          & anharmonic_potential_energies(no_states), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(bases)
+    associate(harmonic_states=>bases(i)%harmonic_states_)
+      select type(harmonic_states); type is(HarmonicStateReal)
+        braket_real = HarmonicBraKetReal(                 &
+           & harmonic_states(1)%subspace_id,              &
+           & harmonic_states(1)%mode_ids(),               &
+           & harmonic_states(1)%paired_mode_ids(),        &
+           & harmonic_states(1)%frequency,                &
+           & anharmonic_data%anharmonic_supercell%sc_size )
+        do j=1,size(harmonic_states)
+          braket_real%bra_ => harmonic_states(j)
+          braket_real%ket_ => harmonic_states(j)
+          harmonic_kinetic_energies(j+k) = braket_real%kinetic_energy( &
+                                                     & anharmonic_data )
+          anharmonic_potential_energies(j+k) = potential%potential_energy( &
+                                                         & braket_real,    &
+                                                         & anharmonic_data )
+        enddo
+      type is(HarmonicStateComplex)
+        braket_complex = HarmonicBraKetComplex(           &
+           & harmonic_states(1)%subspace_id,              &
+           & harmonic_states(1)%mode_ids(),               &
+           & harmonic_states(1)%paired_mode_ids(),        &
+           & harmonic_states(1)%frequency,                &
+           & anharmonic_data%anharmonic_supercell%sc_size )
+        do j=1,size(harmonic_states)
+          braket_complex%bra_ => harmonic_states(j)
+          braket_complex%ket_ => harmonic_states(j)
+          harmonic_kinetic_energies(j+k) = braket_complex%kinetic_energy( &
+                                                        & anharmonic_data )
+          anharmonic_potential_energies(j+k) = potential%potential_energy( &
+                                                         & braket_complex, &
+                                                         & anharmonic_data )
+        enddo
+      end select
+    end associate
+  enddo
   
   ! Identify the ground state.
   ground_state = minloc(harmonic_kinetic_energies, 1)
@@ -1242,16 +1973,6 @@ function core_effective_harmonic_observables_WavevectorBasis(bases,     &
   ! N.B. <|V|> = <|T|> for the harmonic potential.
   harmonic_energy_differences = 2*( harmonic_kinetic_energies               &
                                 & - harmonic_kinetic_energies(ground_state) )
-  
-  ! Calculate <|V|> for the input potential.
-  anharmonic_potential_energies = [(                                &
-     & [( potential%potential_energy(                               &
-     &       bra             = bases(i)%harmonic_states_(j),        &
-     &       anharmonic_data = anharmonic_data               ),     &
-     &    j=1,                                                      &
-     &    size(bases(i)%harmonic_states_)                       )], &
-     & i=1,                                                         &
-     & size(bases)                                                  )]
   
   ! Calculate the difference in <|V|> between the harmonic
   !    and anharmonic potentials.
@@ -1379,6 +2100,7 @@ subroutine read_WavevectorBasis(this,input)
   real(dp)                                :: frequency
   type(FractionVector)                    :: wavevector
   type(SubspaceStatePointer), allocatable :: harmonic_states(:)
+  class(SubspaceState),       allocatable :: states(:)
   type(CoupledStates),        allocatable :: couplings(:)
   
   type(String), allocatable :: line(:)
@@ -1419,12 +2141,16 @@ subroutine read_WavevectorBasis(this,input)
       couplings(i) = CoupledStates(input(7+2*no_states+i))
     enddo
     
+    states = [( harmonic_states(i)%state(), &
+              & i=1,                        &
+              & size(harmonic_states)       )]
+    
     this = WavevectorBasis( maximum_power,   &
                           & expansion_order, &
                           & subspace_id,     &
                           & frequency,       &
                           & wavevector,      &
-                          & harmonic_states, &
+                          & states,          &
                           & couplings        )
   class default
     call err()
@@ -1449,7 +2175,7 @@ function write_WavevectorBasis(this) result(output)
              & 'Wavevector      : '//this%wavevector,      &
              & str('Harmonic states')                      ]
     do i=1,size(this%harmonic_states_)
-      state_strings = str(this%harmonic_states_(i))
+      state_strings = str(SubspaceStatePointer(this%harmonic_states_(i)))
       output = [output, '|'//i//'> = '//state_strings(size(state_strings))]
     enddo
     output = [ output,                                              &

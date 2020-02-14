@@ -33,12 +33,12 @@ module stress_basis_function_module
     procedure, private :: stress_RealModeDisplacement_StressBasisFunction
     procedure, private :: stress_ComplexModeDisplacement_StressBasisFunction
     
-    generic,   public :: braket =>             &
-                       & braket_SubspaceState, &
-                       & braket_BasisState,    &
+    generic,   public :: braket =>              &
+                       & braket_SubspaceBraKet, &
+                       & braket_BasisState,     &
                        & braket_BasisStates
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_StressBasisFunction
+    procedure, public :: braket_SubspaceBraKet => &
+                       & braket_SubspaceBraKet_StressBasisFunction
     procedure, public :: braket_BasisState => &
                        & braket_BasisState_StressBasisFunction
     procedure, public :: braket_BasisStates => &
@@ -395,22 +395,20 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-subroutine braket_SubspaceState_StressBasisFunction(this,bra,ket, &
+subroutine braket_SubspaceBraKet_StressBasisFunction(this,braket, &
    & anharmonic_data)
   implicit none
   
-  class(StressBasisFunction), intent(inout)        :: this
-  class(SubspaceState),       intent(in)           :: bra
-  class(SubspaceState),       intent(in), optional :: ket
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  class(StressBasisFunction), intent(inout) :: this
+  class(SubspaceBraKet),      intent(in)    :: braket
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
   
   integer :: i,j
   
   do i=1,3
     do j=1,3
       call integrate( this%elements_(j,i)%terms, &
-                    & bra,                       &
-                    & ket,                       &
+                    & braket,                    &
                     & anharmonic_data            )
     enddo
   enddo

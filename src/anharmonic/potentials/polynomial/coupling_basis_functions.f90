@@ -38,12 +38,12 @@ module coupling_basis_functions_module
     procedure, private :: force_RealModeDisplacement_CouplingBasisFunctions
     procedure, private :: force_ComplexModeDisplacement_CouplingBasisFunctions
     
-    generic,   public :: braket =>             &
-                       & braket_SubspaceState, &
-                       & braket_BasisState,    &
+    generic,   public :: braket =>              &
+                       & braket_SubspaceBraKet, &
+                       & braket_BasisState,     &
                        & braket_BasisStates
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_CouplingBasisFunctions
+    procedure, public :: braket_SubspaceBraKet => &
+                       & braket_SubspaceBraKet_CouplingBasisFunctions
     procedure, public :: braket_BasisState => &
                        & braket_BasisState_CouplingBasisFunctions
     procedure, public :: braket_BasisStates => &
@@ -52,11 +52,11 @@ module coupling_basis_functions_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_CouplingBasisFunctions
     
-    generic,   public :: potential_energy =>          &
-                       & potential_energy_BasisState, &
-                       & potential_energy_SubspaceState
+    generic,   public :: potential_energy =>              &
+                       & potential_energy_SubspaceBraKet, &
+                       & potential_energy_BasisState
+    procedure, public :: potential_energy_SubspaceBraKet
     procedure, public :: potential_energy_BasisState
-    procedure, public :: potential_energy_SubspaceState
     
     procedure, public :: undisplaced_energy => &
                        & undisplaced_energy_CouplingBasisFunctions
@@ -209,20 +209,19 @@ impure elemental function                                                    &
   endif
 end function
 
-impure elemental subroutine braket_SubspaceState_CouplingBasisFunctions(this, &
-   & bra,ket,whole_subspace,anharmonic_data)
+impure elemental subroutine braket_SubspaceBraKet_CouplingBasisFunctions( &
+   & this,braket,whole_subspace,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
-  class(SubspaceState),          intent(in)           :: bra
-  class(SubspaceState),          intent(in), optional :: ket
+  class(SubspaceBraKet),         intent(in)           :: braket
   logical,                       intent(in), optional :: whole_subspace
   type(AnharmonicData),          intent(in)           :: anharmonic_data
   
   integer :: i
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  i = first(this%coupling%ids==braket%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
@@ -231,7 +230,7 @@ impure elemental subroutine braket_SubspaceState_CouplingBasisFunctions(this, &
     
     ! Integrate across the basis function, and simplify it.
     do i=1,size(this)
-      call this%basis_functions_(i)%braket(bra, ket, anharmonic_data)
+      call this%basis_functions_(i)%braket(braket, anharmonic_data)
     enddo
     
     call this%basis_functions_%simplify()
@@ -324,18 +323,16 @@ impure elemental function harmonic_expectation_CouplingBasisFunctions(this, &
                                                          & supercell_size  ))
 end function
 
-impure elemental function potential_energy_SubspaceState(this,bra,ket, &
+impure elemental function potential_energy_SubspaceBraKet(this,braket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(CouplingBasisFunctions), intent(in)           :: this
-  class(SubspaceState),          intent(in)           :: bra
-  class(SubspaceState),          intent(in), optional :: ket
-  type(AnharmonicData),          intent(in)           :: anharmonic_data
-  real(dp)                                            :: output
+  class(CouplingBasisFunctions), intent(in) :: this
+  class(SubspaceBraKet),         intent(in) :: braket
+  type(AnharmonicData),          intent(in) :: anharmonic_data
+  real(dp)                                  :: output
   
-  output = sum(this%basis_functions_%potential_energy( bra,            &
-                                                     & ket,            &
+  output = sum(this%basis_functions_%potential_energy( braket,         &
                                                      & anharmonic_data ))
 end function
 

@@ -222,15 +222,14 @@ end function
 !    = 1/sqrt(2Nw)^{n_i+n_j}
 !    * ((p_i+p_j+n_i+n_j+q_i+q_j)/2)!
 !    / sqrt( (p_i+p_j)! * (q_i+q_j)! )   otherwise.
-!
-! N.B. the factor of 1/sqrt(2Nw)^{n_i+n_j} is neglected.
-impure elemental function braket_MonomialState2D(bra,ket,potential) &
+impure elemental function braket_MonomialState2D(bra,ket,potential,log_2nw) &
    & result(output)
   implicit none
   
   class(MonomialState2D),  intent(in) :: bra
   class(MonomialState2D),  intent(in) :: ket
   type(ComplexUnivariate), intent(in) :: potential
+  real(dp),                intent(in) :: log_2nw
   real(dp)                            :: output
   
   integer :: p_i,p_j,q_i,q_j,n_i,n_j
@@ -246,7 +245,8 @@ impure elemental function braket_MonomialState2D(bra,ket,potential) &
     output = 0
   else
     output = exp( log_factorial((p_i+p_j+n_i+n_j+q_i+q_j)/2)             &
-              & - 0.5_dp*(log_factorial(p_i+p_j)+log_factorial(q_i+q_j)) )
+              & - 0.5_dp*(log_factorial(p_i+p_j)+log_factorial(q_i+q_j)) &
+              & - 0.5_dp*(n_i+n_j)*log_2nw                               )
   endif
 end function
 

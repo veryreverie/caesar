@@ -19,8 +19,10 @@ module monomial_state_complex_module
   public :: monomial_state_complex_pointer
   
   type, extends(SubspaceState) :: MonomialStateComplex
+    integer                                     :: supercell_size
     real(dp)                                    :: frequency
-    type(MonomialState2D), private, allocatable :: modes_(:)
+    real(dp),                           private :: log_2nw_
+    type(MonomialState2D), allocatable, private :: modes_(:)
   contains
     procedure, public, nopass :: representation => &
                                & representation_MonomialStateComplex
@@ -76,17 +78,22 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_MonomialStateComplex(subspace_id,frequency,modes) result(this)
+function new_MonomialStateComplex(subspace_id,supercell_size,frequency,modes) &
+   & result(this) 
   implicit none
   
   integer,               intent(in) :: subspace_id
+  integer,               intent(in) :: supercell_size
   real(dp),              intent(in) :: frequency
   type(MonomialState2D), intent(in) :: modes(:)
   type(MonomialStateComplex)        :: this
   
-  this%subspace_id = subspace_id
-  this%frequency   = frequency
-  this%modes_      = modes
+  this%subspace_id    = subspace_id
+  this%supercell_size = supercell_size
+  this%frequency      = frequency
+  this%modes_         = modes
+  
+  this%log_2nw_ = log(2*this%supercell_size*this%frequency)
 end function
 
 recursive function new_MonomialStateComplex_SubspaceState(input) result(this)
@@ -278,28 +285,16 @@ impure elemental function integrate_MonomialStateComplex(this, &
   
   type(MonomialStateComplex), pointer :: monomial_ket
   
-  integer :: i
-  
-  ! Calculate the coefficient of <bra|X|ket>,
-  !    up to the factor of 1/sqrt(2Nw)^n.
-  !    - N is the number of primitive cells in the anharmonic supercell.
-  !    - w is the frequency of the modes in the subspace.
-  !    - n is the power of the modes in the monomial which are integrated.
   if (present(ket)) then
     monomial_ket => monomial_state_complex_pointer(ket)
     output = product(this%modes_%braket( monomial_ket%modes_, &
-                                       & monomial%modes       ))
+                                       & monomial%modes,      &
+                                       & this%log_2nw_        ))
   else
-    output = product(this%modes_%braket( this%modes_,   &
-                                       & monomial%modes ))
+    output = product(this%modes_%braket( this%modes_,    &
+                                       & monomial%modes, &
+                                       & this%log_2nw_   ))
   endif
-  
-  ! Include the factor of (2Nw)^(n/2).
-  output = output                                          &
-      &  / sqrt( 2.0_dp                                         &
-      &        * anharmonic_data%anharmonic_supercell%sc_size   &
-      &        * this%frequency                               ) &
-      & ** sum(monomial%modes%total_power())
 end function
 
 impure elemental function kinetic_energy_MonomialStateComplex(this,ket, &
@@ -389,8 +384,11 @@ impure elemental function harmonic_potential_energy_MonomialStateComplex( &
       !    so <p|T|q> = (w^2/2)<p|q>
       !               * sum_i <p_i|%braket(|q_i>,V_i) / <p_i|q_i>
       overlap = bra_modes%inner_product(ket_modes)
-      output = (this%frequency**2/2)*product(overlap) &
-           & * sum(bra_modes%braket(ket_modes,harmonic_potential)/overlap)
+      output = (this%frequency**2/2)*product(overlap)       &
+           & * sum( bra_modes%braket( ket_modes,            &
+           &                          harmonic_potential,   &
+           &                          this%log_2nw_       ) &
+           &      / overlap                                 )
     else
       ! At least one <p_i|q_i>=0, and for monomial states,
       !    if <p_i|q_i>=0 then <p_i|V_i|q_i>=0 as well.
@@ -399,8 +397,10 @@ impure elemental function harmonic_potential_energy_MonomialStateComplex( &
   else
     ! |p>=|q>, so <p'|q'>=1, and so
     !    <p|V|q> = (w^2/2)*sum_i <p_i|%braket(|p_i>,V_i).
-    output = (this%frequency**2/2) &
-         & * sum(bra_modes%braket(bra_modes,harmonic_potential))
+    output = (this%frequency**2/2)                     &
+         & * sum(bra_modes%braket( bra_modes,          &
+         &                         harmonic_potential, &
+         &                         this%log_2nw_       ))
   endif
 end function
 
@@ -538,13 +538,14 @@ impure elemental function change_modes_MonomialStateComplex(this,mode_group) &
   paired_powers = paired_powers(sort_key)
   
   ! Construct output using the new ids.
-  output = MonomialStateComplex(                                     &
-     & subspace_id = this%subspace_id,                               &
-     & frequency   = this%frequency,                                 &
-     & modes       = MonomialState2D( id           = ids,            &
-     &                                paired_id    = paired_ids,     &
-     &                                power        = powers,         &
-     &                                paired_power = paired_powers ) )
+  output = MonomialStateComplex(                                        &
+     & subspace_id    = this%subspace_id,                               &
+     & supercell_size = this%supercell_size,                            &
+     & frequency      = this%frequency,                                 &
+     & modes          = MonomialState2D( id           = ids,            &
+     &                                   paired_id    = paired_ids,     &
+     &                                   power        = powers,         &
+     &                                   paired_power = paired_powers ) )
 end function
 
 ! ----------------------------------------------------------------------
@@ -557,6 +558,7 @@ subroutine read_MonomialStateComplex(this,input)
   type(String),                intent(in)  :: input(:)
   
   integer                            :: subspace_id
+  integer                            :: supercell_size
   real(dp)                           :: frequency
   type(MonomialState2D), allocatable :: modes(:)
   
@@ -565,17 +567,17 @@ subroutine read_MonomialStateComplex(this,input)
   integer :: i
   
   select type(this); type is(MonomialStateComplex)
-    line = split_line(input(1))
-    subspace_id = int(line(3))
+    subspace_id = int(token(input(1),3))
     
-    line = split_line(input(2))
-    frequency = dble(line(3))
+    supercell_size = int(token(input(2),4))
     
-    line = split_line(input(4),delimiter='>')
+    frequency = dble(token(input(3),3))
+    
+    line = split_line(input(5),delimiter='>')
     line = [(line(i)//'>',i=1,size(line))]
     modes = MonomialState2D(line)
     
-    this = MonomialStateComplex(subspace_id,frequency,modes)
+    this = MonomialStateComplex(subspace_id,supercell_size,frequency,modes)
   class default
     call err()
   end select
@@ -588,10 +590,11 @@ function write_MonomialStateComplex(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(MonomialStateComplex)
-    output = [ 'Subspace  : '//this%subspace_id,    &
-             & 'Frequency : '//this%frequency,      &
-             & str('State'),                        &
-             & join(str(this%modes_), delimiter='') ]
+    output = [ 'Subspace       : '//this%subspace_id,    &
+             & 'Supercell size : '//this%supercell_size, &
+             & 'Frequency      : '//this%frequency,      &
+             & str('State'),                             &
+             & join(str(this%modes_), delimiter='')      ]
   class default
     call err()
   end select
@@ -606,7 +609,8 @@ function new_MonomialStateComplex_Strings(input) result(this)
   call this%read(input)
 end function
 
-impure elemental function new_MonomialStateComplex_StringArray(input) result(this)
+impure elemental function new_MonomialStateComplex_StringArray(input) &
+   & result(this) 
   implicit none
   
   type(StringArray), intent(in) :: input

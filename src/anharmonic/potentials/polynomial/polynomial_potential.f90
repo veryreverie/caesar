@@ -57,8 +57,8 @@ module polynomial_potential_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PolynomialPotential
     
-    procedure, public :: braket_SubspaceState  => &
-                       & braket_SubspaceState_PolynomialPotential
+    procedure, public :: braket_SubspaceBraket  => &
+                       & braket_SubspaceBraket_PolynomialPotential
     procedure, public :: braket_BasisState  => &
                        & braket_BasisState_PolynomialPotential
     procedure, public :: braket_BasisStates => &
@@ -70,10 +70,10 @@ module polynomial_potential_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PolynomialPotential
     
+    procedure, public :: potential_energy_SubspaceBraKet => &
+                       & potential_energy_SubspaceBraKet_PolynomialPotential
     procedure, public :: potential_energy_BasisState => &
                        & potential_energy_BasisState_PolynomialPotential
-    procedure, public :: potential_energy_SubspaceState => &
-                       & potential_energy_SubspaceState_PolynomialPotential
     
     procedure, public :: coefficients => &
                        & coefficients_PolynomialPotential
@@ -775,13 +775,12 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
 end function
 
 ! Integrate the potential between two states.
-subroutine braket_SubspaceState_PolynomialPotential(this,bra,ket, &
+subroutine braket_SubspaceBraKet_PolynomialPotential(this,braket, &
    & whole_subspace,anharmonic_data)
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
-  class(SubspaceState),       intent(in)           :: bra
-  class(SubspaceState),       intent(in), optional :: ket
+  class(SubspaceBraKet),      intent(in)           :: braket
   logical,                    intent(in), optional :: whole_subspace
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
@@ -789,12 +788,11 @@ subroutine braket_SubspaceState_PolynomialPotential(this,bra,ket, &
   
   ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
   this%reference_energy_ = this%reference_energy_ &
-                       & * bra%inner_product(ket,anharmonic_data)
+                       & * braket%inner_product(anharmonic_data)
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket( bra,            &
-                                        & ket,            &
+    call this%basis_functions_(i)%braket( braket,         &
                                         & whole_subspace, &
                                         & anharmonic_data )
   enddo
@@ -934,6 +932,21 @@ impure elemental function harmonic_expectation_PolynomialPotential(this, &
        &                                                   supercell_size  ))
 end function
 
+recursive function potential_energy_SubspaceBraKet_PolynomialPotential(this, &
+   & braket,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PolynomialPotential), intent(in)           :: this
+  class(SubspaceBraKet),      intent(in)           :: braket
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  real(dp)                                         :: output
+  
+  output = this%reference_energy_                                      &
+       & * braket%inner_product(anharmonic_data)                       &
+       & + sum(this%basis_functions_%potential_energy( braket,         &
+       &                                               anharmonic_data ))
+end function
+
 recursive function potential_energy_BasisState_PolynomialPotential(this,bra, &
    & ket,subspace,subspace_basis,anharmonic_data) result(output) 
   implicit none
@@ -955,24 +968,6 @@ recursive function potential_energy_BasisState_PolynomialPotential(this,bra, &
        &                                               ket,            &
        &                                               subspace,       &
        &                                               subspace_basis, &
-       &                                               anharmonic_data ))
-end function
-
-recursive function potential_energy_SubspaceState_PolynomialPotential(this, &
-   & bra,ket,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PolynomialPotential), intent(in)           :: this
-  class(SubspaceState),       intent(in)           :: bra
-  class(SubspaceState),       intent(in), optional :: ket
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
-  real(dp)                                         :: output
-  
-  output = this%reference_energy_                                      &
-       & * bra%inner_product( ket,                                     &
-       &                      anharmonic_data )                        &
-       & + sum(this%basis_functions_%potential_energy( bra,            &
-       &                                               ket,            &
        &                                               anharmonic_data ))
 end function
 

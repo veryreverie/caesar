@@ -34,12 +34,12 @@ module coupling_stress_basis_functions_module
     procedure, private :: &
        & stress_ComplexModeDisplacement_CouplingStressBasisFunctions
     
-    generic,   public :: braket =>             &
-                       & braket_SubspaceState, &
-                       & braket_BasisState,    &
+    generic,   public :: braket =>              &
+                       & braket_SubspaceBraKet, &
+                       & braket_BasisState,     &
                        & braket_BasisStates
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_CouplingStressBasisFunctions
+    procedure, public :: braket_SubspaceBraKet => &
+                       & braket_SubspaceBraKet_CouplingStressBasisFunctions
     procedure, public :: braket_BasisState => &
                        & braket_BasisState_CouplingStressBasisFunctions
     procedure, public :: braket_BasisStates => &
@@ -143,20 +143,19 @@ impure elemental function                                              &
 end function
 
 impure elemental subroutine                                          &
-   & braket_SubspaceState_CouplingStressBasisFunctions(this,bra,ket, &
+   & braket_SubspaceBraKet_CouplingStressBasisFunctions(this,braket, &
    & whole_subspace,anharmonic_data)
   implicit none
   
   class(CouplingStressBasisFunctions), intent(inout)        :: this
-  class(SubspaceState),                intent(in)           :: bra
-  class(SubspaceState),                intent(in), optional :: ket
+  class(SubspaceBraKet),               intent(in)           :: braket
   logical,                             intent(in), optional :: whole_subspace
   type(AnharmonicData),                intent(in)           :: anharmonic_data
   
   integer :: i
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  i = first(this%coupling%ids==braket%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
@@ -165,7 +164,7 @@ impure elemental subroutine                                          &
     
     ! Integrate across the basis function, and simplify it.
     do i=1,size(this)
-      call this%basis_functions_(i)%braket(bra, ket, anharmonic_data)
+      call this%basis_functions_(i)%braket(braket, anharmonic_data)
     enddo
     
     call this%basis_functions_%simplify()

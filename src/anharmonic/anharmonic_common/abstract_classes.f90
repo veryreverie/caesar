@@ -32,6 +32,7 @@ module abstract_classes_module
   use subspace_wavefunctions_module
   use stress_prefactors_module
   use subspace_state_module
+  use subspace_braket_module
   use basis_state_module
   use basis_states_module
   use sparse_monomial_module
@@ -208,11 +209,12 @@ module abstract_classes_module
        & deferred :: force_ComplexModeDisplacement
     
     ! Evaluate <bra|potential|ket>.
-    generic, public :: braket => braket_SubspaceState, &
-                               & braket_BasisState,    &
-                               & braket_BasisStates
-    procedure(braket_SubspaceState_PotentialData), public, deferred :: &
-       & braket_SubspaceState
+    generic, public :: braket =>              &
+                     & braket_SubspaceBraKet, &
+                     & braket_BasisState,     &
+                     & braket_BasisStates
+    procedure(braket_SubspaceBraKet_PotentialData), public, deferred :: &
+       & braket_SubspaceBraKet
     procedure(braket_BasisState_PotentialData), public, deferred :: &
        & braket_BasisState
     procedure(braket_BasisStates_PotentialData), public, deferred :: &
@@ -224,11 +226,11 @@ module abstract_classes_module
        & harmonic_expectation
     
     ! Calculate the potential energy of the potential w/r/t a given state.
-    generic,   public :: potential_energy =>             &
-                       & potential_energy_SubspaceState, &
+    generic,   public :: potential_energy =>              &
+                       & potential_energy_SubspaceBraKet, &
                        & potential_energy_BasisState
-    procedure, public :: potential_energy_SubspaceState => &
-                       & potential_energy_SubspaceState_PotentialData
+    procedure, public :: potential_energy_SubspaceBraKet => &
+                       & potential_energy_SubspaceBraKet_PotentialData
     procedure, public :: potential_energy_BasisState => &
                        & potential_energy_BasisState_PotentialData
     
@@ -279,8 +281,8 @@ module abstract_classes_module
     procedure, public :: force_ComplexModeDisplacement => &
                        & force_ComplexModeDisplacement_PotentialPointer
     
-    procedure, public :: braket_SubspaceState  => &
-                       & braket_SubspaceState_PotentialPointer
+    procedure, public :: braket_SubspaceBraKet  => &
+                       & braket_SubspaceBraKet_PotentialPointer
     procedure, public :: braket_BasisState  => &
                        & braket_BasisState_PotentialPointer
     procedure, public :: braket_BasisStates => &
@@ -289,8 +291,8 @@ module abstract_classes_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_PotentialPointer
     
-    procedure, public :: potential_energy_SubspaceState => &
-                       & potential_energy_SubspaceState_PotentialPointer
+    procedure, public :: potential_energy_SubspaceBraKet => &
+                       & potential_energy_SubspaceBraKet_PotentialPointer
     procedure, public :: potential_energy_BasisState => &
                        & potential_energy_BasisState_PotentialPointer
     
@@ -336,11 +338,12 @@ module abstract_classes_module
        & deferred :: stress_ComplexModeDisplacement
     
     ! Evaluate <bra|stress|ket>.
-    generic, public :: braket => braket_SubspaceState, &
-                               & braket_BasisState, &
-                               & braket_BasisStates
-    procedure(braket_SubspaceState_StressData),  public, deferred :: &
-       & braket_SubspaceState
+    generic, public :: braket =>              &
+                     & braket_SubspaceBraKet, &
+                     & braket_BasisState,     &
+                     & braket_BasisStates
+    procedure(braket_SubspaceBraKet_StressData),  public, deferred :: &
+       & braket_SubspaceBraKet
     procedure(braket_BasisState_StressData),  public, deferred :: &
        & braket_BasisState
     procedure(braket_BasisStates_StressData), public, deferred :: &
@@ -352,11 +355,11 @@ module abstract_classes_module
        & harmonic_expectation
     
     ! Calculate the potential stress of the stress w/r/t a given state.
-    generic,   public :: potential_stress =>             &
-                       & potential_stress_SubspaceState, &
+    generic,   public :: potential_stress =>              &
+                       & potential_stress_SubspaceBraKet, &
                        & potential_stress_BasisState
-    procedure, public :: potential_stress_SubspaceState => &
-                       & potential_stress_SubspaceState_StressData
+    procedure, public :: potential_stress_SubspaceBraKet => &
+                       & potential_stress_SubspaceBraKet_StressData
     procedure, public :: potential_stress_BasisState => &
                        & potential_stress_BasisState_StressData
     
@@ -386,8 +389,8 @@ module abstract_classes_module
     procedure, public :: stress_ComplexModeDisplacement => &
                        & stress_ComplexModeDisplacement_StressPointer
     
-    procedure, public :: braket_SubspaceState  => &
-                       & braket_SubspaceState_StressPointer
+    procedure, public :: braket_SubspaceBraKet  => &
+                       & braket_SubspaceBraKet_StressPointer
     procedure, public :: braket_BasisState  => &
                        & braket_BasisState_StressPointer
     procedure, public :: braket_BasisStates => &
@@ -396,8 +399,8 @@ module abstract_classes_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_StressPointer
     
-    procedure, public :: potential_stress_SubspaceState => &
-                       & potential_stress_SubspaceState_StressPointer
+    procedure, public :: potential_stress_SubspaceBraKet => &
+                       & potential_stress_SubspaceBraKet_StressPointer
     procedure, public :: potential_stress_BasisState => &
                        & potential_stress_BasisState_StressPointer
     
@@ -781,18 +784,17 @@ module abstract_classes_module
       type(ComplexModeForce)                    :: output
     end function
     
-    subroutine braket_SubspaceState_PotentialData(this,bra,ket, &
+    subroutine braket_SubspaceBraKet_PotentialData(this,braket, &
        & whole_subspace,anharmonic_data)
       import PotentialData
-      import SubspaceState
+      import SubspaceBraKet
       import AnharmonicData
       implicit none
       
-      class(PotentialData), intent(inout)        :: this
-      class(SubspaceState), intent(in)           :: bra
-      class(SubspaceState), intent(in), optional :: ket
-      logical,              intent(in), optional :: whole_subspace
-      type(AnharmonicData), intent(in)           :: anharmonic_data
+      class(PotentialData),  intent(inout)        :: this
+      class(SubspaceBraKet), intent(in)           :: braket
+      logical,               intent(in), optional :: whole_subspace
+      type(AnharmonicData),  intent(in)           :: anharmonic_data
     end subroutine
     
     subroutine braket_BasisState_PotentialData(this,bra,ket,subspace, &
@@ -921,18 +923,17 @@ module abstract_classes_module
       type(ComplexMatrix)                       :: output
     end function
     
-    subroutine braket_SubspaceState_StressData(this,bra,ket,whole_subspace, &
+    subroutine braket_SubspaceBraKet_StressData(this,braket,whole_subspace, &
        & anharmonic_data)
       import StressData
-      import SubspaceState
+      import SubspaceBraKet
       import AnharmonicData
       implicit none
       
-      class(StressData),    intent(inout)        :: this
-      class(SubspaceState), intent(in)           :: bra
-      class(SubspaceState), intent(in), optional :: ket
-      logical,              intent(in), optional :: whole_subspace
-      type(AnharmonicData), intent(in)           :: anharmonic_data
+      class(StressData),     intent(inout)        :: this
+      class(SubspaceBraKet), intent(in)           :: braket
+      logical,               intent(in), optional :: whole_subspace
+      type(AnharmonicData),  intent(in)           :: anharmonic_data
     end subroutine
     
     subroutine braket_BasisState_StressData(this,bra,ket,subspace, &
@@ -1657,19 +1658,18 @@ impure elemental function force_ComplexModeDisplacement_PotentialPointer( &
   output = this%potential_%force(displacement)
 end function
 
-subroutine braket_SubspaceState_PotentialPointer(this,bra,ket, &
+subroutine braket_SubspaceBraKet_PotentialPointer(this,braket, &
    & whole_subspace,anharmonic_data)
   implicit none
   
   class(PotentialPointer), intent(inout)        :: this
-  class(SubspaceState),    intent(in)           :: bra
-  class(SubspaceState),    intent(in), optional :: ket
+  class(SubspaceBraKet),   intent(in)           :: braket
   logical,                 intent(in), optional :: whole_subspace
   type(AnharmonicData),    intent(in)           :: anharmonic_data
   
   call this%check()
   
-  call this%potential_%braket(bra,ket,whole_subspace,anharmonic_data)
+  call this%potential_%braket(braket,whole_subspace,anharmonic_data)
 end subroutine
 
 subroutine braket_BasisState_PotentialPointer(this,bra,ket,subspace, &
@@ -1735,21 +1735,18 @@ impure elemental function harmonic_expectation_PotentialPointer(this, &
                                                & anharmonic_data )
 end function
 
-recursive function potential_energy_SubspaceState_PotentialPointer(this,bra, &
-   & ket,anharmonic_data) result(output) 
+recursive function potential_energy_SubspaceBraKet_PotentialPointer(this, &
+   & braket,anharmonic_data) result(output) 
   implicit none
   
-  class(PotentialPointer), intent(in)           :: this
-  class(SubspaceState),    intent(in)           :: bra
-  class(SubspaceState),    intent(in), optional :: ket
-  type(AnharmonicData),    intent(in)           :: anharmonic_data
-  real(dp)                                      :: output
+  class(PotentialPointer), intent(in) :: this
+  class(SubspaceBraKet),   intent(in) :: braket
+  type(AnharmonicData),    intent(in) :: anharmonic_data
+  real(dp)                            :: output
   
   call this%check()
   
-  output = this%potential_%potential_energy( bra,            &
-                                           & ket,            &
-                                           & anharmonic_data )
+  output = this%potential_%potential_energy(braket, anharmonic_data)
 end function
 
 recursive function potential_energy_BasisState_PotentialPointer(this,bra,ket, &
@@ -2018,19 +2015,18 @@ impure elemental function stress_ComplexModeDisplacement_StressPointer( &
   output = this%stress_%stress(displacement)
 end function
 
-subroutine braket_SubspaceState_StressPointer(this,bra,ket,whole_subspace, &
+subroutine braket_SubspaceBraKet_StressPointer(this,braket,whole_subspace, &
    & anharmonic_data)
   implicit none
   
-  class(StressPointer),     intent(inout)        :: this
-  class(SubspaceState),     intent(in)           :: bra
-  class(SubspaceState),     intent(in), optional :: ket
-  logical,                  intent(in), optional :: whole_subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  class(StressPointer),  intent(inout)        :: this
+  class(SubspaceBraKet), intent(in)           :: braket
+  logical,               intent(in), optional :: whole_subspace
+  type(AnharmonicData),  intent(in)           :: anharmonic_data
   
   call this%check()
   
-  call this%stress_%braket(bra,ket,whole_subspace,anharmonic_data)
+  call this%stress_%braket(braket,whole_subspace,anharmonic_data)
 end subroutine
 
 subroutine braket_BasisState_StressPointer(this,bra,ket,subspace, &
@@ -2096,21 +2092,18 @@ impure elemental function harmonic_expectation_StressPointer(this,frequency, &
                                             & anharmonic_data )
 end function
 
-recursive function potential_stress_SubspaceState_StressPointer(this,bra, &
-   & ket,anharmonic_data) result(output) 
+recursive function potential_stress_SubspaceBraKet_StressPointer(this,braket, &
+   & anharmonic_data) result(output) 
   implicit none
   
-  class(StressPointer), intent(in)           :: this
-  class(SubspaceState), intent(in)           :: bra
-  class(SubspaceState), intent(in), optional :: ket
-  type(AnharmonicData), intent(in)           :: anharmonic_data
-  type(RealMatrix)                           :: output
+  class(StressPointer),  intent(in) :: this
+  class(SubspaceBraKet), intent(in) :: braket
+  type(AnharmonicData),  intent(in) :: anharmonic_data
+  type(RealMatrix)                  :: output
   
   call this%check()
   
-  output = this%stress_%potential_stress( bra,            &
-                                        & ket,            &
-                                        & anharmonic_data )
+  output = this%stress_%potential_stress(braket, anharmonic_data)
 end function
 
 recursive function potential_stress_BasisState_StressPointer(this,bra,ket, &
@@ -2298,21 +2291,19 @@ function undisplaced_energy(this) result(output)
   output = this%energy(RealModeDisplacement(zero_displacement))
 end function
 
-recursive function potential_energy_SubspaceState_PotentialData(this,bra,ket, &
+recursive function potential_energy_SubspaceBraKet_PotentialData(this,braket, &
    & anharmonic_data) result(output) 
   implicit none
   
-  class(PotentialData), intent(in)           :: this
-  class(SubspaceState), intent(in)           :: bra
-  class(SubspaceState), intent(in), optional :: ket
-  type(AnharmonicData), intent(in)           :: anharmonic_data
-  real(dp)                                   :: output
+  class(PotentialData),  intent(in) :: this
+  class(SubspaceBraKet), intent(in) :: braket
+  type(AnharmonicData),  intent(in) :: anharmonic_data
+  real(dp)                          :: output
   
   type(PotentialPointer), allocatable :: integrated_potential
   
   integrated_potential = PotentialPointer(this)
-  call integrated_potential%braket( bra             = bra,            &
-                                  & ket             = ket,            &
+  call integrated_potential%braket( braket          = braket,         &
                                   & anharmonic_data = anharmonic_data )
   output = integrated_potential%undisplaced_energy()
 end function
@@ -2416,21 +2407,19 @@ function undisplaced_stress(this) result(output)
   output = this%stress(RealModeDisplacement(zero_displacement))
 end function
 
-recursive function potential_stress_SubspaceState_StressData(this,bra,ket, &
+recursive function potential_stress_SubspaceBraKet_StressData(this,braket, &
    & anharmonic_data) result(output) 
   implicit none
   
-  class(StressData),    intent(in)           :: this
-  class(SubspaceState), intent(in)           :: bra
-  class(SubspaceState), intent(in), optional :: ket
-  type(AnharmonicData), intent(in)           :: anharmonic_data
-  type(RealMatrix)                           :: output
+  class(StressData),     intent(in) :: this
+  class(SubspaceBraKet), intent(in) :: braket
+  type(AnharmonicData),  intent(in) :: anharmonic_data
+  type(RealMatrix)                  :: output
   
   type(StressPointer), allocatable :: integrated_stress
   
   integrated_stress = StressPointer(this)
-  call integrated_stress%braket( bra             = bra,            &
-                               & ket             = ket,            &
+  call integrated_stress%braket( braket          = braket,         &
                                & anharmonic_data = anharmonic_data )
   output = integrated_stress%undisplaced_stress()
 end function

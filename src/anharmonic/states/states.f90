@@ -13,6 +13,8 @@ module states_module
   use monomial_state_complex_module
   use harmonic_state_real_module
   use harmonic_state_complex_module
+  use harmonic_braket_real_module
+  use harmonic_braket_complex_module
   use full_subspace_wavefunctions_module
   use split_qpoints_wavefunctions_module
   use wavevector_state_module

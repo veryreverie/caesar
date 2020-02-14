@@ -38,27 +38,6 @@ module subspace_state_module
     
     ! Returns the wavevector of the state.
     procedure(wavevector_SubspaceState), public, deferred :: wavevector
-    
-    ! If ket is not given, <this|this>, otherwise <this|ket>.
-    procedure(inner_product_SubspaceState), public, deferred :: inner_product
-    
-    ! Integrals of the form <i|V|j>
-    ! Either <this|V|this> or <this|V|ket>, where V is a ComplexMonomial.
-    procedure(integrate_SubspaceState), public, deferred :: integrate
-    
-    ! Either <this|T|this> or <this|T|ket>, where T is the kinetic energy.
-    procedure(kinetic_energy_SubspaceState), public, deferred :: &
-       & kinetic_energy
-    
-    ! Either <this|V|this> or <this|V|ket>, where V is the harmonic potential
-    !    energy.
-    procedure(harmonic_potential_energy_SubspaceState), public, deferred :: &
-       & harmonic_potential_energy
-    
-    ! Either <this|stress|this> or <this|stress|ket>, where stress is the
-    !    kinetic stress.
-    procedure(kinetic_stress_SubspaceState), public, deferred :: &
-       & kinetic_stress
   end type
   
   type, extends(SubspaceState) :: SubspaceStatePointer
@@ -83,18 +62,6 @@ module subspace_state_module
     procedure, public :: occupation => occupation_SubspaceStatePointer
     
     procedure, public :: wavevector => wavevector_SubspaceStatePointer
-    
-    procedure, public :: inner_product => &
-                       & inner_product_SubspaceStatePointer
-    
-    procedure, public :: integrate => &
-                       & integrate_SubspaceStatePointer
-    procedure, public :: kinetic_energy => &
-                       & kinetic_energy_SubspaceStatePointer
-    procedure, public :: harmonic_potential_energy => &
-                       & harmonic_potential_energy_SubspaceStatePointer
-    procedure, public :: kinetic_stress => &
-                       & kinetic_stress_SubspaceStatePointer
     
     ! I/O.
     procedure, public :: read  => read_SubspaceStatePointer
@@ -150,75 +117,6 @@ module subspace_state_module
       type(ComplexMode),    intent(in) :: modes(:)
       type(QpointData),     intent(in) :: qpoints(:)
       type(FractionVector)             :: output
-    end function
-    
-    impure elemental function inner_product_SubspaceState(this,ket, &
-       & anharmonic_data) result(output)
-      import SubspaceState
-      import AnharmonicData
-      import dp
-      implicit none
-      
-      class(SubspaceState), intent(in)                   :: this
-      class(SubspaceState), intent(in), optional, target :: ket
-      type(AnharmonicData), intent(in)                   :: anharmonic_data
-      real(dp)                                           :: output
-    end function
-    
-    impure elemental function integrate_SubspaceState(this,monomial,ket, &
-       & anharmonic_data) result(output)
-      import SubspaceState
-      import SparseMonomial
-      import AnharmonicData
-      import dp
-      implicit none
-      
-      class(SubspaceState), intent(in)                   :: this
-      type(SparseMonomial), intent(in)                   :: monomial
-      class(SubspaceState), intent(in), optional, target :: ket
-      type(AnharmonicData), intent(in)                   :: anharmonic_data
-      complex(dp)                                        :: output
-    end function
-    
-    impure elemental function kinetic_energy_SubspaceState(this,ket, &
-       & anharmonic_data) result(output)
-      import SubspaceState
-      import AnharmonicData
-      import dp
-      implicit none
-      
-      class(SubspaceState), intent(in)                   :: this
-      class(SubspaceState), intent(in), optional, target :: ket
-      type(AnharmonicData), intent(in)                   :: anharmonic_data
-      real(dp)                                           :: output
-    end function
-    
-    impure elemental function harmonic_potential_energy_SubspaceState(this, &
-       & ket,anharmonic_data) result(output)
-      import SubspaceState
-      import AnharmonicData
-      import dp
-      implicit none
-      
-      class(SubspaceState), intent(in)                   :: this
-      class(SubspaceState), intent(in), optional, target :: ket
-      type(AnharmonicData), intent(in)                   :: anharmonic_data
-      real(dp)                                           :: output
-    end function
-    
-    impure elemental function kinetic_stress_SubspaceState(this,ket, &
-       & stress_prefactors,anharmonic_data) result(output)
-      import SubspaceState
-      import StressPrefactors
-      import AnharmonicData
-      import RealMatrix
-      implicit none
-      
-      class(SubspaceState),   intent(in)                   :: this
-      class(SubspaceState),   intent(in), optional, target :: ket
-      type(StressPrefactors), intent(in)                   :: stress_prefactors
-      type(AnharmonicData),   intent(in)                   :: anharmonic_data
-      type(RealMatrix)                                     :: output
     end function
   end interface
   
@@ -359,78 +257,6 @@ function wavevector_SubspaceStatePointer(this,modes,qpoints) result(output)
   call this%check()
   
   output = this%state_%wavevector(modes,qpoints)
-end function
-
-impure elemental function inner_product_SubspaceStatePointer(this,ket, &
-   & anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in)                   :: this
-  class(SubspaceState),        intent(in), optional, target :: ket
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  real(dp)                                                  :: output
-  
-  call this%check()
-  
-  output = this%state_%inner_product(ket, anharmonic_data)
-end function
-
-impure elemental function integrate_SubspaceStatePointer(this,monomial,ket, &
-   & anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in)                   :: this
-  type(SparseMonomial),        intent(in)                   :: monomial
-  class(SubspaceState),        intent(in), optional, target :: ket
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  complex(dp)                                               :: output
-  
-  call this%check()
-  
-  output = this%state_%integrate(monomial, ket, anharmonic_data)
-end function
-
-impure elemental function kinetic_energy_SubspaceStatePointer(this,ket, &
-   & anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in)                   :: this
-  class(SubspaceState),        intent(in), optional, target :: ket
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  real(dp)                                                  :: output
-  
-  call this%check()
-  
-  output = this%state_%kinetic_energy(ket, anharmonic_data)
-end function
-
-impure elemental function harmonic_potential_energy_SubspaceStatePointer( &
-   & this,ket,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in)                   :: this
-  class(SubspaceState),        intent(in), optional, target :: ket
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  real(dp)                                                  :: output
-  
-  call this%check()
-  
-  output = this%state_%harmonic_potential_energy(ket, anharmonic_data)
-end function
-
-impure elemental function kinetic_stress_SubspaceStatePointer(this,ket, &
-   & stress_prefactors,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in)                   :: this
-  class(SubspaceState),        intent(in), optional, target :: ket
-  type(StressPrefactors),      intent(in)                   :: stress_prefactors
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  type(RealMatrix)                                          :: output
-  
-  call this%check()
-  
-  output = this%state_%kinetic_stress(ket, stress_prefactors, anharmonic_data)
 end function
 
 ! --------------------------------------------------

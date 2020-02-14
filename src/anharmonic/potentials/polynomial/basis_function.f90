@@ -48,12 +48,12 @@ module basis_function_module
     procedure, private :: force_RealModeDisplacement_BasisFunction
     procedure, private :: force_ComplexModeDisplacement_BasisFunction
     
-    generic,   public :: braket =>             &
-                       & braket_SubspaceState, &
-                       & braket_BasisState,    &
+    generic,   public :: braket =>              &
+                       & braket_SubspaceBraKet, &
+                       & braket_BasisState,     &
                        & braket_BasisStates
-    procedure, public :: braket_SubspaceState => &
-                       & braket_SubspaceState_BasisFunction
+    procedure, public :: braket_SubspaceBraKet => &
+                       & braket_SubspaceBraKet_BasisFunction
     procedure, public :: braket_BasisState => &
                        & braket_BasisState_BasisFunction
     procedure, public :: braket_BasisStates => &
@@ -62,11 +62,11 @@ module basis_function_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_BasisFunction
     
-    generic,   public :: potential_energy =>          &
-                       & potential_energy_BasisState, &
-                       & potential_energy_SubspaceState
+    generic,   public :: potential_energy =>              &
+                       & potential_energy_SubspaceBraKet, &
+                       & potential_energy_BasisState
+    procedure, public :: potential_energy_SubspaceBraKet
     procedure, public :: potential_energy_BasisState
-    procedure, public :: potential_energy_SubspaceState
     
     procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
@@ -741,19 +741,17 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-impure elemental subroutine braket_SubspaceState_BasisFunction(this,bra,ket, &
+impure elemental subroutine braket_SubspaceBraKet_BasisFunction(this,braket, &
    & anharmonic_data)
   implicit none
   
-  class(BasisFunction), intent(inout)        :: this
-  class(SubspaceState), intent(in)           :: bra
-  class(SubspaceState), intent(in), optional :: ket
-  type(AnharmonicData), intent(in)           :: anharmonic_data
+  class(BasisFunction),  intent(inout) :: this
+  class(SubspaceBraKet), intent(in)    :: braket
+  type(AnharmonicData),  intent(in)    :: anharmonic_data
   
   ! Perform integration in complex co-ordinates.
   call integrate( this%complex_representation_%terms, &
-                & bra,                                &
-                & ket,                                &
+                & braket,                             &
                 & anharmonic_data                     )
 end subroutine
 
@@ -820,20 +818,18 @@ impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
        &                                                      supercell_size  )
 end function
 
-impure elemental function potential_energy_SubspaceState(this,bra,ket, &
+impure elemental function potential_energy_SubspaceBraKet(this,braket, &
    & anharmonic_data) result(output)
   implicit none
   
-  class(BasisFunction), intent(in)           :: this
-  class(SubspaceState), intent(in)           :: bra
-  class(SubspaceState), intent(in), optional :: ket
-  type(AnharmonicData), intent(in)           :: anharmonic_data
-  real(dp)                                   :: output
+  class(BasisFunction),  intent(in) :: this
+  class(SubspaceBraKet), intent(in) :: braket
+  type(AnharmonicData),  intent(in) :: anharmonic_data
+  real(dp)                          :: output
   
   output = this%coefficient_                                         &
        & * real(integrate_to_constant( this%complex_representation_, &
-       &                               bra,                          &
-       &                               ket,                          &
+       &                               braket,                       &
        &                               anharmonic_data               ))
 end function
 

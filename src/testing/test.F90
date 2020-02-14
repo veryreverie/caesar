@@ -7,8 +7,9 @@ module test__module
   
   type, extends(NoDefaultConstructor), abstract :: Parent
   contains
-    procedure(f1_Parent), public, deferred :: f1
-    procedure(f2_Parent), public, deferred :: f2
+    procedure(f1_Parent), public, deferred                         :: f1
+    procedure(f2_Parent), public, deferred                         :: f2
+    !procedure(f3_Parent), public, deferred, pass(this), pass(that) :: f3
   end type
   
   abstract interface
@@ -23,23 +24,33 @@ module test__module
       import Parent
       implicit none
       
-      class(Parent),         intent(in) :: this
-      class(Parent), target, intent(in) :: that
+      class(Parent), intent(in) :: this
+      class(Parent), intent(in) :: that
     end subroutine
+    
+    !subroutine f3_Parent(this,that)
+    !  import Parent
+    !  implicit none
+    !  
+    !  class(Parent), intent(in) :: this
+    !  class(Parent), intent(in) :: that
+    !end subroutine
   end interface
   
   type, extends(Parent) :: ParentPointer
     class(parent), allocatable :: parent_
   contains
-    procedure, public :: f1 => f1_Pointer
-    procedure, public :: f2 => f2_Pointer
+    procedure, public                  :: f1 => f1_Pointer
+    procedure, public                  :: f2 => f2_Pointer
+    !procedure, public, pass(this,that) :: f3 => f3_Pointer
   end type
   
   type, extends(Parent) :: Child
     real(dp), allocatable :: big_array(:)
   contains
-    procedure, public :: f1 => f1_Child
-    procedure, public :: f2 => f2_Child
+    procedure, public                  :: f1 => f1_Child
+    procedure, public                  :: f2 => f2_Child
+    !procedure, public, pass(this,that) :: f3 => f3_Child
   end type
   
   interface Child
@@ -67,10 +78,19 @@ subroutine f2_Pointer(this,that)
   implicit none
   
   class(ParentPointer),  intent(in) :: this
-  class(Parent), target, intent(in) :: that
+  class(Parent),         intent(in) :: that
   
   call this%parent_%f2(that)
 end subroutine
+
+!subroutine f3_Pointer(this,that)
+!  implicit none
+!  
+!  class(ParentPointer), intent(in) :: this
+!  class(ParentPointer), intent(in) :: that
+!  
+!  ! TODO
+!end subroutine
 
 subroutine f1_Child(this)
   implicit none
@@ -83,8 +103,8 @@ end subroutine
 subroutine f2_Child(this,that)
   implicit none
   
-  class(Child),          intent(in) :: this
-  class(Parent), target, intent(in) :: that
+  class(Child),  intent(in) :: this
+  class(Parent), intent(in) :: that
   
   type(Child), pointer :: child_
   
@@ -94,6 +114,15 @@ subroutine f2_Child(this,that)
   thing = dot_product(this%big_array, child_%big_array)
   call print_line(thing)
 end subroutine
+
+!subroutine f3_Child(this,that)
+!  implicit none
+!  
+!  class(Child), intent(in) :: this
+!  class(Child), intent(in) :: that
+!  
+!  ! TODO
+!end subroutine
 
 function new_Child() result(this)
   implicit none
@@ -130,12 +159,24 @@ subroutine f_Holder(this)
 end subroutine
 end module
 
+module a_module
+  type :: T1
+  end type
+  
+  type :: T2
+    type(T1), pointer :: a
+    type(T1), pointer :: b
+  end type
+end module
+
 module test_module
   use common_module
   
   use anharmonic_module
   
   use test__module
+  
+  use a_module
   
   implicit none
   
@@ -171,32 +212,31 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  type(Child), target :: child_
+  type(Child) :: a
   
-  type(Holder) :: holder_
+  class(Parent), allocatable :: b(:)
   
   integer :: i
   
-  class(Parent), pointer :: p_
+  type(T1), target :: c
+  type(T2) :: d
   
-  child_ = Child()
+  a = Child()
   
-  do i=1,1000
-    call child_%f2(child_)
-  enddo
+  b = [(Child(), i=1, 100)]
   
-  holder_ = Holder(Child(),Child())
-  do i=1,1000
-    call holder_%f()
-  enddo
-  
-  p_ => child_
-  select type(p_); type is(Child)
-    call g(p_)
-  end select
+  d%a=>c
+  call print_line(associated(d%a))
+  call print_line(associated(d%b))
+  call x(d)
 end subroutine
 
-subroutine g(input)
-  class(Child), intent(in) :: input
+subroutine x(this)
+  implicit none
+  
+  type(T2), intent(in) :: this
+  
+  call print_line(associated(this%a))
+  call print_line(associated(this%b))
 end subroutine
 end module

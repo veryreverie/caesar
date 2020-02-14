@@ -184,16 +184,15 @@ end function
 !     * f((p+n+q)/2)
 !     / sqrt(f(p)*f(q))   otherwise,
 ! where f(x) is the odd factorial of x, f(x) = prod_{k=1}^x [ 2k-1 ].
-!
-! N.B. the factor of 1/sqrt(2Nw)^{n} is neglected.
-impure elemental function braket_MonomialState1D(bra,ket,potential) &
+impure elemental function braket_MonomialState1D(bra,ket,potential,log_2nw) &
    & result(output)
   implicit none
   
-  class(MonomialState1D), intent(in) :: bra
-  class(MonomialState1D), intent(in) :: ket
-  type(ComplexUnivariate),intent(in) :: potential
-  real(dp)                           :: output
+  class(MonomialState1D),  intent(in) :: bra
+  class(MonomialState1D),  intent(in) :: ket
+  type(ComplexUnivariate), intent(in) :: potential
+  real(dp),                intent(in) :: log_2nw
+  real(dp)                            :: output
   
   integer :: p,q,n
   
@@ -204,8 +203,9 @@ impure elemental function braket_MonomialState1D(bra,ket,potential) &
   if (modulo(p+n+q,2)==1) then
     output = 0
   else
-    output = exp( log_odd_factorial((p+n+q)/2)                     &
-              & - 0.5_dp*(log_odd_factorial(p)+log_odd_factorial(q)) )
+    output = exp( log_odd_factorial((p+n+q)/2)                       &
+              & - 0.5_dp*(log_odd_factorial(p)+log_odd_factorial(q)) &
+              & - 0.5_dp*n*log_2nw                                   )
   endif
 end function
 

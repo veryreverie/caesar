@@ -21,8 +21,10 @@ module monomial_state_real_module
   public :: generate_monomial_states
   
   type, extends(SubspaceState) :: MonomialStateReal
+    integer                                     :: supercell_size
     real(dp)                                    :: frequency
-    type(MonomialState1D), private, allocatable :: modes_(:)
+    real(dp),                           private :: log_2nw_
+    type(MonomialState1D), allocatable, private :: modes_(:)
   contains
     procedure, public, nopass :: representation => &
                                & representation_MonomialStateReal
@@ -77,17 +79,22 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_MonomialStateReal(subspace_id,frequency,modes) result(this)
+function new_MonomialStateReal(subspace_id,supercell_size,frequency,modes) &
+   & result(this) 
   implicit none
   
   integer,               intent(in) :: subspace_id
+  integer,               intent(in) :: supercell_size
   real(dp),              intent(in) :: frequency
   type(MonomialState1D), intent(in) :: modes(:)
   type(MonomialStateReal)           :: this
   
-  this%subspace_id = subspace_id
-  this%frequency   = frequency
-  this%modes_      = modes
+  this%subspace_id    = subspace_id
+  this%supercell_size = supercell_size
+  this%frequency      = frequency
+  this%modes_         = modes
+  
+  this%log_2nw_ = log(2*this%supercell_size*this%frequency)
 end function
 
 recursive function new_MonomialStateReal_SubspaceState(input) result(this)
@@ -159,11 +166,12 @@ end function
 ! ----------------------------------------------------------------------
 ! Generates all monomial states in a subspace up to a given power.
 ! ----------------------------------------------------------------------
-function generate_monomial_states(subspace,frequency,modes,maximum_power) &
-   & result(output)
+function generate_monomial_states(subspace,supercell_size,frequency,modes, &
+   & maximum_power) result(output)
   implicit none
   
   type(DegenerateSubspace), intent(in) :: subspace
+  integer,                  intent(in) :: supercell_size
   real(dp),                 intent(in) :: frequency
   type(ComplexMode),        intent(in) :: modes(:)
   integer,                  intent(in) :: maximum_power
@@ -175,9 +183,10 @@ function generate_monomial_states(subspace,frequency,modes,maximum_power) &
   type(MonomialState1D) :: zero_modes(0)
   
   ids = subspace%mode_ids(sort(subspace%mode_ids))
-  state = MonomialStateReal( subspace_id = subspace%id, &
-                           & frequency   = frequency,   &
-                           & modes       = zero_modes   )
+  state = MonomialStateReal( subspace_id    = subspace%id,    &
+                           & supercell_size = supercell_size, &
+                           & frequency      = frequency,      &
+                           & modes          = zero_modes      )
   output = generate_monomial_states_helper(ids,maximum_power,state)
 end function
 
@@ -197,16 +206,18 @@ recursive function generate_monomial_states_helper(ids,power,state) &
   if (size(ids)==0) then
     output = [state]
   else
-    output = [( generate_monomial_states_helper(                           &
-              &      ids   = ids(2:),                                      &
-              &      power = power-i,                                      &
-              &      state = MonomialStateReal(                            &
-              &           subspace_id = state%subspace_id,                 &
-              &           frequency   = state%frequency,                   &
-              &           modes       = [ state%modes_,                    &
-              &                           MonomialState1D(ids(1),i) ] ) ), &
-              & i=0,                                                       &
-              & power                                                      )]
+    output = [(                                                        &
+       & generate_monomial_states_helper(                              &
+       &      ids   = ids(2:),                                         &
+       &      power = power-i,                                         &
+       &      state = MonomialStateReal(                               &
+       &           subspace_id    = state%subspace_id,                 &
+       &           supercell_size = state%supercell_size,              &
+       &           frequency      = state%frequency,                   &
+       &           modes          = [ state%modes_,                    &
+       &                              MonomialState1D(ids(1),i) ] ) ), &
+       & i=0,                                                          &
+       & power                                                         )]
   endif
 end function
 
@@ -332,28 +343,16 @@ impure elemental function integrate_MonomialStateReal(this, &
   
   type(MonomialStateReal), pointer :: monomial_ket
   
-  integer :: i
-  
-  ! Calculate the coefficient of <bra|X|ket>,
-  !    up to the factor of 1/sqrt(2Nw)^n.
-  !    - N is the number of primitive cells in the anharmonic supercell.
-  !    - w is the frequency of the modes in the subspace.
-  !    - n is the power of the modes in the monomial which are integrated.
   if (present(ket)) then
     monomial_ket => monomial_state_real_pointer(ket)
     output = product(this%modes_%braket( monomial_ket%modes_, &
-                                       & monomial%modes       ))
+                                       & monomial%modes,      &
+                                       & this%log_2nw_        ))
   else
-    output = product(this%modes_%braket( this%modes_,   &
-                                       & monomial%modes ))
+    output = product(this%modes_%braket( this%modes_,    &
+                                       & monomial%modes, &
+                                       & this%log_2nw_   ))
   endif
-  
-  ! Include the factor of (2Nw)^(n/2).
-  output = output                                               &
-      &  / sqrt( 2.0_dp                                         &
-      &        * anharmonic_data%anharmonic_supercell%sc_size   &
-      &        * this%frequency                               ) &
-      & ** sum(monomial%modes%total_power())
 end function
 
 impure elemental function kinetic_energy_MonomialStateReal(this,ket, &
@@ -442,8 +441,11 @@ impure elemental function harmonic_potential_energy_MonomialStateReal( &
       !    so <p|T|q> = (w^2/4)<p|q>
       !               * sum_i <p_i|%braket(|q_i>,V_i) / <p_i|q_i>
       overlap = bra_modes%inner_product(ket_modes)
-      output = (this%frequency**2/4)*product(overlap) &
-           & * sum(bra_modes%braket(ket_modes,harmonic_potential)/overlap)
+      output = (this%frequency**2/4)*product(overlap)       &
+           & * sum( bra_modes%braket( ket_modes,            &
+           &                          harmonic_potential,   &
+           &                          this%log_2nw_       ) &
+           &      / overlap                                 )
     else
       ! At least one <p_i|q_i>=0, and for monomial states,
       !    if <p_i|q_i>=0 then <p_i|V_i|q_i>=0 as well.
@@ -452,8 +454,10 @@ impure elemental function harmonic_potential_energy_MonomialStateReal( &
   else
     ! |p>=|q>, so <p'|q'>=1, and so
     !    <p|V|q> = (w^2/4)*sum_i <p_i|%braket(|p_i>,V_i).
-    output = (this%frequency**2/4) &
-         & * sum(bra_modes%braket(bra_modes,harmonic_potential))
+    output = (this%frequency**2/4)                     &
+         & * sum(bra_modes%braket( bra_modes,          &
+         &                         harmonic_potential, &
+         &                         this%log_2nw_       ))
   endif
 end function
 
@@ -582,9 +586,10 @@ impure elemental function change_modes_MonomialStateReal(this,mode_group) &
   powers = powers(sort_key)
   
   ! Construct output using the new ids.
-  output = MonomialStateReal( subspace_id = this%subspace_id,           &
-                            & frequency   = this%frequency,             &
-                            & modes       = MonomialState1D(ids,powers) )
+  output = MonomialStateReal( subspace_id    = this%subspace_id,           &
+                            & supercell_size = this%supercell_size,        &
+                            & frequency      = this%frequency,             &
+                            & modes          = MonomialState1D(ids,powers) )
 end function
 
 ! ----------------------------------------------------------------------
@@ -597,6 +602,7 @@ subroutine read_MonomialStateReal(this,input)
   type(String),             intent(in)  :: input(:)
   
   integer                            :: subspace_id
+  integer                            :: supercell_size
   real(dp)                           :: frequency
   type(MonomialState1D), allocatable :: modes(:)
   
@@ -605,17 +611,17 @@ subroutine read_MonomialStateReal(this,input)
   integer :: i
   
   select type(this); type is(MonomialStateReal)
-    line = split_line(input(1))
-    subspace_id = int(line(3))
+    subspace_id = int(token(input(1),3))
     
-    line = split_line(input(2))
-    frequency = dble(line(3))
+    supercell_size = int(token(input(2),4))
     
-    line = split_line(input(4),delimiter='>')
+    frequency = dble(token(input(3),3))
+    
+    line = split_line(input(5),delimiter='>')
     line = [(line(i)//'>',i=1,size(line))]
     modes = MonomialState1D(line)
     
-    this = MonomialStateReal(subspace_id,frequency,modes)
+    this = MonomialStateReal(subspace_id,supercell_size,frequency,modes)
   class default
     call err()
   end select
@@ -628,10 +634,11 @@ function write_MonomialStateReal(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(MonomialStateReal)
-    output = [ 'Subspace  : '//this%subspace_id,    &
-             & 'Frequency : '//this%frequency,      &
-             & str('State'),                        &
-             & join(str(this%modes_), delimiter='') ]
+    output = [ 'Subspace       : '//this%subspace_id,    &
+             & 'Supercell size : '//this%supercell_size, &
+             & 'Frequency      : '//this%frequency,      &
+             & str('State'),                             &
+             & join(str(this%modes_), delimiter='')      ]
   class default
     call err()
   end select

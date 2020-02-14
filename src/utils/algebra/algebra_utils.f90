@@ -374,6 +374,7 @@ subroutine calculate_log_factorials(log_factorials,log_factorials_calculated, &
   do n=log_factorials_calculated+1,input
     log_factorials(n+1) = log_factorials(n) + log(real(n,dp))
   enddo
+  log_factorials_calculated = max(log_factorials_calculated,input)
 end subroutine
 
 ! ----------------------------------------------------------------------
@@ -577,6 +578,7 @@ subroutine calculate_log_odd_factorials(log_odd_factorials, &
   do n=log_odd_factorials_calculated+1,input
     log_odd_factorials(n+1) = log_odd_factorials(n) + log(real((2*n-1),dp))
   enddo
+  log_odd_factorials_calculated = max(log_odd_factorials_calculated,input)
 end subroutine
 
 ! ----------------------------------------------------------------------

@@ -35,8 +35,8 @@ module polynomial_stress_module
     procedure, public :: stress_ComplexModeDisplacement => &
                        & stress_ComplexModeDisplacement_PolynomialStress
     
-    procedure, public :: braket_SubspaceState  => &
-                       & braket_SubspaceState_PolynomialStress
+    procedure, public :: braket_SubspaceBraKet  => &
+                       & braket_SubspaceBraKet_PolynomialStress
     procedure, public :: braket_BasisState  => &
                        & braket_BasisState_PolynomialStress
     procedure, public :: braket_BasisStates => &
@@ -159,26 +159,24 @@ impure elemental function stress_ComplexModeDisplacement_PolynomialStress( &
 end function
 
 ! Integrate the stress between two states.
-subroutine braket_SubspaceState_PolynomialStress(this,bra,ket,whole_subspace, &
+subroutine braket_SubspaceBraKet_PolynomialStress(this,braket,whole_subspace, &
    & anharmonic_data)
   implicit none
   
-  class(PolynomialStress),  intent(inout)        :: this
-  class(SubspaceState),     intent(in)           :: bra
-  class(SubspaceState),     intent(in), optional :: ket
-  logical,                  intent(in), optional :: whole_subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  class(PolynomialStress), intent(inout)        :: this
+  class(SubspaceBraKet),   intent(in)           :: braket
+  logical,                 intent(in), optional :: whole_subspace
+  type(AnharmonicData),    intent(in)           :: anharmonic_data
   
   integer :: i
   
   ! Integrate the reference stress (N.B. <i|e|j> = e<i|j> if e is a scalar.).
   this%reference_stress_ = this%reference_stress_ &
-                       & * bra%inner_product(ket,anharmonic_data)
+                       & * braket%inner_product(anharmonic_data)
   
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket( bra,            &
-                                        & ket,            &
+    call this%basis_functions_(i)%braket( braket,         &
                                         & whole_subspace, &
                                         & anharmonic_data )
   enddo
