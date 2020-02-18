@@ -29,6 +29,8 @@ module dynamical_matrix_module
     
     procedure, public :: elements => elements_DynamicalMatrix
     
+    procedure, public :: expectation => expectation_DynamicalMatrix
+    
     ! I/O.
     procedure, public :: read  => read_DynamicalMatrix
     procedure, public :: write => write_DynamicalMatrix
@@ -109,6 +111,26 @@ function elements_DynamicalMatrix(this) result(output)
   type(ComplexMatrix), allocatable   :: output(:,:)
   
   output = this%elements_
+end function
+
+! The expectation of the dynamical matrix w/r/t a given mode.
+impure elemental function expectation_DynamicalMatrix(this,mode) result(output)
+  implicit none
+  
+  class(DynamicalMatrix), intent(in) :: this
+  type(ComplexMode),      intent(in) :: mode
+  real(dp)                           :: output
+  
+  integer :: i,j
+  
+  output = 0
+  do i=1,size(mode%unit_vector)
+    do j=1,size(mode%unit_vector)
+      output = output + conjg(mode%unit_vector(i)) &
+                    & * this%elements_(i,j)        &
+                    & * mode%unit_vector(j)
+    enddo
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

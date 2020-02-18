@@ -326,7 +326,7 @@ impure elemental function log_factorial(input) result(output)
   
   ! An array of ln(n!), stored to avoid re-calculating.
   real(dp), allocatable, save :: log_factorials(:)
-  integer,               save :: log_factorials_calculated
+  integer,               save :: log_factorials_calculated = -1
   
   if (input<0) then
     call print_line( ERROR//': Trying to calculate the factorial of an &
@@ -334,9 +334,11 @@ impure elemental function log_factorial(input) result(output)
     call err()
   endif
   
-  call calculate_log_factorials( log_factorials,            &
-                               & log_factorials_calculated, &
-                               & input                      )
+  if (input > log_factorials_calculated) then
+    call calculate_log_factorials( log_factorials,            &
+                                 & log_factorials_calculated, &
+                                 & input                      )
+  endif
   
   ! log_factorials(1) = ln(0!), so ln(n!) = log_factorials(n+1).
   output = log_factorials(input+1)

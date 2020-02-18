@@ -189,15 +189,20 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(CartesianHessian)       :: hessian
   type(MinImages), allocatable :: min_images(:,:)
   
+  ! Dynamical matrix and hessian equivalents for the stress.
+  type(StressDynamicalMatrix), allocatable :: stress_dynamical_matrices(:)
+  type(StressHessian),         allocatable :: stress_hessian
+  
   ! Dispersion and density of states.
   type(PhononDispersion) :: phonon_dispersion
   type(PhononDos)        :: phonon_dos
   
   ! Thermodynamic data.
-  type(ThermodynamicData), allocatable :: vscha_thermodynamics(:)
+  type(ThermodynamicData), allocatable :: interpolated_vscha_thermodynamics(:)
   type(ThermodynamicData), allocatable :: vscha1_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: vscha2_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
+  type(ThermodynamicData), allocatable :: interpolated_vscf_thermodynamics(:)
   
   !! Interpolated thermodynamics.
   !type(PhononDispersion)           :: interpolated_dispersion
@@ -223,10 +228,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(OFile)  :: vscha_castep_phonon_file
   type(OFile)  :: vscha_qe_force_constants_file
   type(OFile)  :: wavefunctions_file
-  type(OFile)  :: vscha_thermodynamic_file
   type(OFile)  :: vscha1_thermodynamic_file
   type(OFile)  :: vscha2_thermodynamic_file
   type(OFile)  :: vscf_thermodynamic_file
+  type(OFile)  :: interpolated_vscha_thermodynamic_file
+  type(OFile)  :: interpolated_vscf_thermodynamic_file
   type(OFile)  :: pdos_file
   type(String) :: interpolated_output_dir
   type(String) :: interpolated_temperature_dir
@@ -391,19 +397,20 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! --------------------------------------------------
   ! Run calculations at each temperature.
   ! --------------------------------------------------
-  allocate( vscha_frequencies( size(subspaces),                  &
-          &                    size(thermal_energies) ),         &
-          & vscf_basis(size(subspaces)),                         &
-          & vscha_modes( anharmonic_data%structure%no_modes,     &
-          &              size(qpoints)                       ),  &
-          & dynamical_matrices(size(qpoints)),                   &
-          & vscf_thermodynamics( size(subspaces),                &
-          &                      size(thermal_energies) ),       &
-          & vscha_thermodynamics(size(thermal_energies)),        &
-          & vscha1_thermodynamics( size(subspaces),              &
-          &                        size(thermal_energies) ),     &
-          & vscha2_thermodynamics( size(subspaces),              &
-          &                        size(thermal_energies) ),     &
+  allocate( vscha_frequencies( size(subspaces),                        &
+          &                    size(thermal_energies) ),               &
+          & vscf_basis(size(subspaces)),                               &
+          & vscha_modes( anharmonic_data%structure%no_modes,           &
+          &              size(qpoints)                       ),        &
+          & dynamical_matrices(size(qpoints)),                         &
+          & vscf_thermodynamics( size(subspaces),                      &
+          &                      size(thermal_energies) ),             &
+          & vscha1_thermodynamics( size(subspaces),                    &
+          &                        size(thermal_energies) ),           &
+          & vscha2_thermodynamics( size(subspaces),                    &
+          &                        size(thermal_energies) ),           &
+          & interpolated_vscha_thermodynamics(size(thermal_energies)), &
+          & interpolated_vscf_thermodynamics(size(thermal_energies)),  &
           & stat=ialloc); call err(ialloc)
   do i=1,size(thermal_energies)
     call print_line('')
@@ -642,15 +649,32 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                       & hessian,                       &
                                       & anharmonic_data%structure,     &
                                       & supercell                      )
+      
+    ! Calculate stress.
+    if (calculate_stress) then
+      stress_dynamical_matrices = stress%calculate_dynamical_matrices( &
+                                                & qpoints,             &
+                                                & thermal_energies(i), &
+                                                & subspaces,           &
+                                                & vscha_basis,         &
+                                                & vscha_states,        &
+                                                & anharmonic_data      )
+      stress_hessian = reconstruct_stress_hessian( &
+                      & supercell,                 &
+                      & qpoints,                   &
+                      & stress_dynamical_matrices, &
+                      & logfile                    )
+    endif
     
     ! Generate self-consistent phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
-    phonon_dispersion = PhononDispersion( supercell,      &
-                                        & min_images,     &
-                                        & hessian,        &
-                                        & path,           &
-                                        & no_path_points, &
-                                        & logfile         )
+    phonon_dispersion = PhononDispersion( supercell      = supercell,      &
+                                        & min_images     = min_images,     &
+                                        & hessian        = hessian,        &
+                                        & stress_hessian = stress_hessian, &
+                                        & path_string    = path,           &
+                                        & no_path_points = no_path_points, &
+                                        & logfile        = logfile         )
     
     ! Write out dispersion at this temperature.
     symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
@@ -664,14 +688,15 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! Re-seed the random generator each time, so that the results at different
     !    temperatures can be compared free from random noise.
     random_generator = RandomReal(random_generator_seed)
-    phonon_dos = PhononDos( supercell,             &
-                          & min_images,            &
-                          & hessian,               &
-                          & [thermal_energies(i)], &
-                          & min_frequency,         &
-                          & no_dos_samples,        &
-                          & logfile,               &
-                          & random_generator       )
+    phonon_dos = PhononDos( supercell        = supercell,             &
+                          & min_images       = min_images,            &
+                          & hessian          = hessian,               &
+                          & stress_hessian   = stress_hessian,        &
+                          & thermal_energies = [thermal_energies(i)], &
+                          & min_frequency    = min_frequency,         &
+                          & no_dos_samples   = no_dos_samples,        &
+                          & logfile          = logfile,               &
+                          & random_generator = random_generator       )
     
     ! Write out dos at this temperature.
     sampled_qpoints_file = OFile(temperature_dir//'/sampled_qpoints.dat')
@@ -682,31 +707,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     pdos_file = OFile(temperature_dir//'/phonon_density_of_states.dat')
     call pdos_file%print_lines(phonon_dos%pdos)
     
-    vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
-    
-    ! Interpolate stress under the effective harmonic approximation.
-    if (calculate_stress) then
-      if (stress%can_be_interpolated()) then
-        call print_line('Interpolating stress under VSCHA')
-        ! TODO: degenerate_frequency.
-        !call vscha_thermodynamics(i)%set_stress( &
-        !   & calculate_interpolated_stress(      &
-        !   &     stress,                         &
-        !   &     1e-30_dp,                       &
-        !   &     phonon_dos%qpoints%qpoint,      &
-        !   &     thermal_energies(i),            &
-        !   &     min_frequency,                  &
-        !   &     supercell,                      &
-        !   &     hessian,                        &
-        !   &     min_images,                     &
-        !   &     subspaces,                      &
-        !   &     vscha_basis,                    &
-        !   &     vscha_states,                   &
-        !   &     min_images,                     &
-        !   &     anharmonic_data            ),   &
-        !   & anharmonic_data%structure%volume    )
-      endif
-    endif
+    interpolated_vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
     
     ! --------------------------------------------------
     ! Calculated interpolated VSCF results.
@@ -727,28 +728,46 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                    & dynamical_matrices, &
                                    & logfile             )
       
+      
+      if (calculate_stress) then
+        stress_dynamical_matrices = stress%calculate_dynamical_matrices( &
+                                                  & qpoints,             &
+                                                  & thermal_energies(i), &
+                                                  & subspaces,           &
+                                                  & vscf_basis,          &
+                                                  & vscf_states,         &
+                                                  & anharmonic_data      )
+        stress_hessian = reconstruct_stress_hessian( &
+                        & supercell,                 &
+                        & qpoints,                   &
+                        & stress_dynamical_matrices, &
+                        & logfile                    )
+      endif
+      
       ! Generate self-consistent phonon dispersion curve by interpolating
       !    between calculated q-points using Fourier interpolation.
-      phonon_dispersion = PhononDispersion( supercell,      &
-                                          & min_images,     &
-                                          & hessian,        &
-                                          & path,           &
-                                          & no_path_points, &
-                                          & logfile         )
+      phonon_dispersion = PhononDispersion( supercell      = supercell,      &
+                                          & min_images     = min_images,     &
+                                          & hessian        = hessian,        &
+                                          & stress_hessian = stress_hessian, &
+                                          & path_string    = path,           &
+                                          & no_path_points = no_path_points, &
+                                          & logfile        = logfile         )
       
       ! Generate self-consistent phonon density of states,
       !    interpolating as above.
       ! Re-seed the random generator each time, so that the results at
       !    different temperatures can be compared free from random noise.
       random_generator = RandomReal(random_generator_seed)
-      phonon_dos = PhononDos( supercell,             &
-                            & min_images,            &
-                            & hessian,               &
-                            & [thermal_energies(i)], &
-                            & min_frequency,         &
-                            & no_dos_samples,        &
-                            & logfile,               &
-                            & random_generator       )
+      phonon_dos = PhononDos( supercell        = supercell,             &
+                            & min_images       = min_images,            &
+                            & hessian          = hessian,               &
+                            & stress_hessian   = stress_hessian,        &
+                            & thermal_energies = [thermal_energies(i)], &
+                            & min_frequency    = min_frequency,         &
+                            & no_dos_samples   = no_dos_samples,        &
+                            & logfile          = logfile,               &
+                            & random_generator = random_generator       )
       
       ! Write out dos and dispersion at this temperature.
       interpolated_temperature_dir = output_dir//'/interpolated/&
@@ -772,6 +791,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       pdos_file = OFile( interpolated_temperature_dir//  &
                        & '/phonon_density_of_states.dat' )
       call pdos_file%print_lines(phonon_dos%pdos)
+      
+      ! Record thermodynamic data.
+      interpolated_vscf_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
     endif
   enddo
   
@@ -818,9 +840,17 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   enddo
   
   ! VSCHA with Fourier interpolation.
-  vscha_thermodynamic_file = OFile(                                  &
+  interpolated_vscha_thermodynamic_file = OFile(                     &
      & output_dir//'/interpolated_vscha_thermodynamic_variables.dat' )
-  call vscha_thermodynamic_file%print_line(thermodynamic_header)
-  call vscha_thermodynamic_file%print_lines(vscha_thermodynamics)
+  call interpolated_vscha_thermodynamic_file%print_line(thermodynamic_header)
+  call interpolated_vscha_thermodynamic_file%print_lines( &
+                      & interpolated_vscha_thermodynamics )
+  
+  ! VSCF with Fourier interpolation.
+  interpolated_vscf_thermodynamic_file = OFile(                     &
+     & output_dir//'/interpolated_vscf_thermodynamic_variables.dat' )
+  call interpolated_vscf_thermodynamic_file%print_line(thermodynamic_header)
+  call interpolated_vscf_thermodynamic_file%print_lines( &
+                      & interpolated_vscf_thermodynamics )
 end subroutine
 end module

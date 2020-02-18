@@ -232,12 +232,12 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   if (calculate_dispersion) then
     ! Generate harmonic phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
-    phonon_dispersion = PhononDispersion( large_supercell, &
-                                        & min_images,      &
-                                        & hessian,         &
-                                        & path,            &
-                                        & no_path_points,  &
-                                        & logfile          )
+    phonon_dispersion = PhononDispersion( supercell      = large_supercell, &
+                                        & min_images     = min_images,      &
+                                        & hessian        = hessian,         &
+                                        & path_string    = path,            &
+                                        & no_path_points = no_path_points,  &
+                                        & logfile        = logfile          )
     
     symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')
     call symmetry_points_file%print_lines(phonon_dispersion%path())
@@ -264,14 +264,14 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
     enddo
     
     ! Generate harmonic phonon density of states, interpolating as above.
-    phonon_dos = PhononDos( large_supercell,  &
-                          & min_images,       &
-                          & hessian,          &
-                          & thermal_energies, &
-                          & min_frequency,    &
-                          & no_dos_samples,   &
-                          & logfile,          &
-                          & random_generator  )
+    phonon_dos = PhononDos( supercell        = large_supercell,  &
+                          & min_images       = min_images,       &
+                          & hessian          = hessian,          &
+                          & thermal_energies = thermal_energies, &
+                          & min_frequency    = min_frequency,    &
+                          & no_dos_samples   = no_dos_samples,   &
+                          & logfile          = logfile,          &
+                          & random_generator = random_generator  )
     
     sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
     call sampled_qpoints_file%print_line('q-point (x,y,z) | &

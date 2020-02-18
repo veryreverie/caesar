@@ -44,6 +44,9 @@ module complex_mode_module
     ! The ID of the subspace modes which are degenerate with this mode.
     integer :: subspace_id
   contains
+    ! Calculates the stress prefactor associated with the mode.
+    procedure, public :: stress_prefactor
+    ! I/O.
     procedure, public :: read  => read_ComplexMode
     procedure, public :: write => write_ComplexMode
   end type
@@ -353,6 +356,43 @@ function generate_translational_modes(structure,qpoints) result(output)
                            & qpoint_id          = gamma_qpoint%id, &
                            & paired_qpoint_id   = gamma_qpoint%id, &
                            & subspace_id        = 0                )
+  enddo
+end function
+
+! ----------------------------------------------------------------------
+! Generate the stress prefactor associated with the mode,
+!    or with two modes if a second mode is given.
+! ----------------------------------------------------------------------
+impure elemental function stress_prefactor(this,that) result(output)
+  implicit none
+  
+  class(ComplexMode), intent(in)           :: this
+  class(ComplexMode), intent(in), optional :: that
+  type(RealMatrix)                         :: output
+  
+  integer :: i
+  
+  output = dblemat(zeroes(3,3))
+  do i=1,size(this%unit_vector)
+    if (present(that)) then
+      if (this%qpoint_id==that%qpoint_id) then
+        output = output                                         &
+             & + real(outer_product( this%unit_vector(i),       &
+             &                       conjg(that%unit_vector(i)) ))
+      elseif (this%qpoint_id==that%paired_qpoint_id) then
+        output = output                                   &
+             & + real(outer_product( this%unit_vector(i), &
+             &                       that%unit_vector(i)  ))
+      else
+        call print_line(ERROR//': Trying to construct the stress prefactor &
+           &between modes at incompatible q-points.')
+        call err()
+      endif
+    else
+      output = output                                         &
+           & + real(outer_product( this%unit_vector(i),       &
+           &                       conjg(this%unit_vector(i)) ))
+    endif
   enddo
 end function
 

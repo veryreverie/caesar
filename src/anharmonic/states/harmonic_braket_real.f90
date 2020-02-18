@@ -19,6 +19,8 @@ module harmonic_braket_real_module
     
     real(dp), private :: frequency_
     real(dp), private :: log_2nw_
+    integer,  private :: maximum_power_
+    integer,  private :: expansion_order_
   contains
     procedure, public :: set_bra_pointer => set_bra_pointer_HarmonicBraKetReal
     procedure, public :: set_ket_pointer => set_ket_pointer_HarmonicBraKetReal
@@ -43,7 +45,7 @@ module harmonic_braket_real_module
 contains
 
 function new_HarmonicBraKetReal(subspace_id,mode_ids,paired_mode_ids, &
-   & frequency,supercell_size) result(this) 
+   & frequency,supercell_size,maximum_power,expansion_order) result(this) 
   implicit none
   
   integer,  intent(in)     :: subspace_id
@@ -51,13 +53,17 @@ function new_HarmonicBraKetReal(subspace_id,mode_ids,paired_mode_ids, &
   integer,  intent(in)     :: paired_mode_ids(:)
   real(dp), intent(in)     :: frequency
   integer,  intent(in)     :: supercell_size
+  integer,  intent(in)     :: maximum_power
+  integer,  intent(in)     :: expansion_order
   type(HarmonicBraKetReal) :: this
   
-  this%subspace_id     = subspace_id
-  this%mode_ids        = mode_ids
-  this%paired_mode_ids = paired_mode_ids
-  this%frequency_      = frequency
-  this%log_2nw_        = log(2*supercell_size*frequency)
+  this%subspace_id      = subspace_id
+  this%mode_ids         = mode_ids
+  this%paired_mode_ids  = paired_mode_ids
+  this%frequency_       = frequency
+  this%log_2nw_         = log(2*supercell_size*frequency)
+  this%maximum_power_   = maximum_power
+  this%expansion_order_ = expansion_order
 end function
 
 subroutine set_bra_pointer_HarmonicBraKetReal(this,bra)
@@ -131,13 +137,17 @@ impure elemental function integrate_HarmonicBraKetReal(this,monomial, &
   endif
   
   if (associated(this%ket_)) then
-    output = product(this%bra_%modes_%braket( this%ket_%modes_, &
-                                            & monomial%modes,   &
-                                            & this%log_2nw_     ))
+    output = product(this%bra_%modes_%braket( this%ket_%modes_,     &
+                                            & monomial%modes,       &
+                                            & this%log_2nw_,        &
+                                            & this%maximum_power_,  &
+                                            & this%expansion_order_ ))
   else
-    output = product(this%bra_%modes_%braket( this%bra_%modes_, &
-                                            & monomial%modes,   &
-                                            & this%log_2nw_     ))
+    output = product(this%bra_%modes_%braket( this%bra_%modes_,     &
+                                            & monomial%modes,       &
+                                            & this%log_2nw_,        &
+                                            & this%maximum_power_,  &
+                                            & this%expansion_order_ ))
   endif
 end function
 
@@ -226,10 +236,12 @@ impure elemental function harmonic_potential_energy_HarmonicBraKetReal(this, &
       ! All <p_i|q_i>/=0, so all <p'|q'>=<p|q>/<p_i|q_i>,
       !    so <p|T|q> = (w^2/4)
       !               * sum_i <p_i|%braket(|q_i>,V_i)
-      output = (this%frequency_**2/4)                           &
-           & * sum(this%bra_%modes_%braket( this%ket_%modes_,   &
-           &                                harmonic_potential, &
-           &                                this%log_2nw_       ))
+      output = (this%frequency_**2/4)                             &
+           & * sum(this%bra_%modes_%braket( this%ket_%modes_,     &
+           &                                harmonic_potential,   &
+           &                                this%log_2nw_,        &
+           &                                this%maximum_power_,  &
+           &                                this%expansion_order_ ))
     elseif (count(.not. modes_overlap)==1) then
       ! <p_i|q_i>=0, but all other <p_j|q_j>=1.
       ! <p|V|q> = (w^2/4)<p_i%second_derivative(|q_i>).
@@ -237,7 +249,9 @@ impure elemental function harmonic_potential_energy_HarmonicBraKetReal(this, &
       output = (this%frequency_**2/4)                             &
            & * this%bra_%modes_(i)%braket( this%ket_%modes_(i),   &
            &                               harmonic_potential(i), &
-           &                               this%log_2nw_          )
+           &                               this%log_2nw_,         &
+           &                               this%maximum_power_,   &
+           &                               this%expansion_order_  )
     else
       ! More than one <p_i|q_i>=0, so <p|V|q>=0.
       output = 0
@@ -245,10 +259,12 @@ impure elemental function harmonic_potential_energy_HarmonicBraKetReal(this, &
   else
     ! |p>=|q>, so <p'|q'>=1, and so
     !    <p|V|q> = (w^2/4)*sum_i <p_i|%braket(|p_i>,V_i).
-    output = (this%frequency_**2/4)                           &
-         & * sum(this%bra_%modes_%braket( this%bra_%modes_,   &
-         &                                harmonic_potential, &
-         &                                this%log_2nw_       ))
+    output = (this%frequency_**2/4)                             &
+         & * sum(this%bra_%modes_%braket( this%bra_%modes_,     &
+         &                                harmonic_potential,   &
+         &                                this%log_2nw_,        &
+         &                                this%maximum_power_,  &
+         &                                this%expansion_order_ ))
   endif
 end function
 

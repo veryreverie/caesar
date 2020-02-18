@@ -89,7 +89,7 @@ impure elemental function new_ThermodynamicData(thermal_energy,energy, &
   real(dp),         intent(in), optional :: volume
   real(dp),         intent(in), optional :: enthalpy
   real(dp),         intent(in), optional :: gibbs
-  type(ThermodynamicData) :: this
+  type(ThermodynamicData)                :: this
   
   logical :: arguments_present(4)
   

@@ -350,7 +350,7 @@ function MACRO_SIZE_MAT(input,dim) result(output)
 end function
 
 ! Trace.
-function MACRO_TRACE_MAT(input) result(output)
+impure elemental function MACRO_TRACE_MAT(input) result(output)
   implicit none
   
   type(MACRO_TYPE_MAT_NAME), intent(in) :: input

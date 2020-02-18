@@ -230,18 +230,47 @@ end function
 !                                  * binom(n_j,q_i-k)
 !                                  * (n_i+p_j-p_i+k)!
 !                                  / k!               ] otherwise.
-impure elemental function braket_HarmonicState2D(bra,ket,potential,log_2nw) &
-   & result(output)
+impure elemental function braket_HarmonicState2D(bra,ket,potential,log_2nw, &
+   & maximum_power,expansion_order) result(output) 
   implicit none
   
   class(HarmonicState2D),  intent(in) :: bra
   class(HarmonicState2D),  intent(in) :: ket
   type(ComplexUnivariate), intent(in) :: potential
   real(dp),                intent(in) :: log_2nw
+  integer,                 intent(in) :: maximum_power
+  integer,                 intent(in) :: expansion_order
   real(dp)                            :: output
   
+  real(dp), allocatable, save :: cache(:,:,:,:,:,:)
+  logical,  allocatable, save :: cached(:,:,:,:,:,:)
+  
   integer :: p_i,p_j,q_i,q_j,n_i,n_j
-  integer :: k
+  
+  integer :: i_p,i_q
+  
+  integer :: k,ialloc
+  
+  if (expansion_order/=4) then
+    call err()
+  endif
+  
+  if (.not. allocated(cache)) then
+    allocate( cache( expansion_order+1,     &
+            &        expansion_order+1,     &
+            &        2*expansion_order+1,   &
+            &        2*expansion_order+1,   &
+            &        maximum_power+1,       &
+            &        maximum_power+1    ),  &
+            & cached( expansion_order+1,    &
+            &         expansion_order+1,    &
+            &         2*expansion_order+1,  &
+            &         2*expansion_order+1,  &
+            &         maximum_power+1,      &
+            &         maximum_power+1    ), &
+            & stat=ialloc); call err(ialloc)
+    cached = .false.
+  endif
   
   p_i = bra%occupation_
   p_j = bra%paired_occupation_
@@ -253,17 +282,39 @@ impure elemental function braket_HarmonicState2D(bra,ket,potential,log_2nw) &
   if (p_i-p_j-n_i+n_j-q_i+q_j/=0 .or. n_i<p_i-q_i .or. n_i<q_j-p_j) then
     output = 0
   else
-    output = exp(0.5_dp*( log_factorial(p_i)             &
+    !! Generate convenient indices for cache lookups.
+    !! 1 < (dp,dq) < 2*expansion_order+1.
+    if (p_i>=p_j) then
+      i_p = 2*(p_i-p_j)+1
+    else
+      i_p = 2*(p_j-p_i)
+    endif
+    
+    if (q_i>=q_j) then
+      i_q = 2*(q_i-q_j)+1
+    else
+      i_q = 2*(q_j-q_i)
+    endif
+    
+    ! Rather than calculating the result directly, the result is calculated
+    !    and cached the first time around, and then the cached result is used
+    !    thereafter.
+    if (.not.cached(n_i+1,n_j+1,i_p,i_q,p_i+1,q_i+1)) then
+      cache(n_i+1,n_j+1,i_p,i_q,p_i+1,q_i+1) =           &
+         &   exp(0.5_dp*( log_factorial(p_i)             &
          &              + log_factorial(q_i)             &
          &              - log_factorial(p_j)             &
-         &              - log_factorial(q_j)             &
-         &              - (n_i+n_j)*log_2nw  ))          &
+         &              - log_factorial(q_j) ))          &
          & * sum([( exp( log_binomial(n_i,p_i-k)         &
          &             + log_binomial(n_j,q_i-k)         &
          &             + log_factorial(n_i+p_j-p_i+k)    &
          &             - log_factorial(k)             ), &
          &          k=max(0,p_i-n_i,q_i-n_j),            &
          &          min(p_i,q_i)                         )])
+      cached(n_i+1,n_j+1,i_p,i_q,p_i+1,q_i+1) = .true.
+    endif
+    output = cache(n_i+1,n_j+1,i_p,i_q,p_i+1,q_i+1) &
+         & * exp(-0.5_dp*(n_i+n_j)*log_2nw)
   endif
 end function
 

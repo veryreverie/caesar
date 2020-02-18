@@ -21,6 +21,8 @@ module stress_dynamical_matrix_module
   type, extends(Stringsable) :: StressDynamicalMatrix
     type(DynamicalMatrix), allocatable :: elements(:,:)
   contains
+    procedure, public :: expectation => &
+                       & expectation_StressDynamicalMatrix
     ! I/O.
     procedure, public :: read  => read_StressDynamicalMatrix
     procedure, public :: write => write_StressDynamicalMatrix
@@ -79,6 +81,30 @@ function new_StressDynamicalMatrix_zeroes(no_atoms) result(this)
   
   allocate(this%elements(3,3), stat=ialloc); call err(ialloc)
   this%elements = DynamicalMatrix(no_atoms)
+end function
+
+! The expectation of the stress w/r/t a given mode.
+impure elemental function expectation_StressDynamicalMatrix(this,mode) &
+   & result(output) 
+  implicit none
+  
+  class(StressDynamicalMatrix), intent(in) :: this
+  type(ComplexMode),            intent(in) :: mode
+  type(RealMatrix)                         :: output
+  
+  real(dp), allocatable :: elements(:,:)
+  
+  integer :: i,j,ialloc
+  
+  allocate(elements(3,3), stat=ialloc); call err(ialloc)
+  elements = 0
+  do i=1,3
+    do j=1,3
+      elements(j,i) = this%elements(j,i)%expectation(mode)
+    enddo
+  enddo
+  
+  output = mat(elements)
 end function
 
 ! Algebra.

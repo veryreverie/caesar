@@ -185,39 +185,57 @@ end function
 !     * sum_{k=0}^{min((n-d)/2,p,q)}[ 2^k 
 !                                   * binom((n+d)/2,d+k)
 !                                   * binom(min(p,q),k)  ] otherwise.
-impure elemental function braket_HarmonicState1D(bra,ket,potential,log_2nw) &
-   & result(output)
+impure elemental function braket_HarmonicState1D(bra,ket,potential,log_2nw, &
+   & maximum_power,expansion_order) result(output) 
   implicit none
   
   class(HarmonicState1D),  intent(in) :: bra
   class(HarmonicState1D),  intent(in) :: ket
   type(ComplexUnivariate), intent(in) :: potential
   real(dp),                intent(in) :: log_2nw
+  integer,                 intent(in) :: maximum_power
+  integer,                 intent(in) :: expansion_order
   real(dp)                            :: output
   
-  integer :: p,q,n,d,k
+  real(dp), allocatable, save :: cache(:,:,:)
+  logical,  allocatable, save :: cached(:,:,:)
   
-  p = bra%occupation_
-  q = ket%occupation_
+  integer :: min_p,max_p,n,d
+  
+  integer :: k,ialloc
+  
+  if (.not. allocated(cache)) then
+    allocate( cache(expansion_order+1,expansion_order+1,maximum_power+1),  &
+            & cached(expansion_order+1,expansion_order+1,maximum_power+1), &
+            & stat=ialloc); call err(ialloc)
+    cached = .false.
+  endif
+  
+  min_p = min(bra%occupation_, ket%occupation_)
+  max_p = max(bra%occupation_, ket%occupation_)
   n = potential%power
-  d = abs(p-q)
+  d = max_p-min_p
   
-  if (modulo(p+n+q,2)==1) then
-    output = 0
-  elseif (n<d) then
+  if (modulo(min_p+max_p+n,2)==1 .or. n<d) then
     output = 0
   else
-    output = exp( log_factorial(n)                     &
-         &      - log_factorial((n+d)/2)               &
-         &      - ((n-d)/2) * log(2.0_dp)              &
-         &      + 0.5_dp*( log_factorial(max(p,q))     &
-         &               - log_factorial(min(p,q)) )   &
-         &      - 0.5_dp*n*log_2nw                   ) &
-         & * sum([( exp( k*log(2.0_dp)                 &
-         &             + log_binomial((n+d)/2, d+k)    &
-         &             + log_binomial(min(p,q), k)  ), &
-         &          k=0,                               &
-         &          min(p,q,(n-d)/2)                   )]) 
+    ! Rather than calculating the result directly, the result is calculated
+    !    and cached the first time around, and then the cached result is used
+    !    thereafter.
+    if (.not. cached(n+1,d+1,min_p+1)) then
+      cache(n+1,d+1,min_p+1) = exp( log_factorial(n)                     &
+                           &      - log_factorial((n+d)/2)               &
+                           &      - ((n-d)/2) * log(2.0_dp)              &
+                           &      + 0.5_dp*( log_factorial(max_p)        &
+                           &               - log_factorial(min_p) ) )    &
+                           & * sum([( exp( k*log(2.0_dp)                 &
+                           &             + log_binomial((n+d)/2, d+k)    &
+                           &             + log_binomial(min_p, k)     ), &
+                           &          k=0,                               &
+                           &          min(min_p,(n-d)/2)                 )]) 
+      cached(n+1,d+1,min_p+1) = .true.
+    endif
+    output = cache(n+1,d+1,min_p+1) * exp(-0.5_dp*n*log_2nw)
   endif
 end function
 

@@ -67,12 +67,7 @@ function new_StressPrefactors_subspace(subspace,modes) result(this)
   do i=1,size(subspace_modes)
     do j=1,size(subspace_modes)
       if (subspace_modes(i)%qpoint_id==subspace_modes(j)%paired_qpoint_id) then
-        do k=1,size(subspace_modes(i)%unit_vector)
-          prefactors(i,j) = prefactors(i,j)                            &
-                        & + real(outer_product(                        &
-                        &      subspace_modes(i)%unit_vector(k),       &
-                        &      conjg(subspace_modes(j)%unit_vector(k)) ))
-        enddo
+        prefactors(i,j) = subspace_modes(i)%stress_prefactor(subspace_modes(j))
       endif
     enddo
   enddo

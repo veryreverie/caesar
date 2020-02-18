@@ -8,6 +8,7 @@ module harmonic_properties_module
   use structure_module
   use normal_mode_module
   use dynamical_matrices_module
+  use harmonic_stress_module
   
   use thermodynamic_data_module
   use qpoint_path_module
@@ -160,17 +161,18 @@ end function
 ! ----------------------------------------------------------------------
 ! Generates the phonon dispersion curve.
 ! ----------------------------------------------------------------------
-function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
-   & hessian,path_string,no_path_points,logfile) result(this)
+function new_PhononDispersion_CartesianHessian(supercell,min_images, &
+   & hessian,stress_hessian,path_string,no_path_points,logfile) result(this)
   implicit none
   
-  type(StructureData),    intent(in)    :: large_supercell
-  type(MinImages),        intent(in)    :: min_images(:,:)
-  type(CartesianHessian), intent(in)    :: hessian
-  type(String),           intent(in)    :: path_string
-  integer,                intent(in)    :: no_path_points
-  type(OFile),            intent(inout) :: logfile
-  type(PhononDispersion)                :: this
+  type(StructureData),    intent(in)           :: supercell
+  type(MinImages),        intent(in)           :: min_images(:,:)
+  type(CartesianHessian), intent(in)           :: hessian
+  type(StressHessian),    intent(in), optional :: stress_hessian
+  type(String),           intent(in)           :: path_string
+  integer,                intent(in)           :: no_path_points
+  type(OFile),            intent(inout)        :: logfile
+  type(PhononDispersion)                       :: this
   
   ! q-point and dynamical matrix variables.
   type(QpointPath)                         :: path
@@ -195,12 +197,12 @@ function new_PhononDispersion_CartesianHessian(large_supercell,min_images, &
   allocate(frequencies(size(path_qpoints)), stat=ialloc); call err(ialloc)
   do i=1,size(path_qpoints)
     qpoint = path_qpoints(i)%qpoint
-    dynamical_matrix = DynamicalMatrix( qpoint,          &
-                                      & large_supercell, &
-                                      & hessian,         &
-                                      & min_images       )
-    call dynamical_matrix%check(large_supercell, logfile)
-    complex_modes = ComplexMode(dynamical_matrix, large_supercell)
+    dynamical_matrix = DynamicalMatrix( qpoint,    &
+                                      & supercell, &
+                                      & hessian,   &
+                                      & min_images )
+    call dynamical_matrix%check(supercell, logfile)
+    complex_modes = ComplexMode(dynamical_matrix, supercell)
     frequencies(i) = PathFrequencies(                       &
        &  path_fraction    = path_qpoints(i)%path_fraction, &
        &  qpoint           = qpoint,                        &
@@ -465,20 +467,21 @@ end function
 ! Calculate the frequency density-of-states by random sampling of
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
-function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
-   & thermal_energies,min_frequency,no_dos_samples,logfile,random_generator) &
-   & result(this)
+function new_PhononDos_CartesianHessian(supercell,min_images,hessian,      &
+   & stress_hessian,thermal_energies,min_frequency,no_dos_samples,logfile, &
+   & random_generator) result(this) 
   implicit none
   
-  type(StructureData),    intent(in)    :: supercell
-  type(MinImages),        intent(in)    :: min_images(:,:)
-  type(CartesianHessian), intent(in)    :: hessian
-  real(dp),               intent(in)    :: thermal_energies(:)
-  real(dp),               intent(in)    :: min_frequency
-  integer,                intent(in)    :: no_dos_samples
-  type(OFile),            intent(inout) :: logfile
-  type(RandomReal),       intent(in)    :: random_generator
-  type(PhononDos)                       :: this
+  type(StructureData),    intent(in)           :: supercell
+  type(MinImages),        intent(in)           :: min_images(:,:)
+  type(CartesianHessian), intent(in)           :: hessian
+  type(StressHessian),    intent(in), optional :: stress_hessian
+  real(dp),               intent(in)           :: thermal_energies(:)
+  real(dp),               intent(in)           :: min_frequency
+  integer,                intent(in)           :: no_dos_samples
+  type(OFile),            intent(inout)        :: logfile
+  type(RandomReal),       intent(in)           :: random_generator
+  type(PhononDos)                              :: this
   
   ! Calculation parameter.
   integer  :: no_bins
@@ -496,10 +499,14 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   integer :: extra_bins
   
   ! Output variables.
-  real(dp), allocatable :: freq_dos(:)
-  real(dp), allocatable :: energy(:)
-  real(dp), allocatable :: free_energy(:)
-  real(dp), allocatable :: entropy(:)
+  real(dp),         allocatable :: freq_dos(:)
+  real(dp),         allocatable :: energy(:)
+  real(dp),         allocatable :: free_energy(:)
+  real(dp),         allocatable :: entropy(:)
+  type(RealMatrix), allocatable :: stress(:)
+  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: enthalpy(:)
+  real(dp),         allocatable :: gibbs(:)
   
   type(SampledQpoint),     allocatable :: qpoints(:)
   type(ThermodynamicData), allocatable :: thermodynamic_data(:)
@@ -512,6 +519,10 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   type(ComplexMode),       allocatable :: complex_modes(:)
   integer,                 allocatable :: no_frequencies_ignored(:)
   type(ThermodynamicData), allocatable :: thermodynamics(:)
+  
+  ! Stress variables.
+  type(StressDynamicalMatrix)   :: stress_dynamical_matrix
+  type(RealMatrix)              :: stress_prefactor
   
   ! Temporary variables.
   integer :: bin
@@ -552,19 +563,19 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   max_freq    =  max_freq + safety_margin*freq_spread
   bin_width   = (max_freq - min_freq) / no_bins
   
-  ! Calculate density of states.
-  allocate( freq_dos(no_bins),                      &
-          & energy(size(thermal_energies)),         &
-          & free_energy(size(thermal_energies)),    &
-          & entropy(size(thermal_energies)),        &
-          & no_frequencies_ignored(no_dos_samples), &
-          & stat=ialloc); call err(ialloc)
-  freq_dos=0.0_dp
-  energy = 0.0_dp
-  free_energy = 0.0_dp
-  entropy = 0.0_dp
-  no_frequencies_ignored = 0
+  ! Initialise containers.
+  freq_dos = [(0.0_dp, i=1, no_bins)]
+  energy = [(0.0_dp, i=1, size(thermal_energies))]
+  free_energy = [(0.0_dp, i=1, size(thermal_energies))]
+  entropy = [(0.0_dp, i=1, size(thermal_energies))]
+  no_frequencies_ignored = [(0, i=1, no_dos_samples)]
+  if (present(stress_hessian)) then
+    stress = [(dblemat(zeroes(3,3)), i=1, size(thermal_energies))]
+    volume = supercell%volume / supercell%sc_size
+  endif
   allocate(qpoints(no_dos_samples), stat=ialloc); call err(ialloc)
+  
+  ! Calculate density of states.
   do i=1,no_dos_samples
     qpoint = vec(random_generator%random_numbers(3))
     dynamical_matrix = DynamicalMatrix( qpoint,    &
@@ -573,6 +584,13 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
                                       & min_images )
     call dynamical_matrix%check(supercell, logfile)
     complex_modes = ComplexMode(dynamical_matrix, supercell)
+    
+    if (present(stress_hessian)) then
+      stress_dynamical_matrix = StressDynamicalMatrix( qpoint,         &
+                                                     & supercell,      &
+                                                     & stress_hessian, &
+                                                     & min_images      )
+    endif
     
     do j=1,supercell%no_modes_prim
       frequency = complex_modes(j)%frequency
@@ -606,11 +624,27 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
         energy = energy + thermodynamics%energy
         free_energy = free_energy + thermodynamics%free_energy
         entropy = entropy + thermodynamics%entropy
+        
+        if (present(stress_hessian)) then
+          ! Add in the kinetic stress from the mode.
+          ! For harmonic states, the kinetic stress is equal to UI/V,
+          !    where I is the stress prefactor and V is the volume.
+          stress_prefactor = complex_modes(j)%stress_prefactor()
+          stress = stress + thermodynamics%energy * stress_prefactor/volume
+          
+          ! Add in the potential stress from the mode.
+          ! For harmonic states, <uu*> =  2U/w^2.
+          ! <stress> = u*.stress.u * <uu*>.
+          stress = stress                                                &
+               & + stress_dynamical_matrix%expectation(complex_modes(j)) &
+               & * thermodynamics%energy * 2 / complex_modes(j)%frequency**2
+        endif
       endif
     enddo
     
     qpoints(i) = SampledQpoint(qpoint, no_frequencies_ignored(i))
     
+    ! Print progress.
     if (modulo(i,print_every)==0) then
       call print_line('Density of states: '//i//' of '//no_dos_samples// &
          & ' q-points sampled.')
@@ -627,6 +661,11 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
   energy      = energy      / no_dos_samples
   free_energy = free_energy / no_dos_samples
   entropy     = entropy     / no_dos_samples
+  if (present(stress_hessian)) then
+    stress = stress / no_dos_samples
+    enthalpy = energy + trace(stress) * volume / 3
+    gibbs = free_energy + trace(stress) * volume / 3
+  endif
   
   if (any(no_frequencies_ignored/=0)) then
     call print_line(WARNING//': '//sum(no_frequencies_ignored)//' modes &
@@ -640,11 +679,21 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,        &
           & i=1,                                                  &
           & no_bins                                               )]
   
-  thermodynamic_data = ThermodynamicData( thermal_energies, &
-                                        & energy,           &
-                                        & free_energy,      &
-                                        & entropy           )
-  
+  if (present(stress_hessian)) then
+    thermodynamic_data = ThermodynamicData( thermal_energies, &
+                                          & energy,           &
+                                          & free_energy,      &
+                                          & entropy,          &
+                                          & stress,           &
+                                          & volume,           &
+                                          & enthalpy,         &
+                                          & gibbs             )
+  else
+    thermodynamic_data = ThermodynamicData( thermal_energies, &
+                                          & energy,           &
+                                          & free_energy,      &
+                                          & entropy           )
+  endif
   
   this = PhononDos(qpoints, pdos, thermodynamic_data)
 end function
