@@ -52,6 +52,8 @@ module harmonic_state_1d_module
     ! <p|u^n|q>.
     procedure, public :: braket => &
                        & braket_HarmonicState1D
+    procedure, public :: log_braket => &
+                       & log_braket_HarmonicState1D
     ! <p|d/du|q>.
     procedure, public :: first_derivative => &
                        & first_derivative_HarmonicState1D
@@ -197,6 +199,25 @@ impure elemental function braket_HarmonicState1D(bra,ket,potential,log_2nw, &
   integer,                 intent(in) :: expansion_order
   real(dp)                            :: output
   
+  output = exp(bra%log_braket( ket,            &
+                             & potential,      &
+                             & log_2nw,        &
+                             & maximum_power,  &
+                             & expansion_order ))
+end function
+
+impure elemental function log_braket_HarmonicState1D(bra,ket,potential, &
+   & log_2nw,maximum_power,expansion_order) result(output) 
+  implicit none
+  
+  class(HarmonicState1D),  intent(in) :: bra
+  class(HarmonicState1D),  intent(in) :: ket
+  type(ComplexUnivariate), intent(in) :: potential
+  real(dp),                intent(in) :: log_2nw
+  integer,                 intent(in) :: maximum_power
+  integer,                 intent(in) :: expansion_order
+  real(dp)                            :: output
+  
   real(dp), allocatable, save :: cache(:,:,:)
   logical,  allocatable, save :: cached(:,:,:)
   
@@ -205,8 +226,8 @@ impure elemental function braket_HarmonicState1D(bra,ket,potential,log_2nw, &
   integer :: k,ialloc
   
   if (.not. allocated(cache)) then
-    allocate( cache(expansion_order+1,expansion_order+1,maximum_power+1),  &
-            & cached(expansion_order+1,expansion_order+1,maximum_power+1), &
+    allocate( cache(0:expansion_order,0:expansion_order,0:maximum_power),  &
+            & cached(0:expansion_order,0:expansion_order,0:maximum_power), &
             & stat=ialloc); call err(ialloc)
     cached = .false.
   endif
@@ -217,25 +238,25 @@ impure elemental function braket_HarmonicState1D(bra,ket,potential,log_2nw, &
   d = max_p-min_p
   
   if (modulo(min_p+max_p+n,2)==1 .or. n<d) then
-    output = 0
+    output = -1e100_dp
   else
     ! Rather than calculating the result directly, the result is calculated
     !    and cached the first time around, and then the cached result is used
     !    thereafter.
-    if (.not. cached(n+1,d+1,min_p+1)) then
-      cache(n+1,d+1,min_p+1) = exp( log_factorial(n)                     &
-                           &      - log_factorial((n+d)/2)               &
-                           &      - ((n-d)/2) * log(2.0_dp)              &
-                           &      + 0.5_dp*( log_factorial(max_p)        &
-                           &               - log_factorial(min_p) ) )    &
-                           & * sum([( exp( k*log(2.0_dp)                 &
-                           &             + log_binomial((n+d)/2, d+k)    &
-                           &             + log_binomial(min_p, k)     ), &
-                           &          k=0,                               &
-                           &          min(min_p,(n-d)/2)                 )]) 
-      cached(n+1,d+1,min_p+1) = .true.
+    if (.not. cached(n,d,min_p)) then
+      cache(n,d,min_p) = log_factorial(n)                              &
+                     & - log_factorial((n+d)/2)                        &
+                     & - ((n-d)/2) * log(2.0_dp)                       &
+                     & + 0.5_dp*( log_factorial(max_p)                 &
+                     &          - log_factorial(min_p) )               &
+                     & + log(sum([( exp( k*log(2.0_dp)                 &
+                     &                 + log_binomial((n+d)/2, d+k)    &
+                     &                 + log_binomial(min_p, k)     ), &
+                     &              k=0,                               &
+                     &              min(min_p,(n-d)/2)                 )]))
+      cached(n,d,min_p) = .true.
     endif
-    output = cache(n+1,d+1,min_p+1) * exp(-0.5_dp*n*log_2nw)
+    output = cache(n,d,min_p)-0.5_dp*n*log_2nw
   endif
 end function
 

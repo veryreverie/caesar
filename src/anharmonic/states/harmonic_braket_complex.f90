@@ -139,17 +139,17 @@ impure elemental function integrate_HarmonicBraKetComplex(this,monomial, &
   endif
   
   if (associated(this%ket_)) then
-    output = product(this%bra_%modes_%braket( this%ket_%modes_,     &
-                                            & monomial%modes,       &
-                                            & this%log_2nw_,        &
-                                            & this%maximum_power_,  &
-                                            & this%expansion_order_ ))
+    output = exp(sum(this%bra_%modes_%log_braket( this%ket_%modes_,     &
+                                                & monomial%modes,       &
+                                                & this%log_2nw_,        &
+                                                & this%maximum_power_,  &
+                                                & this%expansion_order_ )))
   else
-    output = product(this%bra_%modes_%braket( this%bra_%modes_,     &
-                                            & monomial%modes,       &
-                                            & this%log_2nw_,        &
-                                            & this%maximum_power_,  &
-                                            & this%expansion_order_ ))
+    output = exp(sum(this%bra_%modes_%log_braket( this%bra_%modes_,     &
+                                                & monomial%modes,       &
+                                                & this%log_2nw_,        &
+                                                & this%maximum_power_,  &
+                                                & this%expansion_order_ )))
   endif
 end function
 

@@ -156,16 +156,18 @@ def main():
       ymin_hartree = min(datum['free energies'])
       ymax_hartree = max(datum['energies'])
       ymax_shannon = max(datum['entropies'])
-      ymin_pressure = min(datum['pressures'])
-      ymax_pressure = max(datum['pressures'])
+      if calculating_stress:
+        ymin_pressure = min(datum['pressures'])
+        ymax_pressure = max(datum['pressures'])
     else:
       xmin_hartree = min(xmin_hartree, datum['thermal energies'][0])
       xmax_hartree = max(xmax_hartree, datum['thermal energies'][-1])
       ymin_hartree = min(ymin_hartree, min(datum['free energies']))
       ymax_hartree = max(ymax_hartree, max(datum['energies']))
       ymax_shannon = max(ymax_shannon, max(datum['entropies']))
-      ymin_pressure = min(ymin_pressure, min(datum['pressures']))
-      ymax_pressure = max(ymax_pressure, max(datum['pressures']))
+      if calculating_stress:
+        ymin_pressure = min(ymin_pressure, min(datum['pressures']))
+        ymax_pressure = max(ymax_pressure, max(datum['pressures']))
     if calculating_stress:
       ymin_hartree = min(ymin_hartree, min(datum['gibbs free energies']))
       ymax_hartree = max(ymax_hartree, max(datum['enthalpies']))
@@ -176,9 +178,10 @@ def main():
   
   ymax_shannon = 1.1*ymax_shannon
   
-  ydiff_pressure = ymax_pressure-ymin_pressure
-  ymin_pressure = ymin_pressure-0.05*ydiff_pressure
-  ymax_pressure = ymax_pressure+0.05*ydiff_pressure
+  if calculating_stress:
+    ydiff_pressure = ymax_pressure-ymin_pressure
+    ymin_pressure = ymin_pressure-0.05*ydiff_pressure
+    ymax_pressure = ymax_pressure+0.05*ydiff_pressure
   
   kb_in_ev_per_k = 8.6173303e-5
   ev_per_hartree = 27.21138602
@@ -197,15 +200,16 @@ def main():
   axes['entropy']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
   axes['entropy']['t'].tick_params(labelbottom=False,labeltop=False)
   axes['entropy']['b'].tick_params(labelbottom=False,labeltop=False)
-  axes['stress']['b'].set_xlim(xmin_hartree,xmax_hartree)
-  axes['stress']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
-  axes['stress']['t'].tick_params(labelbottom=False,labeltop=False)
-  axes['stress']['b'].tick_params(labelbottom=True,labeltop=False)
-  axes['stress']['b'].set_xlabel(r"$k_BT$ (Ha)")
-  set_xaxis(axes['stress']['b'],
-            (xmin_hartree,xmax_hartree),
-            r"$k_BT$",
-            r"Ha")
+  if calculating_stress:
+    axes['stress']['b'].set_xlim(xmin_hartree,xmax_hartree)
+    axes['stress']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
+    axes['stress']['t'].tick_params(labelbottom=False,labeltop=False)
+    axes['stress']['b'].tick_params(labelbottom=True,labeltop=False)
+    axes['stress']['b'].set_xlabel(r"$k_BT$ (Ha)")
+    set_xaxis(axes['stress']['b'],
+              (xmin_hartree,xmax_hartree),
+              r"$k_BT$",
+              r"Ha")
   
   set_yaxis(axes['energy']['l'],
             (ymin_hartree,ymax_hartree),
@@ -227,17 +231,17 @@ def main():
             r"$S$",
             r"Ha/K/cell")
   
-  ymin_pascals = ymin_pressure * hartree_per_cubic_bohr_to_pascals
-  ymax_pascals = ymax_pressure * hartree_per_cubic_bohr_to_pascals
-  set_yaxis(axes['stress']['l'],
-            (ymin_pressure,ymax_pressure),
-            r"$p$",
-            r"Ha/bohr$^3$")
-  set_yaxis(axes['stress']['r'],
-            (ymin_pascals,ymax_pascals),
-            r"$p$",
-            r"Pa")
-  
+  if calculating_stress:
+    ymin_pascals = ymin_pressure * hartree_per_cubic_bohr_to_pascals
+    ymax_pascals = ymax_pressure * hartree_per_cubic_bohr_to_pascals
+    set_yaxis(axes['stress']['l'],
+              (ymin_pressure,ymax_pressure),
+              r"$p$",
+              r"Ha/bohr$^3$")
+    set_yaxis(axes['stress']['r'],
+              (ymin_pascals,ymax_pascals),
+              r"$p$",
+              r"Pa")
   
   # Format legend.
   handles = []
@@ -250,7 +254,7 @@ def main():
             ('entropy','blue'),
             ('pressure','green')]
   if not calculating_stress:
-    things = things[1,2,5]
+    things = [things[i] for i in [1,2,5]]
   for label,colour in things:
     line = mlines.Line2D([],[],color=colours[colour])
     handles.append(line)

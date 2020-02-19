@@ -212,23 +212,33 @@ subroutine test_subroutine(arguments)
   
   type(Dictionary), intent(in) :: arguments
   
-  type(Child) :: a
+  integer  :: i
+  integer  :: j
+  integer  :: k
+  real(dp) :: rand
   
-  class(Parent), allocatable :: b(:)
+  integer, allocatable :: seed(:)
   
-  integer :: i
+  integer, allocatable :: is(:)
   
-  type(T1), target :: c
-  type(T2) :: d
+  call random_seed(size=i)
+  allocate(seed(i))
+  seed = 100200
+  call random_seed(put=seed)
   
-  a = Child()
+  allocate(is(100))
+  j = 0
+  do i=1,100
+    call random_number(rand)
+    is(i) = nint(rand*200)-100
+  enddo
   
-  b = [(Child(), i=1, 100)]
-  
-  d%a=>c
-  call print_line(associated(d%a))
-  call print_line(associated(d%b))
-  call x(d)
+  do i=1,100000
+    do k=1,100000
+      j = j+y(is(modulo(i+k,100)+1))
+    enddo
+  enddo
+  call print_line(j)
 end subroutine
 
 subroutine x(this)
@@ -239,4 +249,27 @@ subroutine x(this)
   call print_line(associated(this%a))
   call print_line(associated(this%b))
 end subroutine
+
+function y(i) result(output)
+  implicit none
+  
+  integer, intent(in) :: i
+  integer             :: output
+  
+  integer, allocatable, save :: cache(:)
+  logical, allocatable, save :: cached(:)
+  
+  if (.not. allocated(cache)) then
+    allocate(cache(-100:100))
+    allocate(cached(-100:100))
+    cached = .false.
+  endif
+  
+  if (.not.cached(i)) then
+    cache(i) = i
+    cached(i) = .true.
+  endif
+  
+  output = cache(i)
+end function
 end module

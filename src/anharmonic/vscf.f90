@@ -182,6 +182,9 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
       call print_line( 'Self-consistency error : '     // &
                      & solver%self_consistency_error() // &
                      & ' (Ha)'                            )
+      call print_line( 'Change in coefficients : '  // &
+                     & solver%coefficient_change()  // &
+                     & ' (Ha)'                         )
       call print_line( 'Change in free energy  : '  // &
                      & solver%free_energy_change()  // &
                      & ' (Ha)'                         )

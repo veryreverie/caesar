@@ -159,9 +159,9 @@ impure elemental function                                                  &
   
   type(SparseMonomial) :: sparse_monomial
   
-  sparse_monomial = SparseMonomial(monomial%modes( &
-             & ids        = braket%mode_ids,       &
-             & paired_ids = braket%paired_mode_ids ))
+  sparse_monomial%modes = monomial%modes(  &
+     & ids        = braket%mode_ids,       &
+     & paired_ids = braket%paired_mode_ids )
   
   output = monomial%coefficient               &
        & * braket%integrate( sparse_monomial, &
@@ -182,9 +182,9 @@ impure elemental function integrate_to_constant_BasisState_ComplexMonomial( &
   
   type(SparseMonomial) :: sparse_monomial
   
-  sparse_monomial = SparseMonomial(monomial%modes(                  &
+  sparse_monomial%modes = monomial%modes(                           &
      & ids        = basis%mode_ids(subspace,anharmonic_data),       &
-     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) ))
+     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
   
   output = monomial%coefficient              &
        & * basis%integrate( bra,             &
@@ -212,9 +212,9 @@ impure elemental function integrate_to_constant_BasisStates_ComplexMonomial( &
   integer     :: cache_location
   complex(dp) :: expectation
   
-  sparse_monomial = SparseMonomial(monomial%modes(                  &
+  sparse_monomial%modes = monomial%modes(                           &
      & ids        = basis%mode_ids(subspace,anharmonic_data),       &
-     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) ))
+     & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
   
   cache_location = states%expectation_cache%cached_location(sparse_monomial)
   if (cache_location==0) then

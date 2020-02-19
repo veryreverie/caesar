@@ -61,6 +61,7 @@ module pulay_module
     
     ! Errors for printing progress.
     procedure, public :: self_consistency_error
+    procedure, public :: coefficient_change
     procedure, public :: free_energy_change
     
     ! Check if the Pulay scheme has converged.
@@ -411,6 +412,16 @@ function self_consistency_error(this) result(output)
   
   output = maxval(abs(dble( this%fs_(this%i(offset=-1)) &
                         & - this%xs_(this%i(offset=-1)) )))
+end function
+
+function coefficient_change(this) result(output)
+  implicit none
+  
+  class(PulaySolver), intent(in) :: this
+  real(dp)                       :: output
+  
+  output = maxval(abs(dble( this%xs_(this%i(offset=-1)) &
+                        & - this%xs_(this%i(offset=-2)) )))
 end function
 
 function free_energy_change(this) result(output)

@@ -45,7 +45,6 @@ module wavevector_basis_module
     integer                                    :: expansion_order
     integer                                    :: subspace_id
     type(FractionVector)                       :: wavevector
-    logical,                           private :: states_are_real_
     class(SubspaceState), allocatable, private :: harmonic_states_(:)
     type(CoupledStates),  allocatable, private :: harmonic_couplings_(:)
   contains
@@ -169,13 +168,6 @@ function new_WavevectorBasis(maximum_power,expansion_order,subspace_id, &
   
   allocate( this%harmonic_states_, source=harmonic_states, &
           & stat=ialloc); call err(ialloc)
-  select type(harmonic_states); type is(HarmonicStateReal)
-    this%states_are_real_ = .true.
-  type is(HarmonicStateComplex)
-    this%states_are_real_ = .false.
-  class default
-    call err()
-  end select
 end function
 
 ! Construct a BraKet from a basis.
@@ -2091,8 +2083,9 @@ function stress_real(basis,harmonic_states,density_matrix,stress, &
       
       ! Calculate <i|X|k> in the harmonic basis,
       !    and thermally weight by the density matrix.
-      term = stress%potential_stress(braket, anharmonic_data) &
-         & + braket%kinetic_stress(stress_prefactors, anharmonic_data)
+      term = ( stress%potential_stress(braket, anharmonic_data)            &
+         &   + braket%kinetic_stress(stress_prefactors, anharmonic_data) ) &
+         & * density_matrix%values(density_matrix%keys(i)+j)
       
       ! If i==k, only include <i|X|i>, otherwise include <k|X|i> and <i|X|k>.
       if (k==i) then
@@ -2142,8 +2135,9 @@ function stress_complex(basis,harmonic_states,density_matrix,stress, &
       
       ! Calculate <i|X|k> in the harmonic basis,
       !    and thermally weight by the density matrix.
-      term = stress%potential_stress(braket, anharmonic_data) &
-         & + braket%kinetic_stress(stress_prefactors, anharmonic_data)
+      term = ( stress%potential_stress(braket, anharmonic_data)            &
+         &   + braket%kinetic_stress(stress_prefactors, anharmonic_data) ) &
+         & * density_matrix%values(density_matrix%keys(i)+j)
       
       ! If i==k, only include <i|X|i>, otherwise include <k|X|i> and <i|X|k>.
       if (k==i) then
