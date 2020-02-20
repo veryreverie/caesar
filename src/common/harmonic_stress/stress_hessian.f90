@@ -45,14 +45,19 @@ subroutine read_StressHessian(this,input)
   class(StressHessian), intent(out) :: this
   type(String),         intent(in)  :: input(:)
   
+  type(StringArray), allocatable :: sections(:)
+  
   type(CartesianHessian), allocatable :: elements(:,:)
   
+  integer :: i
+  
   select type(this); type is(StressHessian)
-    elements = reshape(                            &
-       & CartesianHessian(split_into_sections(     &
-       &        input,                             &
-       &        separating_line=repeat('-',50) )), &
-       & [3,3]                                     )
+    sections = split_into_sections( input,                         &
+                                  & separating_line=repeat('-',50) )
+    do i=1,size(sections)
+      sections(i)%strings = sections(i)%strings(2:)
+    enddo
+    elements = transpose(reshape(CartesianHessian(sections), [3,3]))
     this = StressHessian(elements)
   class default
     call err()
@@ -65,11 +70,21 @@ function write_StressHessian(this) result(output)
   class(StressHessian), intent(in) :: this
   type(String), allocatable        :: output(:)
   
+  character(1), parameter :: directions(3) = ['x', 'y', 'z']
+  
+  integer :: i,j
+  
   select type(this); type is(StressHessian)
-    output = str( [ this%elements(:,1),          &
-                &   this%elements(:,2),          &
-                &   this%elements(:,3)  ],       &
-                & separating_line=repeat('-',50) )
+    output = [str(repeat('-',50))]
+    do i=1,3
+      do j=1,3
+        output = [                                                        &
+           & output,                                                      &
+           & str('Stress component '//directions(i)//directions(j)//':'), &
+           & str(this%elements(i,j)),                                     &
+           & str(repeat('-',50))                                          ]
+      enddo
+    enddo
   class default
     call err()
   end select

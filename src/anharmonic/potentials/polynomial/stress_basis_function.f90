@@ -662,6 +662,8 @@ function write_StressBasisFunction(this) result(output)
   class(StressBasisFunction), intent(in) :: this
   type(String), allocatable              :: output(:)
   
+  character(1), parameter :: directions(3) = ['x', 'y', 'z']
+  
   logical :: first_element
   
   integer :: i,j,ialloc
@@ -675,9 +677,10 @@ function write_StressBasisFunction(this) result(output)
           if (.not. first_element) then
             output = [output, str('')]
           endif
-          output = [ output,                                         &
-                   & 'Element ( '//i//' , '//j//' ):',                   &
-                   & str(this%elements_(i,j)*this%coefficient_)      ]
+          output = [                                                        &
+             & output,                                                      &
+             & str('Stress component '//directions(i)//directions(j)//':'), &
+             & str(this%elements_(i,j)*this%coefficient_)                   ]
           first_element = .false.
         endif
       enddo

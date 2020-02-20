@@ -11,7 +11,6 @@ module calculate_anharmonic_observables_module
   use generate_subspace_potentials_module
   use vscf_module
   use stress_prefactors_module
-  !use interpolation_module
   implicit none
   
   private
@@ -45,11 +44,6 @@ subroutine startup_calculate_anharmonic_observables()
      &consecutive calculations which must be converged to within &
      &energy_convergence for the VSCF procedure to terminate.',               &
      &              default_value='5' ),                                      &
-     & KeywordData( 'max_pulay_iterations',                                   &
-     &              'max_pulay_iterations is the maximum number of &
-     &self-consistency iterations which will be passed into the Pulay &
-     &scheme. This must be at least 2.',                                      &
-     &              default_value='20' ),                                     &
      & KeywordData( 'pre_pulay_iterations',                                   &
      &              'pre_pulay_iterations is the number of damped iterations &
      &which will be performed before the Pulay scheme is called. This must be &
@@ -62,6 +56,24 @@ subroutine startup_calculate_anharmonic_observables()
      &is given by Vj = d*Vi+(1-d)*Vi'. Pre_pulay_damping must be between 0 &
      &and 1 inclusive.",                                                      &
      &              default_value='0.9' ),                                    &
+     & KeywordData( 'max_pulay_iterations',                                   &
+     &              'max_pulay_iterations is the maximum number of &
+     &self-consistency iterations which will be passed into the Pulay &
+     &scheme. This must be at least 2.',                                      &
+     &              default_value='5' ),                                      &
+     & KeywordData( 'pulay_damping',                                          &
+     &              "pulay_damping is the damping factor of the Pulay &
+     &iterations. If the i'th iteration has coefficients xi and &
+     &self-consistency error di, then the i+1'th iteration will be a linear &
+     &combination of xi+di*(1-pulay_damping). pulay_damping should be between &
+     &0 and 1.",                                                              &
+     &              default_value='0.8'),                                     &
+     & KeywordData( 'pulay_noise',                                            &
+     &              "pulay_noise controls the random noise added to each &
+     &Pulay iteration. If a Pulay iteration has coefficients xi and the &
+     &noise-free next iteration would have coefficients xi', then the next &
+     &iteration includes noise up to (xi'-xi)*pulay_noise.",                  &
+     &              default_value='0.1'),                                     &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -119,9 +131,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   logical               :: split_qpoints
   real(dp)              :: energy_convergence
   integer               :: no_converged_calculations
-  integer               :: max_pulay_iterations
   integer               :: pre_pulay_iterations
   real(dp)              :: pre_pulay_damping
+  integer               :: max_pulay_iterations
+  real(dp)              :: pulay_damping
+  real(dp)              :: pulay_noise
   real(dp)              :: min_temperature
   real(dp)              :: max_temperature
   integer               :: no_temperature_steps
@@ -253,9 +267,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   energy_convergence = dble(arguments%value('energy_convergence'))
   no_converged_calculations = int(                       &
      & arguments%value('no_converged_calculations_vscf') )
-  max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
   pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
   pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
+  max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
+  pulay_damping = dble(arguments%value('pulay_damping'))
+  pulay_noise = dble(arguments%value('pulay_noise'))
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
   no_temperature_steps = int(arguments%value('no_temperature_steps'))
@@ -294,6 +310,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   convergence_data = ConvergenceData( pre_pulay_iterations,     &
                                     & pre_pulay_damping,        &
                                     & max_pulay_iterations,     &
+                                    & pulay_damping,            &
+                                    & pulay_noise,              &
                                     & energy_convergence,       &
                                     & no_converged_calculations )
   
@@ -659,6 +677,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                                 & vscha_basis,         &
                                                 & vscha_states,        &
                                                 & anharmonic_data      )
+      
       stress_hessian = reconstruct_stress_hessian( &
                       & supercell,                 &
                       & qpoints,                   &

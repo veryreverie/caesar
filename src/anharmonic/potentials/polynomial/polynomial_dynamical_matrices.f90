@@ -167,7 +167,7 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
         
         ! If u_k/=u_k* then the u_l u_k* term is just the conjugate of the
         !    u_k u_l* term.
-        if (q2/=q2) then
+        if (mode_l%id/=mode_k%id) then
           output(q2) = output(q2) + DynamicalMatrix(mode_l,mode_k,coefficient)
         endif
       enddo

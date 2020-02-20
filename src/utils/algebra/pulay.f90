@@ -27,6 +27,8 @@ module pulay_module
     integer  :: pre_pulay_iterations
     real(dp) :: pre_pulay_damping
     integer  :: max_pulay_iterations
+    real(dp) :: pulay_damping
+    real(dp) :: pulay_noise
     real(dp) :: energy_convergence
     integer  :: no_converged_calculations
   end type
@@ -37,11 +39,12 @@ module pulay_module
   
   type, extends(NoDefaultConstructor) :: PulaySolver
     ! Starting parameters.
-    integer,          private :: pre_pulay_iterations_
-    real(dp),         private :: pre_pulay_damping_
-    integer,          private :: max_pulay_iterations_
-    real(dp),         private :: convergence_threshold_
-    integer,          private :: no_converged_calculations_
+    type(ConvergenceData), private :: convergence_data_
+    !integer,          private :: pre_pulay_iterations_
+    !real(dp),         private :: pre_pulay_damping_
+    !integer,          private :: max_pulay_iterations_
+    !real(dp),         private :: convergence_threshold_
+    !integer,          private :: no_converged_calculations_
     type(RandomReal), private :: random_generator_
     logical,          private :: bound_at_zero_
     
@@ -75,14 +78,16 @@ module pulay_module
   end interface
 contains
 
-impure elemental function new_ConvergenceData(pre_pulay_iterations, &
-   & pre_pulay_damping,max_pulay_iterations,energy_convergence,     &
-   & no_converged_calculations) result(this)
+impure elemental function new_ConvergenceData(pre_pulay_iterations,    &
+   & pre_pulay_damping,max_pulay_iterations,pulay_damping,pulay_noise, &
+   & energy_convergence,no_converged_calculations) result(this) 
   implicit none
   
   integer,  intent(in)  :: pre_pulay_iterations
   real(dp), intent(in)  :: pre_pulay_damping
   integer,  intent(in)  :: max_pulay_iterations
+  real(dp), intent(in)  :: pulay_damping
+  real(dp), intent(in)  :: pulay_noise
   real(dp), intent(in)  :: energy_convergence
   integer,  intent(in)  :: no_converged_calculations
   type(ConvergenceData) :: this
@@ -98,6 +103,8 @@ impure elemental function new_ConvergenceData(pre_pulay_iterations, &
   this%pre_pulay_iterations      = pre_pulay_iterations
   this%pre_pulay_damping         = pre_pulay_damping
   this%max_pulay_iterations      = max_pulay_iterations
+  this%pulay_damping             = pulay_damping
+  this%pulay_noise               = pulay_noise
   this%energy_convergence        = energy_convergence
   this%no_converged_calculations = no_converged_calculations
 end function
@@ -114,11 +121,12 @@ function new_PulaySolver(convergence_data,random_generator,initial_x, &
   
   integer :: ialloc
   
-  this%pre_pulay_iterations_ = convergence_data%pre_pulay_iterations
-  this%pre_pulay_damping_ = convergence_data%pre_pulay_damping
-  this%max_pulay_iterations_ = convergence_data%max_pulay_iterations
-  this%convergence_threshold_ = convergence_data%energy_convergence
-  this%no_converged_calculations_ = convergence_data%no_converged_calculations
+  this%convergence_data_ = convergence_data
+  !this%pre_pulay_iterations_ = convergence_data%pre_pulay_iterations
+  !this%pre_pulay_damping_ = convergence_data%pre_pulay_damping
+  !this%max_pulay_iterations_ = convergence_data%max_pulay_iterations
+  !this%convergence_threshold_ = convergence_data%energy_convergence
+  !this%no_converged_calculations_ = convergence_data%no_converged_calculations
   this%random_generator_ = random_generator
   if (present(bound_at_zero)) then
     this%bound_at_zero_ = bound_at_zero
@@ -126,9 +134,9 @@ function new_PulaySolver(convergence_data,random_generator,initial_x, &
     this%bound_at_zero_ = .false.
   endif
   
-  allocate( this%xs_(this%max_pulay_iterations_),            &
-          & this%fs_(this%max_pulay_iterations_),            &
-          & this%free_energies_(this%max_pulay_iterations_), &
+  allocate( this%xs_(convergence_data%max_pulay_iterations),            &
+          & this%fs_(convergence_data%max_pulay_iterations),            &
+          & this%free_energies_(convergence_data%max_pulay_iterations), &
           & stat=ialloc); call err(ialloc)
   this%xs_(1) = vec(initial_x)
   
@@ -154,9 +162,13 @@ function i(this,offset) result(output)
   endif
   
   if (present(offset)) then
-    output = modulo(this%i_+offset-1,this%max_pulay_iterations_)+1
+    output = modulo( this%i_+offset-1,                             &
+         &           this%convergence_data_%max_pulay_iterations ) &
+         & + 1
   else
-    output = modulo(this%i_-1,this%max_pulay_iterations_)+1
+    output = modulo( this%i_-1,                                    &
+         &           this%convergence_data_%max_pulay_iterations ) &
+         & + 1
   endif
 end function
 
@@ -190,35 +202,37 @@ subroutine set_f(this,f,free_energy)
   !    scheme otherwise.
   ! The Pulay scheme may fail, in which case i is reset to 1, and the scheme
   !    re-starts using the latest values of x and f(x).
-  if (this%i_<=this%pre_pulay_iterations_) then
+  if (this%i_<=this%convergence_data_%pre_pulay_iterations) then
     ! The damped iterative scheme.
     ! x_{i+1} = ax_i + bf(x_i), where a=pre_pulay_damping and b=1-a.
-    this%xs_(this%i()) = this%pre_pulay_damping_     &
-                     & * this%xs_(this%i(offset=-1)) &
-                     & + (1-this%pre_pulay_damping_) &
+    this%xs_(this%i()) = this%convergence_data_%pre_pulay_damping     &
+                     & * this%xs_(this%i(offset=-1))                  &
+                     & + (1-this%convergence_data_%pre_pulay_damping) &
                      & * this%fs_(this%i(offset=-1))
   else
     ! The Pulay scheme.
-    if (this%i_<=this%max_pulay_iterations_) then
+    if (this%i_<=this%convergence_data_%max_pulay_iterations) then
       ! If i_ is less than max_pulay_iterations, only the first i_-1 iterations
       !    are used, as these are all that are available.
-      this%xs_(this%i()) = pulay( this%xs_(:this%i_-1),            &
-                                & this%fs_(:this%i_-1),            &
-                                & this%free_energies_(:this%i_-1), &
-                                & this%convergence_threshold_,     &
-                                & this%i(-1),                      &
-                                & this%random_generator_           )
+      this%xs_(this%i()) = pulay(                     &
+         & this%xs_(:this%i_-1),                      &
+         & this%fs_(:this%i_-1),                      &
+         & this%free_energies_(:this%i_-1),           &
+         & this%convergence_data_%energy_convergence, &
+         & this%i(-1),                                &
+         & this%random_generator_                     )
     else
       ! Otherwise, the last max_pulay_iterations are used.
       ! N.B. the pulay scheme is invariant under re-ordering of iterations,
       !    so it does not matter that the latest entries may be in the middle
       !    of the arrays.
-      this%xs_(this%i()) = pulay( this%xs_,                    &
-                                & this%fs_,                    &
-                                & this%free_energies_,         &
-                                & this%convergence_threshold_, &
-                                & this%i(-1),                  &
-                                & this%random_generator_       )
+      this%xs_(this%i()) = pulay(                     &
+         & this%xs_,                                  &
+         & this%fs_,                                  &
+         & this%free_energies_,                       &
+         & this%convergence_data_%energy_convergence, &
+         & this%i(-1),                                &
+         & this%random_generator_                     )
     endif
   endif
   
@@ -443,7 +457,7 @@ function converged(this) result(output)
   
   integer :: i
   
-  if (this%i_<=this%no_converged_calculations_) then
+  if (this%i_<=this%convergence_data_%no_converged_calculations) then
     output = .false.
     return
   endif
@@ -455,15 +469,16 @@ function converged(this) result(output)
        & -this%free_energies_(this%i(offset=-2))))
   endif
   
-  if (this%self_consistency_error()>this%convergence_threshold_) then
+  if ( this%self_consistency_error()             &
+   & > this%convergence_data_%energy_convergence ) then
     output = .false.
     return
   endif
   
-  do i=2,this%no_converged_calculations_
+  do i=2,this%convergence_data_%no_converged_calculations
     if ( abs( this%free_energies_(this%i(offset=-i))   &
      &      - this%free_energies_(this%i(offset=-1)) ) &
-     & > this%convergence_threshold_                   ) then
+     & > this%convergence_data_%energy_convergence     ) then
       output = .false.
       return
     endif
@@ -509,6 +524,8 @@ subroutine pulay_solver_example()
   integer               :: pre_pulay_iterations
   real(dp)              :: pre_pulay_damping
   integer               :: max_pulay_iterations
+  real(dp)              :: pulay_damping
+  real(dp)              :: pulay_noise
   real(dp)              :: convergence_threshold
   integer               :: no_converged_calculations
   type(RandomReal)      :: random_generator
@@ -530,17 +547,25 @@ subroutine pulay_solver_example()
   
   ! The number of damped iterative calculations performed before switching to
   !    the Pulay scheme.
-  pre_pulay_iterations    = 2
+  pre_pulay_iterations = 2
   
   ! The damping of the damped iterative calculations.
   ! 0 is undamped, 1 is fully damped.
-  pre_pulay_damping       = 0.9_dp
+  pre_pulay_damping = 0.9_dp
   
   ! The total number of previous iterations to keep in memory.
-  max_pulay_iterations    = 20
+  max_pulay_iterations = 20
+  
+  ! The damping of the Pulay calculations.
+  ! 0 is undamped, 1 is fully damped.
+  pulay_damping = 0.8_dp
+  
+  ! The noise added to each Pulay iteration.
+  ! 0 is no noise, 1 is likely too noisy.
+  pulay_noise = 0.1_dp
   
   ! The threshold to which |f(x)-x| and energy(x) must converge.
-  convergence_threshold     = 1e-10_dp
+  convergence_threshold = 1e-10_dp
   
   ! The number of instances of energy(x) which will be compared to check for
   !    convergence.
@@ -558,6 +583,8 @@ subroutine pulay_solver_example()
   convergence_data = ConvergenceData( pre_pulay_iterations,     &
                                     & pre_pulay_damping,        &
                                     & max_pulay_iterations,     &
+                                    & pulay_damping,            &
+                                    & pulay_noise,              &
                                     & convergence_threshold,    &
                                     & no_converged_calculations )
   
