@@ -27,7 +27,8 @@ module pulay_module
     integer  :: pre_pulay_iterations
     real(dp) :: pre_pulay_damping
     integer  :: max_pulay_iterations
-    real(dp) :: pulay_damping
+    real(dp) :: iterative_mixing
+    real(dp) :: iterative_damping
     real(dp) :: pulay_noise
     real(dp) :: energy_convergence
     integer  :: no_converged_calculations
@@ -39,14 +40,9 @@ module pulay_module
   
   type, extends(NoDefaultConstructor) :: PulaySolver
     ! Starting parameters.
-    type(ConvergenceData), private :: convergence_data_
-    !integer,          private :: pre_pulay_iterations_
-    !real(dp),         private :: pre_pulay_damping_
-    !integer,          private :: max_pulay_iterations_
-    !real(dp),         private :: convergence_threshold_
-    !integer,          private :: no_converged_calculations_
-    type(RandomReal), private :: random_generator_
-    logical,          private :: bound_at_zero_
+    type(ConvergenceData), private :: data_
+    type(RandomReal),      private :: random_generator_
+    logical,               private :: bound_at_zero_
     
     ! The current set of x, f(x) and the free energy F(x).
     type(RealVector), allocatable, private :: xs_(:)
@@ -61,6 +57,9 @@ module pulay_module
     ! Set f(x_i) and F(x_i).
     ! This also calculates x_{i+1}.
     procedure, public :: set_f
+    
+    ! The Pulay scheme itself.
+    procedure, private :: pulay_
     
     ! Errors for printing progress.
     procedure, public :: self_consistency_error
@@ -78,15 +77,17 @@ module pulay_module
   end interface
 contains
 
-impure elemental function new_ConvergenceData(pre_pulay_iterations,    &
-   & pre_pulay_damping,max_pulay_iterations,pulay_damping,pulay_noise, &
-   & energy_convergence,no_converged_calculations) result(this) 
+impure elemental function new_ConvergenceData(pre_pulay_iterations, &
+   & pre_pulay_damping,max_pulay_iterations,iterative_mixing,       &
+   & iterative_damping,pulay_noise,energy_convergence,              &
+   & no_converged_calculations) result(this) 
   implicit none
   
   integer,  intent(in)  :: pre_pulay_iterations
   real(dp), intent(in)  :: pre_pulay_damping
   integer,  intent(in)  :: max_pulay_iterations
-  real(dp), intent(in)  :: pulay_damping
+  real(dp), intent(in)  :: iterative_mixing
+  real(dp), intent(in)  :: iterative_damping
   real(dp), intent(in)  :: pulay_noise
   real(dp), intent(in)  :: energy_convergence
   integer,  intent(in)  :: no_converged_calculations
@@ -103,7 +104,8 @@ impure elemental function new_ConvergenceData(pre_pulay_iterations,    &
   this%pre_pulay_iterations      = pre_pulay_iterations
   this%pre_pulay_damping         = pre_pulay_damping
   this%max_pulay_iterations      = max_pulay_iterations
-  this%pulay_damping             = pulay_damping
+  this%iterative_mixing          = iterative_mixing
+  this%iterative_damping         = iterative_damping
   this%pulay_noise               = pulay_noise
   this%energy_convergence        = energy_convergence
   this%no_converged_calculations = no_converged_calculations
@@ -119,14 +121,11 @@ function new_PulaySolver(convergence_data,random_generator,initial_x, &
   logical,               intent(in), optional :: bound_at_zero
   type(PulaySolver)                           :: this
   
+  integer :: array_size
+  
   integer :: ialloc
   
-  this%convergence_data_ = convergence_data
-  !this%pre_pulay_iterations_ = convergence_data%pre_pulay_iterations
-  !this%pre_pulay_damping_ = convergence_data%pre_pulay_damping
-  !this%max_pulay_iterations_ = convergence_data%max_pulay_iterations
-  !this%convergence_threshold_ = convergence_data%energy_convergence
-  !this%no_converged_calculations_ = convergence_data%no_converged_calculations
+  this%data_             = convergence_data
   this%random_generator_ = random_generator
   if (present(bound_at_zero)) then
     this%bound_at_zero_ = bound_at_zero
@@ -134,9 +133,12 @@ function new_PulaySolver(convergence_data,random_generator,initial_x, &
     this%bound_at_zero_ = .false.
   endif
   
-  allocate( this%xs_(convergence_data%max_pulay_iterations),            &
-          & this%fs_(convergence_data%max_pulay_iterations),            &
-          & this%free_energies_(convergence_data%max_pulay_iterations), &
+  array_size = max( this%data_%max_pulay_iterations,     &
+                  & this%data_%no_converged_calculations )
+  
+  allocate( this%xs_(array_size),            &
+          & this%fs_(array_size),            &
+          & this%free_energies_(array_size), &
           & stat=ialloc); call err(ialloc)
   this%xs_(1) = vec(initial_x)
   
@@ -162,12 +164,12 @@ function i(this,offset) result(output)
   endif
   
   if (present(offset)) then
-    output = modulo( this%i_+offset-1,                             &
-         &           this%convergence_data_%max_pulay_iterations ) &
+    output = modulo( this%i_+offset-1,                 &
+         &           this%data_%max_pulay_iterations ) &
          & + 1
   else
-    output = modulo( this%i_-1,                                    &
-         &           this%convergence_data_%max_pulay_iterations ) &
+    output = modulo( this%i_-1,                        &
+         &           this%data_%max_pulay_iterations ) &
          & + 1
   endif
 end function
@@ -190,6 +192,12 @@ subroutine set_f(this,f,free_energy)
   real(dp),           intent(in)    :: f(:)
   real(dp),           intent(in)    :: free_energy
   
+  integer              :: first_iteration
+  integer              :: last_iteration
+  integer, allocatable :: iterations(:)
+  
+  integer :: i
+  
   ! Record f(x_i) and F(x_i).
   this%fs_(this%i()) = vec(f)
   this%free_energies_(this%i()) = free_energy
@@ -202,38 +210,40 @@ subroutine set_f(this,f,free_energy)
   !    scheme otherwise.
   ! The Pulay scheme may fail, in which case i is reset to 1, and the scheme
   !    re-starts using the latest values of x and f(x).
-  if (this%i_<=this%convergence_data_%pre_pulay_iterations) then
+  if (this%i_<=this%data_%pre_pulay_iterations) then
     ! The damped iterative scheme.
     ! x_{i+1} = ax_i + bf(x_i), where a=pre_pulay_damping and b=1-a.
-    this%xs_(this%i()) = this%convergence_data_%pre_pulay_damping     &
-                     & * this%xs_(this%i(offset=-1))                  &
-                     & + (1-this%convergence_data_%pre_pulay_damping) &
+    this%xs_(this%i()) = this%data_%pre_pulay_damping     &
+                     & * this%xs_(this%i(offset=-1))      &
+                     & + (1-this%data_%pre_pulay_damping) &
                      & * this%fs_(this%i(offset=-1))
   else
     ! The Pulay scheme.
-    if (this%i_<=this%convergence_data_%max_pulay_iterations) then
+    
+    ! Calculate the positions of the first and last iteration to pass to the
+    !    Pulay scheme.
+    if (this%i_<=this%data_%max_pulay_iterations) then
       ! If i_ is less than max_pulay_iterations, only the first i_-1 iterations
       !    are used, as these are all that are available.
-      this%xs_(this%i()) = pulay(                     &
-         & this%xs_(:this%i_-1),                      &
-         & this%fs_(:this%i_-1),                      &
-         & this%free_energies_(:this%i_-1),           &
-         & this%convergence_data_%energy_convergence, &
-         & this%i(-1),                                &
-         & this%random_generator_                     )
+      first_iteration = 1
+      last_iteration  = this%i_-1
     else
       ! Otherwise, the last max_pulay_iterations are used.
-      ! N.B. the pulay scheme is invariant under re-ordering of iterations,
-      !    so it does not matter that the latest entries may be in the middle
-      !    of the arrays.
-      this%xs_(this%i()) = pulay(                     &
-         & this%xs_,                                  &
-         & this%fs_,                                  &
-         & this%free_energies_,                       &
-         & this%convergence_data_%energy_convergence, &
-         & this%i(-1),                                &
-         & this%random_generator_                     )
+      first_iteration = this%i(-this%data_%max_pulay_iterations)
+      last_iteration = this%i(-1)
     endif
+    
+    ! Construct the array [first_iteration,...,last_iteration], taking into
+    !    account possible wrapping around the end of this%xs_ etc.
+    if (first_iteration<=last_iteration) then
+      iterations = [(i,i=first_iteration,last_iteration)]
+    else
+      iterations = [ [(i,i=first_iteration,size(this%xs_))], &
+                   & [(i,i=1,last_iteration)]                ]
+    endif
+    
+    ! Calculate the next iteration using the Pulay scheme.
+    this%xs_(this%i()) = this%pulay_(iterations)
   endif
   
   ! Bound the input at zero if required.
@@ -248,31 +258,24 @@ end subroutine
 ! If the Pulay scheme is ill-conditioned (i.e. there is a subspace of
 !    self-consistent solutions) then a gradient-descent scheme will be run
 !    within the self-consistent subspace.
-function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
-   & random_generator) result(output)
+function pulay_(this,iterations) result(output)
   implicit none
   
-  type(RealVector), intent(in) :: xs(:)
-  type(RealVector), intent(in) :: fs(:)
-  real(dp),         intent(in) :: free_energies(:)
-  real(dp),         intent(in) :: convergence_threshold
-  integer,          intent(in) :: last_guess
-  type(RandomReal), intent(in) :: random_generator
-  type(RealVector)             :: output
+  class(PulaySolver), intent(in) :: this
+  integer,            intent(in) :: iterations(:)
+  type(RealVector)               :: output
   
   type(RealVector), allocatable :: errors(:)
   real(dp),         allocatable :: error_matrix(:,:)
-  real(dp),         allocatable :: lagrange_vector(:)
   real(dp),         allocatable :: coefficients(:)
   
-  type(RealVector) :: x_projection
-  real(dp)         :: x_projection_norm
+  integer :: min_guess
+  integer :: max_guess
   
   type(RealVector) :: projection
   real(dp)         :: projection_norm
   
-  type(RealVector), allocatable :: previous_vectors(:)
-  
+  real(dp) :: maximum_prefactor
   real(dp) :: prefactor
   
   type(SymmetricEigenstuff), allocatable :: unsorted_estuff(:)
@@ -299,22 +302,17 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   ! ( en.e1, en.e2, ... , en.en,  1  ) (a_n)   ( 0 )
   ! (   1  ,   1  ,  1  ,   1  ,  0  ) ( l )   ( 1 )
   
-  if (size(xs)/=size(fs)) then
-    call print_line(ERROR//': Input and output vectors do not match.')
-    call err()
-  endif
+  m = size(this%xs_(iterations(1)))
+  n = size(iterations)
   
-  m = size(xs(1))
-  n = size(xs)
-  
-  if (any([(size(xs(i)),i=1,n)]/=m)) then
+  if (any([(size(this%xs_(iterations(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Input vectors inconsistent.')
-  elseif (any([(size(fs(i)),i=1,n)]/=m)) then
+  elseif (any([(size(this%fs_(iterations(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Output vectors inconsistent.')
   endif
   
   ! Construct errors, e_i = f(x_i)-x_i.
-  errors = fs - xs
+  errors = this%fs_(iterations) - this%xs_(iterations)
   
   ! Construct error matrix.
   ! ( e1.e1, e1.e2, ... , e1.en,  1 )
@@ -332,8 +330,15 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   error_matrix(n+1, :n ) = 1
   error_matrix(n+1, n+1) = 0
   
-  ! Construct lagrange vector, equal to (0, 0, ..., 0, 1).
-  lagrange_vector = [(0.0_dp,i=1,n), 1.0_dp]
+  min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
+  max_guess = maxloc([(error_matrix(i,i), i=1, n)], 1)
+  
+  ! Scale error_matrix(:n,:n) such that the problem is well-conditioned.
+  ! This has no effect on the result beyond numerical error.
+  if (max_guess>0.01_dp*this%data_%energy_convergence**2) then
+    error_matrix(:n,:n) = error_matrix(:n,:n) &
+                      & / error_matrix(max_guess,max_guess)
+  endif
   
   ! Diagonalise the error matrix.
   ! The i'th eigenvector is (c_i1,c_i2,...,c_in,w_i), where:
@@ -355,7 +360,7 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   first = 1
   last  = n+1
   do i=1,n+1
-    if (abs(estuff(first)%eval)>abs(estuff(last)%eval)) then
+    if (abs(unsorted_estuff(first)%eval)>abs(unsorted_estuff(last)%eval)) then
       estuff(i) = unsorted_estuff(first)
       first = first+1
     else
@@ -364,37 +369,36 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
     endif
   enddo
   
+  ! Construct the contribution to the coefficients from each eigenvector
+  !    of the error matrix in turn.
   coefficients = [(0.0_dp, i=1, n)]
-  allocate(previous_vectors(0), stat=ialloc); call err(ialloc)
+  maximum_prefactor = 1.0_dp
   do i=1,n+1
-    
-    x_projection = sum(estuff(i)%evec(:n)*xs)
-    do j=1,size(previous_vectors)
-      x_projection = x_projection &
-                 & - (x_projection*previous_vectors(j))*previous_vectors(j)
-    enddo
-    x_projection_norm = l2_norm(x_projection)
-    
     projection = sum(estuff(i)%evec(:n)*errors)
     projection_norm = l2_norm(projection)
     
-    if (x_projection_norm < 1e-10_dp) then
-      ! The vector has no independent projection in the input space.
-      ! It exists only because the number of input vectors is greater than
-      !    the number of degrees of freedom.
-      prefactor = 0
-    elseif (projection_norm > 1e-10_dp) then
+    if (projection_norm > 1e-10_dp*this%data_%energy_convergence) then
       ! The self-consistency scheme defines the position along the i'th
       !    eigenvector of the error matrix.
-      prefactor = estuff(i)%evec(n+1)/estuff(i)%eval
-      previous_vectors = [previous_vectors, x_projection/x_projection_norm]
-      prefactor = max(-0.1_dp,min(prefactor,0.1_dp))
+      if (abs(estuff(i)%evec(n+1))<abs(estuff(i)%eval)*maximum_prefactor) then
+        prefactor = estuff(i)%evec(n+1)/estuff(i)%eval
+      else
+        if (abs(estuff(i)%eval)>0 .and. abs(estuff(i)%evec(n+1))>0) then
+          if (estuff(i)%eval>0 .eqv. estuff(i)%evec(n+1)>0) then
+            prefactor = maximum_prefactor
+          else
+            prefactor = -maximum_prefactor
+          endif
+        else
+         prefactor = 0
+        endif
+      endif
     else
       ! The self-consistency scheme does not define the position along the i'th
       !    eigenvector. Instead, the gradient descent scheme is called.
-      prefactor = -(vec(estuff(i)%evec(:n))*vec(free_energies)) &
-              & / 10.0_dp*convergence_threshold
-      previous_vectors = [previous_vectors, x_projection/x_projection_norm]
+      prefactor = -( vec(estuff(i)%evec(:n))                &
+              &    * vec(this%free_energies_(iterations)) ) &
+              & / 10.0_dp*this%data_%energy_convergence
       prefactor = max(-0.001_dp,min(prefactor,0.001_dp))
     endif
     
@@ -403,18 +407,24 @@ function pulay(xs,fs,free_energies,convergence_threshold,last_guess, &
   
   coefficients = max(-2.0_dp,min(coefficients,2.0_dp))
   
-  ! Construct output frequencies as x_n = sum_{i=1}^n a_i x_i,
-  !    plus a small component of a_i f_i.
-  !output = 0.8_dp*xs(last_guess) + 0.2_dp*fs(last_guess)
-  output = sum(coefficients*(0.8_dp*xs+0.2_dp*fs)) &
-       & + (1-sum(coefficients))*(0.8_dp*xs(last_guess)+0.2_dp*fs(last_guess))
+  ! Increase the coefficient of the last guess such that sum(coefficients)=1.
+  coefficients(min_guess) = coefficients(min_guess) + (1-sum(coefficients))
   
-  ! Add in a small random component, to help break out of linearly-dependent
+  ! Construct Pulay output.
+  output = sum(coefficients*this%xs_(iterations))
+  
+  ! Mix in a damped iterative contribution.
+  output = (1-this%data_%iterative_mixing)*output                     &
+       & + this%data_%iterative_mixing                                &
+       & * ( (1-this%data_%iterative_damping)*this%xs_(iterations(n)) &
+       &   + this%data_%iterative_damping*this%fs_(iterations(n))     )
+  
+  ! Add in a random component, to help break out of linearly-dependent
   !    subspaces.
-  output = output                                                      &
-       & + 2e-1_dp                                                     &
-       & * vec( (random_generator%random_numbers(size(output))-0.5_dp) &
-       &      * dble(output-xs(last_guess))                            )
+  output = output                                                            &
+       & + 2*this%data_%pulay_noise                                          &
+       & * vec( (this%random_generator_%random_numbers(size(output))-0.5_dp) &
+       &      * dble(output-this%xs_(iterations(min_guess)))                 )
 end function
 
 ! Errors for printing progress.
@@ -457,7 +467,7 @@ function converged(this) result(output)
   
   integer :: i
   
-  if (this%i_<=this%convergence_data_%no_converged_calculations) then
+  if (this%i_<=this%data_%no_converged_calculations) then
     output = .false.
     return
   endif
@@ -469,16 +479,15 @@ function converged(this) result(output)
        & -this%free_energies_(this%i(offset=-2))))
   endif
   
-  if ( this%self_consistency_error()             &
-   & > this%convergence_data_%energy_convergence ) then
+  if (this%self_consistency_error() > this%data_%energy_convergence) then
     output = .false.
     return
   endif
   
-  do i=2,this%convergence_data_%no_converged_calculations
+  do i=2,this%data_%no_converged_calculations
     if ( abs( this%free_energies_(this%i(offset=-i))   &
      &      - this%free_energies_(this%i(offset=-1)) ) &
-     & > this%convergence_data_%energy_convergence     ) then
+     & > this%data_%energy_convergence     ) then
       output = .false.
       return
     endif
@@ -524,7 +533,8 @@ subroutine pulay_solver_example()
   integer               :: pre_pulay_iterations
   real(dp)              :: pre_pulay_damping
   integer               :: max_pulay_iterations
-  real(dp)              :: pulay_damping
+  real(dp)              :: iterative_mixing
+  real(dp)              :: iterative_damping
   real(dp)              :: pulay_noise
   real(dp)              :: convergence_threshold
   integer               :: no_converged_calculations
@@ -554,11 +564,15 @@ subroutine pulay_solver_example()
   pre_pulay_damping = 0.9_dp
   
   ! The total number of previous iterations to keep in memory.
-  max_pulay_iterations = 20
+  max_pulay_iterations = 5
   
-  ! The damping of the Pulay calculations.
+  ! The amount each iteration is mixed with a damped iterative scheme.
+  ! 0 is fully Pulay, 1 is fully damped iterative.
+  iterative_mixing = 0.1_dp
+  
+  ! The damping of the iterative scheme.
   ! 0 is undamped, 1 is fully damped.
-  pulay_damping = 0.8_dp
+  iterative_damping = 0.9_dp
   
   ! The noise added to each Pulay iteration.
   ! 0 is no noise, 1 is likely too noisy.
@@ -583,7 +597,8 @@ subroutine pulay_solver_example()
   convergence_data = ConvergenceData( pre_pulay_iterations,     &
                                     & pre_pulay_damping,        &
                                     & max_pulay_iterations,     &
-                                    & pulay_damping,            &
+                                    & iterative_mixing,         &
+                                    & iterative_damping,        &
                                     & pulay_noise,              &
                                     & convergence_threshold,    &
                                     & no_converged_calculations )

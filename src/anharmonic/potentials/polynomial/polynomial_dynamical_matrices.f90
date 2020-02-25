@@ -93,7 +93,7 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
     
     do k=1,size(univariates)
       ! If (u_k)^{n_k} has n_k==0, a factor of u_k cannot be removed.
-      if (univariates(k)%total_power()==0) then
+      if (univariates(k)%power==0) then
         cycle
       endif
       
@@ -105,8 +105,7 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
         mode_l = subspace_modes(l)
         
         ! If u_k = u_k*, then only loop over l<=k.
-        if ( univariates(k)%id        &
-        & == univariates(k)%paired_id ) then
+        if (univariates(k)%id == univariates(k)%paired_id) then
           if (l>k) then
             exit
           endif

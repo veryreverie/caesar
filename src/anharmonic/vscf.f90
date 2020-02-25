@@ -60,20 +60,21 @@ end function
 ! Vscf routine.
 function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
    & frequencies,convergence_data,anharmonic_data,random_generator,         &
-   & starting_configuration) result(output)
+   & starting_configuration,convergence_file) result(output)
   implicit none
   
-  class(PotentialData),     intent(in)           :: potential
-  class(StressData),        intent(in), optional :: stress
-  type(DegenerateSubspace), intent(in)           :: subspaces(:)
-  class(SubspaceBasis),     intent(in)           :: subspace_bases(:)
-  real(dp),                 intent(in)           :: thermal_energy
-  real(dp),                 intent(in)           :: frequencies(:)
-  type(ConvergenceData),    intent(in)           :: convergence_data
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(RandomReal),         intent(in)           :: random_generator
-  type(VscfOutput),         intent(in), optional :: starting_configuration(:)
-  type(VscfOutput), allocatable                  :: output(:)
+  class(PotentialData),     intent(in)              :: potential
+  class(StressData),        intent(in),    optional :: stress
+  type(DegenerateSubspace), intent(in)              :: subspaces(:)
+  class(SubspaceBasis),     intent(in)              :: subspace_bases(:)
+  real(dp),                 intent(in)              :: thermal_energy
+  real(dp),                 intent(in)              :: frequencies(:)
+  type(ConvergenceData),    intent(in)              :: convergence_data
+  type(AnharmonicData),     intent(in)              :: anharmonic_data
+  type(RandomReal),         intent(in)              :: random_generator
+  type(VscfOutput),         intent(in),    optional :: starting_configuration(:)
+  type(OFile),              intent(inout), optional :: convergence_file
+  type(VscfOutput), allocatable                     :: output(:)
   
   ! Single-subspace potentials and states.
   type(PotentialPointer),   allocatable :: subspace_potentials(:)
@@ -122,6 +123,25 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
     last_coefficient(i) = size(coefficients)
   enddo
   
+  ! Write initial subspaces to file.
+  if (present(convergence_file)) then
+    call convergence_file%print_line('Convergence Threshold: '//          &
+                                    & convergence_data%energy_convergence )
+    call convergence_file%print_line(repeat('=',50))
+    call convergence_file%print_line('Initial Subspace Potentials:')
+    call convergence_file%print_line(repeat('=',50))
+    do i=1,size(subspace_potentials)
+      call convergence_file%print_line(repeat('-',50))
+      call convergence_file%print_line('Subspace '//subspaces(i)%id)
+      call convergence_file%print_line('Subspace coefficients: '// &
+         & first_coefficient(i)//' to '//last_coefficient(i))
+      call convergence_file%print_line(repeat('-',50))
+      call convergence_file%print_lines(subspace_potentials(i))
+      call convergence_file%print_line(repeat('-',50))
+    enddo
+    call convergence_file%print_line(repeat('=',50))
+  endif
+  
   ! Initialise Pulay solver.
   solver = PulaySolver( convergence_data, &
                       & random_generator, &
@@ -138,6 +158,13 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
          & coefficients(first_coefficient(j):last_coefficient(j)), &
          & anharmonic_data                                         )
     enddo
+    
+    ! Write coefficients to file.
+    if (present(convergence_file)) then
+      call convergence_file%print_line('Iteration '//i)
+      call convergence_file%print_line('Input coefficients:')
+      call convergence_file%print_line(coefficients)
+    endif
     
     ! Use single-subspace potentials to calculate new single-subspace states.
     call print_line('Generating single-subspace ground states.')
@@ -175,6 +202,12 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
               & / anharmonic_data%anharmonic_supercell%sc_size
     
     call solver%set_f(coefficients, free_energy)
+    
+    ! Write coefficients to file.
+    if (present(convergence_file)) then
+      call convergence_file%print_line('Output coefficients:')
+      call convergence_file%print_line(coefficients)
+    endif
     
     ! Print progress.
     if (i>1) then

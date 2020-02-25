@@ -554,23 +554,39 @@ function finalise_BasisFunctions(input,subspace,subspace_basis, &
   order = anharmonic_data%potential_expansion_order
   
   ! Collate the input into an array of polynomials, one for each power.
-  ! N.B. the terms with power=0 are dropped as they have already been
-  !    accounted for in the reference energy.
   complex_polynomials = [( ComplexPolynomial(no_complex_monomials), &
                          & i=1,                                     &
                          & order                                    )]
   do i=1,size(input)
     do j=1,size(input(i)%complex_representation_%terms)
       associate (term => input(i)%complex_representation_%terms(j))
-        if (term%total_power()>0) then
-          complex_polynomials(term%total_power()) =      &
-             &   complex_polynomials(term%total_power()) &
-             & + term
+        if (term%total_power()==0) then
+          ! The terms with power=0 are dropped as they have already been
+          !    accounted for in the reference energy.
+          cycle
+        elseif (.not. is_int(term%wavevector( &
+             & anharmonic_data%complex_modes, &
+             & anharmonic_data%qpoints        ))) then
+          ! The terms with (sum q/=0) are dropped as they are not invariant
+          !    under translational symmetry.
+          cycle
         endif
+        complex_polynomials(term%total_power()) =      &
+           &   complex_polynomials(term%total_power()) &
+           & + term
       end associate
     enddo
   enddo
   
+  ! Pair up conjugate pairs, cx and c*x*,
+  !    into (c+c*)(x+x*) and (c-c*)(x-x*) pairs.
+  ! Multiply the basis functions by energy_scale, E,
+  !    and divide the coefficients by E, to give basis functions
+  !        (c+c*)/ E *  E(x+x*)
+  !    and (c-c*)/iE * iE(x-x*),
+  !    so that the E(x+x*) and iE(x-x*) basis functions are dimensionless,
+  !    and the (c+c*)/E and (c-c*)/iE coefficients are real and have
+  !    dimensions of energy.
   allocate( output(sum( [(size(complex_polynomials(i)), i=1, order)] )), &
           & stat=ialloc); call err(ialloc)
   k = 0
@@ -586,10 +602,6 @@ function finalise_BasisFunctions(input,subspace,subspace_basis, &
     associate (terms => output(k+1:k+size(complex_polynomials(i)%terms)))
       conjugates = find_monomial_conjugates(complex_polynomials(i)%terms)
       terms = pair_complex_monomials(complex_polynomials(i)%terms, conjugates)
-      ! Multiply the monomial coefficients by energy_scale, and divide
-      !    the basis function coefficient by energy_scale.
-      ! This makes the monomials dimensionless and gives the basis function
-      !    coefficient units of energy.
       terms%coefficient_ = terms%coefficient_ / energy_scale
       do j=1,size(terms)
         terms(j)%complex_representation_%terms%coefficient = &

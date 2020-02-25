@@ -24,24 +24,30 @@ subroutine startup_map_anharmonic_modes()
   type(CaesarMode) :: mode
   
   mode%mode_name = 'map_anharmonic_modes'
-  mode%description = 'Maps the anharmonic potential along normal modes. &
-     &Should be run after calculate_potential.'
+  mode%description = 'Maps the potential along normal modes. If use_potential &
+  &is true, map_anharmonic_modes should be run after calculate_potential, &
+  &otherwise it may be run after setup_anharmonic.'
   mode%keywords = [                                                           &
      & KeywordData( 'no_single_mode_samples',                                 &
      &              'no_single_mode_samples is the number of points (either &
      &side of zero) along each mode at which the anharmonic potential will be &
      &sampled.',                                                              &
      &              default_value='100'),                                     &
+     & KeywordData( 'use_potential',                                          &
+     &              'use_potential specifies whether or not to use the &
+     &anharmonic potential. The anharmonic potential must have been &
+     &calculated using calculate_potential in order for this to be true.',    &
+     &              default_value='false'),                                   &
      & KeywordData( 'calculate_stress', &
      &              'calculate_stress specifies whether or not to calculate &
      &stress and pressure. If calculate_stress is true then calculate_stress &
      &for setup_anharmonic must also have been true.',                        &
      &              default_value='true'),                                    &
      & KeywordData( 'validate_potential',                                     &
-     &              'validate_potential specifies that the anharmonic &
-     &potential should be verified against fresh electronic structure &
-     &calculations when sampling. Depending on the electronic structure &
-     &method, this is likely to be very computationally intensive.',          &
+     &              'validate_potential specifies that the potential should &
+     &be verified against fresh electronic structure calculations when &
+     &sampling. Depending on the electronic structure method, this is likely &
+     &to be very computationally intensive.',                                 &
      &              default_value='false'),                                   &
      & KeywordData( 'run_script',                                             &
      &              'run_script is the path to the script for running DFT. An &
@@ -82,6 +88,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   
   ! Input arguments.
   integer      :: no_single_mode_samples
+  logical      :: use_potential
   logical      :: calculate_stress
   logical      :: validate_potential
   type(String) :: run_script
@@ -105,8 +112,8 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   real(dp)                              :: frequency_of_max_displacement
   
   ! Anharmonic potential and stress.
-  type(PotentialPointer)         :: potential
-  class(StressData), allocatable :: stress
+  type(PotentialPointer), allocatable :: potential
+  class(StressData),      allocatable :: stress
   
   ! Electronic structure calculation handlers.
   type(CalculationWriter) :: calculation_writer
@@ -152,6 +159,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Read in inputs and previously calculated data.
   ! --------------------------------------------------
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
+  use_potential = lgcl(arguments%value('use_potential'))
   calculate_stress = lgcl(arguments%value('calculate_stress'))
   validate_potential = lgcl(arguments%value('validate_potential'))
   run_script = arguments%value('run_script')
@@ -179,37 +187,41 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
   
   ! Read in anharmonic potential and stress.
-  potential_file = IFile('potential.dat')
-  potential = PotentialPointer(potential_file%lines())
-  if (calculate_stress) then
-    stress_file = IFile('stress.dat')
-    stress = StressPointer(stress_file%lines())
+  if (use_potential) then
+    potential_file = IFile('potential.dat')
+    potential = PotentialPointer(potential_file%lines())
+    if (calculate_stress) then
+      stress_file = IFile('stress.dat')
+      stress = StressPointer(stress_file%lines())
+    endif
   endif
   
   ! --------------------------------------------------
   ! Initialise calculation handlers.
   ! --------------------------------------------------
-  calculation_writer = CalculationWriter( file_type = file_type, &
-                                        & seedname  = seedname   )
-  
-  calculation_runner = CalculationRunner(      &
-     & file_type           = file_type,        &
-     & seedname            = seedname,         &
-     & run_script          = run_script,       &
-     & no_cores            = no_cores,         &
-     & no_nodes            = no_nodes,         &
-     & run_script_data     = run_script_data,  &
-     & calculation_type    = calculation_type, &
-     & use_forces          = .true.,           &
-     & use_hessians        = .false.,          &
-     & calculate_stress    = calculate_stress, &
-     & exit_on_error       = .true.,           &
-     & repeat_calculations = .true.            )
-  
-  calculation_reader = CalculationReader()
+  if (validate_potential) then
+    calculation_writer = CalculationWriter( file_type = file_type, &
+                                          & seedname  = seedname   )
+    
+    calculation_runner = CalculationRunner(      &
+       & file_type           = file_type,        &
+       & seedname            = seedname,         &
+       & run_script          = run_script,       &
+       & no_cores            = no_cores,         &
+       & no_nodes            = no_nodes,         &
+       & run_script_data     = run_script_data,  &
+       & calculation_type    = calculation_type, &
+       & use_forces          = .true.,           &
+       & use_hessians        = .false.,          &
+       & calculate_stress    = calculate_stress, &
+       & exit_on_error       = .true.,           &
+       & repeat_calculations = .true.            )
+    
+    calculation_reader = CalculationReader()
+  endif
   
   ! --------------------------------------------------
-  ! Map the anharmonic potential.
+  ! Map the potential.
   ! --------------------------------------------------
   ! Calculate displacements before scaling by 1/sqrt(frequency).
   displacements =                                               &
@@ -302,10 +314,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
             sampled_pressures(k) = trace(electronic_structure%stress())/3
           endif
         enddo
-        sampled_energies = sampled_energies               &
-                       & / supercell%sc_size              &
-                       & - potential%undisplaced_energy() &
-                       & / anharmonic_supercell%sc_size
+        sampled_energies = ( sampled_energies                             &
+                       &   - sampled_energies(no_single_mode_samples+1) ) &
+                       & / supercell%sc_size
         mode_maps(qpoint_modes(j))%sampled_energies = sampled_energies
         mode_maps(qpoint_modes(j))%sampled_forces   = sampled_forces
         if (calculate_stress) then

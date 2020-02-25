@@ -13,6 +13,7 @@ module anharmonic_module
   use map_vscf_modes_module
   use plot_vscf_modes_module
   use calculate_anharmonic_observables_module
+  use plot_vscf_convergence_module
   use plot_vscf_states_module
   use states_module
   use potentials_module
@@ -33,6 +34,7 @@ subroutine startup_anharmonic()
   call startup_map_vscf_modes()
   call startup_plot_vscf_modes()
   call startup_calculate_anharmonic_observables()
+  call startup_plot_vscf_convergence()
   call startup_plot_vscf_states()
 end subroutine
 end module

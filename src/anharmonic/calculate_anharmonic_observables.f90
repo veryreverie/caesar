@@ -61,19 +61,26 @@ subroutine startup_calculate_anharmonic_observables()
      &self-consistency iterations which will be passed into the Pulay &
      &scheme. This must be at least 2.',                                      &
      &              default_value='5' ),                                      &
-     & KeywordData( 'pulay_damping',                                          &
-     &              "pulay_damping is the damping factor of the Pulay &
-     &iterations. If the i'th iteration has coefficients xi and &
-     &self-consistency error di, then the i+1'th iteration will be a linear &
-     &combination of xi+di*(1-pulay_damping). pulay_damping should be between &
-     &0 and 1.",                                                              &
-     &              default_value='0.8'),                                     &
+     & KeywordData( 'iterative_mixing',                                       &
+     &              'iterative_mixing controls how much the Pulay scheme is &
+     &mixed with a damped iterative scheme. If iterative_mixing is 0, the &
+     &iterations are entirely Pulay, and if it is 1 then the iterations are &
+     &entirely damped iterative. iterative_mixing must be between 0 and 1 &
+     &inclusive.',                                                            &
+     &              default_value='0.1'),                                     &
+     & KeywordData( 'iterative_damping',                                      &
+     &              'iterative_damping is the damping factor of the iterative &
+     &scheme which is mixed into the Pulay scheme. iterative_damping must be &
+     &between 0 and 1 inclusive.',                                            &
+     &              default_value='0.9'),                                     &
      & KeywordData( 'pulay_noise',                                            &
      &              "pulay_noise controls the random noise added to each &
      &Pulay iteration. If a Pulay iteration has coefficients xi and the &
      &noise-free next iteration would have coefficients xi', then the next &
-     &iteration includes noise up to (xi'-xi)*pulay_noise.",                  &
-     &              default_value='0.1'),                                     &
+     &iteration includes noise up to (xi'-xi)*pulay_noise. Generally no noise &
+     &is needed, but if the Pulay scheme does not converge it can be &
+     &beneficial to add some noise, typically <0.1.",                         &
+     &              default_value='0'),                                       &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -134,7 +141,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer               :: pre_pulay_iterations
   real(dp)              :: pre_pulay_damping
   integer               :: max_pulay_iterations
-  real(dp)              :: pulay_damping
+  real(dp)              :: iterative_mixing
+  real(dp)              :: iterative_damping
   real(dp)              :: pulay_noise
   real(dp)              :: min_temperature
   real(dp)              :: max_temperature
@@ -233,6 +241,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(IFile)  :: stress_file
   type(String) :: output_dir
   type(OFile)  :: logfile
+  type(OFile)  :: vscha_convergence_file
+  type(OFile)  :: vscf_convergence_file
   type(String) :: temperature_dir
   type(OFile)  :: temperature_file
   type(OFile)  :: dispersion_file
@@ -270,7 +280,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   pre_pulay_iterations = int(arguments%value('pre_pulay_iterations'))
   pre_pulay_damping = dble(arguments%value('pre_pulay_damping'))
   max_pulay_iterations = int(arguments%value('max_pulay_iterations'))
-  pulay_damping = dble(arguments%value('pulay_damping'))
+  iterative_mixing = dble(arguments%value('iterative_mixing'))
+  iterative_damping = dble(arguments%value('iterative_damping'))
   pulay_noise = dble(arguments%value('pulay_noise'))
   min_temperature = dble(arguments%value('min_temperature'))
   max_temperature = dble(arguments%value('max_temperature'))
@@ -295,7 +306,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   elseif (no_vscf_basis_states<1) then
     call print_line(ERROR//': no_vscf_basis_states must be at least 1.')
     call quit()
-  elseif (pre_pulay_damping<0_dp .or. pre_pulay_damping>1_dp) then
+  elseif (pre_pulay_damping<0 .or. pre_pulay_damping>1) then
     call print_line(ERROR//': pre_pulay_damping must be between 0 and 1.')
     call quit()
   elseif (pre_pulay_iterations<2) then
@@ -304,13 +315,20 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   elseif (max_pulay_iterations<2) then
     call print_line(ERROR//': max_pulay_iterations must be at least 2.')
     call quit()
+  elseif (iterative_mixing<0 .or. iterative_mixing>1) then
+    call print_line(ERROR//': iterative_mixing must be between 0 and 1.')
+    call quit()
+  elseif (iterative_damping<0 .or. iterative_damping>1) then
+    call print_line(ERROR//': iterative_damping must be between 0 and 1.')
+    call quit()
   endif
   
   ! Construct convergence data.
   convergence_data = ConvergenceData( pre_pulay_iterations,     &
                                     & pre_pulay_damping,        &
                                     & max_pulay_iterations,     &
-                                    & pulay_damping,            &
+                                    & iterative_mixing,         &
+                                    & iterative_damping,        &
                                     & pulay_noise,              &
                                     & energy_convergence,       &
                                     & no_converged_calculations )
@@ -461,16 +479,18 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     !    so starting_configuration will not be present() inside run_vscf.
     ! For later runs, starting_configuration will be the output of the
     !    previous run.
-    vscha_output = run_vscf( potential,                          &
-                           & stress,                             &
-                           & subspaces,                          &
-                           & vscha_basis,                        &
-                           & thermal_energies(i),                &
-                           & starting_frequencies,               &
-                           & convergence_data,                   &
-                           & anharmonic_data,                    &
-                           & random_generator,                   &
-                           & starting_configuration=vscha_output )
+    vscha_convergence_file = OFile(temperature_dir//'/VSCHA_convergence.dat')
+    vscha_output = run_vscf( potential,                                      &
+                           & stress,                                         &
+                           & subspaces,                                      &
+                           & vscha_basis,                                    &
+                           & thermal_energies(i),                            &
+                           & starting_frequencies,                           &
+                           & convergence_data,                               &
+                           & anharmonic_data,                                &
+                           & random_generator,                               &
+                           & starting_configuration = vscha_output,          &
+                           & convergence_file       = vscha_convergence_file )
     vscha_potentials = [(vscha_output(j)%potential, j=1, size(vscha_output))]
     vscha_states = [( HarmonicStates(vscha_output(i)%states), &
                     & i=1,                                    &
@@ -561,16 +581,18 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! For later runs, starting_configuration will be the output of the
     !    previous run.
     call print_line('Running VSCF.')
-    vscf_output = run_vscf( potential,                         &
-                          & stress,                            &
-                          & subspaces,                         &
-                          & vscf_basis,                        &
-                          & thermal_energies(i),               &
-                          & vscha_frequencies(:,i),            &
-                          & convergence_data,                  &
-                          & anharmonic_data,                   &
-                          & random_generator,                  &
-                          & starting_configuration=vscf_output )
+    vscf_convergence_file = OFile(temperature_dir//'/VSCF_convergence.dat')
+    vscf_output = run_vscf( potential,                                     &
+                          & stress,                                        &
+                          & subspaces,                                     &
+                          & vscf_basis,                                    &
+                          & thermal_energies(i),                           &
+                          & vscha_frequencies(:,i),                        &
+                          & convergence_data,                              &
+                          & anharmonic_data,                               &
+                          & random_generator,                              &
+                          & starting_configuration = vscf_output,          &
+                          & convergence_file       = vscf_convergence_file )
     
     vscf_potentials = [(vscf_output(j)%potential, j=1, size(vscf_output))]
     vscf_states = [(vscf_output(j)%states, j=1, size(vscf_output))]

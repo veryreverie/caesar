@@ -13,13 +13,16 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod/)
 #    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=nagfor
 
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  # Turns on all warnings apart from maybe-uninitialized, since
-  #    maybe-initialized erroneously triggers hundreds of times.
-  set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -fcheck-array-temporaries -fno-omit-frame-pointer")
+  # Disabled warnings:
+  #    maybe-uninitialized: erroneously triggers.
+  #    unused-dummy-argument: triggers for inherited functions.
+  set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -Wno-unused-dummy-argument -fcheck-array-temporaries -fno-omit-frame-pointer")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
   set(CMAKE_Fortran_FLAGS "-f2008 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u -mtrace -nan -info -g -gline -colour")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
-  set(CMAKE_Fortran_FLAGS "-stand f08 -O2 -xHost -g -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1 -heap-arrays 0")
+  # Disabled warnings:
+  #    5462: Global name too long: unnecessarily limits module names.
+  set(CMAKE_Fortran_FLAGS "-stand f08 -O2 -xHost -g -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1 -heap-arrays 0 -diag-disable=5462")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "PGI")
   set(CMAKE_Fortran_FLAGS "-C -c -g -traceback -O0")
 else()

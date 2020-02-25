@@ -47,8 +47,8 @@ function new_ModeMap(mode_id,harmonic_frequency,displacements,                &
   real(dp), intent(in)           :: displacements(:)
   real(dp), intent(in)           :: harmonic_energies(:)
   real(dp), intent(in)           :: harmonic_forces(:)
-  real(dp), intent(in)           :: anharmonic_energies(:)
-  real(dp), intent(in)           :: anharmonic_forces(:)
+  real(dp), intent(in), optional :: anharmonic_energies(:)
+  real(dp), intent(in), optional :: anharmonic_forces(:)
   real(dp), intent(in), optional :: anharmonic_pressures(:)
   real(dp), intent(in), optional :: sampled_energies(:)
   real(dp), intent(in), optional :: sampled_forces(:)
@@ -60,9 +60,13 @@ function new_ModeMap(mode_id,harmonic_frequency,displacements,                &
   this%displacements       = displacements
   this%harmonic_energies   = harmonic_energies
   this%harmonic_forces     = harmonic_forces
-  this%anharmonic_energies = anharmonic_energies
-  this%anharmonic_forces   = anharmonic_forces
   
+  if (present(anharmonic_energies)) then
+    this%anharmonic_energies = anharmonic_energies
+  endif
+  if (present(anharmonic_forces)) then
+    this%anharmonic_forces = anharmonic_forces
+  endif
   if (present(anharmonic_pressures)) then
     this%anharmonic_pressures = anharmonic_pressures
   endif
@@ -83,9 +87,9 @@ function new_ModeMap_potential(displacements,mode,potential,stress, &
   
   real(dp),             intent(in)           :: displacements(:)
   type(RealMode),       intent(in)           :: mode
-  class(PotentialData), intent(in)           :: potential
+  class(PotentialData), intent(in), optional :: potential
   class(StressData),    intent(in), optional :: stress
-  type(AnharmonicData), intent(in)           :: anharmonic_data
+  type(AnharmonicData), intent(in), optional :: anharmonic_data
   type(ModeMap)                              :: this
   
   ! Output variables.
@@ -102,11 +106,24 @@ function new_ModeMap_potential(displacements,mode,potential,stress, &
   ! Temporary variables.
   integer :: i,ialloc
   
+  if (present(potential) .and. .not. present(anharmonic_data)) then
+    call print_line(CODE_ERROR//': if potential is present then &
+       &anharmonic_data must also be present.')
+    call err()
+  elseif (present(stress) .and. .not. present(potential)) then
+    call print_line(CODE_ERROR//': if stress is present then potential must &
+       &also be present.')
+    call err()
+  endif
+  
   allocate( harmonic_energies(size(displacements)),   &
           & harmonic_forces(size(displacements)),     &
-          & anharmonic_energies(size(displacements)), &
-          & anharmonic_forces(size(displacements)),   &
           & stat=ialloc); call err(ialloc)
+  if (present(potential)) then
+   allocate( anharmonic_energies(size(displacements)), &
+           & anharmonic_forces(size(displacements)),   &
+           & stat=ialloc); call err(ialloc)
+  endif
   if (present(stress)) then
     allocate( anharmonic_pressures(size(displacements)), &
             & stat=ialloc); call err(ialloc)
@@ -121,13 +138,15 @@ function new_ModeMap_potential(displacements,mode,potential,stress, &
     harmonic_forces(i) = - mode%spring_constant &
                      & * displacements(i)
     
-    displacement = RealModeDisplacement([mode],[displacements(i)])
-    anharmonic_energies(i) = ( potential%energy(displacement)   &
-                         &   - potential%undisplaced_energy() ) &
+    if (present(potential)) then
+      anharmonic_energies(i) = ( potential%energy(displacement)   &
+                           &   - potential%undisplaced_energy() ) &
+                           & / anharmonic_data%anharmonic_supercell%sc_size
+      anharmonic_force = potential%force(displacement)
+      anharmonic_forces(i) = anharmonic_force%force(mode) &
                          & / anharmonic_data%anharmonic_supercell%sc_size
-    anharmonic_force = potential%force(displacement)
-    anharmonic_forces(i) = anharmonic_force%force(mode) &
-                       & / anharmonic_data%anharmonic_supercell%sc_size
+    endif
+    
     if (present(stress)) then
       anharmonic_pressures(i) = trace(stress%stress(displacement))/3
     endif
@@ -168,7 +187,7 @@ subroutine read_ModeMap(this,input)
   
   integer :: no
   
-  integer :: i,ialloc
+  integer :: i,j,ialloc
   
   select type(this); type is(ModeMap)
     line = split_line(input(1))
@@ -179,16 +198,18 @@ subroutine read_ModeMap(this,input)
     
     no = size(input)-3
     
-    allocate( displacements(no),       &
-            & harmonic_energies(no),   &
-            & harmonic_forces(no),     &
-            & anharmonic_energies(no), &
-            & anharmonic_forces(no),   &
-            & stat=ialloc); call err(ialloc)
-    
     line = split_line(input(3))
-    if (any(line==str('pressure'))) then
-      allocate(anharmonic_pressures(no), stat=ialloc); call err(ialloc)
+    allocate( displacements(no),     &
+            & harmonic_energies(no), &
+            & harmonic_forces(no),   &
+            & stat=ialloc); call err(ialloc)
+    if (any(line==str('Anharmonic'))) then
+      allocate( anharmonic_energies(no), &
+              & anharmonic_forces(no),   &
+              & stat=ialloc); call err(ialloc)
+      if (any(line==str('pressure'))) then
+        allocate(anharmonic_pressures(no), stat=ialloc); call err(ialloc)
+      endif
     endif
     if (any(line==str('Sampled'))) then
       allocate( sampled_energies(no), &
@@ -204,20 +225,23 @@ subroutine read_ModeMap(this,input)
       displacements(i) = dble(line(1))
       harmonic_energies(i) = dble(line(2))
       harmonic_forces(i) = dble(line(3))
-      anharmonic_energies(i) = dble(line(4))
-      anharmonic_forces(i) = dble(line(5))
+      j = 3
+      if (allocated(anharmonic_energies)) then
+        anharmonic_energies(i) = dble(line(j+1))
+        anharmonic_forces(i) = dble(line(j+2))
+        j = j+2
+      endif
       if (allocated(anharmonic_pressures)) then
-        anharmonic_pressures(i) = dble(line(6))
-        if (allocated(sampled_energies)) then
-          sampled_energies(i) = dble(line(7))
-          sampled_forces(i) = dble(line(8))
-          sampled_pressures(i) = dble(line(9))
-        endif
-      else
-        if (allocated(sampled_energies)) then
-          sampled_energies(i) = dble(line(6))
-          sampled_forces(i) = dble(line(7))
-        endif
+        anharmonic_pressures(i) = dble(line(j+1))
+        j = j+1
+      endif
+      if (allocated(sampled_energies)) then
+        sampled_energies(i) = dble(line(j+1))
+        sampled_forces(i) = dble(line(j+2))
+        j = j+2
+      endif
+      if (allocated(sampled_pressures)) then
+        sampled_pressures(i) = dble(line(j+1))
       endif
     enddo
     
@@ -243,69 +267,54 @@ function write_ModeMap(this) result(output)
   class(ModeMap), intent(in) :: this
   type(String), allocatable  :: output(:)
   
+  type(String) :: line
+  
   integer :: i
   
   select type(this); type is(ModeMap)
     output = [ 'Mode ID: '//this%mode_id,                      &
              & 'Harmonic frequency: '//this%harmonic_frequency ]
-    if (allocated(this%sampled_pressures)) then
-      output = [ output,                                                &
-               & str('Displacement | Harmonic energy | Harmonic force | &
-               &Anharmonic energy | Anharmonic force | Anharmonic pressure | &
-               &Sampled energy | Sampled force | Sampled pressure') ]
-      do i=1,size(this%displacements)
-        output = [ output,                              &
-                 & this%displacements(i)        //' '// &
-                 & this%harmonic_energies(i)    //' '// &
-                 & this%harmonic_forces(i)      //' '// &
-                 & this%anharmonic_energies(i)  //' '// &
-                 & this%anharmonic_forces(i)    //' '// &
-                 & this%anharmonic_pressures(i) //' '// &
-                 & this%sampled_energies(i)     //' '// &
-                 & this%sampled_forces(i)       //' '// &
-                 & this%sampled_pressures(i)            ]
-      enddo
-    elseif (allocated(this%anharmonic_pressures)) then
-      output = [ output,                                                &
-               & str('Displacement | Harmonic energy | Harmonic force | &
-               &Anharmonic energy | Anharmonic force | Anharmonic pressure') ]
-      do i=1,size(this%displacements)
-        output = [ output,                             &
-                 & this%displacements(i)       //' '// &
-                 & this%harmonic_energies(i)   //' '// &
-                 & this%harmonic_forces(i)     //' '// &
-                 & this%anharmonic_energies(i) //' '// &
-                 & this%anharmonic_forces(i)   //' '// &
-                 & this%anharmonic_pressures(i)        ]
-      enddo
-    elseif (allocated(this%sampled_energies)) then
-      output = [ output,                                                &
-               & str('Displacement | Harmonic energy | Harmonic force | &
-               &Anharmonic energy | Anharmonic force | Sampled energy | &
-               &Sampled force')                                         ]
-      do i=1,size(this%displacements)
-        output = [ output,                             &
-                 & this%displacements(i)       //' '// &
-                 & this%harmonic_energies(i)   //' '// &
-                 & this%harmonic_forces(i)     //' '// &
-                 & this%anharmonic_energies(i) //' '// &
-                 & this%anharmonic_forces(i)   //' '// &
-                 & this%sampled_energies(i)    //' '// &
-                 & this%sampled_forces(i)              ]
-      enddo
-    else
-      output = [ output,                                                &
-               & str('Displacement | Harmonic energy | Harmonic force | &
-               &Anharmonic energy | Anharmonic force')                  ]
-      do i=1,size(this%displacements)
-        output = [ output,                             &
-                 & this%displacements(i)       //' '// &
-                 & this%harmonic_energies(i)   //' '// &
-                 & this%harmonic_forces(i)     //' '// &
-                 & this%anharmonic_energies(i) //' '// &
-                 & this%anharmonic_forces(i)           ]
-      enddo
+    
+    line = 'Displacement | Harmonic energy | Harmonic force'
+    if (allocated(this%anharmonic_energies)) then
+      line = line//' | Anharmonic energy | Anharmonic force'
     endif
+    if (allocated(this%anharmonic_pressures)) then
+      line = line//' | Anharmonic pressure'
+    endif
+    if (allocated(this%sampled_energies)) then
+      line = line//' | Sampled energy | Sampled force'
+    endif
+    if (allocated(this%sampled_pressures)) then
+      line = line//' | Sampled pressure'
+    endif
+    output = [output, line]
+    
+    do i=1,size(this%displacements)
+      line = this%displacements(i)     //' '// &
+           & this%harmonic_energies(i) //' '// &
+           & this%harmonic_forces(i)
+      if (allocated(this%anharmonic_energies)) then
+        line = line                        //' '// &
+             & this%anharmonic_energies(i) //' '// &
+             & this%anharmonic_forces(i)
+      endif
+      if (allocated(this%anharmonic_pressures)) then
+        line = line //' '// &
+             & this%anharmonic_pressures(i)
+      endif
+      if (allocated(this%sampled_energies)) then
+        line = line                     //' '// &
+             & this%sampled_energies(i) //' '// &
+             & this%sampled_forces(i)
+      endif
+      if (allocated(this%sampled_pressures)) then
+        line = line //' '// &
+             & this%sampled_pressures(i)
+      endif
+      
+      output = [output, line]
+    enddo
   class default
     call err()
   end select

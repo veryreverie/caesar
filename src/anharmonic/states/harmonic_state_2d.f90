@@ -304,8 +304,8 @@ impure elemental function log_braket_HarmonicState2D(bra,ket,potential, &
     ! Rather than calculating the result directly, the result is calculated
     !    and cached the first time around, and then the cached result is used
     !    thereafter.
-    if (.not.cached(n_i,n_j,p_i-p_j,q_i-q_j,p_i,q_i)) then
-      cache(n_i,n_j,p_i-p_j,q_i-q_j,p_i,q_i) =               &
+    if (.not.cached(n_i,n_j,p_i-q_i,p_j-q_j,p_i,p_j)) then
+      cache(n_i,n_j,p_i-q_i,p_j-q_j,p_i,p_j) =               &
          &   0.5_dp*( log_factorial(p_i)                     &
          &          + log_factorial(q_i)                     &
          &          - log_factorial(p_j)                     &
@@ -316,9 +316,9 @@ impure elemental function log_braket_HarmonicState2D(bra,ket,potential, &
          &                 - log_factorial(k)             ), &
          &              k=max(0,p_i-n_i,q_i-n_j),            &
          &              min(p_i,q_i)                         )]))
-      cached(n_i,n_j,p_i-p_j,q_i-q_j,p_i,q_i) = .true.
+      cached(n_i,n_j,p_i-q_i,p_j-q_j,p_i,p_j) = .true.
     endif
-    output = cache(n_i,n_j,p_i-p_j,q_i-q_j,p_i,q_i) &
+    output = cache(n_i,n_j,p_i-q_i,p_j-q_j,p_i,p_j) &
          & -0.5_dp*(n_i+n_j)*log_2nw
   endif
 end function
