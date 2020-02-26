@@ -51,6 +51,7 @@ subroutine map_vscf_modes_subroutine(arguments)
   
   ! Anharmonic data.
   type(AnharmonicData)                  :: anharmonic_data
+  type(QpointData),         allocatable :: qpoints(:)
   type(ComplexMode),        allocatable :: complex_modes(:)
   type(RealMode),           allocatable :: real_modes(:)
   type(DegenerateSubspace), allocatable :: subspaces(:)
@@ -60,10 +61,13 @@ subroutine map_vscf_modes_subroutine(arguments)
   type(PotentialPointer), allocatable :: subspace_potentials(:)
   
   ! Variables for calculating displacements.
-  real(dp),      allocatable :: displacements(:)
-  real(dp),      allocatable :: scaled_displacements(:)
-  type(RealMode)             :: mode
-  type(ModeMap), allocatable :: mode_maps(:)
+  real(dp),      allocatable  :: unscaled_mode_displacements(:)
+  real(dp),      allocatable  :: mode_displacements(:)
+  real(dp),      allocatable  :: l2_cartesian_displacements(:)
+  type(RealMode)              :: mode
+  type(ModeMap), allocatable  :: mode_maps(:)
+  type(RealModeDisplacement)  :: real_mode_displacement
+  type(CartesianDisplacement) :: cartesian_displacement
   
   ! Files and directories.
   type(IFile)  :: anharmonic_data_file
@@ -71,7 +75,7 @@ subroutine map_vscf_modes_subroutine(arguments)
   type(String) :: subspace_dir
   type(OFile)  :: mode_maps_file
   
-  integer :: i,j,ialloc
+  integer :: i,j,k,ialloc
   
   ! Read in arguments.
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
@@ -80,6 +84,7 @@ subroutine map_vscf_modes_subroutine(arguments)
   anharmonic_data_file = IFile('anharmonic_data.dat')
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
   
+  qpoints = anharmonic_data%qpoints
   complex_modes = anharmonic_data%complex_modes
   real_modes = anharmonic_data%real_modes
   subspaces = anharmonic_data%degenerate_subspaces
@@ -93,21 +98,42 @@ subroutine map_vscf_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Calculate the value of the VSCF potential along each mode.
   ! --------------------------------------------------
-  displacements = [(i,i=-no_single_mode_samples,no_single_mode_samples)] &
-              & * anharmonic_data%maximum_weighted_displacement          &
-              & / no_single_mode_samples
+  unscaled_mode_displacements =                               &
+     & [(i,i=-no_single_mode_samples,no_single_mode_samples)] &
+     & * anharmonic_data%maximum_weighted_displacement        &
+     & / no_single_mode_samples
+  allocate( l2_cartesian_displacements(size(unscaled_mode_displacements)), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
     ! Scale displacement by 1/sqrt(frequency).
-    scaled_displacements = displacements                              &
-                       & * sqrt( frequency_of_max_displacement        &
-                       &       / max( subspaces(i)%frequency,         &
-                       &              frequency_of_max_displacement ) )
+    mode_displacements = unscaled_mode_displacements                &
+                     & * sqrt( frequency_of_max_displacement        &
+                     &       / max( subspaces(i)%frequency,         &
+                     &              frequency_of_max_displacement ) )
     
     
     allocate(mode_maps(size(subspaces(i))), stat=ialloc); call err(ialloc)
     do j=1,size(subspaces(i))
       mode = real_modes(first(real_modes%id==subspaces(i)%mode_ids(j)))
-      mode_maps(j) = ModeMap( scaled_displacements,             &
+      do k=1,size(l2_cartesian_displacements)
+        real_mode_displacement = RealModeDisplacement( &
+                             & [real_modes(i)],        &
+                             & [mode_displacements(j)] )
+        cartesian_displacement = CartesianDisplacement( &
+                & real_mode_displacement,               &
+                & anharmonic_data%anharmonic_supercell, &
+                & real_modes,                           &
+                & qpoints                               )
+        l2_cartesian_displacements(j) =                  &
+           & sqrt(sum( cartesian_displacement%vectors    &
+           &         * cartesian_displacement%vectors )) &
+           & / anharmonic_data%anharmonic_supercell%sc_size
+      enddo
+      l2_cartesian_displacements(:no_single_mode_samples) = &
+         & -l2_cartesian_displacements(:no_single_mode_samples)
+
+      mode_maps(j) = ModeMap( mode_displacements,               &
+                            & l2_cartesian_displacements,       &
                             & mode,                             &
                             & subspace_potentials(i),           &
                             & anharmonic_data = anharmonic_data )

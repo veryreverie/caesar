@@ -39,45 +39,51 @@ def parse_mode_maps(filename):
   modes = []
   for line in lines[2:]:
     if len(line)>0:
-      if line[0]=='Mode':
+      if line[0]=='Mode' and line[1]=='ID:':
         modes.append({'ID':int(line[2])})
       elif line[0]=='Harmonic':
         modes[-1]['Harmonic frequency'] = float(line[2])
-      elif line[0]=='Displacement':
-        sampling = 'Sampled' in line
-        using_stress = 'pressure' in line
+      elif line[0]=='Mode' and line[1]=='displacement':
+        anharmonic = 'Anharmonic' in line
+        sampled = 'Sampled' in line
+        pressure = 'pressure' in line
         
-        modes[-1]['Displacements'] = []
+        modes[-1]['Mode displacements'] = []
+        modes[-1]['L2 Cartesian displacements'] = []
         modes[-1]['Harmonic energies'] = []
         modes[-1]['Harmonic forces'] = []
-        modes[-1]['Anharmonic energies'] = []
-        modes[-1]['Anharmonic forces'] = []
-        if using_stress:
-          modes[-1]['Anharmonic pressures'] = []
-        if sampling:
+        if anharmonic:
+          modes[-1]['Anharmonic energies'] = []
+          modes[-1]['Anharmonic forces'] = []
+          if pressure:
+            modes[-1]['Anharmonic pressures'] = []
+        if sampled:
           modes[-1]['Sampled energies'] = []
           modes[-1]['Sampled forces'] = []
-          if using_stress:
+          if pressure:
             modes[-1]['Sampled pressures'] = []
       else:
-        modes[-1]['Displacements'].append(float(line[0]))
-        modes[-1]['Harmonic energies'].append(float(line[1]))
-        modes[-1]['Harmonic forces'].append(float(line[2]))
-        modes[-1]['Anharmonic energies'].append(float(line[3]))
-        modes[-1]['Anharmonic forces'].append(float(line[4]))
-        if using_stress:
-          modes[-1]['Anharmonic pressures'].append(float(line[5]))
-          if sampling:
-            modes[-1]['Sampled energies'].append(float(line[6]))
-            modes[-1]['Sampled forces'].append(float(line[7]))
-            modes[-1]['Sampled pressures'].append(float(line[8]))
-        else:
-          if sampling:
-            modes[-1]['Sampled energies'].append(float(line[5]))
-            modes[-1]['Sampled forces'].append(float(line[6]))
+        modes[-1]['Mode displacements'].append(float(line[0]))
+        modes[-1]['L2 Cartesian displacements'].append(float(line[1]))
+        modes[-1]['Harmonic energies'].append(float(line[2]))
+        modes[-1]['Harmonic forces'].append(float(line[3]))
+        i=3
+        if anharmonic:
+          modes[-1]['Anharmonic energies'].append(float(line[i+1]))
+          modes[-1]['Anharmonic forces'].append(float(line[i+2]))
+          i += 2
+          if pressure:
+            modes[-1]['Anharmonic pressures'].append(float(line[i+1]))
+            i += 1
+        if sampled:
+          modes[-1]['Sampled energies'].append(float(line[i+1]))
+          modes[-1]['Sampled forces'].append(float(line[i+2]))
+          i += 2
+          if pressure:
+            modes[-1]['Sampled pressures'].append(float(line[i+1]))
   
-  if sampling:
-    for mode in modes:
+  for mode in modes:
+    if sampled:
       mode['Harmonic energy difference'] = []
       for harmonic,sampled in zip(mode['Harmonic energies'],
                                   mode['Sampled energies']):
@@ -88,20 +94,22 @@ def parse_mode_maps(filename):
                                   mode['Sampled forces']):
         mode['Harmonic force difference'].append(harmonic-sampled)
       
-      mode['Anharmonic energy difference'] = []
-      for anharmonic,sampled in zip(mode['Anharmonic energies'],
-                                    mode['Sampled energies']):
-        mode['Anharmonic energy difference'].append(anharmonic-sampled)
-      
-      mode['Anharmonic force difference'] = []
-      for anharmonic,sampled in zip(mode['Anharmonic forces'],
-                                    mode['Sampled forces']):
-        mode['Anharmonic force difference'].append(anharmonic-sampled)
-      if using_stress:
-        mode['Anharmonic pressure difference'] = []
-        for anharmonic,sampled in zip(mode['Anharmonic pressures'],
-                                      mode['Sampled pressures']):
-          mode['Anharmonic pressure difference'].append(anharmonic-sampled)
+      if anharmonic:
+        mode['Anharmonic energy difference'] = []
+        for anharmonic,sampled in zip(mode['Anharmonic energies'],
+                                      mode['Sampled energies']):
+          mode['Anharmonic energy difference'].append(anharmonic-sampled)
+        
+        mode['Anharmonic force difference'] = []
+        for anharmonic,sampled in zip(mode['Anharmonic forces'],
+                                      mode['Sampled forces']):
+          mode['Anharmonic force difference'].append(anharmonic-sampled)
+        
+        if pressure:
+          mode['Anharmonic pressure difference'] = []
+          for anharmonic,sampled in zip(mode['Anharmonic pressures'],
+                                        mode['Sampled pressures']):
+            mode['Anharmonic pressure difference'].append(anharmonic-sampled)
   
-  return frequencies, sampling, using_stress, modes
+  return frequencies, anharmonic, sampled, pressure, modes
 

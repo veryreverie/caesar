@@ -77,10 +77,9 @@ subroutine startup_calculate_anharmonic_observables()
      &              "pulay_noise controls the random noise added to each &
      &Pulay iteration. If a Pulay iteration has coefficients xi and the &
      &noise-free next iteration would have coefficients xi', then the next &
-     &iteration includes noise up to (xi'-xi)*pulay_noise. Generally no noise &
-     &is needed, but if the Pulay scheme does not converge it can be &
-     &beneficial to add some noise, typically <0.1.",                         &
-     &              default_value='0'),                                       &
+     &iteration includes noise up to (xi'-xi)*pulay_noise. Noise is included &
+     &to help the Pulay scheme break out of linearly-dependent subspaces.",   &
+     &              default_value='0.01'),                                    &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &

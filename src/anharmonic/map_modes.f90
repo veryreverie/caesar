@@ -1,7 +1,7 @@
 ! ======================================================================
-! Maps the anharmonic potential along each normal mode.
+! Maps the potential along each normal mode.
 ! ======================================================================
-module map_anharmonic_modes_module
+module map_modes_module
   use common_module
   
   use anharmonic_common_module
@@ -12,22 +12,27 @@ module map_anharmonic_modes_module
   
   private
   
-  public :: startup_map_anharmonic_modes
+  public :: startup_map_modes
 contains
 
 ! ----------------------------------------------------------------------
 ! Generate keywords and helptext.
 ! ----------------------------------------------------------------------
-subroutine startup_map_anharmonic_modes()
+subroutine startup_map_modes()
   implicit none
   
   type(CaesarMode) :: mode
   
-  mode%mode_name = 'map_anharmonic_modes'
+  mode%mode_name = 'map_modes'
   mode%description = 'Maps the potential along normal modes. If use_potential &
-  &is true, map_anharmonic_modes should be run after calculate_potential, &
+  &is true, map_modes should be run after calculate_potential, &
   &otherwise it may be run after setup_anharmonic.'
   mode%keywords = [                                                           &
+     & KeywordData( 'mode_ids',                                               &
+     &              'mode_ids is the list of mode IDs of the real modes which &
+     &should be mapped. If mode_ids is not present then all modes will be &
+     &mapped. mode_ids should be given as space-separated integers.',         &
+     &              is_optional=.true.),                                      &
      & KeywordData( 'no_single_mode_samples',                                 &
      &              'no_single_mode_samples is the number of points (either &
      &side of zero) along each mode at which the anharmonic potential will be &
@@ -73,7 +78,7 @@ subroutine startup_map_anharmonic_modes()
      &structure calculations should be run in addition to the user-defined &
      &script. Settings are: "none" and "quip".',                              &
      &              default_value='none') ]
-  mode%main_subroutine => map_anharmonic_modes_subroutine
+  mode%main_subroutine => map_modes_subroutine
   
   call add_mode(mode)
 end subroutine
@@ -81,21 +86,22 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Main program.
 ! ----------------------------------------------------------------------
-subroutine map_anharmonic_modes_subroutine(arguments)
+subroutine map_modes_subroutine(arguments)
   implicit none
   
   type(Dictionary), intent(in) :: arguments
   
   ! Input arguments.
-  integer      :: no_single_mode_samples
-  logical      :: use_potential
-  logical      :: calculate_stress
-  logical      :: validate_potential
-  type(String) :: run_script
-  integer      :: no_cores
-  integer      :: no_nodes
-  type(String) :: run_script_data
-  type(String) :: calculation_type
+  integer, allocatable :: mode_ids(:)
+  integer              :: no_single_mode_samples
+  logical              :: use_potential
+  logical              :: calculate_stress
+  logical              :: validate_potential
+  type(String)         :: run_script
+  integer              :: no_cores
+  integer              :: no_nodes
+  type(String)         :: run_script_data
+  type(String)         :: calculation_type
   
   ! Arguments to setup_harmonic.
   type(Dictionary) :: setup_harmonic_arguments
@@ -106,10 +112,14 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   type(AnharmonicData)                  :: anharmonic_data
   type(StructureData)                   :: structure
   type(StructureData)                   :: anharmonic_supercell
-  type(QpointData), allocatable         :: qpoints(:)
+  type(QpointData),         allocatable :: qpoints(:)
   type(RealMode),           allocatable :: real_modes(:)
   type(DegenerateSubspace), allocatable :: subspaces(:)
   real(dp)                              :: frequency_of_max_displacement
+  
+  ! Map from mode ids to locations in mode_ids.
+  integer, allocatable :: mode_locs(:)
+  integer              :: loc
   
   ! Anharmonic potential and stress.
   type(PotentialPointer), allocatable :: potential
@@ -121,8 +131,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   type(CalculationReader) :: calculation_reader
   
   ! Variables for sampline potential.
-  real(dp),      allocatable :: displacements(:)
-  real(dp),      allocatable :: scaled_displacements(:)
+  real(dp),      allocatable :: unscaled_mode_displacements(:)
+  real(dp),      allocatable :: mode_displacements(:)
+  real(dp),      allocatable :: l2_cartesian_displacements(:)
   type(ModeMap), allocatable :: mode_maps(:)
   integer,       allocatable :: qpoint_modes(:)
   integer,       allocatable :: subspace_modes(:)
@@ -137,7 +148,7 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   type(StructureData)         :: supercell
   type(RealMode)              :: mode
   type(RealModeDisplacement)  :: real_mode_displacement
-  type(CartesianDisplacement) :: displacement
+  type(CartesianDisplacement) :: cartesian_displacement
   type(StructureData)         :: displaced_structure
   type(ElectronicStructure)   :: electronic_structure
   
@@ -158,6 +169,9 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in inputs and previously calculated data.
   ! --------------------------------------------------
+  if (arguments%is_set('mode_ids')) then
+    mode_ids = int(tokens(arguments%value('mode_ids')))
+  endif
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
   use_potential = lgcl(arguments%value('use_potential'))
   calculate_stress = lgcl(arguments%value('calculate_stress'))
@@ -185,6 +199,19 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   real_modes = anharmonic_data%real_modes
   subspaces = anharmonic_data%degenerate_subspaces
   frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
+  
+  ! Construct mode locations array.
+  if (.not. arguments%is_set('mode_ids')) then
+    mode_ids = real_modes%id
+  endif
+  mode_locs = [(0,i=1,maxval(real_modes%id))]
+  j = 0
+  do i=1,size(real_modes)
+    if (real_modes(i)%id .in. mode_ids) then
+      j = j+1
+      mode_locs(real_modes(i)%id) = j
+    endif
+  enddo
   
   ! Read in anharmonic potential and stress.
   if (use_potential) then
@@ -224,26 +251,49 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! Map the potential.
   ! --------------------------------------------------
   ! Calculate displacements before scaling by 1/sqrt(frequency).
-  displacements =                                               &
+  unscaled_mode_displacements =                                 &
      &   [(i,i=-no_single_mode_samples,no_single_mode_samples)] &
      & * anharmonic_data%maximum_weighted_displacement          &
-     & * 2.0_dp                                                 &
      & / no_single_mode_samples
   
-  allocate(mode_maps(size(real_modes)), stat=ialloc); call err(ialloc)
+  allocate( mode_maps(size(real_modes)),                                   &
+          & l2_cartesian_displacements(size(unscaled_mode_displacements)), &
+          & stat=ialloc); call err(ialloc)
   do i=1,size(real_modes)
-    ! Scale displacement by 1/sqrt(frequency).
-    scaled_displacements = displacements                              &
+    loc = mode_locs(real_modes(i)%id)
+    if (loc/=0) then
+      ! Scale displacement by 1/sqrt(frequency).
+      mode_displacements = unscaled_mode_displacements                &
                        & * sqrt( frequency_of_max_displacement        &
                        &       / max( real_modes(i)%frequency,        &
                        &              frequency_of_max_displacement ) )
-    
-    ! Sample the model potential.
-    mode_maps(i) = ModeMap( scaled_displacements, &
-                          & real_modes(i),        &
-                          & potential,            &
-                          & stress,               &
-                          & anharmonic_data       )
+      
+      ! Calculate the L2 displacments in Bohr.
+      do j=1,size(mode_displacements)
+        real_mode_displacement = RealModeDisplacement( &
+                             & [real_modes(i)],        &
+                             & [mode_displacements(j)] )
+        cartesian_displacement = CartesianDisplacement( &
+                & real_mode_displacement,               &
+                & anharmonic_data%anharmonic_supercell, &
+                & real_modes,                           &
+                & qpoints                               )
+        l2_cartesian_displacements(j) =                  &
+           & sqrt(sum( cartesian_displacement%vectors    &
+           &         * cartesian_displacement%vectors )) &
+           & / anharmonic_data%anharmonic_supercell%sc_size
+      enddo
+      l2_cartesian_displacements(:no_single_mode_samples) = &
+         & -l2_cartesian_displacements(:no_single_mode_samples)
+      
+      ! Sample the model potential.
+      mode_maps(loc) = ModeMap( mode_displacements,         &
+                              & l2_cartesian_displacements, &
+                              & real_modes(i),              &
+                              & potential,                  &
+                              & stress,                     &
+                              & anharmonic_data             )
+    endif
   enddo
   
   ! --------------------------------------------------
@@ -251,11 +301,11 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   !    the same points as the model potential.
   ! --------------------------------------------------
   if (validate_potential) then
-    allocate( sampled_energies(size(displacements)), &
-            & sampled_forces(size(displacements)),   &
+    allocate( sampled_energies(size(mode_displacements)), &
+            & sampled_forces(size(mode_displacements)),   &
             & stat=ialloc); call err(ialloc)
     if (calculate_stress) then
-      allocate( sampled_pressures(size(displacements)), &
+      allocate( sampled_pressures(size(mode_displacements)), &
               & stat=ialloc); call err(ialloc)
     endif
     do i=1,size(qpoints)
@@ -280,47 +330,56 @@ subroutine map_anharmonic_modes_subroutine(arguments)
       
       do j=1,size(qpoint_modes)
         mode = real_modes(qpoint_modes(j))
-        mode_dir = qpoint_dir//'/real_mode_'// &
-                 & left_pad(mode%id, str(maxval(real_modes%id)))
-        call mkdir(mode_dir)
-        do k=1,size(sampled_energies)
-          real_mode_displacement = RealModeDisplacement(     &
-             & [mode],                                       &
-             & [mode_maps(qpoint_modes(j))%displacements(k)] )
-          displacement = CartesianDisplacement( real_mode_displacement, &
-                                              & supercell,              &
-                                              & real_modes,             &
-                                              & qpoints                 )
-          displaced_structure = displace_structure(supercell,displacement)
-          
-          displacement_dir = mode_dir//'/displacement_'// &
-                           & left_pad(k,str(size(displacements)))
-          call calculation_writer%write_calculation( &
-                              & displaced_structure, &
-                              & displacement_dir     )
-          
-          call calculation_runner%run_calculation(displacement_dir)
-          
-          electronic_structure = calculation_reader%read_calculation( &
-                                                   & displacement_dir )
-          
-          sampled_energies(k) = electronic_structure%energy()
-          sampled_force = RealModeForce( electronic_structure%forces(), &
-                                       & supercell,                     &
-                                       & real_modes,                    &
-                                       & qpoints                        )
-          sampled_forces(k) = sampled_force%force(mode)
+        loc = mode_locs(mode%id)
+        if (loc/=0) then
+          mode_dir = qpoint_dir//'/real_mode_'// &
+                   & left_pad(mode%id, str(maxval(real_modes%id)))
+          call mkdir(mode_dir)
+          do k=1,size(sampled_energies)
+            real_mode_displacement = RealModeDisplacement(          &
+               & [mode],                                            &
+               & [mode_maps(qpoint_modes(j))%mode_displacements(k)] )
+            cartesian_displacement = CartesianDisplacement( &
+                                  & real_mode_displacement, &
+                                  & supercell,              &
+                                  & real_modes,             &
+                                  & qpoints                 )
+            displaced_structure = displace_structure( supercell,             &
+                                                    & cartesian_displacement )
+            
+            displacement_dir = mode_dir//'/displacement_'// &
+                             & left_pad(k,str(size(mode_displacements)))
+            call calculation_writer%write_calculation( &
+                                & displaced_structure, &
+                                & displacement_dir     )
+            
+            call calculation_runner%run_calculation(displacement_dir)
+            
+            electronic_structure = calculation_reader%read_calculation( &
+                                                     & displacement_dir )
+            
+            sampled_energies(k) = electronic_structure%energy()
+            sampled_force = RealModeForce( electronic_structure%forces(), &
+                                         & supercell,                     &
+                                         & real_modes,                    &
+                                         & qpoints                        )
+            sampled_forces(k) = sampled_force%force(mode)
+            if (calculate_stress) then
+              sampled_pressures(k) = trace(electronic_structure%stress())/3
+            endif
+          enddo
+          sampled_energies = ( sampled_energies                             &
+                         &   - sampled_energies(no_single_mode_samples+1) ) &
+                         & / supercell%sc_size
           if (calculate_stress) then
-            sampled_pressures(k) = trace(electronic_structure%stress())/3
+            sampled_pressures = sampled_pressures &
+                            & - sampled_pressures(no_single_mode_samples+1)
           endif
-        enddo
-        sampled_energies = ( sampled_energies                             &
-                       &   - sampled_energies(no_single_mode_samples+1) ) &
-                       & / supercell%sc_size
-        mode_maps(qpoint_modes(j))%sampled_energies = sampled_energies
-        mode_maps(qpoint_modes(j))%sampled_forces   = sampled_forces
-        if (calculate_stress) then
-          mode_maps(qpoint_modes(j))%sampled_pressures = sampled_pressures
+          mode_maps(loc)%sampled_energies = sampled_energies
+          mode_maps(loc)%sampled_forces   = sampled_forces
+          if (calculate_stress) then
+            mode_maps(loc)%sampled_pressures = sampled_pressures
+          endif
         endif
       enddo
     enddo
@@ -331,15 +390,21 @@ subroutine map_anharmonic_modes_subroutine(arguments)
   ! --------------------------------------------------
   do i=1,size(subspaces)
     subspace_modes = filter(real_modes%id .in. subspaces(i)%mode_ids)
-    subspace_mode_maps = mode_maps(subspace_modes)
-    subspace_dir = 'subspace_'//left_pad( subspaces(i)%id,          &
-                                        & str(maxval(subspaces%id)) )
-    call mkdir(subspace_dir)
-    mode_maps_file = OFile(subspace_dir//'/anharmonic_mode_maps.dat')
-    call mode_maps_file%print_line(                    &
-       & 'Harmonic frequencies: '//subspaces%frequency )
-    call mode_maps_file%print_line('')
-    call mode_maps_file%print_lines(subspace_mode_maps, separating_line='')
+    if (any(mode_locs(real_modes(subspace_modes)%id)/=0)) then
+      subspace_dir = 'subspace_'//left_pad( subspaces(i)%id,          &
+                                          & str(maxval(subspaces%id)) )
+      call mkdir(subspace_dir)
+      mode_maps_file = OFile(subspace_dir//'/mode_maps.dat')
+      call mode_maps_file%print_line(                    &
+         & 'Harmonic frequencies: '//subspaces%frequency )
+      do j=1,size(subspace_modes)
+        loc = mode_locs(real_modes(subspace_modes(j))%id)
+        if (loc/=0) then
+          call mode_maps_file%print_line('')
+          call mode_maps_file%print_lines(mode_maps(loc))
+        endif
+      enddo
+    endif
   enddo
 end subroutine
 end module

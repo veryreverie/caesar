@@ -416,8 +416,8 @@ function pulay_(this,iterations) result(output)
   ! Mix in a damped iterative contribution.
   output = (1-this%data_%iterative_mixing)*output                     &
        & + this%data_%iterative_mixing                                &
-       & * ( (1-this%data_%iterative_damping)*this%xs_(iterations(n)) &
-       &   + this%data_%iterative_damping*this%fs_(iterations(n))     )
+       & * ( this%data_%iterative_damping*this%xs_(iterations(n))     &
+       &   + (1-this%data_%iterative_damping)*this%fs_(iterations(n)) )
   
   ! Add in a random component, to help break out of linearly-dependent
   !    subspaces.

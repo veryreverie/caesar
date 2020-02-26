@@ -25,11 +25,15 @@ def main():
   
   # Read vscf modes file.
   file_name = 'vscf_mode_maps.dat'
-  _, _, vscf_modes = parse_mode_maps(file_name)
+  _, anharmonic, _, _, vscf_modes = parse_mode_maps(file_name)
+  if not anharmonic:
+    sys.exit()
   
   # Read anharmonic modes file.
   file_name = 'anharmonic_mode_maps.dat'
-  frequencies, sampling, anharmonic_modes = parse_mode_maps(file_name)
+  frequencies, anharmonic, sampled, pressure, anharmonic_modes = parse_mode_maps(file_name)
+  if not anharmonic:
+    sys.exit()
   
   # Plot data.
   

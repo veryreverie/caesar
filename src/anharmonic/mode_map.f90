@@ -14,7 +14,8 @@ module mode_map_module
   type, extends(Stringsable) :: ModeMap
     integer               :: mode_id
     real(dp)              :: harmonic_frequency
-    real(dp), allocatable :: displacements(:)
+    real(dp), allocatable :: mode_displacements(:)
+    real(dp), allocatable :: l2_cartesian_displacements(:)
     real(dp), allocatable :: harmonic_energies(:)
     real(dp), allocatable :: harmonic_forces(:)
     real(dp), allocatable :: anharmonic_energies(:)
@@ -36,15 +37,16 @@ module mode_map_module
   end interface
 contains
 
-function new_ModeMap(mode_id,harmonic_frequency,displacements,                &
-   & harmonic_energies,harmonic_forces,anharmonic_energies,anharmonic_forces, &
-   & anharmonic_pressures,sampled_energies,sampled_forces,sampled_pressures)  &
-   & result(this)
+function new_ModeMap(mode_id,harmonic_frequency,mode_displacements, &
+   & l2_cartesian_displacements,harmonic_energies,harmonic_forces,  &
+   & anharmonic_energies,anharmonic_forces,anharmonic_pressures,    &
+   & sampled_energies,sampled_forces,sampled_pressures) result(this) 
   implicit none
   
   integer,  intent(in)           :: mode_id
   real(dp), intent(in)           :: harmonic_frequency
-  real(dp), intent(in)           :: displacements(:)
+  real(dp), intent(in)           :: mode_displacements(:)
+  real(dp), intent(in)           :: l2_cartesian_displacements(:)
   real(dp), intent(in)           :: harmonic_energies(:)
   real(dp), intent(in)           :: harmonic_forces(:)
   real(dp), intent(in), optional :: anharmonic_energies(:)
@@ -55,11 +57,12 @@ function new_ModeMap(mode_id,harmonic_frequency,displacements,                &
   real(dp), intent(in), optional :: sampled_pressures(:)
   type(ModeMap)                  :: this
   
-  this%mode_id             = mode_id
-  this%harmonic_frequency  = harmonic_frequency
-  this%displacements       = displacements
-  this%harmonic_energies   = harmonic_energies
-  this%harmonic_forces     = harmonic_forces
+  this%mode_id                    = mode_id
+  this%harmonic_frequency         = harmonic_frequency
+  this%mode_displacements         = mode_displacements
+  this%l2_cartesian_displacements = l2_cartesian_displacements
+  this%harmonic_energies          = harmonic_energies
+  this%harmonic_forces            = harmonic_forces
   
   if (present(anharmonic_energies)) then
     this%anharmonic_energies = anharmonic_energies
@@ -81,11 +84,13 @@ function new_ModeMap(mode_id,harmonic_frequency,displacements,                &
   endif
 end function
 
-function new_ModeMap_potential(displacements,mode,potential,stress, &
-   & anharmonic_data) result(this)
+function new_ModeMap_potential(mode_displacements,                     &
+   & l2_cartesian_displacements,mode,potential,stress,anharmonic_data) &
+   & result(this) 
   implicit none
   
-  real(dp),             intent(in)           :: displacements(:)
+  real(dp),             intent(in)           :: mode_displacements(:)
+  real(dp),             intent(in)           :: l2_cartesian_displacements(:)
   type(RealMode),       intent(in)           :: mode
   class(PotentialData), intent(in), optional :: potential
   class(StressData),    intent(in), optional :: stress
@@ -116,27 +121,27 @@ function new_ModeMap_potential(displacements,mode,potential,stress, &
     call err()
   endif
   
-  allocate( harmonic_energies(size(displacements)),   &
-          & harmonic_forces(size(displacements)),     &
+  allocate( harmonic_energies(size(mode_displacements)),   &
+          & harmonic_forces(size(mode_displacements)),     &
           & stat=ialloc); call err(ialloc)
   if (present(potential)) then
-   allocate( anharmonic_energies(size(displacements)), &
-           & anharmonic_forces(size(displacements)),   &
+   allocate( anharmonic_energies(size(mode_displacements)), &
+           & anharmonic_forces(size(mode_displacements)),   &
            & stat=ialloc); call err(ialloc)
   endif
   if (present(stress)) then
-    allocate( anharmonic_pressures(size(displacements)), &
+    allocate( anharmonic_pressures(size(mode_displacements)), &
             & stat=ialloc); call err(ialloc)
   endif
-  do i=1,size(displacements)
-    displacement = RealModeDisplacement([mode],[displacements(i)])
+  do i=1,size(mode_displacements)
+    displacement = RealModeDisplacement([mode],[mode_displacements(i)])
     
-    harmonic_energies(i) = 0.5_dp               &
-                       & * mode%spring_constant &
-                       & * displacements(i)     &
-                       & * displacements(i)
+    harmonic_energies(i) = 0.5_dp                &
+                       & * mode%spring_constant  &
+                       & * mode_displacements(i) &
+                       & * mode_displacements(i)
     harmonic_forces(i) = - mode%spring_constant &
-                     & * displacements(i)
+                     & * mode_displacements(i)
     
     if (present(potential)) then
       anharmonic_energies(i) = ( potential%energy(displacement)   &
@@ -148,18 +153,21 @@ function new_ModeMap_potential(displacements,mode,potential,stress, &
     endif
     
     if (present(stress)) then
-      anharmonic_pressures(i) = trace(stress%stress(displacement))/3
+      anharmonic_pressures(i) = trace( stress%stress(displacement)   &
+                            &        - stress%undisplaced_stress() ) &
+                            & / 3
     endif
   enddo
   
-  this = ModeMap( mode%id,             &
-                & mode%frequency,      &
-                & displacements,       &
-                & harmonic_energies,   &
-                & harmonic_forces,     &
-                & anharmonic_energies, &
-                & anharmonic_forces,   &
-                & anharmonic_pressures )
+  this = ModeMap( mode%id,                    &
+                & mode%frequency,             &
+                & mode_displacements,         &
+                & l2_cartesian_displacements, &
+                & harmonic_energies,          &
+                & harmonic_forces,            &
+                & anharmonic_energies,        &
+                & anharmonic_forces,          &
+                & anharmonic_pressures        )
 end function
 
 ! ----------------------------------------------------------------------
@@ -173,7 +181,8 @@ subroutine read_ModeMap(this,input)
   
   integer               :: mode_id
   real(dp)              :: harmonic_frequency
-  real(dp), allocatable :: displacements(:)
+  real(dp), allocatable :: mode_displacements(:)
+  real(dp), allocatable :: l2_cartesian_displacements(:)
   real(dp), allocatable :: harmonic_energies(:)
   real(dp), allocatable :: harmonic_forces(:)
   real(dp), allocatable :: anharmonic_energies(:)
@@ -199,9 +208,10 @@ subroutine read_ModeMap(this,input)
     no = size(input)-3
     
     line = split_line(input(3))
-    allocate( displacements(no),     &
-            & harmonic_energies(no), &
-            & harmonic_forces(no),   &
+    allocate( mode_displacements(no),         &
+            & l2_cartesian_displacements(no), &
+            & harmonic_energies(no),          &
+            & harmonic_forces(no),            &
             & stat=ialloc); call err(ialloc)
     if (any(line==str('Anharmonic'))) then
       allocate( anharmonic_energies(no), &
@@ -222,10 +232,11 @@ subroutine read_ModeMap(this,input)
     
     do i=1,size(input)-4
       line = split_line(input(i+4))
-      displacements(i) = dble(line(1))
-      harmonic_energies(i) = dble(line(2))
-      harmonic_forces(i) = dble(line(3))
-      j = 3
+      mode_displacements(i) = dble(line(1))
+      l2_cartesian_displacements(i) = dble(line(2))
+      harmonic_energies(i) = dble(line(3))
+      harmonic_forces(i) = dble(line(4))
+      j = 4
       if (allocated(anharmonic_energies)) then
         anharmonic_energies(i) = dble(line(j+1))
         anharmonic_forces(i) = dble(line(j+2))
@@ -245,17 +256,18 @@ subroutine read_ModeMap(this,input)
       endif
     enddo
     
-    this = ModeMap( mode_id,              &
-                  & harmonic_frequency,   &
-                  & displacements,        &
-                  & harmonic_energies,    &
-                  & harmonic_forces,      &
-                  & anharmonic_energies,  &
-                  & anharmonic_forces,    &
-                  & anharmonic_pressures, &
-                  & sampled_energies,     &
-                  & sampled_forces,       &
-                  & sampled_pressures     )
+    this = ModeMap( mode_id,                    &
+                  & harmonic_frequency,         &
+                  & mode_displacements,         &
+                  & l2_cartesian_displacements, &
+                  & harmonic_energies,          &
+                  & harmonic_forces,            &
+                  & anharmonic_energies,        &
+                  & anharmonic_forces,          &
+                  & anharmonic_pressures,       &
+                  & sampled_energies,           &
+                  & sampled_forces,             &
+                  & sampled_pressures           )
   class default
     call err()
   end select
@@ -275,7 +287,8 @@ function write_ModeMap(this) result(output)
     output = [ 'Mode ID: '//this%mode_id,                      &
              & 'Harmonic frequency: '//this%harmonic_frequency ]
     
-    line = 'Displacement | Harmonic energy | Harmonic force'
+    line = 'Mode displacement | L2 Cartesian displacement | Harmonic energy | &
+           &Harmonic force'
     if (allocated(this%anharmonic_energies)) then
       line = line//' | Anharmonic energy | Anharmonic force'
     endif
@@ -290,9 +303,10 @@ function write_ModeMap(this) result(output)
     endif
     output = [output, line]
     
-    do i=1,size(this%displacements)
-      line = this%displacements(i)     //' '// &
-           & this%harmonic_energies(i) //' '// &
+    do i=1,size(this%mode_displacements)
+      line = this%mode_displacements(i)         //' '// &
+           & this%l2_cartesian_displacements(i) //' '// &
+           & this%harmonic_energies(i)          //' '// &
            & this%harmonic_forces(i)
       if (allocated(this%anharmonic_energies)) then
         line = line                        //' '// &
