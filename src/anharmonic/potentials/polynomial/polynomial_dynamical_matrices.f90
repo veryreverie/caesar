@@ -11,10 +11,16 @@ module polynomial_dynamical_matrices_module
   private
   
   public :: calculate_dynamical_matrices
+  public :: calculate_correction
   
   interface calculate_dynamical_matrices
     module procedure calculate_dynamical_matrices_ComplexMonomial
     module procedure calculate_dynamical_matrices_ComplexPolynomial
+  end interface
+  
+  interface calculate_correction
+    module procedure calculate_correction_ComplexMonomial
+    module procedure calculate_correction_ComplexPolynomial
   end interface
 contains
 
@@ -212,6 +218,71 @@ function calculate_dynamical_matrices_ComplexPolynomial(polynomial,qpoints, &
          &          subspace_states,       &
          &          subspaces_in_coupling, &
          &          anharmonic_data        )
+  enddo
+end function
+
+! Calculate the correction due to double-counting when interpolating
+!    polynomials.
+! It is assumed that a monomial of order n will appear in:
+!    n/2     terms if n is even
+!    (n-1)/2 terms if n is odd.
+! The double counting of a term is (1-x)<term>, where x is the number of terms
+!    where the term appears.
+function calculate_correction_ComplexMonomial(monomial,subspaces,   &
+   & subspace_bases,subspace_states,thermal_energy,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(ComplexMonomial),   intent(in)    :: monomial
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  real(dp)                                :: output
+  
+  type(ComplexMonomial) :: term
+  
+  integer :: i
+  
+  ! Calculate <term>.
+  term = monomial
+  do i=1,size(subspaces)
+    call integrate( term,               &
+                  & subspace_states(i), &
+                  & thermal_energy,     &
+                  & subspaces(i),       &
+                  & subspace_bases(i),  &
+                  & anharmonic_data     )
+  enddo
+  
+  ! N.B. this intentionally uses integer floor division.
+  output = term%coefficient * (1-monomial%total_power()/2)
+end function
+
+function calculate_correction_ComplexPolynomial(polynomial,subspaces, &
+   & subspace_bases,subspace_states,thermal_energy,anharmonic_data)   &
+   & result(output) 
+  implicit none
+  
+  class(ComplexPolynomial), intent(in)    :: polynomial
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  real(dp)                                :: output
+  
+  integer :: i
+  
+  output = 0
+  do i=1,size(polynomial%terms)
+    output = output + calculate_correction( polynomial%terms(i), &
+                                          & subspaces,           &
+                                          & subspace_bases,      &
+                                          & subspace_states,     &
+                                          & thermal_energy,      &
+                                          & anharmonic_data      )
   enddo
 end function
 end module

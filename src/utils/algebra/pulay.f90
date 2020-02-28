@@ -333,6 +333,12 @@ function pulay_(this,iterations) result(output)
   min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
   max_guess = maxloc([(error_matrix(i,i), i=1, n)], 1)
   
+  ! Check for over-convergence.
+  if (error_matrix(max_guess,max_guess)<1e-300_dp) then
+    output = this%xs_(iterations(min_guess))
+    return
+  endif
+  
   ! Scale error_matrix(:n,:n) such that the problem is well-conditioned.
   ! This has no effect on the result beyond numerical error.
   if (max_guess>0.01_dp*this%data_%energy_convergence**2) then

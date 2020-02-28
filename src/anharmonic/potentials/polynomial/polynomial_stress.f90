@@ -59,6 +59,9 @@ module polynomial_stress_module
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_PolynomialStress
     
+    procedure, public :: stress_correction => &
+                       & stress_correction_PolynomialStress
+    
     procedure, public :: expansion_order => expansion_order_PolynomialStress
     
     ! I/O.
@@ -531,6 +534,33 @@ function calculate_dynamical_matrices_PolynomialStress(this,qpoints,          &
          &                                         subspace_bases,  &
          &                                         subspace_states, &
          &                                         anharmonic_data  )
+  enddo
+end function
+
+! Calculate the correction due to double counting
+!    for the interpolated stress.
+function stress_correction_PolynomialStress(this,subspaces,subspace_bases, &
+   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PolynomialStress),  intent(in)    :: this
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(RealMatrix)                        :: output
+  
+  integer :: i
+  
+  output = dblemat(zeroes(3,3))
+  do i=1,size(this%basis_functions_)
+    output = output + this%basis_functions_(i)%stress_correction( &
+                                               & subspaces,       &
+                                               & subspace_bases,  &
+                                               & subspace_states, &
+                                               & thermal_energy,  &
+                                               & anharmonic_data  )
   enddo
 end function
 

@@ -20,8 +20,7 @@ subroutine startup_plot_vscf_convergence()
   
   mode%mode_name = 'plot_vscf_convergence'
   mode%description = 'Plots the convergence of the VSCF scheme. This mode &
-     &should be called from anharmonic_observables/temperature_x, where x is &
-     &the id of the desired temperature.'
+     &should be called from anharmonic_observables/*/temperature_*.'
   mode%keywords = [                                                        &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &

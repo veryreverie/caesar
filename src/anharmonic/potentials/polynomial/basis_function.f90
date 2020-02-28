@@ -75,9 +75,10 @@ module basis_function_module
     
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_BasisFunction
-    
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_BasisFunction
+    procedure, public :: energy_correction => &
+                       & energy_correction_BasisFunction
     
     procedure, public :: terms => terms_BasisFunction
     
@@ -1016,6 +1017,29 @@ function calculate_dynamical_matrices_BasisFunction(this,qpoints, &
        &                                 subspace_states,                &
        &                                 subspaces_in_coupling,          &
        &                                 anharmonic_data               ) &
+       & * this%coefficient_
+end function
+
+! Calculate the correction due to double counting
+!    for the interpolated potential.
+function energy_correction_BasisFunction(this,subspaces,subspace_bases, &
+   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+  implicit none
+  
+  class(BasisFunction),     intent(in)    :: this
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  real(dp)                                :: output
+  
+  output = calculate_correction( this%complex_representation_,   &
+       &                         subspaces,                      &
+       &                         subspace_bases,                 &
+       &                         subspace_states,                &
+       &                         thermal_energy,                 &
+       &                         anharmonic_data               ) &
        & * this%coefficient_
 end function
 

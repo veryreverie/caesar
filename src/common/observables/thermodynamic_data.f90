@@ -35,6 +35,10 @@ module thermodynamic_data_module
   contains
     procedure, public :: set_stress => set_stress_ThermodynamicData
     
+    procedure, public :: add_energy  => add_energy_ThermodynamicData
+    procedure, public :: add_entropy => add_entropy_ThermodynamicData
+    procedure, public :: add_stress  => add_stress_ThermodynamicData
+    
     ! I/O.
     procedure, public :: read  => read_ThermodynamicData
     procedure, public :: write => write_ThermodynamicData
@@ -285,7 +289,7 @@ function new_ThermodynamicData_harmonic(thermal_energy,frequency, &
                             & gibbs           )
 end function
 
-! Add stress to a ThermodynamicData.
+! Set the stress of a ThermodynamicData.
 impure elemental subroutine set_stress_ThermodynamicData(this,stress,volume)
   implicit none
   
@@ -297,6 +301,41 @@ impure elemental subroutine set_stress_ThermodynamicData(this,stress,volume)
   this%volume = volume
   this%enthalpy = this%energy + volume*trace(stress)/3
   this%gibbs = this%free_energy + volume*trace(stress)/3
+end subroutine
+
+! Add energy, entropy or stress.
+impure elemental subroutine add_energy_ThermodynamicData(this,energy)
+  implicit none
+  
+  class(ThermodynamicData), intent(inout) :: this
+  real(dp),                 intent(in)    :: energy
+  
+  this%energy = this%energy + energy
+  this%free_energy = this%free_energy + energy
+  this%enthalpy = this%enthalpy + energy
+  this%gibbs = this%gibbs + energy
+end subroutine
+
+impure elemental subroutine add_entropy_ThermodynamicData(this,entropy)
+  implicit none
+  
+  class(ThermodynamicData), intent(inout) :: this
+  real(dp),                 intent(in)    :: entropy
+  
+  this%entropy = this%entropy + entropy
+  this%free_energy = this%free_energy - this%thermal_energy*entropy
+  this%gibbs = this%gibbs - this%thermal_energy*entropy
+end subroutine
+
+impure elemental subroutine add_stress_ThermodynamicData(this,stress)
+  implicit none
+  
+  class(ThermodynamicData), intent(inout) :: this
+  type(RealMatrix),         intent(in)    :: stress
+  
+  this%stress = this%stress + stress
+  this%enthalpy = this%enthalpy + trace(stress)*this%volume/3
+  this%gibbs = this%gibbs + trace(stress)*this%volume/3
 end subroutine
 
 ! ----------------------------------------------------------------------

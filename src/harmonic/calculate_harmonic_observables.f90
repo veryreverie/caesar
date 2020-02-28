@@ -123,12 +123,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
   type(IFile)  :: qpoints_file
   type(IFile)  :: dynamical_matrix_file
   type(String) :: output_dir
-  type(OFile)  :: dispersion_file
-  type(OFile)  :: symmetry_points_file
-  type(OFile)  :: sampled_qpoints_file
-  type(OFile)  :: json_file
   type(OFile)  :: thermodynamic_file
-  type(OFile)  :: pdos_file
   type(OFile)  :: logfile
   
   ! Temporary variables.
@@ -239,14 +234,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
                                         & no_path_points = no_path_points,  &
                                         & logfile        = logfile          )
     
-    symmetry_points_file = OFile(output_dir//'/high_symmetry_points.dat')
-    call symmetry_points_file%print_lines(phonon_dispersion%path())
-    
-    dispersion_file = OFile(output_dir//'/phonon_dispersion_curve.dat')
-    call dispersion_file%print_lines(phonon_dispersion%frequencies())
-    
-    json_file = OFile(output_dir//'/'//seedname//'.json')
-    call json_file%print_lines(phonon_dispersion%json(seedname,structure))
+    call phonon_dispersion%write_files(output_dir, seedname, structure)
   endif
   
   ! Calculate phonon density of states and thermodynamic variables.
@@ -273,13 +261,7 @@ subroutine calculate_harmonic_observables_subroutine(arguments)
                           & logfile          = logfile,          &
                           & random_generator = random_generator  )
     
-    sampled_qpoints_file = OFile(output_dir//'/sampled_qpoints.dat')
-    call sampled_qpoints_file%print_line('q-point (x,y,z) | &
-                                         &number of frequencies ignored')
-    call sampled_qpoints_file%print_lines(phonon_dos%qpoints)
-    
-    pdos_file = OFile(output_dir//'/phonon_density_of_states.dat')
-    call pdos_file%print_lines(phonon_dos%pdos)
+    call phonon_dos%write_files(output_dir)
     
     thermodynamic_file = OFile(output_dir//'/thermodynamic_variables.dat')
     call thermodynamic_file%print_line( &

@@ -70,9 +70,10 @@ module coupling_basis_functions_module
     
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_CouplingBasisFunctions
-    
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_CouplingBasisFunctions
+    procedure, public :: energy_correction => &
+                       & energy_correction_CouplingBasisFunctions
     
     ! I/O.
     procedure, public :: read  => read_CouplingBasisFunctions
@@ -535,6 +536,34 @@ function calculate_dynamical_matrices_CouplingBasisFunctions(this,qpoints,    &
          &                                   subspace_states,       &
          &                                   subspaces_in_coupling, &
          &                                   anharmonic_data        )
+  enddo
+end function
+
+! Calculate the correction due to double counting
+!    for the interpolated potential.
+function energy_correction_CouplingBasisFunctions(this,subspaces,   &
+   & subspace_bases,subspace_states,thermal_energy,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in)    :: this
+  type(DegenerateSubspace),      intent(in)    :: subspaces(:)
+  class(SubspaceBasis),          intent(in)    :: subspace_bases(:)
+  class(BasisStates),            intent(inout) :: subspace_states(:)
+  real(dp),                      intent(in)    :: thermal_energy
+  type(AnharmonicData),          intent(in)    :: anharmonic_data
+  real(dp)                                     :: output
+  
+  integer :: i
+  
+  output = 0
+  do i=1,size(this%basis_functions_)
+    output = output + this%basis_functions_(i)%energy_correction( &
+                                               & subspaces,       &
+                                               & subspace_bases,  &
+                                               & subspace_states, &
+                                               & thermal_energy,  &
+                                               & anharmonic_data  )
   enddo
 end function
 

@@ -200,8 +200,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(BasisStatesPointer),   allocatable :: vscf_states(:)
   type(StressPointer),        allocatable :: vscf_stresses(:)
   
-  ! Interpolated VSCHA variables; modes and dynamical matrices at each q-point.
+  ! Variables for interpolating VSCHA and VSCF.
   type(ComplexMode),     allocatable :: vscha_modes(:,:)
+  type(ComplexMode),     allocatable :: vscf_modes(:,:)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   type(ComplexMode),     allocatable :: qpoint_modes(:)
   real(dp),              allocatable :: qpoint_frequencies(:)
@@ -218,6 +219,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(PhononDispersion) :: phonon_dispersion
   type(PhononDos)        :: phonon_dos
   
+  ! Corrections for double-counting of energies and stresses.
+  real(dp)         :: energy_correction
+  type(RealMatrix) :: stress_correction
+  
   ! Thermodynamic data.
   type(ThermodynamicData), allocatable :: interpolated_vscha_thermodynamics(:)
   type(ThermodynamicData), allocatable :: vscha1_thermodynamics(:,:)
@@ -225,40 +230,40 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: interpolated_vscf_thermodynamics(:)
   
-  !! Interpolated thermodynamics.
-  !type(PhononDispersion)           :: interpolated_dispersion
-  !type(PhononDos)                  :: interpolated_dos
-  !type(InterpolatedThermodynamics) :: interpolated_thermodynamics
-  
   type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
   
-  type(String) :: thermodynamic_header
+  ! Input files.
+  type(IFile) :: anharmonic_data_file
+  type(IFile) :: potential_file
+  type(IFile) :: stress_file
   
-  ! Files and directories.
-  type(IFile)  :: anharmonic_data_file
-  type(IFile)  :: potential_file
-  type(IFile)  :: stress_file
-  type(String) :: output_dir
-  type(OFile)  :: logfile
-  type(OFile)  :: vscha_convergence_file
-  type(OFile)  :: vscf_convergence_file
-  type(String) :: temperature_dir
-  type(OFile)  :: temperature_file
-  type(OFile)  :: dispersion_file
-  type(OFile)  :: symmetry_points_file
-  type(OFile)  :: sampled_qpoints_file
-  type(String) :: subspace_dir
-  type(OFile)  :: vscha_castep_phonon_file
-  type(OFile)  :: vscha_qe_force_constants_file
-  type(OFile)  :: wavefunctions_file
-  type(OFile)  :: vscha1_thermodynamic_file
-  type(OFile)  :: vscha2_thermodynamic_file
-  type(OFile)  :: vscf_thermodynamic_file
-  type(OFile)  :: interpolated_vscha_thermodynamic_file
-  type(OFile)  :: interpolated_vscf_thermodynamic_file
-  type(OFile)  :: pdos_file
-  type(String) :: interpolated_output_dir
-  type(String) :: interpolated_temperature_dir
+  ! Output directories.
+  type(String) :: observables_dir
+  type(String) :: vscha_dir
+  type(String) :: vscha_temperature_dir
+  type(String) :: vscf_dir
+  type(String) :: vscf_temperature_dir
+  
+  ! Output files.
+  type(OFile) :: vscha_logfile
+  type(OFile) :: vscf_logfile
+  type(OFile) :: temperature_file
+  type(OFile) :: convergence_file
+  
+  ! Effective harmonic output files.
+  type(OFile) :: castep_phonon_file
+  type(OFile) :: qe_force_constants_file
+  
+  ! Thermodynamic data output files.
+  type(OFile) :: vscha1_thermodynamic_file
+  type(OFile) :: vscha2_thermodynamic_file
+  type(OFile) :: vscf_thermodynamic_file
+  type(OFile) :: interpolated_vscha_thermodynamic_file
+  type(OFile) :: interpolated_vscf_thermodynamic_file
+  
+  ! Working variables.
+  type(String) :: thermodynamic_header
+  logical      :: can_be_interpolated
   
   ! Temporary variables.
   integer :: i,j,k,ialloc
@@ -322,16 +327,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call quit()
   endif
   
-  ! Construct convergence data.
-  convergence_data = ConvergenceData( pre_pulay_iterations,     &
-                                    & pre_pulay_damping,        &
-                                    & max_pulay_iterations,     &
-                                    & iterative_mixing,         &
-                                    & iterative_damping,        &
-                                    & pulay_noise,              &
-                                    & energy_convergence,       &
-                                    & no_converged_calculations )
-  
   ! Read in setup_harmonic settings.
   setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
@@ -366,11 +361,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   
   ! --------------------------------------------------
-  ! Generate objects which don't depend on the potential:
-  !    - thermal energies from temperature range.
-  !    - minimum image data.
+  ! Generate objects which don't depend on the potential.
   ! --------------------------------------------------
-  
   ! Generate thermal energies.
   ! thermal_energies(1)                    = min_temperature * kB.
   ! thermal_energies(no_temperature_steps) = max_temperature * kB.
@@ -385,25 +377,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                         &   + max_temperature*(i-1) )                  &
                         & / (no_temperature_steps-1.0_dp)
     enddo
-  endif
-  
-  ! Make output directory, write out temperatures, and open logfile.
-  output_dir = 'anharmonic_observables'
-  call mkdir(output_dir)
-  
-  temperature_file = OFile(output_dir//'/temperatures.dat')
-  call temperature_file%print_line('Thermal energies, KbT, (Ha):')
-  call temperature_file%print_lines(thermal_energies)
-  
-  logfile = OFile(output_dir//'/anharmonic_observables_log.dat')
-  
-  if (potential%can_be_interpolated()) then
-    interpolated_output_dir = output_dir//'/interpolated'
-    call mkdir(interpolated_output_dir)
-    
-    temperature_file = OFile(interpolated_output_dir//'/temperatures.dat')
-    call temperature_file%print_line('Thermal energies, KbT, (Ha):')
-    call temperature_file%print_lines(thermal_energies)
   endif
   
   ! Construct minimum image data.
@@ -429,6 +402,41 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
      &          min_frequency,                                    &
      &          energy_convergence                             ]) )]
   
+  ! Construct convergence data.
+  convergence_data = ConvergenceData( pre_pulay_iterations,     &
+                                    & pre_pulay_damping,        &
+                                    & max_pulay_iterations,     &
+                                    & iterative_mixing,         &
+                                    & iterative_damping,        &
+                                    & pulay_noise,              &
+                                    & energy_convergence,       &
+                                    & no_converged_calculations )
+  
+  ! --------------------------------------------------
+  ! Generate directories.
+  ! --------------------------------------------------
+  ! Make anharmonic_observables directory, and VSCHA and VSCF subdirectories.
+  observables_dir = 'anharmonic_observables'
+  call mkdir(observables_dir)
+  
+  vscha_dir = observables_dir//'/vscha'
+  call mkdir(vscha_dir)
+  vscha_logfile = OFile(vscha_dir//'/logfile.dat')
+  
+  vscf_dir = observables_dir//'/vscf'
+  call mkdir(vscf_dir)
+  vscf_logfile = OFile(vscf_dir//'/logfile.dat')
+      
+  
+  ! Write temperature file in the VSCHA and VSCF directories.
+  temperature_file = OFile(vscha_dir//'/temperatures.dat')
+  call temperature_file%print_line('Thermal energies, KbT, (Ha):')
+  call temperature_file%print_lines(thermal_energies)
+  
+  temperature_file = OFile(vscf_dir//'/temperatures.dat')
+  call temperature_file%print_line('Thermal energies, KbT, (Ha):')
+  call temperature_file%print_lines(thermal_energies)
+  
   ! --------------------------------------------------
   ! Run calculations at each temperature.
   ! --------------------------------------------------
@@ -438,6 +446,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
           & vscha_modes( anharmonic_data%structure%no_modes,           &
           &              size(qpoints)                       ),        &
           & dynamical_matrices(size(qpoints)),                         &
+          & vscf_modes( anharmonic_data%structure%no_modes,            &
+          &             size(qpoints)                       ),         &
           & vscf_thermodynamics( size(subspaces),                      &
           &                      size(thermal_energies) ),             &
           & vscha1_thermodynamics( size(subspaces),                    &
@@ -454,14 +464,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
        & ': KT = '//thermal_energies(i)//' Ha')
     call print_line(repeat('=',50))
     
-    ! Make temperature directory.
-    temperature_dir = output_dir//'/temperature_'// &
-       & left_pad(i,str(size(thermal_energies)))
-    call mkdir(temperature_dir)
-    
     ! --------------------------------------------------
     ! Run VSCF using VSCHA basis.
     ! --------------------------------------------------
+    
+    ! Make VSCHA temperature directory.
+    vscha_temperature_dir = vscha_dir//'/temperature_'// &
+       & left_pad(i,str(size(thermal_energies)))
+    call mkdir(vscha_temperature_dir)
     
     if (i==1) then
       vscha_basis = HarmonicBasis( subspaces%id,         &
@@ -478,18 +488,19 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     !    so starting_configuration will not be present() inside run_vscf.
     ! For later runs, starting_configuration will be the output of the
     !    previous run.
-    vscha_convergence_file = OFile(temperature_dir//'/VSCHA_convergence.dat')
-    vscha_output = run_vscf( potential,                                      &
-                           & stress,                                         &
-                           & subspaces,                                      &
-                           & vscha_basis,                                    &
-                           & thermal_energies(i),                            &
-                           & starting_frequencies,                           &
-                           & convergence_data,                               &
-                           & anharmonic_data,                                &
-                           & random_generator,                               &
-                           & starting_configuration = vscha_output,          &
-                           & convergence_file       = vscha_convergence_file )
+    convergence_file = OFile( vscha_temperature_dir// &
+                            & '/convergence.dat'      )
+    vscha_output = run_vscf( potential,                                &
+                           & stress,                                   &
+                           & subspaces,                                &
+                           & vscha_basis,                              &
+                           & thermal_energies(i),                      &
+                           & starting_frequencies,                     &
+                           & convergence_data,                         &
+                           & anharmonic_data,                          &
+                           & random_generator,                         &
+                           & starting_configuration = vscha_output,    &
+                           & convergence_file       = convergence_file )
     vscha_potentials = [(vscha_output(j)%potential, j=1, size(vscha_output))]
     vscha_states = [( HarmonicStates(vscha_output(i)%states), &
                     & i=1,                                    &
@@ -500,10 +511,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     endif
     call print_line('')
     
-    ! --------------------------------------------------
     ! Calculate thermodynamic quantities with VSCHA basis.
-    ! --------------------------------------------------
-    
     call print_line('Calculating thermodynamic observables under VSCHA.')
     do j=1,size(subspaces)
       if (calculate_stress) then
@@ -534,8 +542,112 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     enddo
     
     ! --------------------------------------------------
+    ! Calculated interpolated VSCHA results.
+    ! --------------------------------------------------
+    
+    call print_line('Interpolating VSCHA results.')
+    
+    ! Assemble the dynamical matrices at each q-point from the complex modes
+    !    and the effective frequencies.
+    do j=1,size(qpoints)
+      qpoint_modes = modes(filter(modes%qpoint_id==qpoints(j)%id))
+      qpoint_frequencies = [(                                      &
+         & vscha_frequencies(                                      &
+         &    first(subspaces%id==qpoint_modes(k)%subspace_id),    &
+         &    i                                                 ), &
+         & k=1,                                                    &
+         & size(qpoint_modes)                                      )]
+      if (size(qpoint_modes)==anharmonic_data%structure%no_modes) then
+        vscha_modes(:,j) = qpoint_modes
+        vscha_modes(:,j)%frequency = qpoint_frequencies
+      else
+        vscha_modes(:3,j) = generate_translational_modes( &
+                             & anharmonic_data%structure, &
+                             & qpoints                    )
+        vscha_modes(4:,j) = qpoint_modes
+        vscha_modes(4:,j)%frequency = qpoint_frequencies
+      endif
+      dynamical_matrices(j) = DynamicalMatrix(qpoint_modes,qpoint_frequencies)
+    enddo
+    
+    ! Construct Hessian from dynamical matrices.
+    hessian = reconstruct_hessian( supercell,          &
+                                 & qpoints,            &
+                                 & dynamical_matrices, &
+                                 & vscha_logfile       )
+    
+    ! Write out Castep .phonon file and QE .fc file for the VSCHA modes.
+    castep_phonon_file = OFile( vscha_temperature_dir                 &
+                      & //'/'// make_castep_phonon_filename(seedname) )
+    call write_castep_phonon_file( castep_phonon_file,       &
+                                 & vscha_modes,              &
+                                 & qpoints,                  &
+                                 & anharmonic_data%structure )
+    
+    qe_force_constants_file = OFile(                        &
+       &         vscha_temperature_dir                      &
+       & //'/'// make_qe_force_constants_filename(seedname) )
+    call write_qe_force_constants_file( qe_force_constants_file,   &
+                                      & hessian,                   &
+                                      & anharmonic_data%structure, &
+                                      & supercell                  )
+      
+    ! Calculate stress.
+    if (calculate_stress) then
+      stress_dynamical_matrices = stress%calculate_dynamical_matrices( &
+                                                & qpoints,             &
+                                                & thermal_energies(i), &
+                                                & subspaces,           &
+                                                & vscha_basis,         &
+                                                & vscha_states,        &
+                                                & anharmonic_data      )
+      
+      stress_hessian = reconstruct_stress_hessian( &
+                      & supercell,                 &
+                      & qpoints,                   &
+                      & stress_dynamical_matrices, &
+                      & vscha_logfile              )
+    endif
+    
+    ! Generate self-consistent phonon dispersion curve by interpolating between
+    !    calculated q-points using Fourier interpolation.
+    phonon_dispersion = PhononDispersion( supercell      = supercell,      &
+                                        & min_images     = min_images,     &
+                                        & hessian        = hessian,        &
+                                        & stress_hessian = stress_hessian, &
+                                        & path_string    = path,           &
+                                        & no_path_points = no_path_points, &
+                                        & logfile        = vscha_logfile   )
+    call phonon_dispersion%write_files( vscha_temperature_dir,    &
+                                      & seedname,                 &
+                                      & anharmonic_data%structure )
+    
+    ! Generate self-consistent phonon density of states,
+    !    interpolating as above.
+    ! Re-seed the random generator each time, so that the results at different
+    !    temperatures can be compared free from random noise.
+    random_generator = RandomReal(random_generator_seed)
+    phonon_dos = PhononDos( supercell        = supercell,             &
+                          & min_images       = min_images,            &
+                          & hessian          = hessian,               &
+                          & stress_hessian   = stress_hessian,        &
+                          & thermal_energies = [thermal_energies(i)], &
+                          & min_frequency    = min_frequency,         &
+                          & no_dos_samples   = no_dos_samples,        &
+                          & logfile          = vscha_logfile,         &
+                          & random_generator = random_generator       )
+    call phonon_dos%write_files(vscha_temperature_dir)
+    
+    interpolated_vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
+    
+    ! --------------------------------------------------
     ! Run VSCF using VCI basis.
     ! --------------------------------------------------
+    
+    ! Make VSCF temperature directory.
+    vscf_temperature_dir = vscf_dir//'/temperature_'// &
+       & left_pad(i,str(size(thermal_energies)))
+    call mkdir(vscf_temperature_dir)
     
     ! Generate basis of states.
     call print_line('Generating basis for VSCF.')
@@ -580,18 +692,18 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! For later runs, starting_configuration will be the output of the
     !    previous run.
     call print_line('Running VSCF.')
-    vscf_convergence_file = OFile(temperature_dir//'/VSCF_convergence.dat')
-    vscf_output = run_vscf( potential,                                     &
-                          & stress,                                        &
-                          & subspaces,                                     &
-                          & vscf_basis,                                    &
-                          & thermal_energies(i),                           &
-                          & vscha_frequencies(:,i),                        &
-                          & convergence_data,                              &
-                          & anharmonic_data,                               &
-                          & random_generator,                              &
-                          & starting_configuration = vscf_output,          &
-                          & convergence_file       = vscf_convergence_file )
+    convergence_file = OFile(vscf_temperature_dir//'/convergence.dat')
+    vscf_output = run_vscf( potential,                                &
+                          & stress,                                   &
+                          & subspaces,                                &
+                          & vscf_basis,                               &
+                          & thermal_energies(i),                      &
+                          & vscha_frequencies(:,i),                   &
+                          & convergence_data,                         &
+                          & anharmonic_data,                          &
+                          & random_generator,                         &
+                          & starting_configuration = vscf_output,     &
+                          & convergence_file       = convergence_file )
     
     vscf_potentials = [(vscf_output(j)%potential, j=1, size(vscf_output))]
     vscf_states = [(vscf_output(j)%states, j=1, size(vscf_output))]
@@ -600,10 +712,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     endif
     call print_line('')
     
-    ! --------------------------------------------------
     ! Calculate thermodynamic quantities with VCI basis.
-    ! --------------------------------------------------
-    
     call print_line('Calculating thermodynamic observables under VSCF.')
     if (calculate_stress) then
       vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data( &
@@ -625,134 +734,17 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                              & / supercell%sc_size
     endif
     
-    !! Print VSCF spectra and wavefunction information.
-    !subspace_wavefunctions = SubspaceWavefunctionsPointer( &
-    !         & vscf_basis%wavefunctions( vscf_states,      &
-    !         &                           subspaces,        &
-    !         &                           anharmonic_data ) )
-    !do j=1,size(subspaces)
-    !  subspace_dir = temperature_dir//'/subspace_'// &
-    !     & left_pad(subspaces(j)%id, str(maxval(subspaces%id)))
-    !  call mkdir(subspace_dir)
-    !  
-    !  wavefunctions_file = OFile(subspace_dir//'/vscf_wavefunctions.dat')
-    !  call wavefunctions_file%print_lines(subspace_wavefunctions(j))
-    !enddo
-    
-    ! --------------------------------------------------
-    ! Calculated interpolated VSCHA results.
-    ! --------------------------------------------------
-    
-    call print_line('Interpolating VSCHA results.')
-    
-    ! Assemble the dynamical matrices at each q-point from the complex modes
-    !    and the effective frequencies.
-    do j=1,size(qpoints)
-      qpoint_modes = modes(filter(modes%qpoint_id==qpoints(j)%id))
-      qpoint_frequencies = [(                                      &
-         & vscha_frequencies(                                      &
-         &    first(subspaces%id==qpoint_modes(k)%subspace_id),    &
-         &    i                                                 ), &
-         & k=1,                                                    &
-         & size(qpoint_modes)                                      )]
-      if (size(qpoint_modes)==anharmonic_data%structure%no_modes) then
-        vscha_modes(:,j) = qpoint_modes
-        vscha_modes(:,j)%frequency = qpoint_frequencies
-      else
-        vscha_modes(:3,j) = generate_translational_modes( &
-                             & anharmonic_data%structure, &
-                             & qpoints                    )
-        vscha_modes(4:,j) = qpoint_modes
-        vscha_modes(4:,j)%frequency = qpoint_frequencies
-      endif
-      dynamical_matrices(j) = DynamicalMatrix(qpoint_modes,qpoint_frequencies)
-    enddo
-    
-    ! Construct Hessian from dynamical matrices.
-    hessian = reconstruct_hessian( supercell,          &
-                                 & qpoints,            &
-                                 & dynamical_matrices, &
-                                 & logfile             )
-    
-    ! Write out Castep .phonon file and QE .fc file for the VSCHA modes.
-    vscha_castep_phonon_file = OFile(                                &
-       & temperature_dir//'/'//make_castep_phonon_filename(seedname) )
-    call write_castep_phonon_file( vscha_castep_phonon_file, &
-                                 & vscha_modes,              &
-                                 & qpoints,                  &
-                                 & anharmonic_data%structure )
-    
-    vscha_qe_force_constants_file = OFile(                                &
-       & temperature_dir//'/'//make_qe_force_constants_filename(seedname) )
-    call write_qe_force_constants_file( vscha_qe_force_constants_file, &
-                                      & hessian,                       &
-                                      & anharmonic_data%structure,     &
-                                      & supercell                      )
-      
-    ! Calculate stress.
-    if (calculate_stress) then
-      stress_dynamical_matrices = stress%calculate_dynamical_matrices( &
-                                                & qpoints,             &
-                                                & thermal_energies(i), &
-                                                & subspaces,           &
-                                                & vscha_basis,         &
-                                                & vscha_states,        &
-                                                & anharmonic_data      )
-      
-      stress_hessian = reconstruct_stress_hessian( &
-                      & supercell,                 &
-                      & qpoints,                   &
-                      & stress_dynamical_matrices, &
-                      & logfile                    )
-    endif
-    
-    ! Generate self-consistent phonon dispersion curve by interpolating between
-    !    calculated q-points using Fourier interpolation.
-    phonon_dispersion = PhononDispersion( supercell      = supercell,      &
-                                        & min_images     = min_images,     &
-                                        & hessian        = hessian,        &
-                                        & stress_hessian = stress_hessian, &
-                                        & path_string    = path,           &
-                                        & no_path_points = no_path_points, &
-                                        & logfile        = logfile         )
-    
-    ! Write out dispersion at this temperature.
-    symmetry_points_file = OFile(temperature_dir//'/high_symmetry_points.dat')
-    call symmetry_points_file%print_lines(phonon_dispersion%path())
-    
-    dispersion_file = OFile(temperature_dir//'/phonon_dispersion_curve.dat')
-    call dispersion_file%print_lines(phonon_dispersion%frequencies())
-    
-    ! Generate self-consistent phonon density of states,
-    !    interpolating as above.
-    ! Re-seed the random generator each time, so that the results at different
-    !    temperatures can be compared free from random noise.
-    random_generator = RandomReal(random_generator_seed)
-    phonon_dos = PhononDos( supercell        = supercell,             &
-                          & min_images       = min_images,            &
-                          & hessian          = hessian,               &
-                          & stress_hessian   = stress_hessian,        &
-                          & thermal_energies = [thermal_energies(i)], &
-                          & min_frequency    = min_frequency,         &
-                          & no_dos_samples   = no_dos_samples,        &
-                          & logfile          = logfile,               &
-                          & random_generator = random_generator       )
-    
-    ! Write out dos at this temperature.
-    sampled_qpoints_file = OFile(temperature_dir//'/sampled_qpoints.dat')
-    call sampled_qpoints_file%print_line('q-point (x,y,z) | &
-                                         &number of frequencies ignored')
-    call sampled_qpoints_file%print_lines(phonon_dos%qpoints)
-    
-    pdos_file = OFile(temperature_dir//'/phonon_density_of_states.dat')
-    call pdos_file%print_lines(phonon_dos%pdos)
-    
-    interpolated_vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
-    
     ! --------------------------------------------------
     ! Calculated interpolated VSCF results.
     ! --------------------------------------------------
-    if (potential%can_be_interpolated()) then
+    if (.not. calculate_stress) then
+      can_be_interpolated = potential%can_be_interpolated()
+    else
+      can_be_interpolated = potential%can_be_interpolated() &
+                    & .and. stress%can_be_interpolated()
+    endif
+    
+    if (can_be_interpolated) then
       call print_line('Interpolating VSCF results.')
       dynamical_matrices = potential%calculate_dynamical_matrices( &
                                             & qpoints,             &
@@ -762,12 +754,35 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                             & vscf_states,         &
                                             & anharmonic_data      )
       
+      ! Construct effective modes from dynamical matrices.
+      do j=1,size(qpoints)
+        vscf_modes(:,j) = ComplexMode(                &
+           & dynamical_matrices(j),                   &
+           & anharmonic_data%structure,               &
+           & modes_real=qpoints(j)%is_paired_qpoint() )
+      enddo
+      
       ! Construct Hessian from dynamical matrices.
       hessian = reconstruct_hessian( supercell,          &
                                    & qpoints,            &
                                    & dynamical_matrices, &
-                                   & logfile             )
+                                   & vscf_logfile        )
       
+      ! Write out Castep .phonon file and QE .fc file for the VSCHA modes.
+      castep_phonon_file = OFile( vscf_temperature_dir                 &
+                        & //'/'// make_castep_phonon_filename(seedname) )
+      call write_castep_phonon_file( castep_phonon_file,       &
+                                   & vscf_modes,               &
+                                   & qpoints,                  &
+                                   & anharmonic_data%structure )
+      
+      qe_force_constants_file = OFile(                        &
+         &         vscf_temperature_dir                       &
+         & //'/'// make_qe_force_constants_filename(seedname) )
+      call write_qe_force_constants_file( qe_force_constants_file,   &
+                                        & hessian,                   &
+                                        & anharmonic_data%structure, &
+                                        & supercell                  )
       
       if (calculate_stress) then
         stress_dynamical_matrices = stress%calculate_dynamical_matrices( &
@@ -781,7 +796,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                         & supercell,                 &
                         & qpoints,                   &
                         & stress_dynamical_matrices, &
-                        & logfile                    )
+                        & vscf_logfile               )
       endif
       
       ! Generate self-consistent phonon dispersion curve by interpolating
@@ -792,7 +807,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                           & stress_hessian = stress_hessian, &
                                           & path_string    = path,           &
                                           & no_path_points = no_path_points, &
-                                          & logfile        = logfile         )
+                                          & logfile        = vscf_logfile    )
+      call phonon_dispersion%write_files( vscf_temperature_dir,     &
+                                        & seedname,                 &
+                                        & anharmonic_data%structure )
       
       ! Generate self-consistent phonon density of states,
       !    interpolating as above.
@@ -806,34 +824,38 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                             & thermal_energies = [thermal_energies(i)], &
                             & min_frequency    = min_frequency,         &
                             & no_dos_samples   = no_dos_samples,        &
-                            & logfile          = logfile,               &
+                            & logfile          = vscf_logfile,          &
                             & random_generator = random_generator       )
-      
-      ! Write out dos and dispersion at this temperature.
-      interpolated_temperature_dir = output_dir//'/interpolated/&
-         &temperature_'//left_pad(i,str(size(thermal_energies)))
-      call mkdir(interpolated_temperature_dir)
-      
-      symmetry_points_file = OFile( interpolated_temperature_dir// &
-                                  & '/high_symmetry_points.dat'    )
-      call symmetry_points_file%print_lines(phonon_dispersion%path())
-      
-      dispersion_file = OFile( interpolated_temperature_dir// &
-                             & '/phonon_dispersion_curve.dat' )
-      call dispersion_file%print_lines(phonon_dispersion%frequencies())
-      
-      sampled_qpoints_file = OFile( interpolated_temperature_dir// &
-                                  & '/sampled_qpoints.dat'        )
-      call sampled_qpoints_file%print_line('q-point (x,y,z) | &
-                                           &number of frequencies ignored')
-      call sampled_qpoints_file%print_lines(phonon_dos%qpoints)
-      
-      pdos_file = OFile( interpolated_temperature_dir//  &
-                       & '/phonon_density_of_states.dat' )
-      call pdos_file%print_lines(phonon_dos%pdos)
+      call phonon_dos%write_files(vscf_temperature_dir)
       
       ! Record thermodynamic data.
       interpolated_vscf_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
+      
+      energy_correction = potential%energy_correction( subspaces,           &
+                                                     & vscf_basis,          &
+                                                     & vscf_states,         &
+                                                     & thermal_energies(i), &
+                                                     & anharmonic_data      )
+      call interpolated_vscf_thermodynamics(i)%add_energy(                &
+         & energy_correction/anharmonic_data%anharmonic_supercell%sc_size )
+      
+      if (calculate_stress) then
+        stress_correction = stress%stress_correction( subspaces,           &
+                                                    & vscf_basis,          &
+                                                    & vscf_states,         &
+                                                    & thermal_energies(i), &
+                                                    & anharmonic_data      )
+        call interpolated_vscf_thermodynamics(i)%add_stress(                &
+           & stress_correction/anharmonic_data%anharmonic_supercell%sc_size )
+      endif
+    else
+      if (.not. potential%can_be_interpolated()) then
+        call print_line('Skipping VSCF interpolation as the chosen potential &
+           &representation cannot be interpolated.')
+      else
+        call print_line('Skipping VSCF interpolation as the chosen stress &
+           &representation cannot be interpolated.')
+      endif
     endif
   enddo
   
@@ -855,8 +877,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   
   ! VSCHA without Fourier interpolation.
-  vscha1_thermodynamic_file = OFile(                    &
-     & output_dir//'/vscha_thermodynamic_variables.dat' )
+  vscha1_thermodynamic_file = OFile(                         &
+     & observables_dir//'/vscha_thermodynamic_variables.dat' )
   call vscha1_thermodynamic_file%print_line(thermodynamic_header)
   do i=1,size(thermal_energies)
     call vscha1_thermodynamic_file%print_line(sum(vscha1_thermodynamics(:,i)))
@@ -864,31 +886,31 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   
   ! VSCHA without Fourier interpolation, but with <V> taken using the VSCF
   !    potential rather than the effective harmonic potential.
-  vscha2_thermodynamic_file = OFile(                         &
-     & output_dir//'/vscha_vscf_thermodynamic_variables.dat' )
+  vscha2_thermodynamic_file = OFile(                              &
+     & observables_dir//'/vscha_vscf_thermodynamic_variables.dat' )
   call vscha2_thermodynamic_file%print_line(thermodynamic_header)
   do i=1,size(thermal_energies)
     call vscha2_thermodynamic_file%print_line(sum(vscha2_thermodynamics(:,i)))
   enddo
   
   ! VSCF without Fourier interpolation.
-  vscf_thermodynamic_file = OFile(                     &
-     & output_dir//'/vscf_thermodynamic_variables.dat' )
+  vscf_thermodynamic_file = OFile(                          &
+     & observables_dir//'/vscf_thermodynamic_variables.dat' )
   call vscf_thermodynamic_file%print_line(thermodynamic_header)
   do i=1,size(thermal_energies)
     call vscf_thermodynamic_file%print_line(sum(vscf_thermodynamics(:,i)))
   enddo
   
   ! VSCHA with Fourier interpolation.
-  interpolated_vscha_thermodynamic_file = OFile(                     &
-     & output_dir//'/interpolated_vscha_thermodynamic_variables.dat' )
+  interpolated_vscha_thermodynamic_file = OFile(                          &
+     & observables_dir//'/interpolated_vscha_thermodynamic_variables.dat' )
   call interpolated_vscha_thermodynamic_file%print_line(thermodynamic_header)
   call interpolated_vscha_thermodynamic_file%print_lines( &
                       & interpolated_vscha_thermodynamics )
   
   ! VSCF with Fourier interpolation.
-  interpolated_vscf_thermodynamic_file = OFile(                     &
-     & output_dir//'/interpolated_vscf_thermodynamic_variables.dat' )
+  interpolated_vscf_thermodynamic_file = OFile(                          &
+     & observables_dir//'/interpolated_vscf_thermodynamic_variables.dat' )
   call interpolated_vscf_thermodynamic_file%print_line(thermodynamic_header)
   call interpolated_vscf_thermodynamic_file%print_lines( &
                       & interpolated_vscf_thermodynamics )

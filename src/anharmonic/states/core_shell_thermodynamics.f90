@@ -167,27 +167,6 @@ function core_shell_thermodynamics(thermal_energy,frequency,supercell_size, &
      & / thermal_energy
   endif
   
-  ! Check that F in the core effective region is greater than that in the
-  !    whole region.
-  ! N.B. this comparison can be swamped by numerical error if the core
-  !    region covers most of the thermally accessible space, which is checked
-  !    by the first comparison.
-  if (pc<0.99_dp) then
-    if (full_effective%energy < core_effective%energy) then
-      call print_line(ERROR//': Harmonic U outside of core region is less &
-         &than that within this region. Please increase the number of &
-         &states.')
-      call print_line('V')
-      call print_lines(potential)
-      call print_line('FH: '//full_harmonic%energy)
-      call print_line('CH: '//core_harmonic%energy)
-      call print_line('FE: '//full_effective%energy)
-      call print_line('CE: '//core_effective%energy)
-      call print_line('T : '//thermal_energy)
-      call err()
-    endif
-  endif
-  
   ! Calculate the thermodynamics of the shell basis under the effective
   !    harmonic treatment.
   ! U = PcUc + PsUs
@@ -197,19 +176,53 @@ function core_shell_thermodynamics(thermal_energy,frequency,supercell_size, &
   ! Us = U +  (U-Uc)Pc                          / Ps
   ! Fs = F + ((F-Fc)Pc -T(Pc*ln(Pc)+Ps*ln(Ps))) / Ps
   ! Ss = S + ((S-Sc)Pc + (Pc*ln(Pc)+Ps*ln(Ps))) / Ps
+  !
+  ! N.B. the effective entropies are the same as the corresponding
+  !    harmonic entropies.
   energy = full_effective%energy &
        & + (full_effective%energy-core_effective%energy)*pc/ps
   
-  free_energy = full_effective%free_energy                                  &
-            & + ( (full_effective%free_energy-core_effective%free_energy)   &
-            &   * pc                                                        &
-            &   - thermal_energy*(pc*log(pc)+ps*log(ps))                  ) &
-            & / ps
-  
-  entropy = full_effective%entropy                                 &
-        & + ( (full_effective%entropy-core_effective%entropy)*pc   &
-        &   + pc*log(pc)+ps*log(ps)                              ) &
+  entropy = full_harmonic%entropy                                &
+        & + ( (full_harmonic%entropy-core_harmonic%entropy)*pc   &
+        &   + pc*log(pc)+ps*log(ps)                            ) &
         & / ps
+  
+  free_energy = energy - thermal_energy*entropy
+  
+  !! Check that F in the core effective region is greater than that in the
+  !!    whole region.
+  !! N.B. this comparison can be swamped by numerical error if the core
+  !!    region covers most of the thermally accessible space, which is checked
+  !!    by the first comparison.
+  !if (pc<0.99_dp) then
+  !  if (full_effective%energy < core_effective%energy) then
+  !    call print_line(ERROR//': Harmonic U outside of core region is less &
+  !       &than that within this region. Please increase the number of &
+  !       &states.')
+  !    call print_line('Potential V:')
+  !    call print_lines(potential)
+  !    call print_line('')
+  !    call print_line('Full Harmonic  U: '//full_harmonic%energy)
+  !    call print_line('Core Harmonic  U: '//core_harmonic%energy)
+  !    call print_line('Full Effective U: '//full_effective%energy)
+  !    call print_line('Core Effective U: '//core_effective%energy)
+  !    call print_line('Core VCI       U: '//core_vci%energy)
+  !    call print_line('Temperature    T: '//thermal_energy)
+  !    call print_line('Frequency      w: '//frequency)
+  !    call err()
+  !  endif
+  !endif
+  !
+  !free_energy = full_effective%free_energy                                  &
+  !          & + ( (full_effective%free_energy-core_effective%free_energy)   &
+  !          &   * pc                                                        &
+  !          &   - thermal_energy*(pc*log(pc)+ps*log(ps))                  ) &
+  !          & / ps
+  !
+  !entropy = full_effective%entropy                                 &
+  !      & + ( (full_effective%entropy-core_effective%entropy)*pc   &
+  !      &   + pc*log(pc)+ps*log(ps)                              ) &
+  !      & / ps
   
   if (present(stress)) then
     stress_tensor = full_effective%stress &

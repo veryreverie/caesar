@@ -119,7 +119,15 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
     !    which the symmetry transfoms mode i to.
     qpoint = qpoints(first(qpoints%id==mode%qpoint_id))
     transformed_qpoint = symmetry*qpoint
-    transformed_qpoint = qpoints(first(qpoints==transformed_qpoint))
+    j = first(qpoints==transformed_qpoint, default=0)
+    if (j/=0) then
+      transformed_qpoint = qpoints(j)
+    else
+      call print_line(ERROR//': Unable to find symmetry-transformed q-point. &
+         &This may be caused by the q-point grid not obeying the symmetry &
+         &of the system.')
+      call err()
+    endif
     
     ! Identify the subspace to which mode i belongs, and its position in
     !    the array subspaces.

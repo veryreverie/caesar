@@ -27,7 +27,7 @@ def main():
     'grey'     :[179/255,179/255,179/255]}
   colours_list = list(colours.values())
   
-  file_name = 'VSCF_convergence.dat'
+  file_name = 'convergence.dat'
   lines = [line.rstrip('\n').split() for line in open(file_name)]
   xs = []
   ys = []

@@ -92,10 +92,16 @@ def main():
           data[-1]['enthalpies'].append(float(line[14]))
           data[-1]['gibbs free energies'].append(float(line[15]))
   # Plot everything.
-  fig, ax_grid = plt.subplots(4,
-                              1,
-                              sharex=True,
-                              gridspec_kw={'height_ratios':[3,3,3,1]})
+  if calculating_stress:
+    fig, ax_grid = plt.subplots(4,
+                                1,
+                                sharex=True,
+                                gridspec_kw={'height_ratios':[3,3,3,1]})
+  else:
+    fig, ax_grid = plt.subplots(3,
+                                1,
+                                sharex=True,
+                                gridspec_kw={'height_ratios':[3,3,1]})
   
   axes = {'energy' : {'l':ax_grid[0],
                       'b':ax_grid[0],
@@ -105,11 +111,12 @@ def main():
                       'b':ax_grid[1],
                       'r':ax_grid[1].twinx(),
                       't':ax_grid[1].twiny()},
-          'stress' : {'l':ax_grid[2],
+          'legend' :  ax_grid[-1]}
+  if calculating_stress:
+    axes['stress'] = {'l':ax_grid[2],
                       'b':ax_grid[2],
                       'r':ax_grid[2].twinx(),
-                      't':ax_grid[2].twiny()},
-          'legend' :  ax_grid[3]}
+                      't':ax_grid[2].twiny()}
   
   xmin_hartree = None
   xmax_hartree = None

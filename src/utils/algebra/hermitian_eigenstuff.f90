@@ -131,7 +131,7 @@ function diagonalise_symmetric_reals(input,basis) result(output)
             & lwork = -1,   &
             & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: dsyev error code: '//info)
+    call print_line(ERROR//' in diagonalisation: dsyev error code: '//info)
     call err()
   endif
   lwork = nint(work(1))
@@ -149,7 +149,7 @@ function diagonalise_symmetric_reals(input,basis) result(output)
             & lwork = lwork, &
             & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: dsyev error code: '//info)
+    call print_line(ERROR//' in diagonalisation: dsyev error code: '//info)
     call err()
   endif
   
@@ -246,7 +246,7 @@ function diagonalise_hermitian_complexes(input,basis) result(output)
             & rwork = rwork, &
             & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: zheev error code: '//info)
+    call print_line(ERROR//' in diagonalisation: zheev error code: '//info)
     call err()
   endif
   lwork = nint(real(work(1)))
@@ -265,7 +265,7 @@ function diagonalise_hermitian_complexes(input,basis) result(output)
             & rwork = rwork, &
             & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in diagonalisation: zheev error code: '//info)
+    call print_line(ERROR//' in diagonalisation: zheev error code: '//info)
     call err()
   endif
   

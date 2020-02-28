@@ -23,8 +23,8 @@ subroutine startup_plot_dos_and_dispersion()
   mode%description = 'Plots the phonon density of states and dispersion &
      &calculated by calculate_harmonic_observables or &
      &calculate_anharmonic_observables. Should be run from within the &
-     &harmonic_observables or anharmonic_observables directory, or from a &
-     &anharmonic_observables/temperature_* directory. The -d flag may be &
+     &harmonic_observables, anharmonic_observables/* or &
+     &anharmonic_observables/*/temperature_* directory. The -d flag may be &
      &useful for this.'
   mode%keywords = [                                                        &
      & KeywordData( 'python_path',                                         &

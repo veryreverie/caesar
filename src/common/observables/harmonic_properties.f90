@@ -74,6 +74,8 @@ module harmonic_properties_module
     procedure, public :: path => path_PhononDispersion
     procedure, public :: frequencies => frequencies_PhononDispersion
     procedure, public :: json => json_PhononDispersion
+    
+    procedure, public :: write_files => write_files_PhononDispersion
   end type
   
   interface PhononDispersion
@@ -85,6 +87,8 @@ module harmonic_properties_module
     type(SampledQpoint),     allocatable :: qpoints(:)
     type(PdosBin),           allocatable :: pdos(:)
     type(ThermodynamicData), allocatable :: thermodynamic_data(:)
+  contains
+    procedure, public :: write_files => write_files_PhononDos
   end type
   
   interface PhononDos
@@ -805,4 +809,47 @@ function new_PdosBin_String(input) result(this)
   
   call this%read(input)
 end function
+
+! ----------------------------------------------------------------------
+! Multiple-file I/O.
+! ----------------------------------------------------------------------
+subroutine write_files_PhononDispersion(this,directory,seedname,structure)
+  implicit none
+  
+  class(PhononDispersion), intent(in) :: this
+  type(String),            intent(in) :: directory
+  type(String),            intent(in) :: seedname
+  type(StructureData),     intent(in) :: structure
+  
+  type(OFile) :: symmetry_points_file
+  type(OFile) :: dispersion_file
+  type(OFile) :: json_file
+  
+  symmetry_points_file = OFile(directory//'/high_symmetry_points.dat')
+  call symmetry_points_file%print_lines(this%path())
+  
+  dispersion_file = OFile(directory//'/phonon_dispersion_curve.dat')
+  call dispersion_file%print_lines(this%frequencies())
+  
+  json_file = OFile(directory//'/'//seedname//'.json')
+  call json_file%print_lines(this%json(seedname,structure))
+end subroutine
+
+subroutine write_files_PhononDos(this,directory)
+  implicit none
+  
+  class(PhononDos), intent(in) :: this
+  type(String),     intent(in) :: directory
+  
+  type(OFile) :: sampled_qpoints_file
+  type(OFile) :: pdos_file
+  
+  sampled_qpoints_file = OFile(directory//'/sampled_qpoints.dat')
+  call sampled_qpoints_file%print_line('q-point (x,y,z) | &
+                                       &number of frequencies ignored')
+  call sampled_qpoints_file%print_lines(this%qpoints)
+  
+  pdos_file = OFile(directory//'/phonon_density_of_states.dat')
+  call pdos_file%print_lines(this%pdos)
+end subroutine
 end module

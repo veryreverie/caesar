@@ -248,6 +248,8 @@ module abstract_classes_module
                        & interpolate_PotentialData
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_PotentialData
+    procedure, public :: energy_correction => &
+                       & energy_correction_PotentialData
   end type
   
   type, extends(PotentialData) :: PotentialPointer
@@ -307,6 +309,8 @@ module abstract_classes_module
                        & interpolate_PotentialPointer
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_PotentialPointer
+    procedure, public :: energy_correction => &
+                       & energy_correction_PotentialPointer
     
     ! I/O.
     procedure, public :: read  => read_PotentialPointer
@@ -370,6 +374,8 @@ module abstract_classes_module
                        & interpolate_StressData
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_StressData
+    procedure, public :: stress_correction => &
+                       & stress_correction_StressData
   end type
   
   type, extends(StressData) :: StressPointer
@@ -410,6 +416,8 @@ module abstract_classes_module
                        & interpolate_StressPointer
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_StressPointer
+    procedure, public :: stress_correction => &
+                       & stress_correction_StressPointer
     
     ! I/O.
     procedure, public :: read  => read_StressPointer
@@ -1863,6 +1871,27 @@ function calculate_dynamical_matrices_PotentialPointer(this,qpoints,          &
                                                        & anharmonic_data      )
 end function
 
+function energy_correction_PotentialPointer(this,subspaces,subspace_bases, &
+   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PotentialPointer),  intent(in)    :: this
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  real(dp)                                :: output
+  
+  call this%check()
+  
+  output = this%potential_%energy_correction( subspaces,       &
+                                            & subspace_bases,  &
+                                            & subspace_states, &
+                                            & thermal_energy,  &
+                                            & anharmonic_data  )
+end function
+
 ! I/O.
 subroutine read_PotentialPointer(this,input)
   implicit none
@@ -2183,6 +2212,27 @@ function calculate_dynamical_matrices_StressPointer(this,qpoints,             &
                                                     & anharmonic_data      )
 end function
 
+function stress_correction_StressPointer(this,subspaces,subspace_bases, &
+   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+  implicit none
+  
+  class(StressPointer),     intent(in)    :: this
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(RealMatrix)                        :: output
+  
+  call this%check()
+  
+  output = this%stress_%stress_correction( subspaces,       &
+                                         & subspace_bases,  &
+                                         & subspace_states, &
+                                         & thermal_energy,  &
+                                         & anharmonic_data  )
+end function
+
 ! I/O.
 subroutine read_StressPointer(this,input)
   implicit none
@@ -2395,6 +2445,24 @@ function calculate_dynamical_matrices_PotentialData(this,qpoints,             &
   call err()
 end function
 
+function energy_correction_PotentialData(this,subspaces,subspace_bases, &
+   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+  implicit none
+  
+  class(PotentialData),     intent(in)    :: this
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  real(dp)                                :: output
+  
+  ! This should be gated behind can_be_interpolated.
+  call print_line(CODE_ERROR//': energy_correction not implemented for this &
+     &potential.')
+  call err()
+end function
+
 ! StressData methods.
 function undisplaced_stress(this) result(output)
   implicit none
@@ -2491,6 +2559,24 @@ function calculate_dynamical_matrices_StressData(this,qpoints,                &
   ! This should be gated behind can_be_interpolated.
   call print_line(CODE_ERROR//': calculate_dynamical_matrices not &
      &implemented for this stress.')
+  call err()
+end function
+
+function stress_correction_StressData(this,subspaces,subspace_bases, &
+   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+  implicit none
+  
+  class(StressData),        intent(in)    :: this
+  type(DegenerateSubspace), intent(in)    :: subspaces(:)
+  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+  class(BasisStates),       intent(inout) :: subspace_states(:)
+  real(dp),                 intent(in)    :: thermal_energy
+  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  type(RealMatrix)                        :: output
+  
+  ! This should be gated behind can_be_interpolated.
+  call print_line(CODE_ERROR//': stress_correction not implemented for this &
+     &potential.')
   call err()
 end function
 end module

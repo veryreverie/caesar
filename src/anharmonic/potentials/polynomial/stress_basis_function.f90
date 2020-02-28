@@ -52,9 +52,10 @@ module stress_basis_function_module
     
     procedure, public :: interpolate_coefficients => &
                        & interpolate_coefficients_StressBasisFunction
-    
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_StressBasisFunction
+    procedure, public :: stress_correction => &
+                       & stress_correction_StressBasisFunction
     
     ! I/O.
     procedure, public :: read  => read_StressBasisFunction
@@ -622,6 +623,40 @@ function calculate_dynamical_matrices_StressBasisFunction(this,qpoints, &
   enddo
 end function
 
+! Calculate the correction due to double counting
+!    for the interpolated stress.
+function stress_correction_StressBasisFunction(this,subspaces,      &
+   & subspace_bases,subspace_states,thermal_energy,anharmonic_data) &
+   & result(output) 
+  implicit none
+  
+  class(StressBasisFunction), intent(in)    :: this
+  type(DegenerateSubspace),   intent(in)    :: subspaces(:)
+  class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
+  class(BasisStates),         intent(inout) :: subspace_states(:)
+  real(dp),                   intent(in)    :: thermal_energy
+  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  type(RealMatrix)                          :: output
+  
+  real(dp) :: elements(3,3)
+  
+  integer :: i,j
+  
+  do i=1,3
+    do j=1,3
+      elements(j,i) = calculate_correction( this%elements_(j,i), &
+           &                                subspaces,           &
+           &                                subspace_bases,      &
+           &                                subspace_states,     &
+           &                                thermal_energy,      &
+           &                                anharmonic_data )    &
+           & * this%coefficient_
+    enddo
+  enddo
+  
+  output = mat(elements)
+end function
+
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
@@ -637,6 +672,10 @@ subroutine read_StressBasisFunction(this,input)
   
   type(StringArray), allocatable :: sections(:)
   
+  type(String) :: element
+  
+  character(1), parameter :: directions(3) = ['x', 'y', 'z']
+  
   integer :: i,j,k
   
   select type(this); type is(StressBasisFunction)
@@ -644,8 +683,9 @@ subroutine read_StressBasisFunction(this,input)
     
     sections = split_into_sections(input)
     do k=1,size(sections)
-      i = int(token(sections(k)%strings(1),3))
-      j = int(token(sections(k)%strings(1),5))
+      element = token(sections(k)%strings(1),3)
+      i = first(directions==char(slice(element,1,1)))
+      j = first(directions==char(slice(element,2,2)))
       elements(i,j) = ComplexPolynomial(join( sections(k)%strings(2:), &
                                             & delimiter=' + '          ))
     enddo
