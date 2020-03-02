@@ -585,7 +585,7 @@ function write_SubspaceMonomial(this) result(output)
   
   type(String), allocatable :: subspace_strings(:)
   
-  integer :: i,ialloc
+  integer :: i
   
   select type(this); type is(SubspaceMonomial)
     subspace_strings = [( '(s'//this%ids(i)//'^'//this%powers(i)//')', &

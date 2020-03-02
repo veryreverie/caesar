@@ -76,7 +76,6 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
                               & modes       = univariates     )
     call integrate( monomial,           &
                   & subspace_states(j), &
-                  & thermal_energy,     &
                   & subspaces(j),       &
                   & subspace_bases(j),  &
                   & anharmonic_data     )
@@ -157,7 +156,6 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
         ! This gives <term / u_ku_l*>.
         call integrate( monomial,           &
                       & subspace_states(j), &
-                      & thermal_energy,     &
                       & subspaces(j),       &
                       & subspace_bases(j),  &
                       & anharmonic_data     )
@@ -228,16 +226,14 @@ end function
 !    (n-1)/2 terms if n is odd.
 ! The double counting of a term is (1-x)<term>, where x is the number of terms
 !    where the term appears.
-function calculate_correction_ComplexMonomial(monomial,subspaces,   &
-   & subspace_bases,subspace_states,thermal_energy,anharmonic_data) &
-   & result(output) 
+function calculate_correction_ComplexMonomial(monomial,subspaces, &
+   & subspace_bases,subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(ComplexMonomial),   intent(in)    :: monomial
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
-  real(dp),                 intent(in)    :: thermal_energy
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   real(dp)                                :: output
   
@@ -250,26 +246,23 @@ function calculate_correction_ComplexMonomial(monomial,subspaces,   &
   do i=1,size(subspaces)
     call integrate( term,               &
                   & subspace_states(i), &
-                  & thermal_energy,     &
                   & subspaces(i),       &
                   & subspace_bases(i),  &
                   & anharmonic_data     )
   enddo
   
   ! N.B. this intentionally uses integer floor division.
-  output = term%coefficient * (1-monomial%total_power()/2)
+  output = real(term%coefficient * (1-monomial%total_power()/2))
 end function
 
 function calculate_correction_ComplexPolynomial(polynomial,subspaces, &
-   & subspace_bases,subspace_states,thermal_energy,anharmonic_data)   &
-   & result(output) 
+   & subspace_bases,subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(ComplexPolynomial), intent(in)    :: polynomial
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
-  real(dp),                 intent(in)    :: thermal_energy
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   real(dp)                                :: output
   
@@ -281,7 +274,6 @@ function calculate_correction_ComplexPolynomial(polynomial,subspaces, &
                                           & subspaces,           &
                                           & subspace_bases,      &
                                           & subspace_states,     &
-                                          & thermal_energy,      &
                                           & anharmonic_data      )
   enddo
 end function

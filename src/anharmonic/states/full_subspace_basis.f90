@@ -478,8 +478,6 @@ impure elemental function wavefunctions_FullSubspaceBasis(this,states, &
   type(String), allocatable       :: state_wavefunctions(:)
   type(FullSubspaceWavefunctions) :: wavefunctions
   
-  integer :: ialloc
-  
   full_states => wavevector_states_pointer(states)
   
   ! Construct the wavefunction of |0>.
@@ -508,27 +506,25 @@ end function
 
 ! Integrate a monomial.
 impure elemental function integrate_BasisStates_FullSubspaceBasis(this, &
-   & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
+   & states,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in)         :: this
   class(BasisStates),       intent(in), target :: states
-  real(dp),                 intent(in)         :: thermal_energy
   type(SparseMonomial),     intent(in)         :: monomial
   type(DegenerateSubspace), intent(in)         :: subspace
   type(AnharmonicData),     intent(in)         :: anharmonic_data
   complex(dp)                                  :: output
   
-  type(WavevectorStates), pointer :: full_states
+  integer :: i
   
-  ! Convert the states to type WavevectorStates.
-  full_states => wavevector_states_pointer(states)
-  
-  output = integrate_monomial( this%wavevectors, &
-                             & full_states,      &
-                             & thermal_energy,   &
-                             & monomial,         &
-                             & anharmonic_data   )
+  output = 0
+  do i=1,size(this%wavevectors)
+    output = output + this%wavevectors(i)%integrate( states,         &
+                                                   & monomial,       &
+                                                   & subspace,       &
+                                                   & anharmonic_data )
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

@@ -178,14 +178,8 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   
   ! Monomials, in complex and real representations.
   type(ComplexMonomial), allocatable :: complex_monomials(:)
-  type(RealMonomial),    allocatable :: real_monomials(:)
   
   integer, allocatable :: conjugates(:)
-  
-  ! The conversion from the complex monomial basis to the real monomial basis,
-  !    and vice-versa.
-  type(ComplexMatrix) :: complex_to_real_conversion
-  type(ComplexMatrix) :: real_to_complex_conversion
   
   ! Symmetry data.
   type(ComplexMatrix) :: symmetry
@@ -194,13 +188,8 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   
   ! Polynomial coefficients, in both bases.
   type(SymmetricEigenstuff), allocatable :: estuff(:)
-  real(dp),                  allocatable :: real_coefficients(:)
-  complex(dp),               allocatable :: complex_coefficients(:)
   
   ! Variables for constructing the output.
-  type(RealPolynomial),    allocatable :: real_representations(:)
-  type(ComplexPolynomial), allocatable :: complex_representations(:)
-  
   type(BasisFunction), allocatable :: basis_functions(:)
   integer,             allocatable :: unique_terms(:)
   
@@ -536,21 +525,13 @@ function finalise_BasisFunctions(input,subspace,subspace_basis, &
   
   type(ComplexPolynomial), allocatable :: complex_polynomials(:)
   
-  type(ComplexPolynomial) :: complex_representation
-  
-  type(RealMonomial)    :: no_real_monomials(0)
   type(ComplexMonomial) :: no_complex_monomials(0)
   
-  type(ComplexMonomial) :: conjugate
   integer, allocatable  :: conjugates(:)
-  
-  logical, allocatable :: mode_found(:)
-  
-  complex(dp) :: coefficient
   
   real(dp) :: energy_scale
   
-  integer :: i,j,i2,j2,k,ialloc
+  integer :: i,j,k,ialloc
   
   order = anharmonic_data%potential_expansion_order
   
@@ -626,7 +607,7 @@ function find_monomial_conjugates(input) result(output)
   
   type(ComplexMonomial) :: conjugate
   
-  integer :: i,j,ialloc
+  integer :: i,j
   
   output = [(0, i=1, size(input))]
   conjugate_found = [(.false., i=1, size(input))]
@@ -711,8 +692,8 @@ impure elemental function energy_RealModeDisplacement_BasisFunction(this, &
   class(RealModeDisplacement), intent(in) :: displacement
   real(dp)                                :: output
   
-  output = this%coefficient_ &
-       & * this%complex_representation_%energy(displacement)
+  output = real( this%coefficient_                                 &
+             & * this%complex_representation_%energy(displacement) )
 end function
 
 impure elemental function energy_ComplexModeDisplacement_BasisFunction(this, &
@@ -789,12 +770,11 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
 end subroutine
 
 impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
-   & thermal_energy,subspace,subspace_basis,anharmonic_data)
+   & subspace,subspace_basis,anharmonic_data)
   implicit none
   
   class(BasisFunction),     intent(inout) :: this
   class(BasisStates),       intent(inout) :: states
-  real(dp),                 intent(in)    :: thermal_energy
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: subspace_basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
@@ -805,7 +785,6 @@ impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
   do i=1,size(this%complex_representation_%terms) 
     call integrate( this%complex_representation_%terms(i), &
                   & states,                                &
-                  & thermal_energy,                        &
                   & subspace,                              &
                   & subspace_basis,                        &
                   & anharmonic_data                        )
@@ -1023,14 +1002,13 @@ end function
 ! Calculate the correction due to double counting
 !    for the interpolated potential.
 function energy_correction_BasisFunction(this,subspaces,subspace_bases, &
-   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+   & subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(BasisFunction),     intent(in)    :: this
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
-  real(dp),                 intent(in)    :: thermal_energy
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   real(dp)                                :: output
   
@@ -1038,7 +1016,6 @@ function energy_correction_BasisFunction(this,subspaces,subspace_bases, &
        &                         subspaces,                      &
        &                         subspace_bases,                 &
        &                         subspace_states,                &
-       &                         thermal_energy,                 &
        &                         anharmonic_data               ) &
        & * this%coefficient_
 end function

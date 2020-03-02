@@ -12,6 +12,7 @@ module permutation_module
   private
   
   public :: PermutationData
+  public :: permutation_example
   
   type, extends(NoDefaultConstructor) :: PermutationData
     integer, allocatable, private :: a_(:)
@@ -81,7 +82,7 @@ subroutine next_permutation_PermutationData(this)
   integer, allocatable :: permutation_remainder(:)
   integer, allocatable :: sort_key(:)
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,k,l
   
   integer :: n1,n2
   
@@ -228,95 +229,6 @@ subroutine permutation_example()
     if (permutation%all_permutations_done()) then
       exit
     endif
-  enddo
-end subroutine
-
-! --------------------------------------------------
-! Related algorithms (not currently in use).
-! --------------------------------------------------
-! Generates all permutations of a list of (distinguishable) integers.
-! N.B. generates duplicates if any elements of the input are the duplicated.
-subroutine heaps_algorithm(input)
-  implicit none
-  
-  integer, intent(in) :: input(:)
-  
-  integer, allocatable :: state(:)
-  
-  integer, allocatable :: indices(:)
-  
-  integer :: swap(2)
-  
-  integer :: i
-  
-  state = [(1,i=1,size(input))]
-  
-  indices = [(i,i=1,size(input))]
-  
-  call print_line(input(indices))
-  
-  i = 1
-  do while (i<=size(input))
-    if (state(i)<i) then
-      if (modulo(i,2)==1) then
-        swap = [1,i]
-      else
-        swap = [i,state(i)]
-      endif
-      indices(swap) = indices(swap([2,1]))
-      call print_line(input(indices))
-      state(i) = state(i)+1
-      i = 1
-    else
-      state(i) = 1
-      i = i+1
-    endif
-  enddo
-end subroutine
-
-! Generates all permutations of a list of integers, which may include repeats.
-subroutine no_repeats(input)
-  implicit none
-  
-  integer, intent(in) :: input(:)
-  
-  integer, allocatable :: indices(:)
-  
-  integer :: i,j
-  
-  indices = sort(input)
-  call print_line(input(indices))
-  
-  do
-    ! Find the last element which has larger elements after it.
-    ! Label this element j.
-    j = 0
-    do i=size(input)-1,1,-1
-      if (input(indices(i))<input(indices(i+1))) then
-        j = i
-        exit
-      endif
-    enddo
-    
-    ! If there is no element j then input(indices) is now
-    !    sorted in reverse order and the algorithm is done.
-    if (j==0) then
-      exit
-    endif
-    
-    ! Find the last element larger than element j.
-    ! Label this element i.
-    ! Swap elements i and j.
-    do i=size(input),j+1,-1
-      if (input(indices(i))>input(indices(j))) then
-        indices([i,j]) = indices([j,i])
-        exit
-      endif
-    enddo
-    
-    ! Reverse the order of all elements after element j.
-    indices(j+1:) = indices(size(indices):j+1:-1)
-    call print_line(input(indices))
   enddo
 end subroutine
 end module

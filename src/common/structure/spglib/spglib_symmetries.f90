@@ -10,7 +10,7 @@ module spglib_symmetries_module
   public :: SpglibSymmetries
   public :: size
   
-  type, extends(Stringsable) :: SpglibSymmetries
+  type, extends(Stringwriteable) :: SpglibSymmetries
     integer                       :: spacegroup_number
     type(String)                  :: international_symbol
     type(RealMatrix)              :: transformation
@@ -21,14 +21,11 @@ module spglib_symmetries_module
     integer                       :: n_atoms
     type(String)                  :: pointgroup_symbol
   contains
-    procedure, public :: read  => read_SpglibSymmetries
     procedure, public :: write => write_SpglibSymmetries
   end type
   
   interface SpglibSymmetries
     module procedure new_SpglibSymmetries
-    module procedure new_SpglibSymmetries_Strings
-    module procedure new_SpglibSymmetries_StringArray
   end interface
   
   interface size
@@ -85,19 +82,6 @@ end function
 ! ----------------------------------------------------------------------
 ! I/O.
 ! ----------------------------------------------------------------------
-subroutine read_SpglibSymmetries(this,input)
-  implicit none
-  
-  class(SpglibSymmetries), intent(out) :: this
-  type(String),           intent(in)  :: input(:)
-  
-  select type(this); type is(SpglibSymmetries)
-    call err()
-  class default
-    call err()
-  end select
-end subroutine
-
 function write_SpglibSymmetries(this) result(output)
   implicit none
   
@@ -124,24 +108,5 @@ function write_SpglibSymmetries(this) result(output)
   class default
     call err()
   end select
-end function
-
-function new_SpglibSymmetries_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(SpglibSymmetries)   :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_SpglibSymmetries_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(SpglibSymmetries)        :: this
-  
-  this = SpglibSymmetries(str(input))
 end function
 end module

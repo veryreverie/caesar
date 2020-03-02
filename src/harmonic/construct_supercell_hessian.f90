@@ -351,14 +351,8 @@ function construct_f(xx,fx,supercell,logfile) result(output)
   type(RealMatrix)              :: xx_inverse
   
   ! Variables for checking the output.
-  type(AtomData)   :: atom_1
-  type(AtomData)   :: atom_1p
-  type(AtomData)   :: atom_2
-  type(AtomData)   :: atom_2p
-  type(RealMatrix) :: matrix
-  type(RealMatrix) :: symmetric
-  real(dp)         :: average
-  real(dp)         :: difference
+  type(AtomData) :: atom_1
+  type(AtomData) :: atom_2
   
   integer :: i,j,k,k2,ialloc
   

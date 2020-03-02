@@ -12,8 +12,8 @@ module clock_module
   type :: Clock
     real(dp), private :: start_time_
   contains
-    procedure, public :: time
-    procedure, public :: reset
+    procedure, public :: time => time_Clock
+    procedure, public :: reset => reset_Clock
   end type
   
   interface Clock
@@ -29,7 +29,7 @@ impure elemental function new_Clock() result(this)
   call cpu_time(this%start_time_)
 end function
 
-impure elemental function time(this) result(output)
+impure elemental function time_Clock(this) result(output)
   implicit none
   
   class(Clock), intent(in) :: this
@@ -41,7 +41,7 @@ impure elemental function time(this) result(output)
   output = current_time - this%start_time_
 end function
 
-impure elemental subroutine reset(this)
+impure elemental subroutine reset_Clock(this)
   implicit none
   
   class(Clock), intent(inout) :: this

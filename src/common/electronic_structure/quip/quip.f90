@@ -171,7 +171,7 @@ subroutine assign_ElectronicStructure_QuipElectronicStructure(output,input)
   type(CartesianForce), allocatable :: forces
   type(RealMatrix),     allocatable :: stress
   
-  integer :: i,ialloc
+  integer :: i
   
   energy = input%energy / EV_PER_HARTREE
   

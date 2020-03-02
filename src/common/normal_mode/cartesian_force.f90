@@ -14,6 +14,7 @@ module cartesian_force_module
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
+  public :: operator(-)
   public :: sum
   
   type, extends(Stringsable) :: CartesianForce

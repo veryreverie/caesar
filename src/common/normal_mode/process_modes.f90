@@ -80,8 +80,6 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
   integer, allocatable :: subspace_ids(:)
   integer, allocatable :: subspace_id_set(:)
   
-  real(dp) :: energy_difference
-  
   ! Symmetry data.
   type(SymmetryOperator), allocatable :: symmetries(:)
   
@@ -223,16 +221,8 @@ function choose_basis_complex(input,structure,symmetries,qpoint) &
   
   type(SymmetryOperator), allocatable :: used_symmetries(:)
   type(IntArray1D),       allocatable :: used_phases(:)
-  type(AntiSplitModes)                :: anti_split_modes
   
-  type(SymmetryOperator), allocatable :: anticommuting_symmetries(:)
-  
-  integer,           allocatable :: new_ids(:)
-  integer,           allocatable :: new_id_set(:)
-  logical,           allocatable :: successes(:)
-  type(ComplexMode), allocatable :: new_output(:)
-  
-  integer :: i,j,k,l,m,ialloc
+  integer :: i,j,k,l,ialloc
   
   if (size(input)==1) then
     call print_line(CODE_ERROR//': Trying to lift the degeneracy of only one &
@@ -315,16 +305,9 @@ function choose_basis_real(input,structure,symmetries,qpoint) &
   type(IntArray1D),       allocatable :: used_phases(:)
   type(AntiSplitModes)                :: anti_split_modes
   
-  type(SymmetryOperator), allocatable :: anticommuting_symmetries(:)
-  
   type(SymmetryOperator), allocatable :: antisymmetric_symmetries(:)
   
-  integer,           allocatable :: new_ids(:)
-  integer,           allocatable :: new_id_set(:)
-  logical,           allocatable :: successes(:)
-  type(ComplexMode), allocatable :: new_output(:)
-  
-  integer :: i,j,k,l,m,ialloc
+  integer :: i,j,k,ialloc
   
   if (size(input)==1) then
     call print_line(CODE_ERROR//': Trying to lift the degeneracy of only one &

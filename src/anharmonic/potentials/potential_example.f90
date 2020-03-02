@@ -14,6 +14,7 @@ module potential_example_module
   
   public :: startup_potential_example
   public :: potential_example_subroutine
+  public :: PotentialDataExample
   
   type, extends(PotentialData) :: PotentialDataExample
     type(String) :: example_contents
@@ -271,13 +272,12 @@ subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
   ! This likely just involves calling braket on the constituent parts of this.
 end subroutine
 
-subroutine braket_BasisStates_PotentialDataExample(this,states, &
-   & thermal_energy,subspace,subspace_basis,whole_subspace,anharmonic_data)
+subroutine braket_BasisStates_PotentialDataExample(this,states,subspace, &
+   & subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
   class(BasisStates),          intent(inout)        :: states
-  real(dp),                    intent(in)           :: thermal_energy
   type(DegenerateSubspace),    intent(in)           :: subspace
   class(SubspaceBasis),        intent(in)           :: subspace_basis
   logical,                     intent(in), optional :: whole_subspace
@@ -403,8 +403,6 @@ subroutine potential_example_subroutine()
   type(ComplexModeForce)        :: complex_force
   
   ! Variables for integrating potential.
-  type(DegenerateSubspace)        :: subspace
-  type(SubspaceBasisPointer)      :: subspace_basis
   type(HarmonicStateReal), target :: state_1
   type(HarmonicStateReal), target :: state_2
   type(HarmonicBraKetReal)        :: braket

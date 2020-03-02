@@ -17,6 +17,7 @@ module mass_weighted_force_module
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
+  public :: operator(-)
   public :: sum
   
   type, extends(Stringsable) :: MassWeightedForce

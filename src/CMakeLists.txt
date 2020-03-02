@@ -22,7 +22,8 @@ elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # Disabled warnings:
   #    5462: Global name too long: unnecessarily limits module names.
-  set(CMAKE_Fortran_FLAGS "-stand f08 -O2 -xHost -g -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1 -heap-arrays 0 -diag-disable=5462")
+  #    7712: as unused-dummy-argument above.
+  set(CMAKE_Fortran_FLAGS "-stand f08 -O2 -xHost -g -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1 -heap-arrays 0 -diag-disable=5462,7712")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "PGI")
   set(CMAKE_Fortran_FLAGS "-C -c -g -traceback -O0")
 else()

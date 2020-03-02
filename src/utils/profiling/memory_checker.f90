@@ -55,8 +55,6 @@ impure elemental function memory_MemoryChecker(this) result(output)
   character(1024) :: line
   logical         :: line_found
   
-  integer :: i
-  
   ! Find an available file unit.
   file_unit = 0
   unit_found = .false.

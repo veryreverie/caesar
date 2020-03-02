@@ -298,12 +298,9 @@ function read_output_file_qe(directory,seedname,structure,use_forces, &
   
   ! Line numbers.
   integer :: species_start_line
-  integer :: species_end_line
   integer :: energy_line
   integer :: forces_start_line
-  integer :: forces_end_line
   integer :: stress_start_line
-  integer :: stress_end_line
   
   ! Counts.
   integer :: no_species

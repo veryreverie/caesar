@@ -752,7 +752,7 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
   integer,     allocatable :: unique_terms(:)
   complex(dp), allocatable :: coefficients(:)
   
-  integer :: i,j,ialloc
+  integer :: i,j
   
   call this%terms%simplify()
   
@@ -857,8 +857,6 @@ function wavevector_ComplexMonomial(this,modes,qpoints) result(output)
   type(ComplexMode),      intent(in) :: modes(:)
   type(QpointData),       intent(in) :: qpoints(:)
   type(FractionVector)               :: output
-  
-  type(QpointData) :: mode_wavevector
   
   integer :: i
   
@@ -1298,7 +1296,6 @@ impure elemental function force_RealModeDisplacement_ComplexMonomial(this, &
   type(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                    :: output
   
-  integer, allocatable :: no_forces(:)
   logical, allocatable :: value_is_zero(:)
   logical, allocatable :: force_is_zero(:)
   
@@ -1448,7 +1445,6 @@ impure elemental function force_ComplexModeDisplacement_ComplexMonomial( &
   type(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                    :: output
   
-  integer, allocatable :: no_forces(:)
   logical, allocatable :: value_is_zero(:)
   logical, allocatable :: force_is_zero(:)
   
@@ -1654,10 +1650,10 @@ impure elemental function harmonic_expectation_ComplexMonomial(this, &
   integer,                intent(in) :: supercell_size
   real(dp)                           :: output
   
-  output = this%coefficient                                          &
-       & * product(this%modes_%harmonic_expectation( frequency,      &
-       &                                             thermal_energy, &
-       &                                             supercell_size  ))
+  output = real( this%coefficient                                             &
+       &       * product(this%modes_%harmonic_expectation( frequency,         &
+       &                                                   thermal_energy,    &
+       &                                                   supercell_size  )) )
 end function
 
 impure elemental function harmonic_expectation_ComplexUnivariate(this, &

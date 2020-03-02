@@ -81,9 +81,6 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
   type(ComplexMode), allocatable :: degenerate_modes(:)
   type(QpointData),  allocatable :: degenerate_qpoints(:)
   
-  integer :: max_mode_id
-  
-  type(SingleModeSymmetry), allocatable :: symmetries(:)
   type(ComplexMode)                     :: mode
   type(QpointData)                      :: qpoint
   type(QpointData)                      :: transformed_qpoint
@@ -191,24 +188,9 @@ function calculate_symmetry(this,input,modes,include_coefficients) &
   logical,                   intent(in) :: include_coefficients
   type(ComplexMatrix)                   :: output
   
-  integer              :: max_mode_id
-  integer, allocatable :: subspace_pos(:)
-  integer, allocatable :: mode_pos(:)
-  
-  type(IntArray2D), allocatable :: permutations(:)
-  
-  integer, allocatable :: mode_ids_i(:)
-  integer, allocatable :: mode_ids_j(:)
-  integer, allocatable :: subspace_pos_i(:)
-  integer, allocatable :: subspace_pos_j(:)
-  integer, allocatable :: mode_pos_i(:)
-  integer, allocatable :: mode_pos_j(:)
-  
-  complex(dp), allocatable :: single_mode_symmetry(:,:)
   complex(dp), allocatable :: symmetry(:,:)
-  complex(dp), allocatable :: element
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,k,ialloc
   
   type(ComplexPolynomial) :: transformed_input
   

@@ -17,6 +17,7 @@ module harmonic_states_module
   
   type, extends(BasisStates) :: HarmonicStates
     real(dp) :: frequency
+    real(dp) :: thermal_energy
   contains
     procedure, public, nopass :: representation => &
                                & representation_HarmonicStates
@@ -51,16 +52,18 @@ impure elemental function representation_HarmonicStates() result(output)
 end function
 
 ! Constructors.
-impure elemental function new_HarmonicStates(subspace_id,frequency) &
-   & result(this)
+impure elemental function new_HarmonicStates(subspace_id,frequency, &
+   & thermal_energy) result(this)
   implicit none
   
   integer,  intent(in) :: subspace_id
   real(dp), intent(in) :: frequency
+  real(dp), intent(in) :: thermal_energy
   type(HarmonicStates) :: this
   
-  this%subspace_id = subspace_id
-  this%frequency   = frequency
+  this%subspace_id    = subspace_id
+  this%frequency      = frequency
+  this%thermal_energy = thermal_energy
 end function
 
 recursive function new_HarmonicStates_BasisStates(input) result(this)
@@ -106,12 +109,14 @@ subroutine read_HarmonicStates(this,input)
   
   integer  :: subspace_id
   real(dp) :: frequency
+  real(dp) :: thermal_energy
   
   select type(this); type is(HarmonicStates)
     subspace_id = int(token(input(1),3))
     frequency = dble(token(input(2),3))
+    thermal_energy = dble(token(input(3),4))
     
-    this = HarmonicStates(subspace_id, frequency)
+    this = HarmonicStates(subspace_id, frequency, thermal_energy)
   class default
     call err()
   end select
@@ -123,11 +128,10 @@ function write_HarmonicStates(this) result(output)
   class(HarmonicStates), intent(in) :: this
   type(String), allocatable         :: output(:)
   
-  integer :: ialloc
-  
   select type(this); type is(HarmonicStates)
-    output = [ 'Subspace  : '//this%subspace_id, &
-             & 'Frequency : '//this%frequency    ]
+    output = [ 'Subspace       : '//this%subspace_id,   &
+             & 'Frequency      : '//this%frequency,     &
+             & 'Thermal energy : '//this%thermal_energy ]
   class default
     call err()
   end select

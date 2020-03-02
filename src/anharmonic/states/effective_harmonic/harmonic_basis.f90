@@ -103,7 +103,9 @@ impure elemental function initial_states_HarmonicBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  output = BasisStatesPointer(HarmonicStates(subspace%id, this%frequency))
+  output = BasisStatesPointer(HarmonicStates( subspace%id,    &
+                                            & this%frequency, &
+                                            & thermal_energy  ))
 end function
 
 impure elemental function calculate_states_HarmonicBasis(this,subspace,  &
@@ -166,7 +168,9 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,  &
     endif
   enddo
   
-  output = BasisStatesPointer(HarmonicStates(this%subspace_id, frequency))
+  output = BasisStatesPointer(HarmonicStates( this%subspace_id, &
+                                            & frequency,        &
+                                            & thermal_energy    ))
 end function
 
 function mode_ids_HarmonicBasis(this,subspace,anharmonic_data) result(output)
@@ -332,12 +336,11 @@ impure elemental function wavefunctions_HarmonicBasis(this,states, &
 end function
 
 impure elemental function integrate_BasisStates_HarmonicBasis(this, &
-   & states,thermal_energy,monomial,subspace,anharmonic_data) result(output)
+   & states,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(HarmonicBasis),     intent(in)         :: this
   class(BasisStates),       intent(in), target :: states
-  real(dp),                 intent(in)         :: thermal_energy
   type(SparseMonomial),     intent(in)         :: monomial
   type(DegenerateSubspace), intent(in)         :: subspace
   type(AnharmonicData),     intent(in)         :: anharmonic_data
@@ -348,9 +351,9 @@ impure elemental function integrate_BasisStates_HarmonicBasis(this, &
   harmonic_states = HarmonicStates(states)
   
   output = product(monomial%modes%harmonic_expectation( &
-                           & harmonic_states%frequency, &
-                           & thermal_energy,            &
-                           & this%supercell_size        ))
+                      & harmonic_states%frequency,      &
+                      & harmonic_states%thermal_energy, &
+                      & this%supercell_size             ))
 end function
 
 ! I/O.

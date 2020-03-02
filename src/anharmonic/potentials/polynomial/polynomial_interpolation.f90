@@ -47,8 +47,6 @@ impure elemental function new_SplitMonomial_ComplexMonomial(monomial, &
   
   integer, allocatable :: sizes(:)
   
-  integer :: power,paired_power
-  
   integer :: i,j,k,l,ialloc
   
   allocate( head(size(monomial)),  &

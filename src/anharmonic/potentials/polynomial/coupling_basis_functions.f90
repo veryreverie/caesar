@@ -274,13 +274,11 @@ impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
 end subroutine
 
 impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
-   & states,thermal_energy,subspace,subspace_basis,whole_subspace,          &
-   & anharmonic_data)
+   & states,subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(CouplingBasisFunctions), intent(inout)        :: this
   class(BasisStates),            intent(inout)        :: states
-  real(dp),                      intent(in)           :: thermal_energy
   type(DegenerateSubspace),      intent(in)           :: subspace
   class(SubspaceBasis),          intent(in)           :: subspace_basis
   logical,                       intent(in), optional :: whole_subspace
@@ -299,7 +297,6 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
     ! Integrate across the basis function, and simplify it.
     do j=1,size(this)
       call this%basis_functions_(j)%braket( states,         &
-                                          & thermal_energy, &
                                           & subspace,       &
                                           & subspace_basis, &
                                           & anharmonic_data )
@@ -384,7 +381,7 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
   
   type(BasisFunction), allocatable :: coupling_basis_functions(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,ialloc
   
   ! Generate the set of subspace monomials corresponding to the subspace
   !    coupling.
@@ -541,16 +538,14 @@ end function
 
 ! Calculate the correction due to double counting
 !    for the interpolated potential.
-function energy_correction_CouplingBasisFunctions(this,subspaces,   &
-   & subspace_bases,subspace_states,thermal_energy,anharmonic_data) &
-   & result(output) 
+function energy_correction_CouplingBasisFunctions(this,subspaces, &
+   & subspace_bases,subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(CouplingBasisFunctions), intent(in)    :: this
   type(DegenerateSubspace),      intent(in)    :: subspaces(:)
   class(SubspaceBasis),          intent(in)    :: subspace_bases(:)
   class(BasisStates),            intent(inout) :: subspace_states(:)
-  real(dp),                      intent(in)    :: thermal_energy
   type(AnharmonicData),          intent(in)    :: anharmonic_data
   real(dp)                                     :: output
   
@@ -562,7 +557,6 @@ function energy_correction_CouplingBasisFunctions(this,subspaces,   &
                                                & subspaces,       &
                                                & subspace_bases,  &
                                                & subspace_states, &
-                                               & thermal_energy,  &
                                                & anharmonic_data  )
   enddo
 end function

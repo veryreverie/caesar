@@ -99,13 +99,12 @@ impure elemental subroutine integrate_BasisState(monomial,bra,ket,subspace, &
   endif
 end subroutine
 
-impure elemental subroutine integrate_BasisStates(monomial,states, &
-   & thermal_energy,subspace,basis,anharmonic_data) 
+impure elemental subroutine integrate_BasisStates(monomial,states,subspace, &
+   & basis,anharmonic_data) 
   implicit none
   
   type(ComplexMonomial),    intent(inout) :: monomial
   class(BasisStates),       intent(inout) :: states
-  real(dp),                 intent(in)    :: thermal_energy
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
@@ -131,7 +130,6 @@ impure elemental subroutine integrate_BasisStates(monomial,states, &
     cache_location = states%expectation_cache%cached_location(sparse)
     if (cache_location==0) then
       expectation = basis%integrate( states,         &
-                                   & thermal_energy, &
                                    & sparse,         &
                                    & subspace,       &
                                    & anharmonic_data )
@@ -195,13 +193,11 @@ impure elemental function integrate_to_constant_BasisState_ComplexMonomial( &
 end function
 
 impure elemental function integrate_to_constant_BasisStates_ComplexMonomial( &
-   & monomial,states,thermal_energy,subspace,basis,anharmonic_data)          &
-   & result(output) 
+   & monomial,states,subspace,basis,anharmonic_data) result(output)
   implicit none
   
   type(ComplexMonomial),    intent(in)    :: monomial
   class(BasisStates),       intent(inout) :: states
-  real(dp),                 intent(in)    :: thermal_energy
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
@@ -219,7 +215,6 @@ impure elemental function integrate_to_constant_BasisStates_ComplexMonomial( &
   cache_location = states%expectation_cache%cached_location(sparse_monomial)
   if (cache_location==0) then
     expectation = basis%integrate( states,          &
-                                 & thermal_energy,  &
                                  & sparse_monomial, &
                                  & subspace,        &
                                  & anharmonic_data  )
@@ -278,12 +273,11 @@ end function
 
 impure elemental function                                                   &
    & integrate_to_constant_BasisStates_ComplexPolynomial(polynomial,states, &
-   & thermal_energy,subspace,basis,anharmonic_data) result(output)
+   & subspace,basis,anharmonic_data) result(output)
   implicit none
   
   type(ComplexPolynomial),  intent(in)    :: polynomial
   class(BasisStates),       intent(inout) :: states
-  real(dp),                 intent(in)    :: thermal_energy
   type(DegenerateSubspace), intent(in)    :: subspace
   class(SubspaceBasis),     intent(in)    :: basis
   type(AnharmonicData),     intent(in)    :: anharmonic_data
@@ -295,7 +289,6 @@ impure elemental function                                                   &
   do i=1,size(polynomial%terms)
     output = output + integrate_to_constant( polynomial%terms(i), &
                                            & states,              &
-                                           & thermal_energy,      &
                                            & subspace,            &
                                            & basis,               &
                                            & anharmonic_data      )
@@ -368,11 +361,6 @@ impure elemental function effective_harmonic_observables(thermal_energy, &
   
   real(dp) :: harmonic_expectation
   real(dp) :: potential_expectation
-  
-  real(dp)         :: volume
-  type(RealMatrix) :: potential_stress
-  type(RealMatrix) :: kinetic_stress
-  real(dp)         :: pressure
   
   ! Calculate <T+V> for the effective harmonic potential.
   output = harmonic_observables( thermal_energy,   &

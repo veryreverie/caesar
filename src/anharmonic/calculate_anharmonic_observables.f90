@@ -230,8 +230,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: vscf_thermodynamics(:,:)
   type(ThermodynamicData), allocatable :: interpolated_vscf_thermodynamics(:)
   
-  type(SubspaceWavefunctionsPointer), allocatable :: subspace_wavefunctions(:)
-  
   ! Input files.
   type(IFile) :: anharmonic_data_file
   type(IFile) :: potential_file
@@ -834,7 +832,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       energy_correction = potential%energy_correction( subspaces,           &
                                                      & vscf_basis,          &
                                                      & vscf_states,         &
-                                                     & thermal_energies(i), &
                                                      & anharmonic_data      )
       call interpolated_vscf_thermodynamics(i)%add_energy(                &
          & energy_correction/anharmonic_data%anharmonic_supercell%sc_size )
@@ -843,7 +840,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
         stress_correction = stress%stress_correction( subspaces,           &
                                                     & vscf_basis,          &
                                                     & vscf_states,         &
-                                                    & thermal_energies(i), &
                                                     & anharmonic_data      )
         call interpolated_vscf_thermodynamics(i)%add_stress(                &
            & stress_correction/anharmonic_data%anharmonic_supercell%sc_size )

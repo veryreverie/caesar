@@ -224,8 +224,6 @@ impure elemental function overlap_ComplexMonomial_ComplexMonomial(this,fine, &
   
   integer :: no_permutations
   
-  integer :: i,j
-  
   if (fine%total_power()/=coarse%total_power()) then
     output = 0
     return

@@ -440,13 +440,12 @@ subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
   enddo
 end subroutine
 
-subroutine braket_BasisStates_StressBasisFunction(this,states,thermal_energy, &
-   & subspace,subspace_basis,anharmonic_data)
+subroutine braket_BasisStates_StressBasisFunction(this,states,subspace, &
+   & subspace_basis,anharmonic_data) 
   implicit none
   
   class(StressBasisFunction), intent(inout) :: this
   class(BasisStates),         intent(inout) :: states
-  real(dp),                   intent(in)    :: thermal_energy
   type(DegenerateSubspace),   intent(in)    :: subspace
   class(SubspaceBasis),       intent(in)    :: subspace_basis
   type(AnharmonicData),       intent(in)    :: anharmonic_data
@@ -458,7 +457,6 @@ subroutine braket_BasisStates_StressBasisFunction(this,states,thermal_energy, &
       do k=1,size(this%elements_(j,i)%terms)
         call integrate( this%elements_(j,i)%terms(k), &
                       & states,                       &
-                      & thermal_energy,               &
                       & subspace,                     &
                       & subspace_basis,               &
                       & anharmonic_data               )
@@ -625,16 +623,14 @@ end function
 
 ! Calculate the correction due to double counting
 !    for the interpolated stress.
-function stress_correction_StressBasisFunction(this,subspaces,      &
-   & subspace_bases,subspace_states,thermal_energy,anharmonic_data) &
-   & result(output) 
+function stress_correction_StressBasisFunction(this,subspaces, &
+   & subspace_bases,subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(StressBasisFunction), intent(in)    :: this
   type(DegenerateSubspace),   intent(in)    :: subspaces(:)
   class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
   class(BasisStates),         intent(inout) :: subspace_states(:)
-  real(dp),                   intent(in)    :: thermal_energy
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   type(RealMatrix)                          :: output
   
@@ -648,7 +644,6 @@ function stress_correction_StressBasisFunction(this,subspaces,      &
            &                                subspaces,           &
            &                                subspace_bases,      &
            &                                subspace_states,     &
-           &                                thermal_energy,      &
            &                                anharmonic_data )    &
            & * this%coefficient_
     enddo

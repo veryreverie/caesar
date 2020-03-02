@@ -99,17 +99,23 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
   
   ! Generate initial single-subspace states,
   !    and use these states to generate initial single-subpsace potentials.
-  call print_line('Generating initial states and potentials.')
-  subspace_states = BasisStatesPointer(subspace_bases%initial_states( &
-                                                    & subspaces,      &
-                                                    & thermal_energy, &
-                                                    & anharmonic_data ))
-  subspace_potentials = generate_subspace_potentials( potential,       &
-                                                    & subspaces,       &
-                                                    & subspace_bases,  &
-                                                    & subspace_states, &
-                                                    & thermal_energy,  &
-                                                    & anharmonic_data  )
+  if (.not. present(starting_configuration)) then
+    call print_line('Generating initial states and potentials.')
+    subspace_states = BasisStatesPointer(subspace_bases%initial_states( &
+                                                      & subspaces,      &
+                                                      & thermal_energy, &
+                                                      & anharmonic_data ))
+    subspace_potentials = generate_subspace_potentials( potential,       &
+                                                      & subspaces,       &
+                                                      & subspace_bases,  &
+                                                      & subspace_states, &
+                                                      & anharmonic_data  )
+  else
+    call print_line('Using previous configuration for initial states and &
+       &potentials.')
+    subspace_states = starting_configuration%states
+    subspace_potentials = starting_configuration%potential
+  endif
   
   ! Construct a single vector of coefficients from the subspace potentials.
   allocate( coefficients(0),                    &
@@ -123,7 +129,7 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
     last_coefficient(i) = size(coefficients)
   enddo
   
-  ! Write initial subspaces to file.
+  ! Write initial potentials to file.
   if (present(convergence_file)) then
     call convergence_file%print_line('Convergence Threshold: '//          &
                                     & convergence_data%energy_convergence )
@@ -189,7 +195,6 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
                                                       & subspaces,       &
                                                       & subspace_bases,  &
                                                       & subspace_states, &
-                                                      & thermal_energy,  &
                                                       & anharmonic_data  )
     
     ! Update the Pulay scheme.
@@ -233,7 +238,6 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
                                                       & subspaces,       &
                                                       & subspace_bases,  &
                                                       & subspace_states, &
-                                                      & thermal_energy,  &
                                                       & anharmonic_data  )
       endif
       

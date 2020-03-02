@@ -278,9 +278,8 @@ impure elemental function kinetic_stress_HarmonicBraKetReal(this, &
   type(RealMatrix)                      :: output
   
   logical,  allocatable :: modes_overlap(:)
-  real(dp), allocatable :: first_derivatives(:)
   
-  integer :: i,j,ialloc
+  integer :: i,j
   
   ! |p> = product_i |p_i>
   ! The kinetic stress is given by

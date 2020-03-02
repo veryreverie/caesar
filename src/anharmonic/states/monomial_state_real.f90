@@ -20,6 +20,8 @@ module monomial_state_real_module
   
   public :: generate_monomial_states
   
+  public :: finite_overlap
+  
   type, extends(SubspaceState) :: MonomialStateReal
     integer                                     :: supercell_size
     real(dp)                                    :: frequency
@@ -198,8 +200,6 @@ recursive function generate_monomial_states_helper(ids,power,state) &
   integer,                 intent(in)  :: power
   type(MonomialStateReal), intent(in)  :: state
   type(MonomialStateReal), allocatable :: output(:)
-  
-  type(MonomialStateReal) :: output_state
   
   integer :: i
   
@@ -417,8 +417,6 @@ impure elemental function harmonic_potential_energy_MonomialStateReal( &
   type(ComplexUnivariate), allocatable :: harmonic_potential(:)
   real(dp),                allocatable :: overlap(:)
   
-  integer :: i
-  
   ! |p> = product_i |p_i>
   ! The harmonic potential energy is given by V = (Nw^2/2) sum_i (u_i^2).
   ! <p_i|(u_i)^2|q_i> is calculated up to a factor of 2Nw, so
@@ -476,7 +474,7 @@ impure elemental function kinetic_stress_MonomialStateReal(this,ket, &
   logical,  allocatable :: finite_overlap(:)
   real(dp), allocatable :: overlaps(:)
   
-  integer :: i,j,ialloc
+  integer :: i,j
   
   ! |p> = product_i |p_i>
   ! The kinetic stress is given by
@@ -567,11 +565,6 @@ impure elemental function change_modes_MonomialStateReal(this,mode_group) &
   integer, allocatable :: ids(:)
   integer, allocatable :: powers(:)
   integer, allocatable :: sort_key(:)
-  
-  type(ComplexUnivariate), allocatable :: univariates(:)
-  type(ComplexMonomial)                :: monomial
-  
-  integer :: i,ialloc
   
   ! Get the ids and powers of the single-mode terms.
   ids = this%modes_%id()

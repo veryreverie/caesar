@@ -283,7 +283,7 @@ impure elemental function kinetic_stress_HarmonicBraKetComplex(this, &
   
   logical,  allocatable :: modes_overlap(:)
   
-  integer :: i,j,ialloc
+  integer :: i,j
   
   ! |p> = product_i |p_i>
   ! The kinetic stress is given by

@@ -604,9 +604,7 @@ impure elemental subroutine simplify_RealPolynomial(this)
   type(RealMonomial), allocatable :: equivalent_monomials(:)
   type(RealMonomial), allocatable :: monomials(:)
   
-  real(dp) :: max_coefficient
-  
-  integer :: i,ialloc
+  integer :: i
   
   call this%terms%simplify()
   
@@ -1046,7 +1044,6 @@ impure elemental function force_RealModeDisplacement_RealMonomial(this, &
   type(RealModeDisplacement), intent(in) :: displacement
   type(RealModeForce)                    :: output
   
-  integer, allocatable :: no_forces(:)
   logical, allocatable :: value_is_zero(:)
   logical, allocatable :: force_is_zero(:)
   
@@ -1196,7 +1193,6 @@ impure elemental function force_ComplexModeDisplacement_RealMonomial(this, &
   type(ComplexModeDisplacement), intent(in) :: displacement
   type(ComplexModeForce)                    :: output
   
-  integer, allocatable :: no_forces(:)
   logical, allocatable :: value_is_zero(:)
   logical, allocatable :: force_is_zero(:)
   

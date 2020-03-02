@@ -15,6 +15,7 @@ module loto_splitting_module
   
   public :: LotoCorrection
   public :: calculate_loto_correction
+  public :: dynamical_matrix_correction
   
   type, extends(NoDefaultConstructor) :: LotoCorrection
     real(dp)             :: energy

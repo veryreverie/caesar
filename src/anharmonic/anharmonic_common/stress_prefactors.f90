@@ -57,7 +57,7 @@ function new_StressPrefactors_subspace(subspace,modes) result(this)
   
   type(RealMatrix), allocatable :: prefactors(:,:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   subspace_modes = subspace%modes(modes)
   

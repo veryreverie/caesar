@@ -43,8 +43,6 @@ function new_BasicSymmetry(id,tensor,translation,atom_group,rvectors) &
   type(IntVector),  intent(in) :: rvectors(:)
   type(BasicSymmetry)          :: this
   
-  integer :: ialloc
-  
   this%id          = id
   this%tensor      = tensor
   this%translation = translation

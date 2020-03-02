@@ -126,9 +126,9 @@ impure elemental function expectation_DynamicalMatrix(this,mode) result(output)
   output = 0
   do i=1,size(mode%unit_vector)
     do j=1,size(mode%unit_vector)
-      output = output + conjg(mode%unit_vector(i)) &
-                    & * this%elements_(i,j)        &
-                    & * mode%unit_vector(j)
+      output = output + real( conjg(mode%unit_vector(i)) &
+                          & * this%elements_(i,j)        &
+                          & * mode%unit_vector(j)        )
     enddo
   enddo
 end function
@@ -224,15 +224,10 @@ subroutine check(this,structure,logfile)
   type(StructureData),    intent(in)    :: structure
   type(OFile),            intent(inout) :: logfile
   
-  type(ComplexMatrix)            :: matrix
-  type(ComplexMatrix)            :: hermitian_matrix
-  type(ComplexMode), allocatable :: modes(:)
-  real(dp)                       :: freq_1
-  real(dp)                       :: freq_2
-  type(ComplexVector)            :: prim_vec_1
-  type(ComplexVector)            :: prim_vec_2
-  real(dp)                       :: average
-  real(dp)                       :: difference
+  type(ComplexMatrix) :: matrix
+  type(ComplexMatrix) :: hermitian_matrix
+  real(dp)            :: average
+  real(dp)            :: difference
   
   integer :: no_atoms
   integer :: i,j

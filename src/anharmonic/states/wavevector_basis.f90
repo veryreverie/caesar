@@ -35,7 +35,6 @@ module wavevector_basis_module
   public :: core_harmonic_observables
   public :: core_effective_harmonic_observables
   public :: core_vci_observables
-  public :: integrate_monomial
   
   public :: HarmonicBraKetReal
   public :: HarmonicBraKetComplex
@@ -105,10 +104,6 @@ module wavevector_basis_module
   
   interface core_vci_observables
     module procedure core_vci_observables_WavevectorBasis
-  end interface
-  
-  interface integrate_monomial
-    module procedure integrate_monomial_WavevectorBases
   end interface
   
   interface HarmonicBraKetReal
@@ -317,9 +312,6 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
   type(CoupledStates),     allocatable :: harmonic_couplings(:)
   
   integer  :: power
-  integer  :: state
-  integer  :: term
-  real(dp) :: coefficient
   
   integer, allocatable :: coupling_ids(:)
   integer, allocatable :: separations(:)
@@ -380,11 +372,7 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
   
   integer :: total_power
   
-  integer  :: no_states
   integer  :: power
-  integer  :: state
-  integer  :: term
-  real(dp) :: coefficient
   integer  :: separation
   
   integer, allocatable :: coupling_ids(:)
@@ -461,7 +449,6 @@ function tensor_product(this,that) result(output)
   integer, allocatable :: this_to_output(:)
   
   integer  :: id
-  real(dp) :: coefficient
   integer  :: separation
   
   ! Output variables.
@@ -588,7 +575,6 @@ function split_by_wavevector(input,modes,qpoints,symmetries) result(output)
   type(QpointData),     allocatable :: wavevector_qpoints(:)
   type(QpointData),     allocatable :: basis_qpoints(:)
   
-  integer, allocatable :: qpoint_set(:)
   integer, allocatable :: wavevector_states(:)
   integer, allocatable :: new_ids(:)
   integer, allocatable :: ids(:)
@@ -702,10 +688,6 @@ impure elemental function integrate_BasisState_WavevectorBasis(this,bra, &
   
   type(WavevectorState) :: bra_
   type(WavevectorState) :: ket_
-  
-  complex(dp) :: term
-  
-  integer :: i,j,k
   
   bra_ = WavevectorState(bra)
   if (present(ket)) then
@@ -832,56 +814,60 @@ function calculate_integral_complex(basis,harmonic_states,bra,ket,monomial, &
 end function
 
 ! Integrate a monomial between sets of states.
-function integrate_monomial_WavevectorBases(bases,states, &
-   & thermal_energy,monomial,anharmonic_data) result(output)
+impure elemental function integrate_BasisStates_WavevectorBasis(this,states, &
+   & monomial,subspace,anharmonic_data) result(output)
   implicit none
   
-  class(WavevectorBasis), intent(in) :: bases(:)
-  type(WavevectorStates), intent(in) :: states
-  real(dp),               intent(in) :: thermal_energy
-  type(SparseMonomial),   intent(in) :: monomial
-  type(AnharmonicData),   intent(in) :: anharmonic_data
-  complex(dp)                        :: output
+  class(WavevectorBasis),   intent(in)         :: this
+  class(BasisStates),       intent(in), target :: states
+  type(SparseMonomial),     intent(in)         :: monomial
+  type(DegenerateSubspace), intent(in)         :: subspace
+  type(AnharmonicData),     intent(in)         :: anharmonic_data
+  complex(dp)                                  :: output
   
-  integer :: i,j
+  type(WavevectorStates), pointer :: states_
   
-  output = 0.0_dp
-  ! Loop over wavevector bases, summing the contribution from each.
-  do i=1,size(bases)
-    if (size(bases(i)%harmonic_States_)==0) then
-      cycle
-    endif
-    
-    j = first( states%density_matrices%wavevector==bases(i)%wavevector, &
-             & default=0                                                )
-    if (j==0) then
-      cycle
-    elseif (.not. allocated(states%density_matrices(j)%keys)) then
-      cycle
-    endif
-    
-    associate(harmonic_states=>bases(i)%harmonic_states_)
-      select type(harmonic_states); type is(HarmonicStateReal)
-        output = output                                               &
-             & + integrate_monomial_real( bases(i),                   &
-             &                            harmonic_states,            &
-             &                            states%density_matrices(j), &
-             &                            monomial,                   &
-             &                            anharmonic_data             )
-      type is(HarmonicStateComplex)
-        output = output                                                  &
-             & + integrate_monomial_complex( bases(i),                   &
-             &                               harmonic_states,            &
-             &                               states%density_matrices(j), &
-             &                               monomial,                   &
-             &                               anharmonic_data             )
-      end select
-    end associate
-  enddo
+  integer :: i
+  
+  if (size(this%harmonic_States_)==0) then
+    output = 0.0_dp
+    return
+  endif
+  
+  ! Convert the states to type WavevectorStates.
+  states_ => wavevector_states_pointer(states)
+  
+  ! Find the density matrix corresponding to this wavevector.
+  i = first( states_%density_matrices%wavevector==this%wavevector, &
+           & default=0                                             )
+  if (i==0) then
+    output = 0.0_dp
+    return
+  elseif (.not. allocated(states_%density_matrices(i)%keys)) then
+    output = 0.0_dp
+    return
+  endif
+  
+  ! Integrate the monomial w/r/t the density matrix.
+  associate(harmonic_states=>this%harmonic_states_)
+    select type(harmonic_states); type is(HarmonicStateReal)
+      output = integrate_real( this,                        &
+           &                   harmonic_states,             &
+           &                   states_%density_matrices(i), &
+           &                   monomial,                    &
+           &                   anharmonic_data              )
+    type is(HarmonicStateComplex)
+      output = integrate_complex( this,                        &
+           &                      harmonic_states,             &
+           &                      states_%density_matrices(i), &
+           &                      monomial,                    &
+           &                      anharmonic_data              )
+    end select
+  end associate
 end function
 
-function integrate_monomial_real(basis,harmonic_states,density_matrix, &
-   & monomial,anharmonic_data) result(output) 
+function integrate_real(basis,harmonic_states,density_matrix,monomial, &
+   & anharmonic_data) result(output) 
   implicit none
   
   type(WavevectorBasis),   intent(in)         :: basis
@@ -930,8 +916,8 @@ function integrate_monomial_real(basis,harmonic_states,density_matrix, &
   enddo
 end function
 
-function integrate_monomial_complex(basis,harmonic_states, &
-   & density_matrix,monomial,anharmonic_data) result(output) 
+function integrate_complex(basis,harmonic_states,density_matrix,monomial, &
+   & anharmonic_data) result(output) 
   implicit none
   
   type(WavevectorBasis),      intent(in)         :: basis
@@ -993,10 +979,6 @@ impure elemental function kinetic_energy_WavevectorBasis(this,bra,ket, &
   
   type(WavevectorState) :: bra_
   type(WavevectorState) :: ket_
-  
-  real(dp) :: term
-  
-  integer :: i,j,k
   
   bra_ = WavevectorState(bra)
   if (present(ket)) then
@@ -1132,10 +1114,6 @@ impure elemental function harmonic_potential_energy_WavevectorBasis(this, &
   type(WavevectorState) :: bra_
   type(WavevectorState) :: ket_
   
-  real(dp) :: term
-  
-  integer :: i,j,k
-  
   bra_ = WavevectorState(bra)
   if (present(ket)) then
     ket_ = WavevectorState(ket)
@@ -1270,10 +1248,6 @@ impure elemental function kinetic_stress_WavevectorBasis(this,bra,ket, &
   
   type(WavevectorState) :: bra_
   type(WavevectorState) :: ket_
-  
-  type(RealMatrix) :: term
-  
-  integer :: i,j,k
   
   bra_ = WavevectorState(bra)
   if (present(ket)) then
@@ -1461,15 +1435,12 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  class(SubspaceState), allocatable :: bra
-  class(SubspaceState), allocatable :: ket
-  
   real(dp),                  allocatable :: hamiltonian(:,:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
   type(WavevectorState), allocatable :: wavevector_states(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i
   
   ! Calculate the Hamiltonian.
   associate(harmonic_states=>this%harmonic_states_)
@@ -1604,7 +1575,7 @@ function calculate_density_matrix(basis,states,weights) result(output)
   integer               :: key
   integer,  allocatable :: couplings(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   output%wavevector = basis%wavevector
   
@@ -1636,71 +1607,13 @@ function calculate_density_matrix(basis,states,weights) result(output)
   do i=1,no_states
     couplings = basis%harmonic_couplings_(i)%ids()
     key = output%keys(i)
-    do k=1,size(couplings)
-      output%values(key+k) = output%values(key+k)                       &
-                         & + dot_product( coefficients(:,couplings(k)), &
+    do j=1,size(couplings)
+      output%values(key+j) = output%values(key+j)                       &
+                         & + dot_product( coefficients(:,couplings(j)), &
                          &                coefficients(:,i)             )
     enddo
   enddo
 end function
-
-subroutine calculate_density_matrices(states,bases,weights)
-  implicit none
-  
-  type(WavevectorStates), intent(inout) :: states
-  type(WavevectorBasis),  intent(in)    :: bases(:)
-  real(dp),               intent(in)    :: weights(:)
-  
-  integer, allocatable :: wavevectors(:)
-  
-  integer,  allocatable :: wavevector_states(:)
-  integer               :: no_states
-  
-  integer, allocatable :: couplings(:)
-  
-  integer :: key
-  
-  integer :: i,j,k,ialloc
-  
-  wavevectors = filter([(                                  &
-     & any(states%states%wavevector==bases(i)%wavevector), &
-     & i=1,                                                &
-     & size(bases)                                         )])
-  
-  allocate( states%density_matrices(size(wavevectors)), &
-          & stat=ialloc); call err(ialloc)
-  states%density_matrices%wavevector = bases(wavevectors)%wavevector
-  do i=1,size(wavevectors)
-    do j=1,size(states%states)
-      if (states%states(j)%wavevector==bases(wavevectors(i))%wavevector) then
-        no_states = size(states%states(j)%coefficients)
-        if (.not. allocated(states%density_matrices(i)%keys)) then
-          allocate( states%density_matrices(i)%keys(no_states), &
-                  & stat=ialloc); call err(ialloc)
-          key = 0
-          do k=1,no_states
-            couplings = bases(i)%harmonic_couplings_(k)%ids()
-            states%density_matrices(i)%keys(k) = key
-            key = key+size(couplings)
-          enddo
-          allocate( states%density_matrices(i)%values(key), &
-                  & stat=ialloc); call err(ialloc)
-          states%density_matrices(i)%values = 0
-        endif
-        
-        do k=1,no_states
-          couplings = bases(i)%harmonic_couplings_(k)%ids()
-          key = states%density_matrices(i)%keys(k)
-          states%density_matrices(i)%values(key+1:key+size(couplings)) = &
-             &   states%density_matrices(i)%values(key+1:key+size(couplings)) &
-             & + states%states(j)%coefficients(couplings) &
-             & * states%states(j)%coefficients(k)         &
-             & * weights(j)
-        enddo
-      endif
-    enddo
-  enddo
-end subroutine
 
 ! Calculate the eigenstates of a wavevector basis.
 function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
@@ -1992,7 +1905,7 @@ function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
   type(RealMatrix) :: stress
   real(dp)         :: volume
   
-  integer :: i,j,k,ialloc
+  integer :: i,j
   
   if (present(subspace_stress) .neqv. present(stress_prefactors)) then
     call print_line(CODE_ERROR//': Only one of subspace_stress and &
@@ -2298,21 +2211,6 @@ end function
 ! ----------------------------------------------------------------------
 ! Inherited procedures which do not apply to this type.
 ! ----------------------------------------------------------------------
-impure elemental function integrate_BasisStates_WavevectorBasis(this,states, &
-   & thermal_energy,monomial,subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(WavevectorBasis),   intent(in)         :: this
-  class(BasisStates),       intent(in), target :: states
-  real(dp),                 intent(in)         :: thermal_energy
-  type(SparseMonomial),     intent(in)         :: monomial
-  type(DegenerateSubspace), intent(in)         :: subspace
-  type(AnharmonicData),     intent(in)         :: anharmonic_data
-  complex(dp)                                  :: output
-  
-  call err()
-end function
-
 impure elemental function thermodynamic_data_WavevectorBasis(this,      &
    & thermal_energy,states,subspace,subspace_potential,subspace_stress, &
    & stress_prefactors,anharmonic_data) result(output)

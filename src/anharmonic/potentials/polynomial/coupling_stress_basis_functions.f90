@@ -208,13 +208,11 @@ impure elemental subroutine braket_BasisState_CouplingStressBasisFunctions( &
 end subroutine
 
 impure elemental subroutine braket_BasisStates_CouplingStressBasisFunctions( &
-   & this,states,thermal_energy,subspace,subspace_basis,whole_subspace,      &
-   & anharmonic_data)
+   & this,states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(CouplingStressBasisFunctions), intent(inout)        :: this
   class(BasisStates),                  intent(inout)        :: states
-  real(dp),                            intent(in)           :: thermal_energy
   type(DegenerateSubspace),            intent(in)           :: subspace
   class(SubspaceBasis),                intent(in)           :: subspace_basis
   logical,                             intent(in), optional :: whole_subspace
@@ -233,7 +231,6 @@ impure elemental subroutine braket_BasisStates_CouplingStressBasisFunctions( &
     ! Integrate across the basis function, and simplify it.
     do j=1,size(this)
       call this%basis_functions_(j)%braket( states,         &
-                                          & thermal_energy, &
                                           & subspace,       &
                                           & subspace_basis, &
                                           & anharmonic_data )
@@ -405,15 +402,13 @@ end function
 ! Calculate the correction due to double counting
 !    for the interpolated stress.
 function stress_correction_CouplingStressBasisFunctions(this,subspaces, &
-   & subspace_bases,subspace_states,thermal_energy,anharmonic_data)     &
-   & result(output) 
+   & subspace_bases,subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(CouplingStressBasisFunctions), intent(in)    :: this
   type(DegenerateSubspace),            intent(in)    :: subspaces(:)
   class(SubspaceBasis),                intent(in)    :: subspace_bases(:)
   class(BasisStates),                  intent(inout) :: subspace_states(:)
-  real(dp),                            intent(in)    :: thermal_energy
   type(AnharmonicData),                intent(in)    :: anharmonic_data
   type(RealMatrix)                                   :: output
   
@@ -425,7 +420,6 @@ function stress_correction_CouplingStressBasisFunctions(this,subspaces, &
                                                & subspaces,       &
                                                & subspace_bases,  &
                                                & subspace_states, &
-                                               & thermal_energy,  &
                                                & anharmonic_data  )
   enddo
 end function

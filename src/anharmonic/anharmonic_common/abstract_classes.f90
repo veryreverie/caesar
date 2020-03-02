@@ -634,20 +634,18 @@ module abstract_classes_module
     end function
     
     impure elemental function integrate_BasisStates_SubspaceBasis(this, &
-       & states,thermal_energy,monomial,subspace,anharmonic_data)       &
-       & result(output)
+       & states,monomial,subspace,anharmonic_data) result(output)
       import SubspaceBasis
       import BasisStates
-      import dp
       import SparseMonomial
       import DegenerateSubspace
       import QpointData
       import AnharmonicData
+      import dp
       implicit none
       
       class(SubspaceBasis),     intent(in)         :: this
       class(BasisStates),       intent(in), target :: states
-      real(dp),                 intent(in)         :: thermal_energy
       type(SparseMonomial),     intent(in)         :: monomial
       type(DegenerateSubspace), intent(in)         :: subspace
       type(AnharmonicData),     intent(in)         :: anharmonic_data
@@ -824,11 +822,10 @@ module abstract_classes_module
       type(AnharmonicData),     intent(in)           :: anharmonic_data
     end subroutine
     
-    subroutine braket_BasisStates_PotentialData(this,states,thermal_energy, &
-       & subspace,subspace_basis,whole_subspace,anharmonic_data)
+    subroutine braket_BasisStates_PotentialData(this,states,subspace, &
+       & subspace_basis,whole_subspace,anharmonic_data)
       import PotentialData
       import BasisStates
-      import dp
       import DegenerateSubspace
       import SubspaceBasis
       import AnharmonicData
@@ -836,7 +833,6 @@ module abstract_classes_module
       
       class(PotentialData),     intent(inout)        :: this
       class(BasisStates),       intent(inout)        :: states
-      real(dp),                 intent(in)           :: thermal_energy
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
       logical,                  intent(in), optional :: whole_subspace
@@ -962,11 +958,10 @@ module abstract_classes_module
       type(AnharmonicData),     intent(in)           :: anharmonic_data
     end subroutine
     
-    subroutine braket_BasisStates_StressData(this,states,thermal_energy, &
-       & subspace,subspace_basis,whole_subspace,anharmonic_data)
+    subroutine braket_BasisStates_StressData(this,states,subspace, &
+       & subspace_basis,whole_subspace,anharmonic_data)
       import StressData
       import BasisStates
-      import dp
       import DegenerateSubspace
       import SubspaceBasis
       import AnharmonicData
@@ -974,7 +969,6 @@ module abstract_classes_module
       
       class(StressData),        intent(inout)        :: this
       class(BasisStates),       intent(inout)        :: states
-      real(dp),                 intent(in)           :: thermal_energy
       type(DegenerateSubspace), intent(in)           :: subspace
       class(SubspaceBasis),     intent(in)           :: subspace_basis
       logical,                  intent(in), optional :: whole_subspace
@@ -1162,15 +1156,13 @@ impure elemental function calculate_states_SubspaceBasisPointer(this, &
 end function
 
 impure elemental function process_subspace_potential_SubspaceBasisPointer( &
-   & this,potential,states,subspace,thermal_energy,anharmonic_data)        &
-   & result(output)
+   & this,potential,states,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in)            :: this
   class(PotentialData),        intent(in)            :: potential
   class(BasisStates),          intent(inout), target :: states
   type(DegenerateSubspace),    intent(in)            :: subspace
-  real(dp),                    intent(in)            :: thermal_energy
   type(AnharmonicData),        intent(in)            :: anharmonic_data
   type(PotentialPointer)                             :: output
   
@@ -1179,19 +1171,17 @@ impure elemental function process_subspace_potential_SubspaceBasisPointer( &
   output = this%basis_%process_subspace_potential( potential,      &
                                                  & states,         &
                                                  & subspace,       &
-                                                 & thermal_energy, &
                                                  & anharmonic_data )
 end function
 
 impure elemental function process_subspace_stress_SubspaceBasisPointer(this, &
-   & stress,states,subspace,thermal_energy,anharmonic_data) result(output)
+   & stress,states,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in)            :: this
   class(stressData),           intent(in)            :: stress
   class(BasisStates),          intent(inout), target :: states
   type(DegenerateSubspace),    intent(in)            :: subspace
-  real(dp),                    intent(in)            :: thermal_energy
   type(AnharmonicData),        intent(in)            :: anharmonic_data
   type(stressPointer)                                :: output
   
@@ -1200,7 +1190,6 @@ impure elemental function process_subspace_stress_SubspaceBasisPointer(this, &
   output = this%basis_%process_subspace_stress( stress,         &
                                               & states,         &
                                               & subspace,       &
-                                              & thermal_energy, &
                                               & anharmonic_data )
 end function
 
@@ -1375,13 +1364,11 @@ impure elemental function wavefunctions_SubspaceBasisPointer(this,states, &
 end function
 
 impure elemental function integrate_BasisStates_SubspaceBasisPointer( &
-   & this,states,thermal_energy,monomial,subspace,anharmonic_data)    &
-   & result(output)
+   & this,states,monomial,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasisPointer), intent(in)         :: this
   class(BasisStates),          intent(in), target :: states
-  real(dp),                    intent(in)         :: thermal_energy
   type(SparseMonomial),        intent(in)         :: monomial
   type(DegenerateSubspace),    intent(in)         :: subspace
   type(AnharmonicData),        intent(in)         :: anharmonic_data
@@ -1390,7 +1377,6 @@ impure elemental function integrate_BasisStates_SubspaceBasisPointer( &
   call this%check()
   
   output = this%basis_%integrate( states,         &
-                                & thermal_energy, &
                                 & monomial,       &
                                 & subspace,       &
                                 & anharmonic_data )
@@ -1702,13 +1688,12 @@ subroutine braket_BasisState_PotentialPointer(this,bra,ket,subspace, &
                              & anharmonic_data )
 end subroutine
 
-subroutine braket_BasisStates_PotentialPointer(this,states,thermal_energy, &
-   & subspace,subspace_basis,whole_subspace,anharmonic_data)
+subroutine braket_BasisStates_PotentialPointer(this,states,subspace, &
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(PotentialPointer),  intent(inout)        :: this
   class(BasisStates),       intent(inout)        :: states
-  real(dp),                 intent(in)           :: thermal_energy
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   logical,                  intent(in), optional :: whole_subspace
@@ -1717,7 +1702,6 @@ subroutine braket_BasisStates_PotentialPointer(this,states,thermal_energy, &
   call this%check()
   
   call this%potential_%braket( states,         &
-                             & thermal_energy, &
                              & subspace,       &
                              & subspace_basis, &
                              & whole_subspace, &
@@ -1872,14 +1856,13 @@ function calculate_dynamical_matrices_PotentialPointer(this,qpoints,          &
 end function
 
 function energy_correction_PotentialPointer(this,subspaces,subspace_bases, &
-   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+   & subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(PotentialPointer),  intent(in)    :: this
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
-  real(dp),                 intent(in)    :: thermal_energy
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   real(dp)                                :: output
   
@@ -1888,7 +1871,6 @@ function energy_correction_PotentialPointer(this,subspaces,subspace_bases, &
   output = this%potential_%energy_correction( subspaces,       &
                                             & subspace_bases,  &
                                             & subspace_states, &
-                                            & thermal_energy,  &
                                             & anharmonic_data  )
 end function
 
@@ -2080,13 +2062,12 @@ subroutine braket_BasisState_StressPointer(this,bra,ket,subspace, &
                           & anharmonic_data )
 end subroutine
 
-subroutine braket_BasisStates_StressPointer(this,states,thermal_energy, &
-   & subspace,subspace_basis,whole_subspace,anharmonic_data)
+subroutine braket_BasisStates_StressPointer(this,states,subspace, &
+   & subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(StressPointer),     intent(inout)        :: this
   class(BasisStates),       intent(inout)        :: states
-  real(dp),                 intent(in)           :: thermal_energy
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
   logical,                  intent(in), optional :: whole_subspace
@@ -2095,7 +2076,6 @@ subroutine braket_BasisStates_StressPointer(this,states,thermal_energy, &
   call this%check()
   
   call this%stress_%braket( states,         &
-                          & thermal_energy, &
                           & subspace,       &
                           & subspace_basis, &
                           & whole_subspace, &
@@ -2213,14 +2193,13 @@ function calculate_dynamical_matrices_StressPointer(this,qpoints,             &
 end function
 
 function stress_correction_StressPointer(this,subspaces,subspace_bases, &
-   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+   & subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(StressPointer),     intent(in)    :: this
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
-  real(dp),                 intent(in)    :: thermal_energy
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   type(RealMatrix)                        :: output
   
@@ -2229,7 +2208,6 @@ function stress_correction_StressPointer(this,subspaces,subspace_bases, &
   output = this%stress_%stress_correction( subspaces,       &
                                          & subspace_bases,  &
                                          & subspace_states, &
-                                         & thermal_energy,  &
                                          & anharmonic_data  )
 end function
 
@@ -2300,14 +2278,13 @@ end function
 ! ----------------------------------------------------------------------
 ! SubspaceBasis methods.
 impure elemental function process_subspace_potential_SubspaceBasis(this, &
-   & potential,states,subspace,thermal_energy,anharmonic_data) result(output)
+   & potential,states,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasis),     intent(in)            :: this
   class(PotentialData),     intent(in)            :: potential
   class(BasisStates),       intent(inout), target :: states
   type(DegenerateSubspace), intent(in)            :: subspace
-  real(dp),                 intent(in)            :: thermal_energy
   type(AnharmonicData),     intent(in)            :: anharmonic_data
   type(PotentialPointer)                          :: output
   
@@ -2315,14 +2292,13 @@ impure elemental function process_subspace_potential_SubspaceBasis(this, &
 end function
 
 impure elemental function process_subspace_stress_SubspaceBasis(this,stress, &
-   & states,subspace,thermal_energy,anharmonic_data) result(output)
+   & states,subspace,anharmonic_data) result(output)
   implicit none
   
   class(SubspaceBasis),     intent(in)            :: this
   class(stressData),        intent(in)            :: stress
   class(BasisStates),       intent(inout), target :: states
   type(DegenerateSubspace), intent(in)            :: subspace
-  real(dp),                 intent(in)            :: thermal_energy
   type(AnharmonicData),     intent(in)            :: anharmonic_data
   type(stressPointer)                             :: output
   
@@ -2446,14 +2422,13 @@ function calculate_dynamical_matrices_PotentialData(this,qpoints,             &
 end function
 
 function energy_correction_PotentialData(this,subspaces,subspace_bases, &
-   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+   & subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(PotentialData),     intent(in)    :: this
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
-  real(dp),                 intent(in)    :: thermal_energy
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   real(dp)                                :: output
   
@@ -2563,14 +2538,13 @@ function calculate_dynamical_matrices_StressData(this,qpoints,                &
 end function
 
 function stress_correction_StressData(this,subspaces,subspace_bases, &
-   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+   & subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(StressData),        intent(in)    :: this
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
   class(BasisStates),       intent(inout) :: subspace_states(:)
-  real(dp),                 intent(in)    :: thermal_energy
   type(AnharmonicData),     intent(in)    :: anharmonic_data
   type(RealMatrix)                        :: output
   

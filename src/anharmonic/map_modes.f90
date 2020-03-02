@@ -137,7 +137,6 @@ subroutine map_modes_subroutine(arguments)
   type(ModeMap), allocatable :: mode_maps(:)
   integer,       allocatable :: qpoint_modes(:)
   integer,       allocatable :: subspace_modes(:)
-  type(ModeMap), allocatable :: subspace_mode_maps(:)
   
   ! Variables for validating potential.
   real(dp), allocatable       :: sampled_energies(:)

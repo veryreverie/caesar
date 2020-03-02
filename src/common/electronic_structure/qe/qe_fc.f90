@@ -47,9 +47,8 @@ subroutine write_qe_force_constants_file(fc_file,hessian,structure,supercell)
   ! Cartesian directions.
   integer :: i1,i2
   
-  ! Atom labels and atoms.
-  integer        :: id
-  type(AtomData) :: atom1,atom2
+  ! Atom label.
+  integer :: id
   
   ! Primitive atom labels.
   integer :: p1,p2
@@ -162,9 +161,8 @@ function read_qe_force_constants_file(directory,seedname,supercell) &
   real(dp),         allocatable :: elements(:,:,:,:)
   type(RealMatrix), allocatable :: matrix_elements(:,:)
   
-  ! Atom labels and atoms.
-  integer        :: id1,id2
-  type(AtomData) :: atom1,atom2
+  ! Atom labels.
+  integer :: id1,id2
   
   ! Cartesian component labels.
   integer :: i1,i2

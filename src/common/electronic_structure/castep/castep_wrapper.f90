@@ -339,7 +339,7 @@ function parse_castep_input_file(filename) result(output)
   ! Temporary variables.
   type(String), allocatable :: lines(:)
   type(String), allocatable :: line(:)
-  integer                   :: i,j,k,ialloc
+  integer                   :: i,ialloc
   
   if (.not. file_exists(filename)) then
     call print_line(ERROR//': '//filename//' does not exist. Please ensure &

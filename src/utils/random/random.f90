@@ -51,7 +51,7 @@ function new_RandomReal(seed) result(this)
     ! Get the time in seconds (to three decimal places).
     call date_and_time(time=time)
     ! Convert to an integer in milliseconds.
-    this%random_seed_ = 1000 * dble(time)
+    this%random_seed_ = nint(1000 * dble(time))
   endif
   
   ! Initialise random number generator from the seed.

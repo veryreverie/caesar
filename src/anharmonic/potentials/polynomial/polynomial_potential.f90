@@ -358,7 +358,7 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
   real(dp), allocatable :: coefficients(:)
   
   ! Temporary variables.
-  integer :: i,j,k,ialloc
+  integer :: i,ialloc
   
   ! Generate the potential at zero displacement.
   call print_line('Generating potential at zero displacement.')
@@ -844,13 +844,12 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   endif
 end subroutine
 
-subroutine braket_BasisStates_PolynomialPotential(this,states,thermal_energy, &
-   & subspace,subspace_basis,whole_subspace,anharmonic_data)
+subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
+   & subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
   class(BasisStates),         intent(inout)        :: states
-  real(dp),                   intent(in)           :: thermal_energy
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
   logical,                    intent(in), optional :: whole_subspace
@@ -861,7 +860,6 @@ subroutine braket_BasisStates_PolynomialPotential(this,states,thermal_energy, &
   ! Integrate each basis function between the bra and the ket.
   do i=1,size(this%basis_functions_)
     call this%basis_functions_(i)%braket( states,         &
-                                        & thermal_energy, &
                                         & subspace,       &
                                         & subspace_basis, &
                                         & whole_subspace, &
@@ -1203,14 +1201,13 @@ end function
 ! Calculate the correction due to double counting
 !    for the interpolated potential.
 function energy_correction_PolynomialPotential(this,subspaces,subspace_bases, &
-   & subspace_states,thermal_energy,anharmonic_data) result(output) 
+   & subspace_states,anharmonic_data) result(output) 
   implicit none
   
   class(PolynomialPotential), intent(in)    :: this
   type(DegenerateSubspace),   intent(in)    :: subspaces(:)
   class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
   class(BasisStates),         intent(inout) :: subspace_states(:)
-  real(dp),                   intent(in)    :: thermal_energy
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   real(dp)                                  :: output
   
@@ -1222,7 +1219,6 @@ function energy_correction_PolynomialPotential(this,subspaces,subspace_bases, &
                                                & subspaces,       &
                                                & subspace_bases,  &
                                                & subspace_states, &
-                                               & thermal_energy,  &
                                                & anharmonic_data  )
   enddo
 end function

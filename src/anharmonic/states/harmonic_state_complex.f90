@@ -233,11 +233,6 @@ impure elemental function change_modes_HarmonicStateComplex(this,mode_group) &
   integer, allocatable :: paired_occupations(:)
   integer, allocatable :: sort_key(:)
   
-  type(ComplexUnivariate), allocatable :: univariates(:)
-  type(ComplexMonomial)                :: monomial
-  
-  integer :: i,ialloc
-  
   ! Get the ids and occupations of the single-mode terms.
   ids = this%modes_%id()
   paired_ids = this%modes_%paired_id()
