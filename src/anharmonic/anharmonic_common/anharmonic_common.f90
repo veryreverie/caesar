@@ -5,6 +5,8 @@
 ! This module is simply an interface for the various
 !    common anharmonic modules.
 module anharmonic_common_module
+  use interpolated_supercell_module
+  use max_displacement_module
   use subspace_coupling_module
   use subspace_monomial_module
   use degenerate_symmetry_module

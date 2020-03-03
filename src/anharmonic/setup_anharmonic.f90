@@ -117,19 +117,19 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(Dictionary), intent(in) :: arguments
   
   ! User inputs.
-  type(String) :: harmonic_path
-  integer      :: qpoint_grid(3)
-  type(String) :: potential_representation
-  integer      :: potential_expansion_order
-  integer      :: maximum_coupling_order
-  logical      :: vscf_basis_functions_only
-  real(dp)     :: maximum_displacement
-  real(dp)     :: max_energy_of_displacement
-  real(dp)     :: frequency_of_max_displacement
-  logical      :: use_forces
-  real(dp)     :: energy_to_force_ratio
-  logical      :: use_hessians
-  logical      :: calculate_stress
+  type(String)          :: harmonic_path
+  integer               :: qpoint_grid(3)
+  type(String)          :: potential_representation
+  integer               :: potential_expansion_order
+  integer               :: maximum_coupling_order
+  logical               :: vscf_basis_functions_only
+  real(dp)              :: maximum_displacement
+  real(dp), allocatable :: max_energy_of_displacement
+  real(dp), allocatable :: frequency_of_max_displacement
+  logical               :: use_forces
+  real(dp)              :: energy_to_force_ratio
+  logical               :: use_hessians
+  logical               :: calculate_stress
   
   real(dp) :: weighted_energy_force_ratio
   
@@ -138,37 +138,22 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(String)     :: seedname
   type(String)     :: file_type
   
-  ! Previously calculated data.
-  type(StructureData)            :: structure
-  type(QpointData),  allocatable :: harmonic_qpoints(:)
-  type(ComplexMode), allocatable :: qpoint_modes(:)
-  type(ComplexMode), allocatable :: complex_modes(:)
-  type(RealMode),    allocatable :: real_modes(:)
+  ! Harmonic data.
+  type(StructureData)                :: structure
+  type(QpointData),      allocatable :: harmonic_qpoints(:)
+  type(DynamicalMatrix), allocatable :: harmonic_dynamical_matrices(:)
+  type(ComplexMode),     allocatable :: harmonic_complex_modes(:,:)
   
-  ! Electronic structure calculation writer.
-  type(CalculationWriter) :: calculation_writer
-  
-  ! Maximum displacement in mass-weighted co-ordinates.
-  real(dp) :: minimum_mass
-  real(dp) :: maximum_weighted_displacement
-  
-  ! Anharmonic q-points and the corresponding supercell.
-  type(IntMatrix)                :: anharmonic_supercell_matrix
-  type(StructureData)            :: anharmonic_supercell
-  type(QpointData),  allocatable :: qpoints(:)
-  
-  ! Degeneracy data.
-  type(DegenerateSubspace), allocatable :: degenerate_subspaces(:)
-  type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
-  
-  ! Coupling data.
-  type(SubspaceCoupling), allocatable :: subspace_coupling(:)
-  
-  ! Anharmonic data container.
-  type(AnharmonicData) :: anharmonic_data
+  ! Data common to all potential representations.
+  type(InterpolatedSupercell) :: interpolated_supercell
+  type(MaxDisplacement)       :: max_displacement
+  type(AnharmonicData)        :: anharmonic_data
   
   ! The potential.
   type(PotentialPointer) :: potential
+  
+  ! Electronic structure calculation writer.
+  type(CalculationWriter) :: calculation_writer
   
   ! Directories.
   type(String) :: qpoint_dir
@@ -177,6 +162,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Input files.
   type(IFile) :: structure_file
   type(IFile) :: harmonic_qpoints_file
+  type(IFile) :: harmonic_dynamical_matrices_file
   type(IFile) :: harmonic_complex_modes_file
   
   ! Output files.
@@ -192,7 +178,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   type(OFile) :: calculation_directories_file
   
   ! Temporary variables.
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
   ! ----------------------------------------------------------------------
   ! Read in inputs.
@@ -227,150 +213,94 @@ subroutine setup_anharmonic_subroutine(arguments)
   file_type = setup_harmonic_arguments%value('file_type')
   call setup_harmonic_arguments%write_file('setup_harmonic.used_settings')
   
-  ! Read in structure and harmonic q-points.
+  ! ----------------------------------------------------------------------
+  ! Read in harmonic data.
+  ! ----------------------------------------------------------------------
   structure_file = IFile(harmonic_path//'/structure.dat')
   structure = StructureData(structure_file%lines())
   
   harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
   harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
   
-  ! Calculate weighted energy to force ratio.
-  weighted_energy_force_ratio = &
-     &   energy_to_force_ratio  &
-     & * sqrt(maxval(structure%atoms%mass()))
-  
-  ! --------------------------------------------------
-  ! Initialise calculation writer.
-  ! --------------------------------------------------
-  calculation_writer = CalculationWriter( file_type = file_type, &
-                                        & seedname  = seedname   )
-  
-  ! ----------------------------------------------------------------------
-  ! Generate setup data common to all potential representations.
-  ! ----------------------------------------------------------------------
-  
-  ! Calculate the maximum mass-weighted displacement from the maximum
-  !    displacement. This corresponds to a mode made entirely from the
-  !    lightest element moving up to maximum_displacement.
-  ! Also calculate whichever of max_energy_of_displacement and
-  !    frequency_of_max_displacement was not given by the user, by
-  !    E_max = 0.5 * m_min * (w_max*u_max)^2.
-  minimum_mass = minval(structure%atoms%mass())
-  maximum_weighted_displacement = maximum_displacement * sqrt(minimum_mass)
-  if (arguments%is_set('frequency_of_max_displacement')) then
-    max_energy_of_displacement = 0.5_dp * ( frequency_of_max_displacement &
-                                        & * maximum_weighted_displacement )**2
-  else
-    frequency_of_max_displacement = sqrt(2*max_energy_of_displacement) &
-                                & / maximum_weighted_displacement
-  endif
-  
-  ! Generate anharmonic q-point grid, and the supercell which has all
-  !    anharmonic q-points as G-vectors.
-  call print_line('Generating anharmonic supercell.')
-  anharmonic_supercell_matrix =                                &
-     & mat([ qpoint_grid(1), 0             , 0            ,    &
-     &       0             , qpoint_grid(2), 0            ,    &
-     &       0             , 0             , qpoint_grid(3) ], &
-     & 3,3)
-  anharmonic_supercell = construct_supercell( structure,                  &
-                                            & anharmonic_supercell_matrix )
-  qpoints = generate_qpoints(anharmonic_supercell)
-  
-  ! Read in harmonic normal modes which correspond to anharmonic q-points,
-  !    and record which new q-point each corresponds to.
-  allocate(complex_modes(0), stat=ialloc); call err(ialloc)
-  do i=1,size(qpoints)
-    
-    ! Identify the matching harmonic q-point.
-    j = first(harmonic_qpoints==qpoints(i),default=0)
-    if (j==0) then
-      call print_line(ERROR//': anharmonic q-point '//qpoints(i)%qpoint// &
-         &' is not also a harmonic q-point.')
-      call quit()
-    endif
-    
-    ! Re-label the anharmonic q-point to have the same ID as the matching
-    !    harmonic q-point.
-    qpoints(i)%id = harmonic_qpoints(j)%id
-    qpoints(i)%paired_qpoint_id = harmonic_qpoints(j)%paired_qpoint_id
-    
-    ! Read in the modes at the harmonic q-point.
-    qpoint_dir = &
-       & harmonic_path//'/qpoint_'//left_pad(j,str(size(harmonic_qpoints)))
-    harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
-    qpoint_modes = ComplexMode(harmonic_complex_modes_file%sections())
-    
-    complex_modes = [complex_modes, qpoint_modes]
-  enddo
-  
-  complex_modes = complex_modes(filter(.not.complex_modes%translational_mode))
-  
-  ! Calculate real modes from complex modes.
-  real_modes = complex_to_real(complex_modes)
-  
-  ! Retrieve data on how normal modes are grouped into subspaces
-  !    of degenerate modes.
-  degenerate_subspaces = process_degeneracies(complex_modes)
-  
-  ! Generate the symmetry operators in each degenerate subspace.
-  allocate( degenerate_symmetries(size(structure%symmetries)), &
+  allocate( harmonic_dynamical_matrices(size(harmonic_qpoints)), &
+          & harmonic_complex_modes( structure%no_modes,          &
+          &                         size(harmonic_qpoints) ),    &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(structure%symmetries)
-    degenerate_symmetries(i) = DegenerateSymmetry( structure%symmetries(i), &
-                                                 & degenerate_subspaces,    &
-                                                 & complex_modes,           &
-                                                 & qpoints                  )
+  do i=1,size(harmonic_qpoints)
+    qpoint_dir = harmonic_path// &
+               & '/qpoint_'//left_pad(i,str(size(harmonic_qpoints)))
+    
+    harmonic_dynamical_matrices_file = IFile( &
+        & qpoint_dir//'/dynamical_matrix.dat' )
+    harmonic_dynamical_matrices(i) = DynamicalMatrix( &
+           & harmonic_dynamical_matrices_file%lines() )
+    
+    harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
+    harmonic_complex_modes(:,i) = ComplexMode(  &
+       & harmonic_complex_modes_file%sections() )
   enddo
   
-  ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
-  call print_line('Generating couplings between subspaces.')
-  subspace_coupling = generate_coupled_subspaces( degenerate_subspaces, &
-                                                & maximum_coupling_order)
-  
-  ! Load anharmonic data into container.
-  anharmonic_data = AnharmonicData( structure,                     &
-                                  & anharmonic_supercell,          &
-                                  & qpoints,                       &
-                                  & complex_modes,                 &
-                                  & real_modes,                    &
-                                  & degenerate_subspaces,          &
-                                  & degenerate_symmetries,         &
-                                  & subspace_coupling,             &
-                                  & maximum_coupling_order,        &
-                                  & potential_expansion_order,     &
-                                  & vscf_basis_functions_only,     &
-                                  & maximum_weighted_displacement, &
-                                  & frequency_of_max_displacement  )
-  
   ! ----------------------------------------------------------------------
-  ! Write out setup data common to all potential representations.
+  ! Generate and write out data common to all potential representations.
   ! ----------------------------------------------------------------------
+  
+  ! Interpolate the supercell, and construct data at the interpolated q-points.
+  call print_line('Generating anharmonic supercell.')
+  interpolated_supercell = InterpolatedSupercell( &
+                   & qpoint_grid,                 &
+                   & structure,                   &
+                   & harmonic_qpoints,            &
+                   & harmonic_dynamical_matrices, &
+                   & harmonic_complex_modes       )
+  
+  ! Construct the maximum displacement in normal-mode co-ordinates.
+  max_displacement = MaxDisplacement(                                 &
+     & maximum_displacement          = maximum_displacement,          &
+     & structure                     = structure,                     &
+     & frequency_of_max_displacement = frequency_of_max_displacement, &
+     & max_energy_of_displacement    = max_energy_of_displacement     )
+  
+  ! Construct and collate common data.
+  anharmonic_data = AnharmonicData(                                   &
+     & structure                     = structure,                     &
+     & interpolated_supercell        = interpolated_supercell,        &
+     & max_displacement              = max_displacement,              &
+     & potential_expansion_order     = potential_expansion_order,     &
+     & maximum_coupling_order        = maximum_coupling_order,        &
+     & vscf_basis_functions_only     = vscf_basis_functions_only,     &
+     & energy_to_force_ratio         = energy_to_force_ratio          )
+  
   call print_line('Writing common data.')
   ! Write out anharmonic supercell and q-points.
   anharmonic_supercell_file = OFile('anharmonic_supercell.dat')
-  call anharmonic_supercell_file%print_lines(anharmonic_supercell)
+  call anharmonic_supercell_file%print_lines( &
+     & anharmonic_data%anharmonic_supercell )
   
   anharmonic_qpoints_file = OFile('anharmonic_qpoints.dat')
-  call anharmonic_qpoints_file%print_lines(qpoints, separating_line='')
+  call anharmonic_qpoints_file%print_lines( anharmonic_data%qpoints, &
+                                          & separating_line=''       )
   
   ! Write out complex and real normal modes.
   complex_modes_file = OFile('complex_modes.dat')
-  call complex_modes_file%print_lines(complex_modes, separating_line='')
+  call complex_modes_file%print_lines( anharmonic_data%complex_modes, &
+                                     & separating_line=''             )
   
   real_modes_file = OFile('real_modes.dat')
-  call real_modes_file%print_lines(real_modes, separating_line='')
+  call real_modes_file%print_lines( anharmonic_data%real_modes, &
+                                  & separating_line=''          )
   
   ! Write out subspaces and subspace coupling.
   subspaces_file = OFile('degenerate_subspaces.dat')
-  call subspaces_file%print_lines(degenerate_subspaces, separating_line='')
+  call subspaces_file%print_lines( anharmonic_data%degenerate_subspaces, &
+                                 & separating_line=''                    )
   
   coupling_file = OFile('subspace_coupling.dat')
-  call coupling_file%print_lines(subspace_coupling)
+  call coupling_file%print_lines(anharmonic_data%subspace_couplings)
   
   ! Write out symmetries.
   symmetry_file = OFile('symmetries.dat')
-  call symmetry_file%print_lines(degenerate_symmetries, separating_line='')
+  call symmetry_file%print_lines( anharmonic_data%degenerate_symmetries, &
+                                & separating_line=''                     )
   
   ! Write out anharmonic data.
   anharmonic_data_file = OFile('anharmonic_data.dat')
@@ -386,13 +316,21 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Initialise potential to the chosen representation.
   call print_line('Initialising potential.')
   if (potential_representation=='polynomial') then
-    potential = PotentialPointer(                       &
-       & PolynomialPotential(potential_expansion_order) )
+    potential = PotentialPointer(PolynomialPotential(anharmonic_data))
   else
     call print_line( ERROR//': Unrecognised potential representation: '// &
                    & potential_representation)
     call err()
   endif
+  
+  ! Initialise calculation writer.
+  calculation_writer = CalculationWriter( file_type = file_type, &
+                                        & seedname  = seedname   )
+  
+  ! Calculate weighted energy to force ratio.
+  weighted_energy_force_ratio = &
+     &   energy_to_force_ratio  &
+     & * sqrt(maxval(anharmonic_data%structure%atoms%mass()))
   
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.

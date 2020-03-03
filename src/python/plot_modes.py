@@ -1,3 +1,4 @@
+import sys
 import matplotlib.pyplot as plt
 import scipy.stats
 import numpy as np
@@ -28,9 +29,15 @@ def main():
   
   frequencies, anharmonic, sampled, pressure, modes = parse_mode_maps(file_name)
   
-  keys = ['frequency',
-          'energies',
-          'forces']
+  if len(modes)>30:
+    print('Error: trying to plot more than 30 modes. This will likely crash.')
+    sys.exit()
+  
+  keys = []
+  if frequencies:
+    keys.append('frequencies')
+  keys.append('energies')
+  keys.append('forces')
   if pressure:
     keys.append('pressures')
   if sampled:
@@ -45,11 +52,14 @@ def main():
   for key,ax in zip(keys,axs):
     axes[key] = ax
   
-  for ax in axes['frequency']:
-    for frequency in frequencies:
-      ax.hlines([frequency], 0, 1, color=colours['turquoise'])
-  for mode,ax in zip(modes,axes['frequency']):
-    ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['orange'])
+  if frequencies:
+    for ax in axes['frequency']:
+      for frequency in frequencies:
+        ax.hlines([frequency], 0, 1, color=colours['turquoise'])
+    for mode,ax in zip(modes,axes['frequency']):
+      ax.hlines([mode['Harmonic frequency']], 0, 1, color=colours['orange'])
+  
+  for mode,ax in zip(modes,axs[0]):
     ax.set_xlabel('Mode '+str(mode['ID']))
     ax.xaxis.set_label_position('top')
   
@@ -102,20 +112,21 @@ def main():
         ax.plot(mode['L2 Cartesian displacements'], mode['Anharmonic pressure difference'], 
                 color=colours['turquoise'], lw=2)
   
-  # Configure frequency axes.
-  min_frequency = min(min(frequencies), 0)
-  max_frequency = max(max(frequencies), 0)
-  
-  ymin = min_frequency - 0.1*(max_frequency-min_frequency)
-  ymax = max_frequency + 0.1*(max_frequency-min_frequency)
-  
-  for ax in axes['frequency']:
-    ax.set_ylim(ymin,ymax)
-    ax.set_xticks([])
-  axes['frequency'][0].tick_params(direction='out')
-  axes['frequency'][0].set_ylabel('Frequency (Ha)')
-  for ax in axes['frequency'][1:]:
-    ax.tick_params(direction='out', labelleft='off')
+  if frequencies:
+    # Configure frequency axes.
+    min_frequency = min(min(frequencies), 0)
+    max_frequency = max(max(frequencies), 0)
+    
+    ymin = min_frequency - 0.1*(max_frequency-min_frequency)
+    ymax = max_frequency + 0.1*(max_frequency-min_frequency)
+    
+    for ax in axes['frequency']:
+      ax.set_ylim(ymin,ymax)
+      ax.set_xticks([])
+    axes['frequency'][0].tick_params(direction='out')
+    axes['frequency'][0].set_ylabel('Frequency (Ha)')
+    for ax in axes['frequency'][1:]:
+      ax.tick_params(direction='out', labelleft='off')
   
   # Configure energy y-axes.
   min_energy = 0

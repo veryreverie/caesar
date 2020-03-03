@@ -10,7 +10,7 @@ module spglib_symmetries_module
   public :: SpglibSymmetries
   public :: size
   
-  type, extends(Stringwriteable) :: SpglibSymmetries
+  type, extends(Stringswriteable) :: SpglibSymmetries
     integer                       :: spacegroup_number
     type(String)                  :: international_symbol
     type(RealMatrix)              :: transformation

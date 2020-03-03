@@ -5,6 +5,8 @@
 module anharmonic_data_module
   use common_module
   
+  use interpolated_supercell_module
+  use max_displacement_module
   use degenerate_symmetry_module
   use subspace_coupling_module
   implicit none
@@ -34,6 +36,7 @@ module anharmonic_data_module
   
   interface AnharmonicData
     module procedure new_AnharmonicData
+    module procedure new_AnharmonicData_data
     module procedure new_AnharmonicData_Strings
     module procedure new_AnharmonicData_StringArray
   end interface
@@ -74,6 +77,67 @@ function new_AnharmonicData(structure,anharmonic_supercell,qpoints,       &
   this%vscf_basis_functions_only     = vscf_basis_functions_only
   this%maximum_weighted_displacement = maximum_weighted_displacement
   this%frequency_of_max_displacement = frequency_of_max_displacement
+end function
+
+function new_AnharmonicData_data(structure,interpolated_supercell,      &
+   & max_displacement,potential_expansion_order,maximum_coupling_order, &
+   & vscf_basis_functions_only,energy_to_force_ratio) result(this) 
+  implicit none
+  
+  type(StructureData),         intent(in) :: structure
+  type(InterpolatedSupercell), intent(in) :: interpolated_supercell
+  type(MaxDisplacement),       intent(in) :: max_displacement
+  integer,                     intent(in) :: potential_expansion_order
+  integer,                     intent(in) :: maximum_coupling_order
+  logical,                     intent(in) :: vscf_basis_functions_only
+  real(dp),                    intent(in) :: energy_to_force_ratio
+  type(AnharmonicData)                    :: this
+  
+  ! Degeneracy data.
+  type(DegenerateSubspace), allocatable :: degenerate_subspaces(:)
+  type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
+  
+  ! Coupling data.
+  type(SubspaceCoupling), allocatable :: subspace_couplings(:)
+  
+  ! Temporary variables.
+  integer :: i,ialloc
+  
+  ! Retrieve data on how normal modes are grouped into subspaces
+  !    of degenerate modes.
+  degenerate_subspaces = process_degeneracies( &
+        & interpolated_supercell%complex_modes )
+  
+  ! Generate the symmetry operators in each degenerate subspace.
+  allocate( degenerate_symmetries(size(structure%symmetries)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(structure%symmetries)
+    degenerate_symmetries(i) = DegenerateSymmetry( &
+           & structure%symmetries(i),              &
+           & degenerate_subspaces,                 &
+           & interpolated_supercell%complex_modes, &
+           & interpolated_supercell%qpoints        )
+  enddo
+  
+  ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
+  call print_line('Generating couplings between subspaces.')
+  subspace_couplings = generate_coupled_subspaces( degenerate_subspaces, &
+                                                 & maximum_coupling_order)
+  
+  ! Load anharmonic data into container.
+  this = AnharmonicData( structure,                                      &
+                       & interpolated_supercell%supercell,               &
+                       & interpolated_supercell%qpoints,                 &
+                       & interpolated_supercell%complex_modes,           &
+                       & interpolated_supercell%real_modes,              &
+                       & degenerate_subspaces,                           &
+                       & degenerate_symmetries,                          &
+                       & subspace_couplings,                             &
+                       & maximum_coupling_order,                         &
+                       & potential_expansion_order,                      &
+                       & vscf_basis_functions_only,                      &
+                       & max_displacement%maximum_weighted_displacement, &
+                       & max_displacement%frequency_of_max_displacement  )
 end function
 
 ! ----------------------------------------------------------------------

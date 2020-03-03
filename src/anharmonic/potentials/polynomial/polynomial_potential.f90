@@ -119,13 +119,13 @@ subroutine startup_polynomial_potential()
 end subroutine
 
 ! Constructors.
-function new_PolynomialPotential(potential_expansion_order) result(this)
+function new_PolynomialPotential(anharmonic_data) result(this)
   implicit none
   
-  integer, intent(in)       :: potential_expansion_order
-  type(PolynomialPotential) :: this
+  type(AnharmonicData), intent(in) :: anharmonic_data
+  type(PolynomialPotential)        :: this
   
-  this%potential_expansion_order_ = potential_expansion_order
+  this%potential_expansion_order_ = anharmonic_data%potential_expansion_order
 end function
 
 function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &

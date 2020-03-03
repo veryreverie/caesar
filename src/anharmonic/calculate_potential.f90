@@ -157,8 +157,7 @@ subroutine calculate_potential_subroutine(arguments)
   
   ! Initialise potential to the chosen representation
   if (potential_representation=='polynomial') then
-    potential = PotentialPointer(                       &
-       & PolynomialPotential(potential_expansion_order) )
+    potential = PotentialPointer(PolynomialPotential(anharmonic_data))
   else
     call print_line( ERROR//': Unrecognised potential representation: '// &
                    & potential_representation)

@@ -33,11 +33,16 @@ def dblecomplex(displacement):
 def parse_mode_maps(filename):
   lines = read_file(filename)
   
-  frequencies = [float(x) for x in lines[0][2:]]
+  if len(lines[0])>0:
+    frequencies = [float(x) for x in lines[0][2:]]
+    lines = lines[2:]
+  else:
+    frequencies = []
+    lines = lines[1:]
   
   # Split file into modes.
   modes = []
-  for line in lines[2:]:
+  for line in lines:
     if len(line)>0:
       if line[0]=='Mode' and line[1]=='ID:':
         modes.append({'ID':int(line[2])})
