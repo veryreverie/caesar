@@ -26,6 +26,11 @@ module basis_function_module
   public :: operator(+)
   public :: operator(-)
   
+  public :: find_monomial_conjugates
+  public :: pair_complex_monomials
+  public :: make_basis_projection
+  public :: generate_basis_function
+  
   type, extends(Stringsable) :: BasisFunction
     ! The basis function in complex co-ordinates.
     type(ComplexPolynomial), private :: complex_representation_
@@ -176,10 +181,10 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(OFile),              intent(inout) :: logfile
   type(BasisFunctionsAndUniqueTerms)      :: output
   
-  ! Monomials, in complex and real representations.
+  ! Complex monomials, and the corresponding real basis functions.
   type(ComplexMonomial), allocatable :: complex_monomials(:)
-  
-  integer, allocatable :: conjugates(:)
+  integer,               allocatable :: conjugates(:)
+  type(BasisFunction),   allocatable :: basis_functions(:)
   
   ! Symmetry data.
   type(ComplexMatrix) :: symmetry
@@ -190,7 +195,6 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
   ! Variables for constructing the output.
-  type(BasisFunction), allocatable :: basis_functions(:)
   integer,             allocatable :: unique_terms(:)
   
   ! Temporary variables.
@@ -211,6 +215,11 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
       & qpoints,                                             &
       & conserve_momentum=.true.,                            &
       & conserve_subspace_momentum=vscf_basis_functions_only )
+  
+  ! Pair up each complex monomial with its complex conjugate,
+  !    to form real basis functions.
+  conjugates = find_monomial_conjugates(complex_monomials)
+  basis_functions = pair_complex_monomials(complex_monomials, conjugates)
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
@@ -233,10 +242,6 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
                       & 'monomial projection matrix', &
                       & logfile,                      &
                       & ignore_threshold=1e-10_dp     )
-  
-  ! Pair up each complex monomial with its complex conjugate.
-  conjugates = find_monomial_conjugates(complex_monomials)
-  basis_functions = pair_complex_monomials(complex_monomials, conjugates)
   
   ! Transform the projection matrix to basis functions rather than monomials.
   basis_projection = make_basis_projection(projection, conjugates)
@@ -387,8 +392,8 @@ function generate_basis_function(evec,monomials,conjugates) result(output)
   
   max_coeff = maxval(abs(evec))
   
-  included_terms = filter( abs(evec)>max_coeff/1e4_dp             &
-                    & .or. abs(evec(conjugates))>max_coeff/1e4_dp )
+  included_terms = filter( abs(evec)>=max_coeff/1e4_dp             &
+                    & .or. abs(evec(conjugates))>=max_coeff/1e4_dp )
   
   allocate(terms(size(included_terms)), stat=ialloc); call err(ialloc)
   do i=1,size(terms)

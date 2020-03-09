@@ -270,10 +270,6 @@ impure elemental function log_braket_HarmonicState2D(bra,ket,potential, &
   
   integer :: k,ialloc
   
-  if (expansion_order/=4) then
-    call err()
-  endif
-  
   if (.not. allocated(cache)) then
     allocate( cache( 0               :expansion_order,     &
             &        0               :expansion_order,     &

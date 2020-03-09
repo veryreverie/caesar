@@ -632,16 +632,18 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,      &
         if (present(stress_hessian)) then
           ! Add in the kinetic stress from the mode.
           ! For harmonic states, the kinetic stress is equal to UI/V,
-          !    where I is the stress prefactor and V is the volume.
+          !    where I is the stress prefactor
+          !    and V is the primitive cell volume.
           stress_prefactor = complex_modes(j)%stress_prefactor()
           stress = stress + thermodynamics%energy * stress_prefactor/volume
           
           ! Add in the potential stress from the mode.
-          ! For harmonic states, <uu*> =  2U/w^2.
-          ! <stress> = u*.stress.u * <uu*>.
+          ! For harmonic states, U=2<V> = w^2<uu*>.
+          ! <stress> = -1/2 * u*.stress_dyn_mat.u * <uu*>.
+          !          = -1/2 * u*.stress_dyn_mat.u * U/w^2.
           stress = stress                                                &
-               & + stress_dynamical_matrix%expectation(complex_modes(j)) &
-               & * thermodynamics%energy * 2 / complex_modes(j)%frequency**2
+               & - stress_dynamical_matrix%expectation(complex_modes(j)) &
+               & * thermodynamics%energy / (2*complex_modes(j)%frequency**2)
         endif
       endif
     enddo

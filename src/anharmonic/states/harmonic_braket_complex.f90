@@ -288,12 +288,13 @@ impure elemental function kinetic_stress_HarmonicBraKetComplex(this, &
   ! |p> = product_i |p_i>
   ! The kinetic stress is given by
   !    S = -(1/NV) sum_i (I_{i,i}d^2/d(u_i^2) + sum_{j/=i}I_{i,j}d^2/du_idu_j).
-  ! <p_i|d^2/d(u_i)^2|q_i> and <p_i|d^2/du_idu_j|q_i> are calculated up to
-  !    a factor of 2Nw, so
+  ! <p_i|d^2/du_idu_j|q_i> is calculated up to a factor of 2Nw, so
   !    <p|S|q> = -2w * (
-  !      sum_i prefactor_{i,i}*<p_i|%second_derivative(|q_i>) * (<p'|q'>)
-  !    + sum_{i,j} prefactor_{i,j}*<p_i|%plus_derivative(|q_i>)
-  !                               *<p_j|%minus_derivative(|q_j>)*(<p''|q''>) ),
+  !      sum_i [ (prefactor_{i,i'}+prefactor_{i',i})
+  !            * <p_i|%second_derivative(|q_i>) * (<p'|q'>) ]
+  !    + sum_{i,j} prefactor_{i,j'}*<p_i|%plus_derivative(|q_i>)
+  !                                *<p_j|%minus_derivative(|q_j>)
+  !                                *(<p''|q''>)                     ),
   ! where |p'> is |p> excluding |p_i>, so |p>=|p_i>|p'>,
   ! and |p''> is |p> excluding |p_i> and |p_j>, so |p>=|p_i>|p_j>|p''>.
   ! Since harmonic states are orthonormal, <p'|q'> and <p''|q''> are
@@ -309,26 +310,33 @@ impure elemental function kinetic_stress_HarmonicBraKetComplex(this, &
     modes_overlap = this%bra_%modes_%finite_overlap(this%ket_%modes_)
     if (all(modes_overlap)) then
       ! All <p_i|q_i> are finite, |q>=|p>.
-      ! -> <p|S|p> = -2w sum_i prefactor_{i,i}<p_i|%second_derivative(|p_i>)
-      output = -2*this%frequency_                                         &
-           & * sum( stress_prefactors%prefactor( this%bra_%modes_%id(),   &
-           &                                     this%bra_%modes_%id()  ) &
-           &      * this%bra_%modes_%second_derivative(this%bra_%modes_)  )
+      ! -> <p|S|p> = -2w sum_i [ (prefactor_{i,i'}+prefactor_{i',i})
+      !                        * <p_i|%second_derivative(|p_i>)      ]
+      output = -2*this%frequency_                                        &
+           & * sum( ( stress_prefactors%prefactor(                       &
+           &             this%bra_%modes_%id(),                          &
+           &             this%bra_%modes_%paired_id() )                  &
+           &        + stress_prefactors%prefactor(                       &
+           &             this%bra_%modes_%paired_id(),                   &
+           &             this%bra_%modes_%id()         ) )               &
+           &      * this%bra_%modes_%second_derivative(this%bra_%modes_) )
     elseif (count(.not. modes_overlap)==2) then
       ! Exactly two <p_i|q_i> are zero. Label these i and j.
       ! <p|S|q> = -2w*
-      !   (prefactor_{i,j}+prefactor_{j,i})
+      !   (prefactor_{i,j'}+prefactor_{j,i'})
       !   * <p_i|%first_derivative(|q_i>)
       !   * <p_j|%first_derivative(|q_j>)
       i = first(.not. modes_overlap)
       j = i + first(.not. modes_overlap(i+1:))
       
-      output = ( stress_prefactors%prefactor( this%bra_%modes_(i)%id(),      &
-           &                                  this%bra_%modes_(j)%id()  )    &
+      output = ( stress_prefactors%prefactor(                                &
+           &        this%bra_%modes_(i)%id(),                                &
+           &        this%bra_%modes_(j)%paired_id() )                        &
            &   * this%bra_%modes_(i)%plus_derivative(this%ket_%modes_(i))    &
            &   * this%bra_%modes_(j)%minus_derivative(this%ket_%modes_(j))   &
-           &   + stress_prefactors%prefactor( this%bra_%modes_(j)%id(),      &
-           &                                  this%bra_%modes_(i)%id()  )    &
+           &   + stress_prefactors%prefactor(                                &
+           &        this%bra_%modes_(j)%id(),                                &
+           &        this%bra_%modes_(i)%paired_id() )                        &
            &   * this%bra_%modes_(j)%plus_derivative(this%ket_%modes_(j))    &
            &   * this%bra_%modes_(i)%minus_derivative(this%ket_%modes_(i)) ) &
            & * (-2*this%frequency_)
@@ -340,10 +348,11 @@ impure elemental function kinetic_stress_HarmonicBraKetComplex(this, &
     ! |p>=|q>, so all first derivative expectations are zero.
     ! Also, <p|p>=1, so <p'|p'>=1.
     ! -> <p|S|p> = -2w sum_i prefactor_{i,i}<p_i|%second_derivative(|p_i>)
-    output = -2*this%frequency_                                         &
-         & * sum( stress_prefactors%prefactor( this%bra_%modes_%id(),   &
-         &                                     this%bra_%modes_%id()  ) &
-         &      * this%bra_%modes_%second_derivative(this%bra_%modes_)  )
+    output = -2*this%frequency_                                        &
+         & * sum( stress_prefactors%prefactor(                         &
+         &           this%bra_%modes_%id(),                            &
+         &           this%bra_%modes_%paired_id() )                    &
+         &      * this%bra_%modes_%second_derivative(this%bra_%modes_) )
   endif
   
   ! Divide by the volume.

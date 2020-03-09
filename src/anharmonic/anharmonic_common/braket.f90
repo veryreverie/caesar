@@ -316,7 +316,7 @@ impure elemental function harmonic_observables(thermal_energy,stress, &
   type(ThermodynamicData)                    :: output
   
   type(RealMatrix), allocatable :: potential_stress
-  real(dp),         allocatable :: volume
+  real(dp),         allocatable :: primitive_volume
   
   if (present(stress).neqv.present(stress_prefactor)) then
     call print_line(CODE_ERROR//': Either both or neither of stress and &
@@ -330,14 +330,14 @@ impure elemental function harmonic_observables(thermal_energy,stress, &
                    &                                supercell_size,   &
                    &                                anharmonic_data ) &
                    & / num_dimensions
-    volume = anharmonic_data%structure%volume
+    primitive_volume = anharmonic_data%structure%volume
   endif
   
   output = ThermodynamicData( thermal_energy,     &
        &                      frequency,          &
        &                      stress_prefactor,   &
        &                      potential_stress,   &
-       &                      volume            ) &
+       &                      primitive_volume  ) &
        & * num_dimensions
 end function
 

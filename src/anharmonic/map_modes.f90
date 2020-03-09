@@ -26,7 +26,7 @@ subroutine startup_map_modes()
   mode%mode_name = 'map_modes'
   mode%description = 'Maps the potential along normal modes. If use_potential &
   &is true, map_modes should be run after calculate_potential, &
-  &otherwise it may be run after setup_anharmonic.'
+  &otherwise it may be run after calculate_normal_modes.'
   mode%keywords = [                                                           &
   & KeywordData( 'harmonic_path',                                             &
   &              'harmonic_path is the path to the directory where harmonic &
@@ -393,12 +393,18 @@ subroutine map_modes_subroutine(arguments)
          & -l2_cartesian_displacements(:no_single_mode_samples)
       
       ! Sample the model potential.
-      mode_maps(loc) = ModeMap( mode_displacements,         &
-                              & l2_cartesian_displacements, &
-                              & real_modes(i),              &
-                              & potential,                  &
-                              & stress,                     &
-                              & anharmonic_data             )
+      if (use_potential) then
+        mode_maps(loc) = ModeMap( mode_displacements,         &
+                                & l2_cartesian_displacements, &
+                                & real_modes(i),              &
+                                & potential,                  &
+                                & stress,                     &
+                                & anharmonic_data             )
+      else
+        mode_maps(loc) = ModeMap( mode_displacements,         &
+                                & l2_cartesian_displacements, &
+                                & real_modes(i)               )
+      endif
     endif
   enddo
   
@@ -406,63 +412,63 @@ subroutine map_modes_subroutine(arguments)
   ! Validate the model potential by sampling the electronic structure at
   !    the same points as the model potential.
   ! --------------------------------------------------
-  if (validate_potential) then
-    allocate( sampled_energies(size(mode_displacements)), &
-            & sampled_forces(size(mode_displacements)),   &
+  allocate( sampled_energies(size(mode_displacements)), &
+          & sampled_forces(size(mode_displacements)),   &
+          & stat=ialloc); call err(ialloc)
+  if (calculate_stress) then
+    allocate( sampled_pressures(size(mode_displacements)), &
             & stat=ialloc); call err(ialloc)
-    if (calculate_stress) then
-      allocate( sampled_pressures(size(mode_displacements)), &
-              & stat=ialloc); call err(ialloc)
+  endif
+  do i=1,size(qpoints)
+    if (qpoints(i)%paired_qpoint_id<qpoints(i)%id) then
+      cycle
     endif
-    do i=1,size(qpoints)
-      if (qpoints(i)%paired_qpoint_id<qpoints(i)%id) then
-        cycle
-      endif
-      qpoint_modes = filter(real_modes%qpoint_id_plus==qpoints(i)%id)
-      if (qpoints(i)%paired_qpoint_id>qpoints(i)%id) then
-        qpoint_modes = [ qpoint_modes,                                     &
-                       & filter(real_modes%qpoint_id_minus==qpoints(i)%id) ]
-      endif
-      
-      if (all(mode_locs(real_modes(qpoint_modes)%id)==0)) then
-        cycle
-      endif
-      
-      qpoint_dir = 'qpoint_'//left_pad(qpoints(i)%id, str(maxval(qpoints%id)))
-      call mkdir(qpoint_dir)
-      
-      ! Construct and write out supercell.
-      supercell_matrix = construct_supercell_matrix(qpoints(i), structure)
-      supercell = construct_supercell( structure,       &
-                                     & supercell_matrix )
-      supercell_file = OFile(qpoint_dir//'/structure.dat')
-      call supercell_file%print_lines(supercell)
-      
-      do j=1,size(qpoint_modes)
-        mode = real_modes(qpoint_modes(j))
-        loc = mode_locs(mode%id)
-        if (loc/=0) then
-          mode_dir = qpoint_dir//'/real_mode_'// &
-                   & left_pad(mode%id, str(maxval(real_modes%id)))
-          call mkdir(mode_dir)
-          do k=1,size(sampled_energies)
-            real_mode_displacement = RealModeDisplacement( &
-                  & [mode],                                &
-                  & [mode_maps(loc)%mode_displacements(k)] )
-            cartesian_displacement = CartesianDisplacement( &
-                                  & real_mode_displacement, &
-                                  & supercell,              &
-                                  & real_modes,             &
-                                  & qpoints                 )
-            displaced_structure = displace_structure( supercell,             &
-                                                    & cartesian_displacement )
-            
-            displacement_dir = mode_dir//'/displacement_'// &
-                             & left_pad(k,str(size(mode_displacements)))
-            call calculation_writer%write_calculation( &
-                                & displaced_structure, &
-                                & displacement_dir     )
-            
+    qpoint_modes = filter(real_modes%qpoint_id_plus==qpoints(i)%id)
+    if (qpoints(i)%paired_qpoint_id>qpoints(i)%id) then
+      qpoint_modes = [ qpoint_modes,                                     &
+                     & filter(real_modes%qpoint_id_minus==qpoints(i)%id) ]
+    endif
+    
+    if (all(mode_locs(real_modes(qpoint_modes)%id)==0)) then
+      cycle
+    endif
+    
+    qpoint_dir = 'qpoint_'//left_pad(qpoints(i)%id, str(maxval(qpoints%id)))
+    call mkdir(qpoint_dir)
+    
+    ! Construct and write out supercell.
+    supercell_matrix = construct_supercell_matrix(qpoints(i), structure)
+    supercell = construct_supercell( structure,       &
+                                   & supercell_matrix )
+    supercell_file = OFile(qpoint_dir//'/structure.dat')
+    call supercell_file%print_lines(supercell)
+    
+    do j=1,size(qpoint_modes)
+      mode = real_modes(qpoint_modes(j))
+      loc = mode_locs(mode%id)
+      if (loc/=0) then
+        mode_dir = qpoint_dir//'/real_mode_'// &
+                 & left_pad(mode%id, str(maxval(real_modes%id)))
+        call mkdir(mode_dir)
+        do k=1,size(sampled_energies)
+          real_mode_displacement = RealModeDisplacement( &
+                & [mode],                                &
+                & [mode_maps(loc)%mode_displacements(k)] )
+          cartesian_displacement = CartesianDisplacement( &
+                                & real_mode_displacement, &
+                                & supercell,              &
+                                & real_modes,             &
+                                & qpoints                 )
+          displaced_structure = displace_structure( supercell,             &
+                                                  & cartesian_displacement )
+          
+          displacement_dir = mode_dir//'/displacement_'// &
+                           & left_pad(k,str(size(mode_displacements)))
+          call calculation_writer%write_calculation( &
+                              & displaced_structure, &
+                              & displacement_dir     )
+          
+          if (validate_potential) then
             call calculation_runner%run_calculation(displacement_dir)
             
             electronic_structure = calculation_reader%read_calculation( &
@@ -477,7 +483,10 @@ subroutine map_modes_subroutine(arguments)
             if (calculate_stress) then
               sampled_pressures(k) = trace(electronic_structure%stress())/3
             endif
-          enddo
+          endif
+        enddo
+        
+        if (validate_potential) then
           sampled_energies = ( sampled_energies                             &
                          &   - sampled_energies(no_single_mode_samples+1) ) &
                          & / supercell%sc_size
@@ -491,9 +500,9 @@ subroutine map_modes_subroutine(arguments)
             mode_maps(loc)%sampled_pressures = sampled_pressures
           endif
         endif
-      enddo
+      endif
     enddo
-  endif
+  enddo
   
   ! --------------------------------------------------
   ! Write out output.

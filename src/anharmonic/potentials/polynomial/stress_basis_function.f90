@@ -115,14 +115,10 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(OFile),              intent(inout) :: logfile
   type(StressBasisFunction), allocatable  :: output(:)
   
-  ! Monomials, in complex and real representations.
+  ! Complex monomials, and the corresponding real basis functions.
   type(ComplexMonomial), allocatable :: complex_monomials(:)
-  type(RealMonomial),    allocatable :: real_monomials(:)
-  
-  ! The conversion from the complex monomial basis to the real monomial basis,
-  !    and vice-versa.
-  type(ComplexMatrix) :: complex_to_real_conversion
-  type(ComplexMatrix) :: real_to_complex_conversion
+  integer,               allocatable :: conjugates(:)
+  type(BasisFunction),   allocatable :: basis_functions(:)
   
   ! Each symmetry, acting on scalar basis functions, the stress tensor,
   !    and the combined basis function.
@@ -134,12 +130,10 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   
   ! Polynomial coefficients, in both bases.
   type(SymmetricEigenstuff), allocatable :: estuff(:)
-  real(dp),                  allocatable :: real_coefficients(:)
-  complex(dp),               allocatable :: complex_coefficients(:)
   
   ! Variables for constructing the output.
-  type(ComplexPolynomial) :: complex_representation
   type(ComplexPolynomial) :: elements(3,3)
+  type(BasisFunction)     :: basis_function
   
   ! Mappings between 3x3 indices and 6 indices.
   integer :: x(6)
@@ -153,13 +147,8 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   x = [1,2,3,1,1,2]
   y = [1,2,3,2,3,3]
   
-  ! Generate the real monomials and complex monomials corresponding to the
-  !    subspace monomial, with coefficients such that symmetries are unitary.
-  real_monomials = generate_real_monomials( subspace_monomial, &
-                                          & subspaces,         &
-                                          & real_modes,        &
-                                          & qpoints            )
-  
+  ! Generate the complex monomials corresponding to the subspace monomial,
+  !    with coefficients such that symmetries are unitary.
   complex_monomials = generate_complex_monomials(            &
       & subspace_monomial,                                   &
       & subspaces,                                           &
@@ -173,21 +162,15 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
     return
   endif
   
-  ! Identify the mappings between complex monomials and real monomials.
-  complex_to_real_conversion = basis_conversion_matrix( &
-                          & real_monomials,             &
-                          & complex_monomials,          &
-                          & include_coefficients=.true. )
-  
-  real_to_complex_conversion = basis_conversion_matrix( &
-                          & complex_monomials,          &
-                          & real_monomials,             &
-                          & include_coefficients=.true. )
+  ! Pair up each complex monomial with its complex conjugate,
+  !    to form real basis functions.
+  conjugates = find_monomial_conjugates(complex_monomials)
+  basis_functions = pair_complex_monomials(complex_monomials, conjugates)
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
-  projection = dblemat(make_identity_matrix(size(real_monomials)*6))
-  allocate( symmetry(size(real_monomials)*6,size(real_monomials)*6), &
+  projection = dblemat(make_identity_matrix(size(complex_monomials)*6))
+  allocate( symmetry(size(complex_monomials)*6,size(complex_monomials)*6), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(degenerate_symmetries)
     ! Construct the symmetry acting on the complex monomials.
@@ -199,15 +182,10 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
                       & 'symmetry in complex monomial basis', &
                       & logfile                               )
     
-    ! Transform the symmetry into real co-ordinates,
-    !    and check that it is real.
-    complex_scalar_symmetry = complex_to_real_conversion &
-                          & * complex_scalar_symmetry    &
-                          & * real_to_complex_conversion
-    call check_real( complex_scalar_symmetry,           &
-                   & 'symmetry in real monomial basis', &
-                   & logfile                            )
-    real_scalar_symmetry = dble(real(complex_scalar_symmetry))
+    ! Transform the symmetry into real co-ordinates.
+    real_scalar_symmetry = dble(make_basis_projection( &
+                            & complex_scalar_symmetry, &
+                            & conjugates               ))
     
     ! Construct the symmetry acting on the tensor components.
     do j=1,6
@@ -238,12 +216,12 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
     !    compontents.
     l = 0
     do j=1,6
-      do k=1,size(real_monomials)
+      do k=1,size(complex_monomials)
         l = l+1
         
         o = 0
         do m=1,6
-          do n=1,size(real_monomials)
+          do n=1,size(complex_monomials)
             o = o+1
             
             symmetry(o,l) = tensor_symmetry(m,j) * real_scalar_symmetry(n,k)
@@ -280,22 +258,21 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     do j=1,6
-      real_coefficients = estuff(i)%evec( size(real_monomials)*(j-1)+1 &
-                                      & : size(real_monomials)*j       )
-      
-      complex_coefficients = cmplx( real_to_complex_conversion &
-                                & * vec(real_coefficients)     )
-      
-      complex_representation = ComplexPolynomial( complex_coefficients &
-                                              & * complex_monomials    )
+      basis_function = generate_basis_function(                      &
+         & evec = estuff(i)%evec( size(complex_monomials)*(j-1)+1    &
+         &                      : size(complex_monomials)*j       ), &
+         & monomials = complex_monomials,                            &
+         & conjugates = conjugates                                   )
       
       if (x(j)==y(j)) then
-        elements(x(j),y(j)) = complex_representation
+        elements(x(j),y(j)) = basis_function%complex_representation()
         call elements(x(j),y(j))%simplify()
       else
-        elements(x(j),y(j)) = complex_representation/sqrt(2.0_dp)
+        elements(x(j),y(j)) = basis_function%complex_representation() &
+                          & / sqrt(2.0_dp)
         call elements(x(j),y(j))%simplify()
-        elements(y(j),x(j)) = complex_representation/sqrt(2.0_dp)
+        elements(y(j),x(j)) = basis_function%complex_representation() &
+                          & / sqrt(2.0_dp)
         call elements(y(j),x(j))%simplify()
       endif
     enddo

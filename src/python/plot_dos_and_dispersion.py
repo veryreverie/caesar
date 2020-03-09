@@ -118,7 +118,7 @@ def main():
             positive_segments.append({'x':xs[:1], 'y':ys[:1]})
           else:
             negative_segments.append({'x':xs[:1], 'y':ys[:1]})
-          for x1,y1,x2,y2 in zip(xs[:-1],ys[:-1],xs[2:],ys[2:]):
+          for x1,y1,x2,y2 in zip(xs[:-1],ys[:-1],xs[1:],ys[1:]):
             if y1>=0:
               if y2>=0:
                 positive_segments[-1]['x'].append(x2)

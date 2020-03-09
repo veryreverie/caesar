@@ -189,41 +189,6 @@ function core_shell_thermodynamics(thermal_energy,frequency,supercell_size, &
   
   free_energy = energy - thermal_energy*entropy
   
-  !! Check that F in the core effective region is greater than that in the
-  !!    whole region.
-  !! N.B. this comparison can be swamped by numerical error if the core
-  !!    region covers most of the thermally accessible space, which is checked
-  !!    by the first comparison.
-  !if (pc<0.99_dp) then
-  !  if (full_effective%energy < core_effective%energy) then
-  !    call print_line(ERROR//': Harmonic U outside of core region is less &
-  !       &than that within this region. Please increase the number of &
-  !       &states.')
-  !    call print_line('Potential V:')
-  !    call print_lines(potential)
-  !    call print_line('')
-  !    call print_line('Full Harmonic  U: '//full_harmonic%energy)
-  !    call print_line('Core Harmonic  U: '//core_harmonic%energy)
-  !    call print_line('Full Effective U: '//full_effective%energy)
-  !    call print_line('Core Effective U: '//core_effective%energy)
-  !    call print_line('Core VCI       U: '//core_vci%energy)
-  !    call print_line('Temperature    T: '//thermal_energy)
-  !    call print_line('Frequency      w: '//frequency)
-  !    call err()
-  !  endif
-  !endif
-  !
-  !free_energy = full_effective%free_energy                                  &
-  !          & + ( (full_effective%free_energy-core_effective%free_energy)   &
-  !          &   * pc                                                        &
-  !          &   - thermal_energy*(pc*log(pc)+ps*log(ps))                  ) &
-  !          & / ps
-  !
-  !entropy = full_effective%entropy                                 &
-  !      & + ( (full_effective%entropy-core_effective%entropy)*pc   &
-  !      &   + pc*log(pc)+ps*log(ps)                              ) &
-  !      & / ps
-  
   if (present(stress)) then
     stress_tensor = full_effective%stress &
                 & + (full_effective%stress-core_effective%stress)*pc/ps
@@ -308,12 +273,13 @@ impure elemental function add_subsystems(subsystem1,subsystem2) result(output)
   endif
   thermal_energy = subsystem1%thermal_energy
   if (calculate_stress) then
-    if (abs(subsystem1%volume-subsystem2%volume)>1e-10_dp) then
+    if ( abs(subsystem1%primitive_volume-subsystem2%primitive_volume) &
+     & > 1e-10_dp                                                     ) then
       call print_line(CODE_ERROR//': Adding subsytems at different &
          &volumes.')
       call err()
     endif
-    volume = subsystem1%volume
+    volume = subsystem1%primitive_volume
   endif
   
   ! Identify the subsystem with the smaller free energy.

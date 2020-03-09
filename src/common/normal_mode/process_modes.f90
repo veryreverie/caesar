@@ -81,7 +81,10 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
   integer, allocatable :: subspace_id_set(:)
   
   ! Symmetry data.
-  type(SymmetryOperator), allocatable :: symmetries(:)
+  type(QpointData),       allocatable :: transformed_q(:)
+  type(QpointData)                    :: paired_q
+  type(SymmetryOperator), allocatable :: q_symmetries(:)
+  type(SymmetryOperator), allocatable :: paired_q_symmetries(:)
   
   integer, allocatable :: states(:)
   
@@ -90,6 +93,13 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
   complex(dp), allocatable :: overlap(:,:)
   
   integer :: i,j,k,ialloc
+  
+  logical :: printing
+  
+  printing = subspace_id==44
+  if (printing) then
+    call set_print_settings(decimal_places=2)
+  endif
   
   ! Copy the input to the output.
   output = input
@@ -116,9 +126,14 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
     enddo
   endif
   
-  ! Identify the symmetries which map the q-point to itself.
-  symmetries = structure%symmetries(               &
-     & filter(structure%symmetries*qpoint==qpoint) )
+  ! Identify the symmetries which map the q-point to itself,
+  !    and the symmetries which map the q-point to its pair.
+  transformed_q = structure%symmetries*qpoint
+  paired_q = -qpoint
+  q_symmetries = structure%symmetries( &
+       & filter(transformed_q==qpoint) )
+  paired_q_symmetries = structure%symmetries( &
+            & filter(transformed_q==paired_q) )
   
   ! Assign subspace ids, which are equal if two states are degenerate,
   !    and different if they are not.
@@ -135,17 +150,32 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
         subspace_ids(filter(subspace_ids==subspace_ids(j))) = subspace_ids(i)
       else
         ! If u1.T.u2 is non-zero then u1 and u2 are degenerate.
-        do k=1,size(symmetries)
-          symmetry = cmplx(calculate_symmetry_in_normal_coordinates(   &
-                                           & [output(i), output(j)],   &
-                                           & qpoint,                   &
-                                           & symmetries(k)           ) )
+        do k=1,size(q_symmetries)
+          symmetry = cmplx(calculate_symmetry_in_normal_coordinates(  &
+                                           & [output(i), output(j)],  &
+                                           & [qpoint, qpoint],        &
+                                           & q_symmetries(k)         ))
           if (abs(symmetry(1,2))>1e-3 .or. abs(symmetry(2,1))>1e-3) then
             subspace_ids(filter(subspace_ids==subspace_ids(j))) = &
                & subspace_ids(i)
             exit
           endif
         enddo
+        
+        ! If conjg(u1).T.u2 is non-zero then u1 and u2 are degenerate.
+        if (.not. qpoint%is_paired_qpoint()) then
+          do k=1,size(paired_q_symmetries)
+            symmetry = cmplx(calculate_symmetry_in_normal_coordinates(  &
+                                      & [output(i), conjg(output(j))],  &
+                                      & [qpoint, -qpoint],              &
+                                      & paired_q_symmetries(k)         ))
+            if (abs(symmetry(1,2))>1e-3 .or. abs(symmetry(2,1))>1e-3) then
+              subspace_ids(filter(subspace_ids==subspace_ids(j))) = &
+                 & subspace_ids(i)
+              exit
+            endif
+          enddo
+        endif
       endif
     enddo
   enddo
@@ -156,6 +186,11 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
     output(filter(subspace_ids==subspace_id_set(j)))%subspace_id = i
     i = i+1
   enddo
+  
+  if (printing) then
+    call print_lines(output)
+    call err()
+  endif
   
   ! Loop over subspaces, choosing the correct basis using symmetry operators.
   ! The correct basis has <p|H|q>=0 for all H which are invariant under
@@ -173,12 +208,12 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
       if (qpoint%is_paired_qpoint()) then
         output(states) = choose_basis_real( output(states), &
                                           & structure,      &
-                                          & symmetries,     &
+                                          & q_symmetries,   &
                                           & qpoint          )
       else
         output(states) = choose_basis_complex( output(states), &
                                              & structure,      &
-                                             & symmetries,     &
+                                             & q_symmetries,   &
                                              & qpoint          )
       endif
       
@@ -431,9 +466,10 @@ function new_SplitModes_ComplexModes(input,symmetry,qpoint, &
   order = symmetry%symmetry_order(qpoint)
   
   ! Construct the symmetry, U, in normal mode co-ordinates.
-  symmetry_matrix = calculate_symmetry_in_normal_coordinates( input,   &
-                                                            & qpoint,  &
-                                                            & symmetry )
+  symmetry_matrix = calculate_symmetry_in_normal_coordinates( &
+                              & input,                        &
+                              & [(qpoint, i=1, size(input))], &
+                              & symmetry                      )
   
   ! Instead of directly calculating the eigenstuff of the unitary symmetry
   !    matrices {U}, it is more stable to calculate the eigenstuff of the
@@ -542,9 +578,9 @@ function new_AntiSplitModes_ComplexModes(input,symmetries,qpoint) result(this)
   ! The other modes are each a symmetry acting on the first mode.
   do i=1,size(symmetries)
     symmetry_matrix = dble(real(calculate_symmetry_in_normal_coordinates( &
-                                                          & input,        &
-                                                          & qpoint,       &
-                                                          & symmetries(i) )))
+                                            & input,                      &
+                                            & [(qpoint,j=1,size(input))], &
+                                            & symmetries(i)               )))
     symmetry_matrix = (symmetry_matrix - transpose(symmetry_matrix))/2
     
     modes(i+1)%unit_vector = cmplxvec(zeroes(3))

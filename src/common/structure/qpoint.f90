@@ -8,6 +8,7 @@ module qpoint_module
   private
   
   public :: QpointData
+  public :: operator(-)
   public :: operator(==)
   public :: operator(/=)
   
@@ -47,6 +48,11 @@ module qpoint_module
     module procedure new_QpointData_StringArray
   end interface
   
+  ! Transformation from a q-point to its pair (-q, modulo G-vectors).
+  interface operator(-)
+    module procedure pair_QpointData
+  end interface
+  
   ! Comparison of q-points.
   interface operator(==)
     module procedure equality_QpointData
@@ -72,6 +78,21 @@ impure elemental function new_QpointData(qpoint,id,paired_qpoint_id) &
   this%qpoint           = qpoint
   this%id               = id
   this%paired_qpoint_id = paired_qpoint_id
+end function
+
+! ----------------------------------------------------------------------
+! Transforms a q-point to its pair.
+! ----------------------------------------------------------------------
+impure elemental function pair_QpointData(this) result(output)
+  implicit none
+  
+  type(QpointData), intent(in) :: this
+  type(QpointData)             :: output
+  
+  output = QpointData( qpoint           = -this%qpoint,          &
+                     & id               = this%paired_qpoint_id, &
+                     & paired_qpoint_id = this%id                )
+  call translate_to_primitive(output)
 end function
 
 ! ----------------------------------------------------------------------

@@ -56,6 +56,8 @@ function new_InterpolatedSupercell_interpolated(qpoint_grid,structure,    &
   
   type(IntMatrix) :: supercell_matrix
   
+  type(ComplexMode), allocatable :: qpoint_modes(:)
+  
   type(StructureData)                :: supercell
   type(QpointData),      allocatable :: qpoints(:)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
@@ -87,7 +89,10 @@ function new_InterpolatedSupercell_interpolated(qpoint_grid,structure,    &
     endif
     
     dynamical_matrices(i) = harmonic_dynamical_matrices(j)
-    complex_modes = [complex_modes, harmonic_complex_modes(:,j)]
+    qpoint_modes = harmonic_complex_modes(:,j)
+    qpoint_modes%qpoint_id = qpoints(i)%id
+    qpoint_modes%paired_qpoint_id = qpoints(i)%paired_qpoint_id
+    complex_modes = [complex_modes, qpoint_modes]
   enddo
   
   complex_modes = complex_modes(filter(.not.complex_modes%translational_mode))

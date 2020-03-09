@@ -14,6 +14,7 @@ module stress_prefactors_module
   type, extends(NoDefaultConstructor) :: StressPrefactors
     integer,                       private :: subspace_id_
     integer,          allocatable, private :: mode_ids_(:)
+    integer,          allocatable, private :: pair_locs_(:)
     type(RealMatrix), allocatable, private :: prefactors_(:,:)
   contains
     generic,   public  :: prefactor => &
@@ -32,16 +33,19 @@ module stress_prefactors_module
 contains
 
 ! Constructor.
-function new_StressPrefactors(subspace_id,mode_ids,prefactors) result(this)
+function new_StressPrefactors(subspace_id,mode_ids,pair_locs,prefactors) &
+   & result(this) 
   implicit none
   
   integer,          intent(in) :: subspace_id
   integer,          intent(in) :: mode_ids(:)
+  integer,          intent(in) :: pair_locs(:)
   type(RealMatrix), intent(in) :: prefactors(:,:)
   type(StressPrefactors)       :: this
   
   this%subspace_id_ = subspace_id
   this%mode_ids_    = mode_ids
+  this%pair_locs_   = pair_locs
   this%prefactors_  = prefactors
 end function
 
@@ -54,6 +58,8 @@ function new_StressPrefactors_subspace(subspace,modes) result(this)
   type(StressPrefactors)               :: this
   
   type(ComplexMode), allocatable :: subspace_modes(:)
+  
+  integer, allocatable :: pair_locs(:)
   
   type(RealMatrix), allocatable :: prefactors(:,:)
   
@@ -72,7 +78,14 @@ function new_StressPrefactors_subspace(subspace,modes) result(this)
     enddo
   enddo
   
-  this = StressPrefactors(subspace%id, subspace_modes%id, prefactors)
+  pair_locs = [( first(subspace_modes%id==subspace_modes(i)%paired_id), &
+               & i=1,                                                   &
+               & size(subspace_modes)                                   )]
+  
+  this = StressPrefactors( subspace%id,       &
+                         & subspace_modes%id, &
+                         & pair_locs,         &
+                         & prefactors         )
 end function
 
 ! Return the prefactor for a given pair of modes.
@@ -116,6 +129,7 @@ impure elemental function average_prefactor(this) result(output)
   
   no_modes = size(this%mode_ids_)
   
-  output = sum([(this%prefactors_(i,i), i=1, no_modes)]) / no_modes
+  output = sum([(this%prefactors_(i,this%pair_locs_(i)), i=1, no_modes)]) &
+       & / no_modes
 end function
 end module
