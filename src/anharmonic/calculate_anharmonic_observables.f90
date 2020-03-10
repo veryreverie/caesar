@@ -153,17 +153,21 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer               :: no_dos_samples
   
   ! Previous inputs.
-  type(Dictionary) :: setup_harmonic_arguments
-  type(String)     :: seedname
-  type(Dictionary) :: setup_anharmonic_arguments
-  logical          :: calculate_stress
+  type(Dictionary)                   :: setup_harmonic_arguments
+  type(String)                       :: seedname
+  type(Dictionary)                   :: setup_anharmonic_arguments
+  type(String)                       :: harmonic_path
+  logical                            :: calculate_stress
+  type(StructureData)                :: harmonic_supercell
+  type(QpointData),      allocatable :: harmonic_qpoints(:)
+  type(DynamicalMatrix), allocatable :: harmonic_dynamical_matrices(:)
   
   ! Anharmonic data.
   type(AnharmonicData)                  :: anharmonic_data
   type(ComplexMode),        allocatable :: modes(:)
   type(QpointData),         allocatable :: qpoints(:)
   type(DegenerateSubspace), allocatable :: subspaces(:)
-  type(StructureData)                   :: supercell
+  type(StructureData)                   :: anharmonic_supercell
   
   ! Convergence data.
   type(ConvergenceData) :: convergence_data
@@ -200,19 +204,18 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(StressPointer),        allocatable :: vscf_stresses(:)
   
   ! Variables for interpolating VSCHA and VSCF.
-  type(ComplexMode),     allocatable :: vscha_modes(:,:)
-  type(ComplexMode),     allocatable :: vscf_modes(:,:)
-  type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
-  type(ComplexMode),     allocatable :: qpoint_modes(:)
-  real(dp),              allocatable :: qpoint_frequencies(:)
-  
-  ! Hessian matrix and minimum image data.
-  type(CartesianHessian)       :: hessian
-  type(MinImages), allocatable :: min_images(:,:)
-  
-  ! Dynamical matrix and hessian equivalents for the stress.
+  type(ComplexMode),           allocatable :: vscha_modes(:,:)
+  type(ComplexMode),           allocatable :: vscf_modes(:,:)
+  type(DynamicalMatrix),       allocatable :: dynamical_matrices(:)
+  type(ComplexMode),           allocatable :: qpoint_modes(:)
+  real(dp),                    allocatable :: qpoint_frequencies(:)
+  type(CartesianHessian)                   :: hessian
+  type(MinImages),             allocatable :: anharmonic_min_images(:,:)
+  type(MinImages),             allocatable :: harmonic_min_images(:,:)
   type(StressDynamicalMatrix), allocatable :: stress_dynamical_matrices(:)
   type(StressHessian),         allocatable :: stress_hessian
+  
+  ! Dynamical matrix and hessian equivalents for the stress.
   
   ! Dispersion and density of states.
   type(PhononDispersion) :: phonon_dispersion
@@ -233,6 +236,9 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(IFile) :: anharmonic_data_file
   type(IFile) :: potential_file
   type(IFile) :: stress_file
+  type(IFile) :: harmonic_supercell_file
+  type(IFile) :: harmonic_qpoints_file
+  type(IFile) :: harmonic_dynamical_matrices_file
   
   ! Output directories.
   type(String) :: observables_dir
@@ -332,6 +338,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Read in setup_anharmonic settings.
   setup_anharmonic_arguments = Dictionary(CaesarMode('setup_anharmonic'))
   call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
+  harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
   
   ! --------------------------------------------------
@@ -345,7 +352,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   modes = anharmonic_data%complex_modes
   qpoints = anharmonic_data%qpoints
   subspaces = anharmonic_data%degenerate_subspaces
-  supercell = anharmonic_data%anharmonic_supercell
+  anharmonic_supercell = anharmonic_data%anharmonic_supercell
   
   ! Read in anharmonic potential.
   potential_file = IFile('potential.dat')
@@ -356,6 +363,22 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     stress_file = IFile('stress.dat')
     stress = StressPointer(stress_file%lines())
   endif
+  
+  ! Read in harmonic q-points and dynamical matrices.
+  harmonic_supercell_file = IFile(harmonic_path//'/large_supercell.dat')
+  harmonic_supercell = StructureData(harmonic_supercell_file%lines())
+  harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
+  harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
+  allocate( harmonic_dynamical_matrices(size(harmonic_qpoints)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(harmonic_qpoints)
+    harmonic_dynamical_matrices_file = IFile(                   &
+       & harmonic_path                                       // &
+       & '/qpoint_'//left_pad(i,str(size(harmonic_qpoints))) // &
+       & '/dynamical_matrix.dat'                                )
+    harmonic_dynamical_matrices(i) = DynamicalMatrix( &
+           & harmonic_dynamical_matrices_file%lines() )
+  enddo
   
   ! --------------------------------------------------
   ! Generate objects which don't depend on the potential.
@@ -377,7 +400,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   
   ! Construct minimum image data.
-  min_images = calculate_min_images(supercell)
+  anharmonic_min_images = calculate_min_images(anharmonic_supercell)
   
   ! Generate stress prefactors, which are geometric factors quantifying
   !    the direction of each pair of modes w/r/t the lattice vectors.
@@ -471,13 +494,13 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call mkdir(vscha_temperature_dir)
     
     if (i==1) then
-      vscha_basis = HarmonicBasis( subspaces%id,         &
-                                 & starting_frequencies, &
-                                 & supercell%sc_size     )
+      vscha_basis = HarmonicBasis( subspaces%id,                &
+                                 & starting_frequencies,        &
+                                 & anharmonic_supercell%sc_size )
     else
-      vscha_basis = HarmonicBasis( subspaces%id,             &
-                                 & vscha_frequencies(:,i-1), &
-                                 & supercell%sc_size         )
+      vscha_basis = HarmonicBasis( subspaces%id,                &
+                                 & vscha_frequencies(:,i-1),    &
+                                 & anharmonic_supercell%sc_size )
     endif
     
     call print_line('Running VSCHA.')
@@ -516,26 +539,26 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
         stress_prefactor = stress_prefactors(j)%average_prefactor()
       endif
       
-      vscha1_thermodynamics(j,i) = harmonic_observables(   &
-         &    thermal_energy   = thermal_energies(i),      &
-         &    stress           = subspace_stress,          &
-         &    stress_prefactor = stress_prefactor,         &
-         &    frequency        = vscha_frequencies(j,i),   &
-         &    num_dimensions   = size(subspaces(j)),       &
-         &    supercell_size   = supercell%sc_size,        &
-         &    anharmonic_data  = anharmonic_data         ) &
-         & / supercell%sc_size
+      vscha1_thermodynamics(j,i) = harmonic_observables(       &
+         &    thermal_energy   = thermal_energies(i),          &
+         &    stress           = subspace_stress,              &
+         &    stress_prefactor = stress_prefactor,             &
+         &    frequency        = vscha_frequencies(j,i),       &
+         &    num_dimensions   = size(subspaces(j)),           &
+         &    supercell_size   = anharmonic_supercell%sc_size, &
+         &    anharmonic_data  = anharmonic_data               ) &
+         & / anharmonic_supercell%sc_size
       
-      vscha2_thermodynamics(j,i) = effective_harmonic_observables(   &
-                   &    thermal_energy   = thermal_energies(i),      &
-                   &    potential        = vscha_potentials(j),      &
-                   &    stress           = subspace_stress,          &
-                   &    stress_prefactor = stress_prefactor,         &
-                   &    frequency        = vscha_frequencies(j,i),   &
-                   &    num_dimensions   = size(subspaces(j)),       &
-                   &    supercell_size   = supercell%sc_size,        &
-                   &    anharmonic_data  = anharmonic_data         ) &
-                   & / supercell%sc_size
+      vscha2_thermodynamics(j,i) = effective_harmonic_observables( &
+           &    thermal_energy   = thermal_energies(i),            &
+           &    potential        = vscha_potentials(j),            &
+           &    stress           = subspace_stress,                &
+           &    stress_prefactor = stress_prefactor,               &
+           &    frequency        = vscha_frequencies(j,i),         &
+           &    num_dimensions   = size(subspaces(j)),             &
+           &    supercell_size   = anharmonic_supercell%sc_size,   &
+           &    anharmonic_data  = anharmonic_data               ) &
+           & / anharmonic_supercell%sc_size
     enddo
     
     ! --------------------------------------------------
@@ -568,10 +591,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     enddo
     
     ! Construct Hessian from dynamical matrices.
-    hessian = reconstruct_hessian( supercell,          &
-                                 & qpoints,            &
-                                 & dynamical_matrices, &
-                                 & vscha_logfile       )
+    hessian = reconstruct_hessian( anharmonic_supercell, &
+                                 & qpoints,              &
+                                 & dynamical_matrices,   &
+                                 & vscha_logfile         )
     
     ! Write out Castep .phonon file and QE .fc file for the VSCHA modes.
     castep_phonon_file = OFile( vscha_temperature_dir                 &
@@ -587,7 +610,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call write_qe_force_constants_file( qe_force_constants_file,   &
                                       & hessian,                   &
                                       & anharmonic_data%structure, &
-                                      & supercell                  )
+                                      & anharmonic_supercell       )
       
     ! Calculate stress.
     if (calculate_stress) then
@@ -600,7 +623,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                                 & anharmonic_data      )
       
       stress_hessian = reconstruct_stress_hessian( &
-                      & supercell,                 &
+                      & anharmonic_supercell,      &
                       & qpoints,                   &
                       & stress_dynamical_matrices, &
                       & vscha_logfile              )
@@ -608,13 +631,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     
     ! Generate self-consistent phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
-    phonon_dispersion = PhononDispersion( supercell      = supercell,      &
-                                        & min_images     = min_images,     &
-                                        & hessian        = hessian,        &
-                                        & stress_hessian = stress_hessian, &
-                                        & path_string    = path,           &
-                                        & no_path_points = no_path_points, &
-                                        & logfile        = vscha_logfile   )
+    phonon_dispersion = PhononDispersion(        &
+       & supercell      = anharmonic_supercell,  &
+       & min_images     = anharmonic_min_images, &
+       & hessian        = hessian,               &
+       & stress_hessian = stress_hessian,        &
+       & path_string    = path,                  &
+       & no_path_points = no_path_points,        &
+       & logfile        = vscha_logfile          )
     call phonon_dispersion%write_files( vscha_temperature_dir,    &
                                       & seedname,                 &
                                       & anharmonic_data%structure )
@@ -624,8 +648,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! Re-seed the random generator each time, so that the results at different
     !    temperatures can be compared free from random noise.
     random_generator = RandomReal(random_generator_seed)
-    phonon_dos = PhononDos( supercell        = supercell,             &
-                          & min_images       = min_images,            &
+    phonon_dos = PhononDos( supercell        = anharmonic_supercell,  &
+                          & min_images       = anharmonic_min_images, &
                           & hessian          = hessian,               &
                           & stress_hessian   = stress_hessian,        &
                           & thermal_energies = [thermal_energies(i)], &
@@ -665,7 +689,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
               & vscha_frequencies(j,i),                         &
               & modes,                                          &
               & qpoints,                                        &
-              & supercell,                                      &
+              & anharmonic_supercell,                           &
               & no_vscf_basis_states-1,                         &
               & anharmonic_data%potential_expansion_order,      &
               & anharmonic_data%structure%symmetries            ))
@@ -675,7 +699,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
               & vscha_frequencies(j,i),                         &
               & modes,                                          &
               & qpoints,                                        &
-              & supercell,                                      &
+              & anharmonic_supercell,                           &
               & no_vscf_basis_states-1,                         &
               & anharmonic_data%potential_expansion_order,      &
               & anharmonic_data%structure%symmetries            ))
@@ -720,7 +744,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                              &           vscf_stresses,         &
                              &           stress_prefactors,     &
                              &           anharmonic_data      ) &
-                             & / supercell%sc_size
+                             & / anharmonic_supercell%sc_size
     else
       vscf_thermodynamics(:,i) = vscf_basis%thermodynamic_data(              &
                              &           thermal_energies(i),                &
@@ -728,7 +752,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                              &           subspaces,                          &
                              &           vscf_potentials,                    &
                              &           anharmonic_data = anharmonic_data ) &
-                             & / supercell%sc_size
+                             & / anharmonic_supercell%sc_size
     endif
     
     ! --------------------------------------------------
@@ -760,10 +784,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       enddo
       
       ! Construct Hessian from dynamical matrices.
-      hessian = reconstruct_hessian( supercell,          &
-                                   & qpoints,            &
-                                   & dynamical_matrices, &
-                                   & vscf_logfile        )
+      hessian = reconstruct_hessian( anharmonic_supercell, &
+                                   & qpoints,              &
+                                   & dynamical_matrices,   &
+                                   & vscf_logfile          )
       
       ! Write out Castep .phonon file and QE .fc file for the VSCHA modes.
       castep_phonon_file = OFile( vscf_temperature_dir                 &
@@ -779,7 +803,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       call write_qe_force_constants_file( qe_force_constants_file,   &
                                         & hessian,                   &
                                         & anharmonic_data%structure, &
-                                        & supercell                  )
+                                        & anharmonic_supercell       )
       
       if (calculate_stress) then
         stress_dynamical_matrices = stress%calculate_dynamical_matrices( &
@@ -790,7 +814,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                                   & vscf_states,         &
                                                   & anharmonic_data      )
         stress_hessian = reconstruct_stress_hessian( &
-                        & supercell,                 &
+                        & anharmonic_supercell,      &
                         & qpoints,                   &
                         & stress_dynamical_matrices, &
                         & vscf_logfile               )
@@ -798,13 +822,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       
       ! Generate self-consistent phonon dispersion curve by interpolating
       !    between calculated q-points using Fourier interpolation.
-      phonon_dispersion = PhononDispersion( supercell      = supercell,      &
-                                          & min_images     = min_images,     &
-                                          & hessian        = hessian,        &
-                                          & stress_hessian = stress_hessian, &
-                                          & path_string    = path,           &
-                                          & no_path_points = no_path_points, &
-                                          & logfile        = vscf_logfile    )
+      phonon_dispersion = PhononDispersion(        &
+         & supercell      = anharmonic_supercell,  &
+         & min_images     = anharmonic_min_images, &
+         & hessian        = hessian,               &
+         & stress_hessian = stress_hessian,        &
+         & path_string    = path,                  &
+         & no_path_points = no_path_points,        &
+         & logfile        = vscf_logfile           )
       call phonon_dispersion%write_files( vscf_temperature_dir,     &
                                         & seedname,                 &
                                         & anharmonic_data%structure )
@@ -814,8 +839,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       ! Re-seed the random generator each time, so that the results at
       !    different temperatures can be compared free from random noise.
       random_generator = RandomReal(random_generator_seed)
-      phonon_dos = PhononDos( supercell        = supercell,             &
-                            & min_images       = min_images,            &
+      phonon_dos = PhononDos( supercell        = anharmonic_supercell,  &
+                            & min_images       = anharmonic_min_images, &
                             & hessian          = hessian,               &
                             & stress_hessian   = stress_hessian,        &
                             & thermal_energies = [thermal_energies(i)], &
@@ -832,16 +857,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                                      & vscf_basis,          &
                                                      & vscf_states,         &
                                                      & anharmonic_data      )
-      call interpolated_vscf_thermodynamics(i)%add_energy(                &
-         & energy_correction/anharmonic_data%anharmonic_supercell%sc_size )
+      call interpolated_vscf_thermodynamics(i)%add_energy( &
+          & energy_correction/anharmonic_supercell%sc_size )
       
       if (calculate_stress) then
         stress_correction = stress%stress_correction( subspaces,           &
                                                     & vscf_basis,          &
                                                     & vscf_states,         &
                                                     & anharmonic_data      )
-        call interpolated_vscf_thermodynamics(i)%add_stress(                &
-           & stress_correction/anharmonic_data%anharmonic_supercell%sc_size )
+        call interpolated_vscf_thermodynamics(i)%add_stress( &
+            & stress_correction/anharmonic_supercell%sc_size )
       endif
     else
       if (.not. potential%can_be_interpolated()) then

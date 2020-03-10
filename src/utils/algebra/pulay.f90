@@ -269,6 +269,13 @@ function pulay_(this,iterations) result(output)
   real(dp),         allocatable :: error_matrix(:,:)
   real(dp),         allocatable :: coefficients(:)
   
+  ! Variables for picking iterations.
+  real(dp), allocatable :: error_norms(:)
+  logical,  allocatable :: unused(:)
+  integer,  allocatable :: to_use(:)
+  
+  integer, allocatable :: iters(:)
+  
   integer :: min_guess
   integer :: max_guess
   
@@ -302,17 +309,18 @@ function pulay_(this,iterations) result(output)
   ! ( en.e1, en.e2, ... , en.en,  1  ) (a_n)   ( 0 )
   ! (   1  ,   1  ,  1  ,   1  ,  0  ) ( l )   ( 1 )
   
-  m = size(this%xs_(iterations(1)))
-  n = size(iterations)
+  iters = iterations
+  m = size(this%xs_(iters(1)))
+  n = size(iters)
   
-  if (any([(size(this%xs_(iterations(i))),i=1,n)]/=m)) then
+  if (any([(size(this%xs_(iters(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Input vectors inconsistent.')
-  elseif (any([(size(this%fs_(iterations(i))),i=1,n)]/=m)) then
+  elseif (any([(size(this%fs_(iters(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Output vectors inconsistent.')
   endif
   
   ! Construct errors, e_i = f(x_i)-x_i.
-  errors = this%fs_(iterations) - this%xs_(iterations)
+  errors = this%fs_(iters) - this%xs_(iters)
   
   ! Construct error matrix.
   ! ( e1.e1, e1.e2, ... , e1.en,  1 )
@@ -330,12 +338,11 @@ function pulay_(this,iterations) result(output)
   error_matrix(n+1, :n ) = 1
   error_matrix(n+1, n+1) = 0
   
-  min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
   max_guess = maxloc([(error_matrix(i,i), i=1, n)], 1)
   
   ! Check for over-convergence.
   if (error_matrix(max_guess,max_guess)<1e-300_dp) then
-    output = this%xs_(iterations(min_guess))
+    output = this%xs_(iters(min_guess))
     return
   endif
   
@@ -345,6 +352,43 @@ function pulay_(this,iterations) result(output)
     error_matrix(:n,:n) = error_matrix(:n,:n) &
                       & / error_matrix(max_guess,max_guess)
   endif
+  
+  ! Select a number of iterations to include in the Pulay scheme.
+  ! Recursively pick the iteration i with the smallest error norm,
+  !    and then remove all iterations which form too small an angle
+  !    with iteration i from the list of iterations to consider.
+  error_norms = [(sqrt(error_matrix(i,i)), i=1, n)]
+  unused = [(.true., i=1, n)]
+  to_use = [integer::]
+  do while (any(unused))
+    ! Pick the iteration, i, with the smallest error norm.
+    i = minloc(error_norms, dim=1, mask=unused)
+    unused(i) = .false.
+    to_use = [to_use, i]
+    do j=1,size(unused)
+      if (unused(j)) then
+        ! Remove iteration j from consideration if the angle between iterations
+        !    i and j is cos(angle)>0.9.
+        if (error_matrix(i,j)/(error_norms(i)*error_norms(j))>0.9_dp) then
+          unused(j) = .false.
+        endif
+      endif
+    enddo
+  enddo
+  
+  ! If all iterations but one are removed from consideration before two
+  !    iterations have been picked, simply pick the two iterations with the
+  !    smallest error norm, regardless of the angle between them.
+  if (size(to_use)==1) then
+    call print_line('TO_USE=1')
+    to_use = [to_use, minloc(error_norms, dim=1, mask=[(i/=to_use(1),i=1,n)])]
+  endif
+  iters = iters(to_use)
+  errors = errors(to_use)
+  error_matrix = error_matrix([to_use,n+1],[to_use,n+1])
+  n = size(to_use)
+  
+  min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
   
   ! Diagonalise the error matrix.
   ! The i'th eigenvector is (c_i1,c_i2,...,c_in,w_i), where:
@@ -378,7 +422,7 @@ function pulay_(this,iterations) result(output)
   ! Construct the contribution to the coefficients from each eigenvector
   !    of the error matrix in turn.
   coefficients = [(0.0_dp, i=1, n)]
-  maximum_prefactor = 1.0_dp
+  maximum_prefactor = 10.0_dp
   do i=1,n+1
     projection = sum(estuff(i)%evec(:n)*errors)
     projection_norm = l2_norm(projection)
@@ -402,10 +446,10 @@ function pulay_(this,iterations) result(output)
     else
       ! The self-consistency scheme does not define the position along the i'th
       !    eigenvector. Instead, the gradient descent scheme is called.
-      prefactor = -( vec(estuff(i)%evec(:n))                &
-              &    * vec(this%free_energies_(iterations)) ) &
+      prefactor = -( vec(estuff(i)%evec(:n))           &
+              &    * vec(this%free_energies_(iters)) ) &
               & / 10.0_dp*this%data_%energy_convergence
-      prefactor = max(-0.001_dp,min(prefactor,0.001_dp))
+      prefactor = max(-0.01_dp,min(prefactor,0.01_dp))
     endif
     
     coefficients = coefficients + prefactor*estuff(i)%evec(:n)
@@ -417,20 +461,38 @@ function pulay_(this,iterations) result(output)
   coefficients(min_guess) = coefficients(min_guess) + (1-sum(coefficients))
   
   ! Construct Pulay output.
-  output = sum(coefficients*this%xs_(iterations))
+  output = sum(coefficients*this%xs_(iters))
   
   ! Mix in a damped iterative contribution.
-  output = (1-this%data_%iterative_mixing)*output                     &
-       & + this%data_%iterative_mixing                                &
-       & * ( this%data_%iterative_damping*this%xs_(iterations(n))     &
-       &   + (1-this%data_%iterative_damping)*this%fs_(iterations(n)) )
+  output = (1-this%data_%iterative_mixing)          &
+       & * output                                   &
+       & + this%data_%iterative_mixing              &
+       & * ( this%data_%iterative_damping           &
+       &   * this%xs_(iterations(size(iterations))) &
+       &   + (1-this%data_%iterative_damping)       &
+       &   * this%fs_(iterations(size(iterations))) )
   
   ! Add in a random component, to help break out of linearly-dependent
   !    subspaces.
   output = output                                                            &
        & + 2*this%data_%pulay_noise                                          &
        & * vec( (this%random_generator_%random_numbers(size(output))-0.5_dp) &
-       &      * dble(output-this%xs_(iterations(min_guess)))                 )
+       &      * dble(output-this%xs_(iters(min_guess)))                      )
+contains
+  ! A lambda equivalent to this<that for real(dp) type.
+  function compare_reals(this,that) result(output)
+    implicit none
+    
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(real(dp))
+      select type(that); type is (real(dp))
+        output = this<that
+      end select
+    end select
+  end function
 end function
 
 ! Errors for printing progress.

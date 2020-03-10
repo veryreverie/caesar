@@ -35,7 +35,7 @@ def main():
   
   keys = []
   if frequencies:
-    keys.append('frequencies')
+    keys.append('frequency')
   keys.append('energies')
   keys.append('forces')
   if pressure:

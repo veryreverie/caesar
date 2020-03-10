@@ -101,7 +101,10 @@ subroutine startup_setup_anharmonic()
   & KeywordData( 'calculate_stress',                                          &
   &              'calculate_stress specifies whether or not to calculate &
   &stress and pressure. If calculate_stress is true then all electronic &
-  &structure calculations must produce a stress tensor or virial tensor.',    &
+  &structure calculations must produce a stress tensor or virial tensor. If &
+  &calculate_stress is true then potential_expansion_order must be at least &
+  &4, otherwise insufficient sampling points are generated to fit the full &
+  &stress.',                                                                  &
   &              default_value='true')                                        ]
   mode%main_subroutine => setup_anharmonic_subroutine
   
@@ -204,6 +207,12 @@ subroutine setup_anharmonic_subroutine(arguments)
   energy_to_force_ratio = dble(arguments%value('energy_to_force_ratio'))
   use_hessians = lgcl(arguments%value('use_hessians'))
   calculate_stress = lgcl(arguments%value('calculate_stress'))
+  
+  if (calculate_stress .and. potential_expansion_order<4) then
+    call print_line(ERROR//': calculate_stress may only be true if &
+       &potential_expansion_order is at least 4.')
+    call quit()
+  endif
   
   ! Read setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
