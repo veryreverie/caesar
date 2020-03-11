@@ -22,6 +22,8 @@ module dynamical_matrix_module
   public :: operator(*)
   public :: operator(/)
   
+  public :: new_DynamicalMatrix_interpolated
+  
   type, extends(Stringsable) :: DynamicalMatrix
     type(ComplexMatrix), allocatable, private :: elements_(:,:)
   contains
@@ -40,6 +42,7 @@ module dynamical_matrix_module
     module procedure new_DynamicalMatrix
     module procedure new_DynamicalMatrix_zeroes
     module procedure new_DynamicalMatrix_interpolated
+    module procedure new_DynamicalMatrix_qpoint
     module procedure new_DynamicalMatrix_ComplexModes
     module procedure new_DynamicalMatrix_ComplexMode_ComplexMode
     module procedure new_DynamicalMatrix_Strings
@@ -207,6 +210,22 @@ function new_DynamicalMatrix_interpolated(q,supercell,hessian,min_images) &
   
   ! Construct output.
   this = DynamicalMatrix(elements)
+end function
+
+function new_DynamicalMatrix_qpoint(qpoint,supercell,hessian,min_images) &
+   & result(this) 
+  implicit none
+  
+  type(QpointData),       intent(in)           :: qpoint
+  type(StructureData),    intent(in)           :: supercell
+  type(CartesianHessian), intent(in)           :: hessian
+  type(MinImages),        intent(in), optional :: min_images(:,:)
+  type(DynamicalMatrix)                        :: this
+  
+  this = DynamicalMatrix( dblevec(qpoint%qpoint), &
+                        & supercell,              &
+                        & hessian,                &
+                        & min_images              )
 end function
 
 ! ----------------------------------------------------------------------
@@ -486,11 +505,11 @@ function reconstruct_hessian(large_supercell,qpoints,dynamical_matrices, &
    & logfile) result(output)
   implicit none
   
-  type(StructureData),   intent(in)    :: large_supercell
-  type(QpointData),      intent(in)    :: qpoints(:)
-  type(DynamicalMatrix), intent(in)    :: dynamical_matrices(:)
-  type(OFile),           intent(inout) :: logfile
-  type(CartesianHessian)               :: output
+  type(StructureData),   intent(in)              :: large_supercell
+  type(QpointData),      intent(in)              :: qpoints(:)
+  type(DynamicalMatrix), intent(in)              :: dynamical_matrices(:)
+  type(OFile),           intent(inout), optional :: logfile
+  type(CartesianHessian)                         :: output
   
   type(RealMatrix), allocatable :: hessian(:,:)
   

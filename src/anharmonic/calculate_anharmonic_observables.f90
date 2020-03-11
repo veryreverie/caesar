@@ -10,6 +10,7 @@ module calculate_anharmonic_observables_module
   
   use generate_subspace_potentials_module
   use vscf_module
+  use interpolation_module
   implicit none
   
   private
@@ -400,6 +401,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   
   ! Construct minimum image data.
+  harmonic_min_images = calculate_min_images(harmonic_supercell)
   anharmonic_min_images = calculate_min_images(anharmonic_supercell)
   
   ! Generate stress prefactors, which are geometric factors quantifying
@@ -611,6 +613,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                       & hessian,                   &
                                       & anharmonic_data%structure, &
                                       & anharmonic_supercell       )
+    
+    ! Interpolate hessian.
+    hessian = calculate_interpolated_hessian( anharmonic_supercell,        &
+                                            & qpoints,                     &
+                                            & dynamical_matrices,          &
+                                            & anharmonic_min_images,       &
+                                            & harmonic_supercell,          &
+                                            & harmonic_qpoints,            &
+                                            & harmonic_dynamical_matrices, &
+                                            & harmonic_min_images          )
       
     ! Calculate stress.
     if (calculate_stress) then
@@ -631,14 +643,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     
     ! Generate self-consistent phonon dispersion curve by interpolating between
     !    calculated q-points using Fourier interpolation.
-    phonon_dispersion = PhononDispersion(        &
-       & supercell      = anharmonic_supercell,  &
-       & min_images     = anharmonic_min_images, &
-       & hessian        = hessian,               &
-       & stress_hessian = stress_hessian,        &
-       & path_string    = path,                  &
-       & no_path_points = no_path_points,        &
-       & logfile        = vscha_logfile          )
+    phonon_dispersion = PhononDispersion(           &
+       & supercell         = harmonic_supercell,    &
+       & min_images        = harmonic_min_images,   &
+       & hessian           = hessian,               &
+       & stress_hessian    = stress_hessian,        &
+       & stress_supercell  = anharmonic_supercell,  &
+       & stress_min_images = anharmonic_min_images, &
+       & path_string       = path,                  &
+       & no_path_points    = no_path_points,        &
+       & logfile           = vscha_logfile          )
     call phonon_dispersion%write_files( vscha_temperature_dir,    &
                                       & seedname,                 &
                                       & anharmonic_data%structure )
@@ -648,15 +662,17 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     ! Re-seed the random generator each time, so that the results at different
     !    temperatures can be compared free from random noise.
     random_generator = RandomReal(random_generator_seed)
-    phonon_dos = PhononDos( supercell        = anharmonic_supercell,  &
-                          & min_images       = anharmonic_min_images, &
-                          & hessian          = hessian,               &
-                          & stress_hessian   = stress_hessian,        &
-                          & thermal_energies = [thermal_energies(i)], &
-                          & min_frequency    = min_frequency,         &
-                          & no_dos_samples   = no_dos_samples,        &
-                          & logfile          = vscha_logfile,         &
-                          & random_generator = random_generator       )
+    phonon_dos = PhononDos( supercell         = harmonic_supercell,    &
+                          & min_images        = harmonic_min_images,   &
+                          & hessian           = hessian,               &
+                          & stress_hessian    = stress_hessian,        &
+                          & stress_supercell  = anharmonic_supercell,  &
+                          & stress_min_images = anharmonic_min_images, &
+                          & thermal_energies  = [thermal_energies(i)], &
+                          & min_frequency     = min_frequency,         &
+                          & no_dos_samples    = no_dos_samples,        &
+                          & logfile           = vscha_logfile,         &
+                          & random_generator  = random_generator       )
     call phonon_dos%write_files(vscha_temperature_dir)
     
     interpolated_vscha_thermodynamics(i) = phonon_dos%thermodynamic_data(1)
@@ -805,6 +821,17 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                         & anharmonic_data%structure, &
                                         & anharmonic_supercell       )
       
+      ! Interpolate hessian.
+      hessian = calculate_interpolated_hessian( anharmonic_supercell,        &
+                                              & qpoints,                     &
+                                              & dynamical_matrices,          &
+                                              & anharmonic_min_images,       &
+                                              & harmonic_supercell,          &
+                                              & harmonic_qpoints,            &
+                                              & harmonic_dynamical_matrices, &
+                                              & harmonic_min_images          )
+      
+      ! Calculate stress.
       if (calculate_stress) then
         stress_dynamical_matrices = stress%calculate_dynamical_matrices( &
                                                   & qpoints,             &
@@ -822,14 +849,16 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       
       ! Generate self-consistent phonon dispersion curve by interpolating
       !    between calculated q-points using Fourier interpolation.
-      phonon_dispersion = PhononDispersion(        &
-         & supercell      = anharmonic_supercell,  &
-         & min_images     = anharmonic_min_images, &
-         & hessian        = hessian,               &
-         & stress_hessian = stress_hessian,        &
-         & path_string    = path,                  &
-         & no_path_points = no_path_points,        &
-         & logfile        = vscf_logfile           )
+      phonon_dispersion = PhononDispersion(           &
+         & supercell         = harmonic_supercell,    &
+         & min_images        = harmonic_min_images,   &
+         & hessian           = hessian,               &
+         & stress_hessian    = stress_hessian,        &
+         & stress_supercell  = anharmonic_supercell,  &
+         & stress_min_images = anharmonic_min_images, &
+         & path_string       = path,                  &
+         & no_path_points    = no_path_points,        &
+         & logfile           = vscf_logfile           )
       call phonon_dispersion%write_files( vscf_temperature_dir,     &
                                         & seedname,                 &
                                         & anharmonic_data%structure )
@@ -839,15 +868,17 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
       ! Re-seed the random generator each time, so that the results at
       !    different temperatures can be compared free from random noise.
       random_generator = RandomReal(random_generator_seed)
-      phonon_dos = PhononDos( supercell        = anharmonic_supercell,  &
-                            & min_images       = anharmonic_min_images, &
-                            & hessian          = hessian,               &
-                            & stress_hessian   = stress_hessian,        &
-                            & thermal_energies = [thermal_energies(i)], &
-                            & min_frequency    = min_frequency,         &
-                            & no_dos_samples   = no_dos_samples,        &
-                            & logfile          = vscf_logfile,          &
-                            & random_generator = random_generator       )
+      phonon_dos = PhononDos( supercell         = harmonic_supercell,    &
+                            & min_images        = harmonic_min_images,   &
+                            & hessian           = hessian,               &
+                            & stress_hessian    = stress_hessian,        &
+                            & stress_supercell  = anharmonic_supercell,  &
+                            & stress_min_images = anharmonic_min_images, &
+                            & thermal_energies  = [thermal_energies(i)], &
+                            & min_frequency     = min_frequency,         &
+                            & no_dos_samples    = no_dos_samples,        &
+                            & logfile           = vscf_logfile,          &
+                            & random_generator  = random_generator       )
       call phonon_dos%write_files(vscf_temperature_dir)
       
       ! Record thermodynamic data.

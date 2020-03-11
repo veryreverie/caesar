@@ -338,6 +338,7 @@ function pulay_(this,iterations) result(output)
   error_matrix(n+1, :n ) = 1
   error_matrix(n+1, n+1) = 0
   
+  min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
   max_guess = maxloc([(error_matrix(i,i), i=1, n)], 1)
   
   ! Check for over-convergence.
@@ -380,7 +381,6 @@ function pulay_(this,iterations) result(output)
   !    iterations have been picked, simply pick the two iterations with the
   !    smallest error norm, regardless of the angle between them.
   if (size(to_use)==1) then
-    call print_line('TO_USE=1')
     to_use = [to_use, minloc(error_norms, dim=1, mask=[(i/=to_use(1),i=1,n)])]
   endif
   iters = iters(to_use)
@@ -478,21 +478,6 @@ function pulay_(this,iterations) result(output)
        & + 2*this%data_%pulay_noise                                          &
        & * vec( (this%random_generator_%random_numbers(size(output))-0.5_dp) &
        &      * dble(output-this%xs_(iters(min_guess)))                      )
-contains
-  ! A lambda equivalent to this<that for real(dp) type.
-  function compare_reals(this,that) result(output)
-    implicit none
-    
-    class(*), intent(in) :: this
-    class(*), intent(in) :: that
-    logical              :: output
-    
-    select type(this); type is(real(dp))
-      select type(that); type is (real(dp))
-        output = this<that
-      end select
-    end select
-  end function
 end function
 
 ! Errors for printing progress.

@@ -165,14 +165,17 @@ end function
 ! ----------------------------------------------------------------------
 ! Generates the phonon dispersion curve.
 ! ----------------------------------------------------------------------
-function new_PhononDispersion_CartesianHessian(supercell,min_images, &
-   & hessian,stress_hessian,path_string,no_path_points,logfile) result(this)
+function new_PhononDispersion_CartesianHessian(supercell,min_images,hessian, &
+   & stress_hessian,stress_supercell,stress_min_images,path_string,          &
+   & no_path_points,logfile) result(this) 
   implicit none
   
   type(StructureData),    intent(in)           :: supercell
   type(MinImages),        intent(in)           :: min_images(:,:)
   type(CartesianHessian), intent(in)           :: hessian
   type(StressHessian),    intent(in), optional :: stress_hessian
+  type(StructureData),    intent(in), optional :: stress_supercell
+  type(MinImages),        intent(in), optional :: stress_min_images(:,:)
   type(String),           intent(in)           :: path_string
   integer,                intent(in)           :: no_path_points
   type(OFile),            intent(inout)        :: logfile
@@ -471,15 +474,17 @@ end function
 ! Calculate the frequency density-of-states by random sampling of
 !    the Brillouin zone.
 ! ----------------------------------------------------------------------
-function new_PhononDos_CartesianHessian(supercell,min_images,hessian,      &
-   & stress_hessian,thermal_energies,min_frequency,no_dos_samples,logfile, &
-   & random_generator) result(this) 
+function new_PhononDos_CartesianHessian(supercell,min_images,hessian,    &
+   & stress_hessian,stress_supercell,stress_min_images,thermal_energies, &
+   & min_frequency,no_dos_samples,logfile,random_generator) result(this) 
   implicit none
   
   type(StructureData),    intent(in)           :: supercell
   type(MinImages),        intent(in)           :: min_images(:,:)
   type(CartesianHessian), intent(in)           :: hessian
   type(StressHessian),    intent(in), optional :: stress_hessian
+  type(StructureData),    intent(in), optional :: stress_supercell
+  type(MinImages),        intent(in), optional :: stress_min_images(:,:)
   real(dp),               intent(in)           :: thermal_energies(:)
   real(dp),               intent(in)           :: min_frequency
   integer,                intent(in)           :: no_dos_samples
@@ -525,8 +530,8 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,      &
   type(ThermodynamicData), allocatable :: thermodynamics(:)
   
   ! Stress variables.
-  type(StressDynamicalMatrix)   :: stress_dynamical_matrix
-  type(RealMatrix)              :: stress_prefactor
+  type(StressDynamicalMatrix) :: stress_dynamical_matrix
+  type(RealMatrix)            :: stress_prefactor
   
   ! Temporary variables.
   integer :: bin
@@ -590,10 +595,10 @@ function new_PhononDos_CartesianHessian(supercell,min_images,hessian,      &
     complex_modes = ComplexMode(dynamical_matrix, supercell)
     
     if (present(stress_hessian)) then
-      stress_dynamical_matrix = StressDynamicalMatrix( qpoint,         &
-                                                     & supercell,      &
-                                                     & stress_hessian, &
-                                                     & min_images      )
+      stress_dynamical_matrix = StressDynamicalMatrix( qpoint,           &
+                                                     & stress_supercell, &
+                                                     & stress_hessian,   &
+                                                     & stress_min_images )
     endif
     
     do j=1,supercell%no_modes_prim
