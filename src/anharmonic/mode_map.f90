@@ -168,7 +168,6 @@ function new_ModeMap_potential(mode_displacements,                     &
                 & anharmonic_energies,        &
                 & anharmonic_forces,          &
                 & anharmonic_pressures        )
-  call print_line(this%mode_displacements)
 end function
 
 ! ----------------------------------------------------------------------

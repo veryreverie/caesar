@@ -927,19 +927,23 @@ function gcd_2(int_1,int_2) result(output)
   integer, intent(in) :: int_2
   integer             :: output
   
-  integer :: a_b(2) ! a_b(1)=a, a_b(2)=b.
+  integer :: a
+  integer :: b
+  integer :: a_old
   
-  a_b = [ min(abs(int_1), abs(int_2)), &
-        & max(abs(int_1), abs(int_2))  ]
+  a = min(abs(int_1), abs(int_2))
+  b = max(abs(int_1), abs(int_2))
   
   ! Loop until the g.c.d. is found, obeying the following:
   !    gcd(0,b) = b
   !    gcd(a,b) = gcd(modulo(b,a), a)
-  do while (a_b(1)/=0)
-    a_b = [modulo(a_b(2),a_b(1)), a_b(1)]
+  do while (a/=0)
+    a_old = a
+    a = modulo(b,a)
+    b = a_old
   enddo
   
-  output = a_b(2)
+  output = b
 end function
 
 ! Calculate the gcd of more than two integers, by recursively finding

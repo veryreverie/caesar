@@ -22,8 +22,6 @@ module dynamical_matrix_module
   public :: operator(*)
   public :: operator(/)
   
-  public :: new_DynamicalMatrix_interpolated
-  
   type, extends(Stringsable) :: DynamicalMatrix
     type(ComplexMatrix), allocatable, private :: elements_(:,:)
   contains

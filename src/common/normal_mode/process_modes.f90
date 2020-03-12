@@ -94,13 +94,6 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
   
   integer :: i,j,k,ialloc
   
-  logical :: printing
-  
-  printing = subspace_id==44
-  if (printing) then
-    call set_print_settings(decimal_places=2)
-  endif
-  
   ! Copy the input to the output.
   output = input
   
@@ -186,11 +179,6 @@ function process_modes(input,structure,qpoint,subspace_id) result(output)
     output(filter(subspace_ids==subspace_id_set(j)))%subspace_id = i
     i = i+1
   enddo
-  
-  if (printing) then
-    call print_lines(output)
-    call err()
-  endif
   
   ! Loop over subspaces, choosing the correct basis using symmetry operators.
   ! The correct basis has <p|H|q>=0 for all H which are invariant under

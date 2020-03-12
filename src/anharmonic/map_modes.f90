@@ -331,26 +331,24 @@ subroutine map_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Initialise calculation handlers.
   ! --------------------------------------------------
-  if (validate_potential) then
-    calculation_writer = CalculationWriter( file_type = file_type, &
-                                          & seedname  = seedname   )
-    
-    calculation_runner = CalculationRunner(      &
-       & file_type           = file_type,        &
-       & seedname            = seedname,         &
-       & run_script          = run_script,       &
-       & no_cores            = no_cores,         &
-       & no_nodes            = no_nodes,         &
-       & run_script_data     = run_script_data,  &
-       & calculation_type    = calculation_type, &
-       & use_forces          = .true.,           &
-       & use_hessians        = .false.,          &
-       & calculate_stress    = calculate_stress, &
-       & exit_on_error       = .true.,           &
-       & repeat_calculations = .true.            )
-    
-    calculation_reader = CalculationReader()
-  endif
+  calculation_writer = CalculationWriter( file_type = file_type, &
+                                        & seedname  = seedname   )
+  
+  calculation_runner = CalculationRunner(      &
+     & file_type           = file_type,        &
+     & seedname            = seedname,         &
+     & run_script          = run_script,       &
+     & no_cores            = no_cores,         &
+     & no_nodes            = no_nodes,         &
+     & run_script_data     = run_script_data,  &
+     & calculation_type    = calculation_type, &
+     & use_forces          = .true.,           &
+     & use_hessians        = .false.,          &
+     & calculate_stress    = calculate_stress, &
+     & exit_on_error       = .true.,           &
+     & repeat_calculations = .true.            )
+  
+  calculation_reader = CalculationReader()
   
   ! --------------------------------------------------
   ! Map the potential.

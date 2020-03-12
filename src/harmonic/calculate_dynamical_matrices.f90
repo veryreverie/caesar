@@ -31,14 +31,31 @@ function calculate_dynamical_matrices(structure,supercells, &
   type(OFile),            intent(inout) :: logfile
   type(MatrixAndModes), allocatable     :: output(:)
   
+  integer, allocatable :: qpoint_symmetries(:,:)
+  
   logical, allocatable :: modes_calculated(:)
   
   integer :: subspace_id
   
-  type(QpointData)      :: transformed_qpoint
-  type(DynamicalMatrix) :: transformed_matrix
+  type(QpointData) :: transformed_qpoint
   
   integer :: i,j,k,ialloc
+  
+  ! Calculate the symmetry mapping between q-points.
+  ! If qpoint_symmetries(i,j)==k, then symmetry k maps qpoint i to qpoint j.
+  ! If qpoint_symmetries(i,j)==0, then there is no symmetry mapping i to j.
+  allocate( qpoint_symmetries(size(qpoints), size(qpoints)), &
+          & stat=ialloc); call err(ialloc)
+  qpoint_symmetries = 0
+  do i=1,size(qpoints)
+    do k=1,size(structure%symmetries)
+      transformed_qpoint = structure%symmetries(k) * qpoints(i)
+      j = first(qpoints==transformed_qpoint)
+      if (qpoint_symmetries(i,j)==0) then
+        qpoint_symmetries(i,j) = k
+      endif
+    enddo
+  enddo
   
   ! --------------------------------------------------
   ! Calculate the dynamical matrix and normal modes at each q-point.
@@ -73,6 +90,8 @@ function calculate_dynamical_matrices(structure,supercells, &
         output(i)%modes = conjg(output(j)%modes)
         
         modes_calculated(i) = .true.
+        call print_line(count(modes_calculated)//' of '//size(qpoints)//' &
+           &dynamical matrices calculated.')
         cycle iter
       endif
     enddo
@@ -86,30 +105,25 @@ function calculate_dynamical_matrices(structure,supercells, &
         cycle
       endif
       
-      do j=1,size(qpoints)
-        if (.not. modes_calculated(j)) then
-          cycle
-        endif
-        
-        do k=1,size(structure%symmetries)
-          transformed_qpoint = structure%symmetries(k) * qpoints(j)
-          if (transformed_qpoint == qpoints(i)) then
-            call logfile%print_line('Constructing dynamical matrix and &
-               &normal modes at q-point '//i//' using symmetry from those at &
-               &q-point '//j)
-            output(i)%matrix = transform_modes( output(j)%matrix,        &
-                                              & structure%symmetries(k), &
-                                              & qpoints(j),              &
-                                              & qpoints(i)               )
-            output(i)%modes = transform( output(j)%modes,         &
-                                       & structure%symmetries(k), &
-                                       & qpoints(j),              &
-                                       & qpoints(i)               )
-            modes_calculated(i) = .true.
-            cycle iter
-          endif
-        enddo
-      enddo
+      j = first(qpoint_symmetries(:,i)/=0, mask=modes_calculated, default=0)
+      if (j/=0) then
+        k = qpoint_symmetries(j,i)
+        call logfile%print_line('Constructing dynamical matrix and &
+           &normal modes at q-point '//i//' using symmetry from those at &
+           &q-point '//j)
+        output(i)%matrix = transform_modes( output(j)%matrix,        &
+                                          & structure%symmetries(k), &
+                                          & qpoints(j),              &
+                                          & qpoints(i)               )
+        output(i)%modes = transform( output(j)%modes,         &
+                                   & structure%symmetries(k), &
+                                   & qpoints(j),              &
+                                   & qpoints(i)               )
+        modes_calculated(i) = .true.
+        call print_line(count(modes_calculated)//' of '//size(qpoints)//' &
+           &dynamical matrices calculated.')
+        cycle iter
+      endif
     enddo
     
     ! ------------------------------
@@ -135,6 +149,8 @@ function calculate_dynamical_matrices(structure,supercells, &
                                                 & logfile             )
           subspace_id = maxval(output(i)%modes%subspace_id) + 1
           modes_calculated(i) = .true.
+          call print_line(count(modes_calculated)//' of '//size(qpoints)//' &
+             &dynamical matrices calculated.')
           cycle iter
         endif
       enddo
@@ -152,32 +168,9 @@ function calculate_dynamical_matrices(structure,supercells, &
   ! Check all dynamical matrices.
   ! --------------------------------------------------
   ! Run basic checks on each matrix in turn.
+  call print_line('Checking dynamical matrices.')
   do i=1,size(qpoints)
     call output(i)%matrix%check(structure, logfile)
-  enddo
-  
-  ! Check that dynamical matrices at q-points q and q' s.t. qS=q'
-  !    correctly transform onto one another.
-  do i=1,size(structure%symmetries)
-    do j=1,size(qpoints)
-      do k=1,size(qpoints)
-        transformed_qpoint = structure%symmetries(i) * qpoints(j)
-        if (transformed_qpoint == qpoints(k)) then
-          if (qpoints(j)%paired_qpoint_id/=k) then
-            cycle
-          endif
-          transformed_matrix = transform_modes( output(j)%matrix,        &
-                                              & structure%symmetries(i), &
-                                              & qpoints(j),              &
-                                              & qpoints(k)               )
-          call logfile%print_line('Comparing symmetrically &
-             &equivalent dynamical matrices.')
-          call compare_dynamical_matrices( output(k)%matrix,   &
-                                         & transformed_matrix, &
-                                         & logfile             )
-        endif
-      enddo
-    enddo
   enddo
 end function
 

@@ -119,6 +119,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
+  call print_line('Reading in previously calculated data.')
   setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
@@ -186,6 +187,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   !    and the full Hessian.
   ! --------------------------------------------------
   ! Calculate the Hessian matrix corresponding to each non-diagonal supercell.
+  call print_line('Constructing Hessian for each calculated supercell.')
   hessian_logfile = OFile('hessian_log.dat')
   supercell_hessians = [(                                        &
      & construct_supercell_hessian( supercells(i),               &
@@ -197,6 +199,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
      & size(supercells)                                          )]
   
   ! Calculate the dynamical matrix and normal modes at each q-point.
+  call print_line('Calculating dynamical matrices and normal modes.')
   dynamical_matrix_logfile = OFile('dynamical_matrix_log.dat')
   matrices_and_modes = calculate_dynamical_matrices( structure,               &
                                                    & supercells,              &
@@ -215,6 +218,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   enddo
   
   ! Construct the Hessian for the full harmonic supercell.
+  call print_line('Reconstructing Hessian for large supercell.')
   full_hessian = reconstruct_hessian( large_supercell,    &
                                     & qpoints,            &
                                     & dynamical_matrices, &
@@ -223,6 +227,7 @@ subroutine calculate_normal_modes_subroutine(arguments)
   ! --------------------------------------------------
   ! Write out dynamical matrices, normal modes and the full Hessian.
   ! --------------------------------------------------
+  call print_line('Writing output files.')
   do i=1,size(qpoints)
     qpoint_dir = 'qpoint_'//left_pad(i,str(size(qpoints)))
     call mkdir(qpoint_dir)
