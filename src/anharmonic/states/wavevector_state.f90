@@ -18,6 +18,7 @@ module wavevector_state_module
   
   type, extends(BasisState) :: WavevectorState
     type(FractionVector)  :: wavevector
+    integer,  allocatable :: state_ids(:)
     real(dp), allocatable :: coefficients(:)
   contains
     procedure, public, nopass :: representation => &
@@ -54,16 +55,19 @@ impure elemental function representation_WavevectorState() result(output)
 end function
 
 ! Constructors.
-function new_WavevectorState(subspace_id,wavevector,coefficients) result(this)
+function new_WavevectorState(subspace_id,wavevector,state_ids,coefficients) &
+   & result(this) 
   implicit none
   
   integer,              intent(in) :: subspace_id
   type(FractionVector), intent(in) :: wavevector
+  integer,              intent(in) :: state_ids(:)
   real(dp),             intent(in) :: coefficients(:)
   type(WavevectorState)            :: this
   
   this%subspace_id  = subspace_id
   this%wavevector   = wavevector
+  this%state_ids    = state_ids
   this%coefficients = coefficients
 end function
 
@@ -110,21 +114,16 @@ subroutine read_WavevectorState(this,input)
   
   integer               :: subspace_id
   type(FractionVector)  :: wavevector
+  integer,  allocatable :: state_ids(:)
   real(dp), allocatable :: coefficients(:)
   
-  type(String), allocatable :: line(:)
-  
   select type(this); type is(WavevectorState)
-    line = split_line(input(1))
-    subspace_id = int(line(3))
+    subspace_id = int(token(input(1), 3))
+    wavevector = FractionVector(join(tokens(input(2),3)))
+    state_ids = int(tokens(input(3),3))
+    coefficients = dble(tokens(input(4),3))
     
-    line = split_line(input(2))
-    wavevector = FractionVector(join(line(3:)))
-    
-    line = split_line(input(3))
-    coefficients = dble(line(3:))
-    
-    this = WavevectorState(subspace_id,wavevector,coefficients)
+    this = WavevectorState(subspace_id,wavevector,state_ids,coefficients)
   end select
 end subroutine
 
@@ -137,6 +136,7 @@ function write_WavevectorState(this) result(output)
   select type(this); type is(WavevectorState)
     output = [ 'Subspace     : '//this%subspace_id,                      &
              & 'Wavevector   : '//str(this%wavevector),                  &
+             & 'States       : '//this%state_ids,                        &
              & 'Coefficients : '//join(this%coefficients, delimiter=' ') ]
   end select
 end function

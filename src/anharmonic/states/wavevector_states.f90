@@ -53,7 +53,7 @@ end subroutine
 ! WavevectorStates methods.
 ! ----------------------------------------------------------------------
 ! Constructors.
-function new_WavevectorStates(subspace_id,states,energies) result(this)
+function new_WavevectorStates(subspace_id,states,energies) result(this) 
   implicit none
   
   integer,               intent(in) :: subspace_id

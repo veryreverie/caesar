@@ -11,6 +11,7 @@ module coupled_states_module
   
   public :: CoupledStates
   public :: size
+  public :: selected_states_couplings
   
   type, extends(Stringable) :: CoupledStates
     integer,              private :: length_
@@ -119,9 +120,7 @@ function separations_CoupledStates(this) result(output)
   output = this%separations_(:this%length_)
 end function
 
-! ----------------------------------------------------------------------
 ! Add a coupling to a CoupledStates.
-! ----------------------------------------------------------------------
 subroutine add_coupling(this,id,separation)
   implicit none
   
@@ -149,6 +148,32 @@ subroutine add_coupling(this,id,separation)
     this%separations_ = [this%separations_, separation, [(0,i=1,this%length_)]]
   endif
 end subroutine
+
+! Generate state couplings between a selected list of states.
+function selected_states_couplings(input,selected_states) result(output)
+  implicit none
+  
+  class(CoupledStates), intent(in) :: input(:)
+  integer,              intent(in) :: selected_states(:)
+  type(IntArray1D), allocatable    :: output(:)
+  
+  integer, allocatable :: state_map(:)
+  
+  integer :: i,ialloc
+  
+  ! Generate a list such that state_map(selected_states(i))=i,
+  !    and state_map(i)=0 if i is not in selected_states.
+  state_map = [( first(selected_states==i, default=0), &
+               & i=1,                                  &
+               & size(input)                           )]
+  
+  ! Generate the couplings.
+  allocate(output(size(selected_states)), stat=ialloc); call err(ialloc)
+  do i=1,size(selected_states)
+    output(i)%i = state_map(input(selected_states(i))%ids())
+    output(i)%i = output(i)%i(filter(output(i)%i/=0))
+  enddo
+end function
 
 ! ----------------------------------------------------------------------
 ! I/O.

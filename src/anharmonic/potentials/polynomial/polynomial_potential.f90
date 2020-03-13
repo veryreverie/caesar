@@ -937,10 +937,10 @@ recursive function potential_energy_SubspaceBraKet_PolynomialPotential(this, &
    & braket,anharmonic_data) result(output) 
   implicit none
   
-  class(PolynomialPotential), intent(in)           :: this
-  class(SubspaceBraKet),      intent(in)           :: braket
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
-  real(dp)                                         :: output
+  class(PolynomialPotential), intent(in) :: this
+  class(SubspaceBraKet),      intent(in) :: braket
+  type(AnharmonicData),       intent(in) :: anharmonic_data
+  real(dp)                               :: output
   
   output = this%reference_energy_                                      &
        & * braket%inner_product(anharmonic_data)                       &

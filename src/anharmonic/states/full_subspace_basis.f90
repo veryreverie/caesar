@@ -11,7 +11,6 @@ module full_subspace_basis_module
   use wavevector_basis_module
   use full_subspace_wavefunctions_module
   use core_shell_thermodynamics_module
-  use calculate_weights_module
   implicit none
   
   private
@@ -224,24 +223,28 @@ end function
 
 ! Calculate the eigenstates of a single-subspace potential.
 impure elemental function calculate_states_FullSubspaceBasis(this,subspace, &
-   & subspace_potential,thermal_energy,convergence_data,anharmonic_data)    &
-   & result(output)
+   & subspace_potential,thermal_energy,state_energy_cutoff,                 &
+   & state_degeneracy_energy,convergence_data,anharmonic_data) result(output)
   implicit none
   
   class(FullSubspaceBasis), intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
   class(PotentialData),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: state_energy_cutoff
+  real(dp),                 intent(in) :: state_degeneracy_energy
   type(ConvergenceData),    intent(in) :: convergence_data
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
   
-  output = calculate_states( this%wavevectors,   &
-                           & subspace,           &
-                           & subspace_potential, &
-                           & thermal_energy,     &
-                           & convergence_data,   &
-                           & anharmonic_data     )
+  output = calculate_states( this%wavevectors,        &
+                           & subspace,                &
+                           & subspace_potential,      &
+                           & thermal_energy,          &
+                           & state_energy_cutoff,     &
+                           & state_degeneracy_energy, &
+                           & convergence_data,        &
+                           & anharmonic_data          )
 end function
 
 impure elemental function wavefunction_FullSubspaceBasis(this,state, &

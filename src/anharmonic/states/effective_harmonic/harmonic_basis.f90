@@ -108,15 +108,17 @@ impure elemental function initial_states_HarmonicBasis(this,subspace, &
                                             & thermal_energy  ))
 end function
 
-impure elemental function calculate_states_HarmonicBasis(this,subspace,  &
-   & subspace_potential,thermal_energy,convergence_data,anharmonic_data) &
-   & result(output)
+impure elemental function calculate_states_HarmonicBasis(this,subspace, &
+   & subspace_potential,thermal_energy,state_energy_cutoff,             &
+   & state_degeneracy_energy,convergence_data,anharmonic_data) result(output) 
   implicit none
   
   class(HarmonicBasis),     intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
   class(PotentialData),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: state_energy_cutoff
+  real(dp),                 intent(in) :: state_degeneracy_energy
   type(ConvergenceData),    intent(in) :: convergence_data
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output

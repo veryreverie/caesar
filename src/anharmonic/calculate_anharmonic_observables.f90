@@ -95,6 +95,20 @@ subroutine startup_calculate_anharmonic_observables()
      & KeywordData( 'no_vscf_basis_states',                                   &
      &              'no_vscf_basis_states is the number of states along each &
      &mode in the basis used for the VSCF calculation.'),                     &
+     & KeywordData( 'state_energy_cutoff',                                    &
+     &              'state_energy_cutoff is the maximum value of <x|H|x> at &
+     &which a basis state |x> is included in the calculation of the density &
+     &matrix in the VSCF calculation. This energy is relative to the minimum &
+     &value of <x|H|x> across all states |x>. state_energy_cutoff should be &
+     &given in Hartree.'),                                                    &
+     & KeywordData( 'state_degeneracy_energy',                                &
+     &              'If the energy of state |x> and the ground state differ &
+     &by less than state_degeneracy_energy then the states will be considered &
+     &degenerate with the ground state for the purposes of calculating the &
+     &density matrix, i.e. the states will be given the same thermal &
+     &weighting. This is only necessary at very low temperatures. &
+     &state_degeneracy_energy should be given in Hartree.',                   &
+     &              default_value='1e-6'),                                    &
      & KeywordData( 'min_frequency',                                          &
      &              'min_frequency is the frequency below which modes will be &
      &ignored when calculating thermodynamic quantities. min_frequency should &
@@ -147,6 +161,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   real(dp)              :: max_temperature
   integer               :: no_temperature_steps
   integer               :: no_vscf_basis_states
+  real(dp)              :: state_energy_cutoff
+  real(dp)              :: state_degeneracy_energy
   real(dp)              :: min_frequency
   real(dp), allocatable :: thermal_energies(:)
   type(String)          :: path
@@ -299,6 +315,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   no_path_points = int(arguments%value('no_path_points'))
   no_dos_samples = int(arguments%value('no_dos_samples'))
   no_vscf_basis_states = int(arguments%value('no_vscf_basis_states'))
+  state_energy_cutoff = dble(arguments%value('state_energy_cutoff'))
+  state_degeneracy_energy = dble(arguments%value('state_degeneracy_energy'))
   
   ! Check inputs.
   if (min_temperature<0) then
@@ -517,6 +535,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                            & subspaces,                                &
                            & vscha_basis,                              &
                            & thermal_energies(i),                      &
+                           & state_energy_cutoff,                      &
+                           & state_degeneracy_energy,                  &
                            & starting_frequencies,                     &
                            & convergence_data,                         &
                            & anharmonic_data,                          &
@@ -735,6 +755,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                           & subspaces,                                &
                           & vscf_basis,                               &
                           & thermal_energies(i),                      &
+                          & state_energy_cutoff,                      &
+                          & state_degeneracy_energy,                  &
                           & vscha_frequencies(:,i),                   &
                           & convergence_data,                         &
                           & anharmonic_data,                          &

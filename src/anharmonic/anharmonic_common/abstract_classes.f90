@@ -457,7 +457,8 @@ module abstract_classes_module
     end function
     
     impure elemental function calculate_states_SubspaceBasis(this,subspace,  &
-       & subspace_potential,thermal_energy,convergence_data,anharmonic_data) &
+       & subspace_potential,thermal_energy,state_energy_cutoff,              &
+       & state_degeneracy_energy,convergence_data,anharmonic_data)           &
        & result(output)
       import SubspaceBasis
       import DegenerateSubspace
@@ -472,6 +473,8 @@ module abstract_classes_module
       type(DegenerateSubspace), intent(in) :: subspace
       class(PotentialData),     intent(in) :: subspace_potential
       real(dp),                 intent(in) :: thermal_energy
+      real(dp),                 intent(in) :: state_energy_cutoff
+      real(dp),                 intent(in) :: state_degeneracy_energy
       type(ConvergenceData),    intent(in) :: convergence_data
       type(AnharmonicData),     intent(in) :: anharmonic_data
       type(BasisStatesPointer)             :: output
@@ -1134,25 +1137,29 @@ impure elemental function initial_states_SubspaceBasisPointer(this,subspace, &
 end function
 
 impure elemental function calculate_states_SubspaceBasisPointer(this, &
-   & subspace,subspace_potential,thermal_energy,convergence_data,     &
-   & anharmonic_data) result(output)
+   & subspace,subspace_potential,thermal_energy,state_energy_cutoff,  &
+   & state_degeneracy_energy,convergence_data,anharmonic_data) result(output) 
   implicit none
   
   class(SubspaceBasisPointer), intent(in) :: this
   type(DegenerateSubspace),    intent(in) :: subspace
   class(PotentialData),        intent(in) :: subspace_potential
   real(dp),                    intent(in) :: thermal_energy
+  real(dp),                    intent(in) :: state_energy_cutoff
+  real(dp),                    intent(in) :: state_degeneracy_energy
   type(ConvergenceData),       intent(in) :: convergence_data
   type(AnharmonicData),        intent(in) :: anharmonic_data
   type(BasisStatesPointer)                :: output
   
   call this%check()
   
-  output = this%basis_%calculate_states( subspace,           &
-                                       & subspace_potential, &
-                                       & thermal_energy,     &
-                                       & convergence_data,   &
-                                       & anharmonic_data     )
+  output = this%basis_%calculate_states( subspace,                &
+                                       & subspace_potential,      &
+                                       & thermal_energy,          &
+                                       & state_energy_cutoff,     &
+                                       & state_degeneracy_energy, &
+                                       & convergence_data,        &
+                                       & anharmonic_data          )
 end function
 
 impure elemental function process_subspace_potential_SubspaceBasisPointer( &
