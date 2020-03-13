@@ -50,9 +50,11 @@ function calculate_dynamical_matrices(structure,supercells, &
   do i=1,size(qpoints)
     do k=1,size(structure%symmetries)
       transformed_qpoint = structure%symmetries(k) * qpoints(i)
-      j = first(qpoints==transformed_qpoint)
-      if (qpoint_symmetries(i,j)==0) then
-        qpoint_symmetries(i,j) = k
+      j = first(qpoints==transformed_qpoint, default=0)
+      if (j/=0) then
+        if (qpoint_symmetries(i,j)==0) then
+          qpoint_symmetries(i,j) = k
+        endif
       endif
     enddo
   enddo
