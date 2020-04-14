@@ -1420,9 +1420,9 @@ impure elemental function initial_states_WavevectorBasis(this,subspace, &
   output = BasisStatesPointer(states)
 end function
 
-impure elemental function calculate_states_WavevectorBasis(this,subspace, &
-   & subspace_potential,thermal_energy,state_energy_cutoff,               &
-   & state_degeneracy_energy,convergence_data,anharmonic_data) result(output) 
+impure elemental function calculate_states_WavevectorBasis(this,subspace,    &
+   & subspace_potential,thermal_energy,state_energy_cutoff,convergence_data, &
+   & anharmonic_data) result(output) 
   implicit none
   
   class(WavevectorBasis),   intent(in) :: this
@@ -1430,7 +1430,6 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace, &
   class(PotentialData),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: state_energy_cutoff
-  real(dp),                 intent(in) :: state_degeneracy_energy
   type(ConvergenceData),    intent(in) :: convergence_data
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
@@ -1612,8 +1611,7 @@ end function
 
 ! Calculate the eigenstates of a wavevector basis.
 function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
-   & state_energy_cutoff,state_degeneracy_energy,convergence_data,          &
-   & anharmonic_data) result(output) 
+   & state_energy_cutoff,convergence_data,anharmonic_data) result(output) 
   implicit none
   
   type(WavevectorBasis),    intent(in) :: basis(:)
@@ -1621,7 +1619,6 @@ function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
   class(PotentialData),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: state_energy_cutoff
-  real(dp),                 intent(in) :: state_degeneracy_energy
   type(ConvergenceData),    intent(in) :: convergence_data
   type(AnharmonicData),     intent(in) :: anharmonic_data
   type(BasisStatesPointer)             :: output
@@ -1650,7 +1647,6 @@ function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
        &            subspace_potential,        &
        &            thermal_energy,            &
        &            state_energy_cutoff,       &
-       &            state_degeneracy_energy,   &
        &            convergence_data,          &
        &            anharmonic_data          ) )
     keys(1,i) = key+1
@@ -1664,9 +1660,7 @@ function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
                                       & states,      &
                                       & energies     )
   
-  weights = calculate_weights( energies,               &
-                             & thermal_energy,         &
-                             & state_degeneracy_energy )
+  weights = calculate_weights(energies,thermal_energy)
   
   allocate( wavevector_states%density_matrices(size(basis)), &
           & stat=ialloc); call err(ialloc)

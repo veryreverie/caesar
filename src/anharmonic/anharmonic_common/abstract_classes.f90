@@ -456,10 +456,9 @@ module abstract_classes_module
       type(BasisStatesPointer)             :: output
     end function
     
-    impure elemental function calculate_states_SubspaceBasis(this,subspace,  &
-       & subspace_potential,thermal_energy,state_energy_cutoff,              &
-       & state_degeneracy_energy,convergence_data,anharmonic_data)           &
-       & result(output)
+    impure elemental function calculate_states_SubspaceBasis(this,subspace, &
+       & subspace_potential,thermal_energy,state_energy_cutoff,             &
+       & convergence_data,anharmonic_data) result(output) 
       import SubspaceBasis
       import DegenerateSubspace
       import PotentialData
@@ -474,7 +473,6 @@ module abstract_classes_module
       class(PotentialData),     intent(in) :: subspace_potential
       real(dp),                 intent(in) :: thermal_energy
       real(dp),                 intent(in) :: state_energy_cutoff
-      real(dp),                 intent(in) :: state_degeneracy_energy
       type(ConvergenceData),    intent(in) :: convergence_data
       type(AnharmonicData),     intent(in) :: anharmonic_data
       type(BasisStatesPointer)             :: output
@@ -1138,7 +1136,7 @@ end function
 
 impure elemental function calculate_states_SubspaceBasisPointer(this, &
    & subspace,subspace_potential,thermal_energy,state_energy_cutoff,  &
-   & state_degeneracy_energy,convergence_data,anharmonic_data) result(output) 
+   & convergence_data,anharmonic_data) result(output) 
   implicit none
   
   class(SubspaceBasisPointer), intent(in) :: this
@@ -1146,7 +1144,6 @@ impure elemental function calculate_states_SubspaceBasisPointer(this, &
   class(PotentialData),        intent(in) :: subspace_potential
   real(dp),                    intent(in) :: thermal_energy
   real(dp),                    intent(in) :: state_energy_cutoff
-  real(dp),                    intent(in) :: state_degeneracy_energy
   type(ConvergenceData),       intent(in) :: convergence_data
   type(AnharmonicData),        intent(in) :: anharmonic_data
   type(BasisStatesPointer)                :: output
@@ -1157,7 +1154,6 @@ impure elemental function calculate_states_SubspaceBasisPointer(this, &
                                        & subspace_potential,      &
                                        & thermal_energy,          &
                                        & state_energy_cutoff,     &
-                                       & state_degeneracy_energy, &
                                        & convergence_data,        &
                                        & anharmonic_data          )
 end function

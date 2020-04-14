@@ -325,7 +325,6 @@ function pulay_(this,iterations) result(output)
   endif
   
   ! Precondition errors.
-  !preconditioned_errors = errors
   preconditioned_errors = precondition_errors( this%xs_(iterations),         &
                                              & errors,                       &
                                              & this%data_%energy_convergence )
@@ -471,6 +470,7 @@ function precondition_errors(inputs,errors,energy_convergence) result(output)
   
   ! The inputs in a minimal basis.
   real(dp)                      :: lambda
+  real(dp)                      :: threshold
   type(RealVector), allocatable :: extended_inputs(:)
   type(RealVector), allocatable :: residual_inputs(:)
   type(RealVector), allocatable :: input_basis(:)
@@ -495,6 +495,7 @@ function precondition_errors(inputs,errors,energy_convergence) result(output)
   ! Translate input vectors to be relative to the point with the smallest
   !    error. This doesn't change the maths, but improves numerical stability.
   extended_inputs = inputs-inputs(sort_key(1))
+  threshold = maxval(l2_norm(extended_inputs),1)/1e2_dp
   
   ! Extend input vectors with the Lagrange parameter lambda.
   lambda = maxval( [( maxval(abs(dble(extended_inputs(i))), 1),     &
@@ -510,7 +511,7 @@ function precondition_errors(inputs,errors,energy_convergence) result(output)
   j = 0
   allocate(input_basis(0))
   do i=1,size(residual_inputs)
-    if (l2_norm(residual_inputs(i))>maxval(l2_norm(inputs),1)/100) then
+    if (l2_norm(residual_inputs(i))>threshold) then
       j = j+1
       input_basis = [ input_basis,                                   &
                     & residual_inputs(i)/l2_norm(residual_inputs(i)) ]
@@ -526,9 +527,6 @@ function precondition_errors(inputs,errors,energy_convergence) result(output)
     output = errors
     return
   endif
-  
-  !inputs_to_x = mat(column_matrix(input_basis))
-  !x_to_inputs = mat(row_matrix(input_basis))
   
   x = [(vec(extended_inputs(i)*input_basis),i=1,size(inputs))]
   
@@ -552,33 +550,6 @@ function precondition_errors(inputs,errors,energy_convergence) result(output)
   enddo
   
   output = output + transformation * x
-  
-  !if (size(errors(1))>=55) then
-  !  call set_print_settings(decimal_places=2)
-  !  call print_line('')
-  !  call print_lines(inputs_to_x)
-  !  call print_line('')
-  !  call print_lines(x_to_inputs)
-  !  call print_line('')
-  !  call print_lines(x_to_inputs*inputs_to_x)
-  !  call print_line('')
-  !  call print_lines(inputs_to_x*x_to_inputs)
-  !  call print_line('')
-  !  call print_line(size(inputs(1)))
-  !  call print_line(size(x(1)))
-  !  !sort_key = sort(errors%element(55))
-  !  !call print_line(errors(sort_key)%element(55))
-  !  !call print_line(output(sort_key)%element(55))
-  !  !call print_line(output(sort_key)%element(55)-errors(sort_key)%element(55))
-  !  !call print_line([(transformation%row(55)*x(sort_key(i)), i=1, size(x))])
-  !  !call print_line([(transformation%row(55)*x(sort_key(i)), i=1, size(x))]-errors(sort_key)%element(55))
-  !  !call print_line('')
-  !  !do i=1,size(inputs)
-  !  !  call print_line(inputs(i))
-  !  !  call print_line(x_to_inputs*x(i))
-  !  !enddo
-  !  call unset_print_settings()
-  !endif
 end function
 
 ! Errors for printing progress.

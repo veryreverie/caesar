@@ -59,9 +59,8 @@ end function
 
 ! Vscf routine.
 function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
-   & state_energy_cutoff,state_degeneracy_energy,frequencies,               &
-   & convergence_data,anharmonic_data,random_generator,                     &
-   & starting_configuration,convergence_file) result(output) 
+   & state_energy_cutoff,frequencies,convergence_data,anharmonic_data,      &
+   & random_generator,starting_configuration,convergence_file) result(output) 
   implicit none
   
   class(PotentialData),     intent(in)              :: potential
@@ -70,7 +69,6 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
   class(SubspaceBasis),     intent(in)              :: subspace_bases(:)
   real(dp),                 intent(in)              :: thermal_energy
   real(dp),                 intent(in)              :: state_energy_cutoff
-  real(dp),                 intent(in)              :: state_degeneracy_energy
   real(dp),                 intent(in)              :: frequencies(:)
   type(ConvergenceData),    intent(in)              :: convergence_data
   type(AnharmonicData),     intent(in)              :: anharmonic_data
@@ -182,7 +180,6 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
        &                                  subspace_potentials,     &
        &                                  thermal_energy,          &
        &                                  state_energy_cutoff,     &
-       &                                  state_degeneracy_energy, &
        &                                  convergence_data,        &
        &                                  anharmonic_data          ) )
     

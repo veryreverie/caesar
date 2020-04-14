@@ -83,7 +83,8 @@ subroutine startup_calculate_anharmonic_observables()
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
-     &given in Kelvin.'),                                                     &
+     &given in Kelvin. min_temperature should be greater than zero, as the &
+     &VSCF equations may not have a solution at zero temeperature.'),         &
      & KeywordData( 'max_temperature',                                        &
      &              'max_temperature is the maximum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -101,14 +102,6 @@ subroutine startup_calculate_anharmonic_observables()
      &matrix in the VSCF calculation. This energy is relative to the minimum &
      &value of <x|H|x> across all states |x>. state_energy_cutoff should be &
      &given in Hartree.'),                                                    &
-     & KeywordData( 'state_degeneracy_energy',                                &
-     &              'If the energy of state |x> and the ground state differ &
-     &by less than state_degeneracy_energy then the states will be considered &
-     &degenerate with the ground state for the purposes of calculating the &
-     &density matrix, i.e. the states will be given the same thermal &
-     &weighting. This is only necessary at very low temperatures. &
-     &state_degeneracy_energy should be given in Hartree.',                   &
-     &              default_value='1e-6'),                                    &
      & KeywordData( 'min_frequency',                                          &
      &              'min_frequency is the frequency below which modes will be &
      &ignored when calculating thermodynamic quantities. min_frequency should &
@@ -162,7 +155,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   integer               :: no_temperature_steps
   integer               :: no_vscf_basis_states
   real(dp)              :: state_energy_cutoff
-  real(dp)              :: state_degeneracy_energy
   real(dp)              :: min_frequency
   real(dp), allocatable :: thermal_energies(:)
   type(String)          :: path
@@ -316,7 +308,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   no_dos_samples = int(arguments%value('no_dos_samples'))
   no_vscf_basis_states = int(arguments%value('no_vscf_basis_states'))
   state_energy_cutoff = dble(arguments%value('state_energy_cutoff'))
-  state_degeneracy_energy = dble(arguments%value('state_degeneracy_energy'))
   
   ! Check inputs.
   if (min_temperature<0) then
@@ -347,6 +338,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   elseif (iterative_damping<0 .or. iterative_damping>1) then
     call print_line(ERROR//': iterative_damping must be between 0 and 1.')
     call quit()
+  endif
+  
+  if (min_temperature<=0) then
+    call print_line(WARNING//': min_temperature should not be exactly 0K.')
   endif
   
   ! Read in setup_harmonic settings.
@@ -536,7 +531,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                            & vscha_basis,                              &
                            & thermal_energies(i),                      &
                            & state_energy_cutoff,                      &
-                           & state_degeneracy_energy,                  &
                            & starting_frequencies,                     &
                            & convergence_data,                         &
                            & anharmonic_data,                          &
@@ -762,7 +756,6 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                           & vscf_basis,                               &
                           & thermal_energies(i),                      &
                           & state_energy_cutoff,                      &
-                          & state_degeneracy_energy,                  &
                           & vscha_frequencies(:,i),                   &
                           & convergence_data,                         &
                           & anharmonic_data,                          &
