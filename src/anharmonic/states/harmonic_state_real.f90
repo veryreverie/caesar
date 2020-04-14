@@ -21,9 +21,6 @@ module harmonic_state_real_module
   public :: prod_real
   
   type, extends(SubspaceState) :: HarmonicStateReal
-    integer                            :: supercell_size
-    real(dp)                           :: frequency
-    real(dp)                           :: log_2nw_
     type(HarmonicState1D), allocatable :: modes_(:)
   contains
     procedure, public, nopass :: representation => &
@@ -60,10 +57,7 @@ impure elemental function prod_real(lhs,rhs) result(output)
   type(HarmonicStateReal), intent(in) :: rhs
   type(HarmonicStateReal)             :: output
   
-  output = HarmonicStateReal( lhs%subspace_id,        &
-                            & lhs%supercell_size,     &
-                            & lhs%frequency,          &
-                            & [lhs%modes_,rhs%modes_] )
+  output = HarmonicStateReal([lhs%modes_,rhs%modes_])
 end function
 
 ! Startup procedure.
@@ -78,22 +72,13 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_HarmonicStateReal(subspace_id,supercell_size,frequency,modes) &
-   & result(this) 
+function new_HarmonicStateReal(modes) result(this) 
   implicit none
   
-  integer,               intent(in) :: subspace_id
-  integer,               intent(in) :: supercell_size
-  real(dp),              intent(in) :: frequency
   type(HarmonicState1D), intent(in) :: modes(:)
   type(HarmonicStateReal)           :: this
   
-  this%subspace_id    = subspace_id
-  this%supercell_size = supercell_size
-  this%frequency      = frequency
-  this%modes_         = modes
-  
-  this%log_2nw_ = log(2*this%supercell_size*this%frequency)
+  this%modes_ = modes
 end function
 
 recursive function new_HarmonicStateReal_SubspaceState(input) result(this)
@@ -241,11 +226,7 @@ impure elemental function change_modes_HarmonicStateReal(this,mode_group) &
   occupations = occupations(sort_key)
   
   ! Construct output using the new ids.
-  output = HarmonicStateReal(                            &
-     & subspace_id    = this%subspace_id,                &
-     & supercell_size = this%supercell_size,             &
-     & frequency      = this%frequency,                  &
-     & modes          = HarmonicState1D(ids,occupations) )
+  output = HarmonicStateReal(modes = HarmonicState1D(ids,occupations))
 end function
 
 ! ----------------------------------------------------------------------
@@ -257,9 +238,6 @@ subroutine read_HarmonicStateReal(this,input)
   class(HarmonicStateReal), intent(out) :: this
   type(String),             intent(in)  :: input(:)
   
-  integer                            :: subspace_id
-  integer                            :: supercell_size
-  real(dp)                           :: frequency
   type(HarmonicState1D), allocatable :: modes(:)
   
   type(String), allocatable :: line(:)
@@ -267,17 +245,11 @@ subroutine read_HarmonicStateReal(this,input)
   integer :: i
   
   select type(this); type is(HarmonicStateReal)
-    subspace_id = int(token(input(1),3))
-    
-    supercell_size = int(token(input(2),4))
-    
-    frequency = dble(token(input(3),3))
-    
-    line = split_line(input(5),delimiter='>')
+    line = split_line(input(1),delimiter='>')
     line = [(line(i)//'>',i=1,size(line))]
     modes = HarmonicState1D(line)
     
-    this = HarmonicStateReal(subspace_id,supercell_size,frequency,modes)
+    this = HarmonicStateReal(modes)
   class default
     call err()
   end select
@@ -290,11 +262,7 @@ function write_HarmonicStateReal(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(HarmonicStateReal)
-    output = [ 'Subspace       : '//this%subspace_id,    &
-             & 'Supercell size : '//this%supercell_size, &
-             & 'Frequency      : '//this%frequency,      &
-             & str('State'),                             &
-             & join(str(this%modes_), delimiter='')      ]
+    output = [join(str(this%modes_), delimiter='')]
   class default
     call err()
   end select

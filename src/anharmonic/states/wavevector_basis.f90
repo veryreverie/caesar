@@ -181,10 +181,10 @@ function new_HarmonicBraKetReal_WavevectorBasis(basis,state,anharmonic_data) &
   type(HarmonicBraKetReal)            :: this
   
   this = HarmonicBraKetReal(                         &
-     & state%subspace_id,                            &
+     & basis%subspace_id,                            &
      & state%mode_ids(),                             &
      & state%paired_mode_ids(),                      &
-     & state%frequency,                              &
+     & basis%frequency,                              &
      & anharmonic_data%anharmonic_supercell%sc_size, &
      & basis%maximum_power,                          &
      & basis%expansion_order                         )
@@ -200,10 +200,10 @@ function new_HarmonicBraKetComplex_WavevectorBasis(basis,state, &
   type(HarmonicBraKetComplex)            :: this
   
   this = HarmonicBraKetComplex(                      &
-     & state%subspace_id,                            &
+     & basis%subspace_id,                            &
      & state%mode_ids(),                             &
      & state%paired_mode_ids(),                      &
-     & state%frequency,                              &
+     & basis%frequency,                              &
      & anharmonic_data%anharmonic_supercell%sc_size, &
      & basis%maximum_power,                          &
      & basis%expansion_order                         )
@@ -327,12 +327,9 @@ function generate_mode_basis_1d(subspace,frequency,mode,maximum_power, &
                                       & occupation = [( power,          &
                                       &                 power=0,        &
                                       &                 maximum_power)] )
-  harmonic_states = [( HarmonicStateReal( subspace%id,               &
-                     &                    supercell_size,            &
-                     &                    frequency,                 &
-                     &                    [harmonic_states_1d(i)] ), &
-                     & i=1,                                          &
-                     & size(harmonic_states_1d)                      )]
+  harmonic_states = [( HarmonicStateReal([harmonic_states_1d(i)]), &
+                     & i=1,                                        &
+                     & size(harmonic_states_1d)                    )]
   
   ! Calculate which states have non-zero <i|H|j> elements.
   ! |i> = a^n|0> and |j> = a^m|0>.
@@ -383,7 +380,6 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
   integer, allocatable :: coupling_ids(:)
   integer, allocatable :: separations(:)
   
-  
   integer :: i,j,ialloc
   
   
@@ -397,12 +393,9 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
      &       -1                                                        )], &
      & total_power=0,                                                      &
      & maximum_power                                                       )]
-  harmonic_states = [( HarmonicStateComplex( subspace%id,                &
-                     &                       supercell_size,             &
-                     &                       frequency,                  &
-                     &                       [harmonic_states_2d(i)] ),  &
-                     & i=1,                                              &
-                     & size(harmonic_states_2d)                          )]
+  harmonic_states = [( HarmonicStateComplex([harmonic_states_2d(i)]), &
+                     & i=1,                                           &
+                     & size(harmonic_states_2d)                       )]
   
   ! Calculate which states have non-zero <i|H|j> elements.
   ! |i> = (a+)^(m+).(a-)^(m-).|0>
@@ -414,8 +407,10 @@ function generate_mode_basis_2d(subspace,frequency,mode,maximum_power, &
     coupling_ids = [integer::]
     separations = [integer::]
     do j=1,size(harmonic_states_2d)
-      separation = abs( harmonic_states(i)%occupation() &
-                    & - harmonic_states(j)%occupation() )
+      separation = abs( harmonic_states_2d(i)%occupation()        &
+               &      - harmonic_states_2d(j)%occupation() )      &
+               & + abs( harmonic_states_2d(i)%paired_occupation() &
+               &      - harmonic_states_2d(j)%paired_occupation() )
       if (separation<=potential_expansion_order) then
         coupling_ids = [coupling_ids, j]
         separations = [separations, separation]
@@ -453,8 +448,7 @@ function tensor_product(this,that) result(output)
   integer, allocatable :: no_states(:)
   integer, allocatable :: this_to_output(:)
   
-  integer  :: id
-  integer  :: separation
+  type(CoupledStates) :: mapped_coupling
   
   ! Output variables.
   integer                                 :: maximum_power
@@ -467,7 +461,7 @@ function tensor_product(this,that) result(output)
   class(SubspaceState),       allocatable :: harmonic_states(:)
   type(CoupledStates),        allocatable :: harmonic_couplings(:)
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,ialloc
   
   ! Check that 'this' and 'that' are consistent.
   if (this%expansion_order/=that%expansion_order) then
@@ -535,25 +529,15 @@ function tensor_product(this,that) result(output)
   allocate( harmonic_couplings(size(harmonic_states)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(this%harmonic_states_)
+    mapped_coupling = this%harmonic_couplings_(i)
+    call mapped_coupling%map_ids(this_to_output)
     do j=1,no_states(i)
-      harmonic_couplings(this_to_output(i)+j) = CoupledStates()
-      do k=1,size(this%harmonic_couplings_(i))
-        do l=1,size(that%harmonic_couplings_(j))
-          if ( that%harmonic_couplings_(j)%id(l) >          &
-             & no_states(this%harmonic_couplings_(i)%id(k)) ) then
-            exit
-          endif
-          id = this_to_output(this%harmonic_couplings_(i)%id(k)) &
-           & + that%harmonic_couplings_(j)%id(l)
-          separation = this%harmonic_couplings_(i)%separation(k) &
-                   & + that%harmonic_couplings_(j)%separation(l)
-          if (separation<=expansion_order) then
-            call harmonic_couplings(this_to_output(i)+j)%add_coupling( &
-                                             & id         = id,        &
-                                             & separation = separation )
-          endif
-        enddo
-      enddo
+      harmonic_couplings(this_to_output(i)+j) = tensor_product_couplings( &
+                                           & this%harmonic_couplings_(i), &
+                                           & mapped_coupling,             &
+                                           & no_states,                   &
+                                           & that%harmonic_couplings_(j), &
+                                           & expansion_order              )
     enddo
   enddo
   

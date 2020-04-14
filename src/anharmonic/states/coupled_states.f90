@@ -11,6 +11,7 @@ module coupled_states_module
   
   public :: CoupledStates
   public :: size
+  public :: tensor_product_couplings
   public :: selected_states_couplings
   
   type, extends(Stringable) :: CoupledStates
@@ -26,6 +27,9 @@ module coupled_states_module
     
     ! Add an id and separation to the CoupledStates.
     procedure, public :: add_coupling
+    
+    ! Re-map the ids.
+    procedure, public :: map_ids
     
     ! I/O.
     procedure, public :: read  => read_CoupledStates
@@ -148,6 +152,67 @@ subroutine add_coupling(this,id,separation)
     this%separations_ = [this%separations_, separation, [(0,i=1,this%length_)]]
   endif
 end subroutine
+
+! Re-map the ids.
+subroutine map_ids(this,id_map)
+  implicit none
+  
+  class(CoupledStates), intent(inout) :: this
+  integer,              intent(in)    :: id_map(:)
+  
+  this%ids_(:this%length_) = id_map(this%ids_(:this%length_))
+end subroutine
+
+! Take the tensor product of two couplings.
+function tensor_product_couplings(unmapped_this,this,no_states,that, &
+   & max_separation) result(output) 
+  implicit none
+  
+  type(CoupledStates), intent(in) :: unmapped_this
+  type(CoupledStates), intent(in) :: this
+  integer,             intent(in) :: no_states(:)
+  type(CoupledStates), intent(in) :: that
+  integer,             intent(in) :: max_separation
+  type(CoupledStates)             :: output
+  
+  integer :: length
+  
+  integer :: id
+  integer :: separation
+  
+  integer :: i,j,k,ialloc
+  
+  length = 0
+  do i=1,this%length_
+    length = length                                                       &
+         & + count( this%separations_(i)+that%separations_(:that%length_) &
+         &       <= max_separation                                        &
+         &    .and. that%ids_(:that%length_)                              &
+         &       <= no_states(unmapped_this%ids_(i))                      )
+  enddo
+  
+  allocate( output%ids_(length),         &
+          & output%separations_(length), &
+          & stat=ialloc); call err(ialloc)
+  output%length_ = length
+  
+  k = 0
+  do i=1,this%length_
+    do j=1,that%length_
+      if (that%ids_(j)>no_states(unmapped_this%ids_(i))) then
+        exit
+      endif
+      separation = this%separations_(i) + that%separations_(j)
+      if (separation>max_separation) then
+        cycle
+      endif
+      id = this%ids_(i) + that%ids_(j)
+      k = k+1
+      output%ids_(k) = id
+      output%separations_(k) = separation
+    enddo
+  enddo
+end function
 
 ! Generate state couplings between a selected list of states.
 function selected_states_couplings(input,selected_states) result(output)

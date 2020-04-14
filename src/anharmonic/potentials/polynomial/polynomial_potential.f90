@@ -16,8 +16,6 @@ module polynomial_potential_module
   use sampling_points_module
   use sample_result_module
   use sample_results_module
-  use fit_coefficients_module
-  use fit_stress_coefficients_module
   use polynomial_stress_module
   implicit none
   
@@ -354,11 +352,8 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
   type(SamplingPoints)         :: sampling_points
   type(SampleResults)          :: sample_results
   
-  ! Basis function coefficients.
-  real(dp), allocatable :: coefficients(:)
-  
   ! Temporary variables.
-  integer :: i,ialloc
+  integer :: i
   
   ! Generate the potential at zero displacement.
   call print_line('Generating potential at zero displacement.')
@@ -371,7 +366,8 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
                                 & calculation_reader          )
   this%reference_energy_ = equilibrium_sample_result%energy
   
-  allocate(this%basis_functions_(0), stat=ialloc); call err(ialloc)
+  this%basis_functions_ = CouplingBasisFunctions( &
+             & anharmonic_data%subspace_couplings )
   
   do i=1,size(anharmonic_data%subspace_couplings)
     call print_line('Fitting potential in subspace coupling '//i//' of ' // &
@@ -398,20 +394,14 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
                                         & calculation_reader  )
     
     ! Fit basis function coefficients.
-    coefficients = fit_coefficients( basis_functions%basis_functions(), &
-                                   & sampling_points%points,            &
-                                   & sample_results%results,            &
-                                   & anharmonic_data%real_modes,        &
-                                   & weighted_energy_force_ratio,       &
-                                   & this                               )
+    call basis_functions%fit_coefficients( sampling_points%points,            &
+                                         & sample_results%results,            &
+                                         & anharmonic_data%real_modes,        &
+                                         & weighted_energy_force_ratio,       &
+                                         & this                               )
     
     ! Add fitted basis functions to potential.
-    this%basis_functions_ = [                                     &
-       & this%basis_functions_,                                   &
-       & CouplingBasisFunctions(                                  &
-       &    coupling = basis_functions%coupling,                  &
-       &    basis_functions = coefficients                        &
-       &                    * basis_functions%basis_functions() ) ]
+    this%basis_functions_(i) = basis_functions
   enddo
 end subroutine
 
@@ -446,9 +436,6 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
   
   ! The stress.
   type(PolynomialStress) :: stress
-  
-  ! Basis function coefficients.
-  real(dp), allocatable :: coefficients(:)
   
   ! Temporary variables.
   integer :: i,j,ialloc
@@ -500,15 +487,10 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
     ! Fit basis functions.
     j = first(stress_subspace_coupling==basis_functions(i)%coupling)
     
-    coefficients = fit_stress_coefficients(    &
-       & basis_functions(i)%basis_functions(), &
-       & sampling_points%points,               &
-       & sample_results%results,               &
-       & stress                                )
-    
-    basis_functions(i) = CouplingStressBasisFunctions(     &
-       & basis_functions(i)%coupling,                      &
-       & coefficients*basis_functions(i)%basis_functions() )
+    call basis_functions(i)%fit_coefficients( &
+                    & sampling_points%points, &
+                    & sample_results%results, &
+                    & stress                  )
   enddo
   
   ! Assemble output.
@@ -982,9 +964,10 @@ function coefficients_PolynomialPotential(this,anharmonic_data) &
   
   integer :: i
   
-  output = [( this%basis_functions_(i)%coefficients(), &
-            & i=1,                                     &
-            & size(this%basis_functions_)              )]
+  output = [( this%basis_functions_(i)%coefficients(            &
+            &    anharmonic_data%potential_expansion_order-1 ), &
+            & i=1,                                              &
+            & size(this%basis_functions_)                       )]
 end function
 
 subroutine set_coefficients_PolynomialPotential(this,coefficients, &
@@ -995,22 +978,18 @@ subroutine set_coefficients_PolynomialPotential(this,coefficients, &
   real(dp),                   intent(in)    :: coefficients(:)
   type(AnharmonicData),       intent(in)    :: anharmonic_data
   
-  integer :: i,j
+  integer :: no_coefficients
   
-  if (    size(coefficients)                         &
-     & /= sum([( size(this%basis_functions_(i)),     &
-     &           i=1,                                &
-     &           size(this%basis_functions_)     )]) ) then
-    call print_line(CODE_ERROR//': Coefficients do not match basis &
-       &functions.')
-    call err()
-  endif
+  integer :: i,j
   
   j = 0
   do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%set_coefficients(         &
-       & coefficients(j+1:j+size(this%basis_functions_(i))) )
-    j = j+size(this%basis_functions_(i))
+    no_coefficients = this%basis_functions_(i)%no_coefficients( &
+                  & anharmonic_data%potential_expansion_order-1 )
+    call this%basis_functions_(i)%set_coefficients(  &
+       & coefficients(j+1:j+no_coefficients),        &
+       & anharmonic_data%potential_expansion_order-1 )
+    j = j+no_coefficients
   enddo
 end subroutine
 

@@ -81,11 +81,13 @@ module logic_module
   
   interface is_sorted
     module procedure is_sorted_integers
+    module procedure is_sorted_reals
     module procedure is_sorted_ComparisonLambda
   end interface
   
   interface sort
     module procedure sort_integers
+    module procedure sort_reals
     module procedure sort_ComparisonLambda
   end interface
   
@@ -1123,6 +1125,19 @@ function is_sorted_integers(input) result(output)
   endif
 end function
 
+function is_sorted_reals(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:)
+  logical              :: output
+  
+  if (size(input)<2) then
+    output = .true.
+  else
+    output = all(input(:size(input)-1) <= input(2:))
+  endif
+end function
+
 function is_sorted_ComparisonLambda(input,lambda) result(output)
   implicit none
   
@@ -1170,6 +1185,32 @@ function sort_integers(input) result(output)
   implicit none
   
   integer, intent(in)  :: input(:)
+  integer, allocatable :: output(:)
+  
+  logical, allocatable :: sorted(:)
+  
+  integer :: i,j,ialloc
+  
+  if (is_sorted(input)) then
+    output = [(i,i=1,size(input))]
+  else
+    allocate( sorted(size(input)), &
+            & output(size(input)), &
+            & stat=ialloc); call err(ialloc)
+    sorted = .false.
+    
+    do i=1,size(input)
+      j = minloc(input,1,mask=.not. sorted)
+      sorted(j) = .true.
+      output(i) = j
+    enddo
+  endif
+end function
+
+function sort_reals(input) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input(:)
   integer, allocatable :: output(:)
   
   logical, allocatable :: sorted(:)

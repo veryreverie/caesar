@@ -21,9 +21,6 @@ module harmonic_state_complex_module
   public :: prod_complex
   
   type, extends(SubspaceState) :: HarmonicStateComplex
-    integer                            :: supercell_size
-    real(dp)                           :: frequency
-    real(dp)                           :: log_2nw_
     type(HarmonicState2D), allocatable :: modes_(:)
   contains
     procedure, public, nopass :: representation => &
@@ -62,10 +59,7 @@ impure elemental function prod_complex(lhs,rhs) result(output)
   type(HarmonicStateComplex), intent(in) :: rhs
   type(HarmonicStateComplex)             :: output
   
-  output = HarmonicStateComplex( lhs%subspace_id,        &
-                               & lhs%supercell_size,     &
-                               & lhs%frequency,          &
-                               & [lhs%modes_,rhs%modes_] )
+  output = HarmonicStateComplex([lhs%modes_,rhs%modes_])
 end function
 
 ! Startup procedure.
@@ -80,22 +74,13 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_HarmonicStateComplex(subspace_id,supercell_size,frequency,modes) &
-   & result(this) 
+function new_HarmonicStateComplex(modes) result(this) 
   implicit none
   
-  integer,               intent(in) :: subspace_id
-  integer,               intent(in) :: supercell_size
-  real(dp),              intent(in) :: frequency
   type(HarmonicState2D), intent(in) :: modes(:)
   type(HarmonicStateComplex)        :: this
   
-  this%subspace_id    = subspace_id
-  this%supercell_size = supercell_size
-  this%frequency      = frequency
-  this%modes_         = modes
-  
-  this%log_2nw_ = log(2*this%supercell_size*this%frequency)
+  this%modes_ = modes
 end function
 
 recursive function new_HarmonicStateComplex_SubspaceState(input) result(this)
@@ -208,9 +193,9 @@ impure elemental function wavefunction_HarmonicStateComplex(this,frequency, &
   implicit none
   
   class(HarmonicStateComplex), intent(in) :: this
-  real(dp),                 intent(in) :: frequency
-  type(StructureData),      intent(in) :: supercell
-  type(String)                         :: output
+  real(dp),                    intent(in) :: frequency
+  type(StructureData),         intent(in) :: supercell
+  type(String)                            :: output
   
   ! TODO
   call err()
@@ -250,15 +235,11 @@ impure elemental function change_modes_HarmonicStateComplex(this,mode_group) &
   paired_occupations = paired_occupations(sort_key)
   
   ! Construct output using the new ids.
-  output = HarmonicStateComplex(                   &
-     & subspace_id    = this%subspace_id,          &
-     & supercell_size = this%supercell_size,       &
-     & frequency      = this%frequency,            &
-     & modes          = HarmonicState2D(           &
-     &    id           = ids,                      &
-     &    paired_id    = paired_ids,               &
-     &    occupation        = occupations,         &
-     &    paired_occupation = paired_occupations ) )
+  output = HarmonicStateComplex(                                         &
+     & modes = HarmonicState2D( id                = ids,                 &
+     &                          paired_id         = paired_ids,          &
+     &                          occupation        = occupations,         &
+     &                          paired_occupation = paired_occupations ) )
 end function
 
 ! ----------------------------------------------------------------------
@@ -270,9 +251,6 @@ subroutine read_HarmonicStateComplex(this,input)
   class(HarmonicStateComplex), intent(out) :: this
   type(String),                intent(in)  :: input(:)
   
-  integer                            :: subspace_id
-  integer                            :: supercell_size
-  real(dp)                           :: frequency
   type(HarmonicState2D), allocatable :: modes(:)
   
   type(String), allocatable :: line(:)
@@ -280,17 +258,11 @@ subroutine read_HarmonicStateComplex(this,input)
   integer :: i
   
   select type(this); type is(HarmonicStateComplex)
-    subspace_id = int(token(input(1),3))
-    
-    supercell_size = int(token(input(2),4))
-    
-    frequency = dble(token(input(3),3))
-    
-    line = split_line(input(5),delimiter='>')
+    line = split_line(input(1),delimiter='>')
     line = [(line(i)//'>',i=1,size(line))]
     modes = HarmonicState2D(line)
     
-    this = HarmonicStateComplex(subspace_id,supercell_size,frequency,modes)
+    this = HarmonicStateComplex(modes)
   class default
     call err()
   end select
@@ -300,14 +272,10 @@ function write_HarmonicStateComplex(this) result(output)
   implicit none
   
   class(HarmonicStateComplex), intent(in) :: this
-  type(String), allocatable        :: output(:)
+  type(String), allocatable               :: output(:)
   
   select type(this); type is(HarmonicStateComplex)
-    output = [ 'Subspace       : '//this%subspace_id,    &
-             & 'Supercell size : '//this%supercell_size, &
-             & 'Frequency      : '//this%frequency,      &
-             & str('State'),                             &
-             & join(str(this%modes_), delimiter='')      ]
+    output = [join(str(this%modes_), delimiter='')]
   class default
     call err()
   end select
@@ -322,11 +290,12 @@ function new_HarmonicStateComplex_Strings(input) result(this)
   call this%read(input)
 end function
 
-impure elemental function new_HarmonicStateComplex_StringArray(input) result(this)
+impure elemental function new_HarmonicStateComplex_StringArray(input) &
+   & result(this) 
   implicit none
   
   type(StringArray), intent(in) :: input
-  type(HarmonicStateComplex)           :: this
+  type(HarmonicStateComplex)    :: this
   
   this = HarmonicStateComplex(str(input))
 end function

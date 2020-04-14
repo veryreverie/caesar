@@ -548,6 +548,12 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                     & i=1,                                    &
                     & size(vscha_output)                      )]
     vscha_frequencies(:,i) = vscha_states%frequency
+    if (any(vscha_states%frequency<=energy_convergence)) then
+      call print_line(WARNING//': At least one VSCHA frequency is below &
+         &energy_convergence. Consider lowering energy_convergence.')
+      call print_line('Minimum frequency: '//minval(vscha_states%frequency))
+    endif
+    
     if (calculate_stress) then
       vscha_stresses = [(vscha_output(j)%stress, j=1, size(vscha_output))]
     endif

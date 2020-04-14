@@ -80,17 +80,14 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_MonomialStateComplex(subspace_id,supercell_size,frequency,modes) &
-   & result(this) 
+function new_MonomialStateComplex(supercell_size,frequency,modes) result(this) 
   implicit none
   
-  integer,               intent(in) :: subspace_id
   integer,               intent(in) :: supercell_size
   real(dp),              intent(in) :: frequency
   type(MonomialState2D), intent(in) :: modes(:)
   type(MonomialStateComplex)        :: this
   
-  this%subspace_id    = subspace_id
   this%supercell_size = supercell_size
   this%frequency      = frequency
   this%modes_         = modes
@@ -534,7 +531,6 @@ impure elemental function change_modes_MonomialStateComplex(this,mode_group) &
   
   ! Construct output using the new ids.
   output = MonomialStateComplex(                                        &
-     & subspace_id    = this%subspace_id,                               &
      & supercell_size = this%supercell_size,                            &
      & frequency      = this%frequency,                                 &
      & modes          = MonomialState2D( id           = ids,            &
@@ -552,7 +548,6 @@ subroutine read_MonomialStateComplex(this,input)
   class(MonomialStateComplex), intent(out) :: this
   type(String),                intent(in)  :: input(:)
   
-  integer                            :: subspace_id
   integer                            :: supercell_size
   real(dp)                           :: frequency
   type(MonomialState2D), allocatable :: modes(:)
@@ -562,8 +557,6 @@ subroutine read_MonomialStateComplex(this,input)
   integer :: i
   
   select type(this); type is(MonomialStateComplex)
-    subspace_id = int(token(input(1),3))
-    
     supercell_size = int(token(input(2),4))
     
     frequency = dble(token(input(3),3))
@@ -572,7 +565,7 @@ subroutine read_MonomialStateComplex(this,input)
     line = [(line(i)//'>',i=1,size(line))]
     modes = MonomialState2D(line)
     
-    this = MonomialStateComplex(subspace_id,supercell_size,frequency,modes)
+    this = MonomialStateComplex(supercell_size,frequency,modes)
   class default
     call err()
   end select
@@ -585,8 +578,7 @@ function write_MonomialStateComplex(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(MonomialStateComplex)
-    output = [ 'Subspace       : '//this%subspace_id,    &
-             & 'Supercell size : '//this%supercell_size, &
+    output = [ 'Supercell size : '//this%supercell_size, &
              & 'Frequency      : '//this%frequency,      &
              & str('State'),                             &
              & join(str(this%modes_), delimiter='')      ]

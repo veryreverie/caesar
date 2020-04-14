@@ -163,7 +163,7 @@ function new_DynamicalMatrix_interpolated(q,supercell,hessian,min_images) &
   type(IntVector)              :: rvector
   type(IntVector), allocatable :: rvectors(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   ! Allocate and zero elements.
   allocate( elements( supercell%no_atoms_prim,  &
@@ -184,16 +184,6 @@ function new_DynamicalMatrix_interpolated(q,supercell,hessian,min_images) &
       
       if (present(min_images)) then
         rvectors = min_images(atom_2%id(),atom_1%id())%image_rvectors
-        ! Check that all min image R-vectors actually point from atom 2 to
-        !    a copy of atom 1.
-        do k=1,size(rvectors)
-          if (.not. is_int( supercell%recip_supercell &
-                        & * (rvectors(k)-rvector))) then
-            call print_line(CODE_ERROR// &
-               & ': Problem with minimum image R-vectors.')
-            call err()
-          endif
-        enddo
       else
         rvectors = [rvector]
       endif

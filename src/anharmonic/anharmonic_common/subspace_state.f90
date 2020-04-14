@@ -22,7 +22,6 @@ module subspace_state_module
   public :: SubspaceStatePointer
   
   type, abstract, extends(Stringsable) :: SubspaceState
-    integer :: subspace_id
   contains
     procedure(representation_SubspaceState), public, deferred, nopass :: &
        & representation
@@ -164,7 +163,6 @@ impure elemental function new_SubspaceStatePointer(state) result(this)
     this%representation_ = state%representation()
     allocate( this%state_, source=state, &
             & stat=ialloc); call err(ialloc)
-    this%subspace_id = this%state_%subspace_id
   end select
 end function
 

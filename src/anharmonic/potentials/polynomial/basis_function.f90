@@ -75,6 +75,7 @@ module basis_function_module
     
     procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
+    procedure, public  :: power => power_BasisFunction
     procedure, public  :: coefficient => coefficient_BasisFunction
     procedure, public  :: set_coefficient => set_coefficient_BasisFunction
     
@@ -867,11 +868,17 @@ end function
 
 ! ----------------------------------------------------------------------
 ! Converts the basis function to and from a single coefficient.
-! The coefficient is the sum of the absolute values of the
-!    real representation coefficients, with the sign of the first non-zero
-!    real representation coefficient.
 ! These methods allow for simpler linear algebra with basis functions.
 ! ----------------------------------------------------------------------
+impure elemental function power_BasisFunction(this) result(output)
+  implicit none
+  
+  class(BasisFunction), intent(in) :: this
+  integer                          :: output
+  
+  output = this%complex_representation_%terms(1)%total_power()
+end function
+
 impure elemental function coefficient_BasisFunction(this) result(output)
   implicit none
   

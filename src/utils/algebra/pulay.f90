@@ -266,15 +266,11 @@ function pulay_(this,iterations) result(output)
   type(RealVector)               :: output
   
   type(RealVector), allocatable :: errors(:)
+  type(RealVector), allocatable :: preconditioned_errors(:)
   real(dp),         allocatable :: error_matrix(:,:)
   real(dp),         allocatable :: coefficients(:)
   
-  ! Variables for picking iterations.
-  real(dp), allocatable :: error_norms(:)
-  logical,  allocatable :: unused(:)
-  integer,  allocatable :: to_use(:)
-  
-  integer, allocatable :: iters(:)
+  real(dp) :: min_error
   
   integer :: min_guess
   integer :: max_guess
@@ -288,7 +284,7 @@ function pulay_(this,iterations) result(output)
   type(SymmetricEigenstuff), allocatable :: unsorted_estuff(:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
   
-  integer :: first,last
+  integer :: first_,last_
   
   integer :: m,n
   
@@ -309,18 +305,30 @@ function pulay_(this,iterations) result(output)
   ! ( en.e1, en.e2, ... , en.en,  1  ) (a_n)   ( 0 )
   ! (   1  ,   1  ,  1  ,   1  ,  0  ) ( l )   ( 1 )
   
-  iters = iterations
-  m = size(this%xs_(iters(1)))
-  n = size(iters)
+  m = size(this%xs_(iterations(1)))
+  n = size(iterations)
   
-  if (any([(size(this%xs_(iters(i))),i=1,n)]/=m)) then
+  if (any([(size(this%xs_(iterations(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Input vectors inconsistent.')
-  elseif (any([(size(this%fs_(iters(i))),i=1,n)]/=m)) then
+  elseif (any([(size(this%fs_(iterations(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Output vectors inconsistent.')
   endif
   
   ! Construct errors, e_i = f(x_i)-x_i.
-  errors = this%fs_(iters) - this%xs_(iters)
+  errors = this%fs_(iterations) - this%xs_(iterations)
+  
+  ! Check for over-convergence.
+  i = first(l2_norm(errors)<=1e-10_dp*this%data_%energy_convergence, default=0)
+  if (i/=0) then
+    output = this%xs_(iterations(i))
+    return
+  endif
+  
+  ! Precondition errors.
+  !preconditioned_errors = errors
+  preconditioned_errors = precondition_errors( this%xs_(iterations),         &
+                                             & errors,                       &
+                                             & this%data_%energy_convergence )
   
   ! Construct error matrix.
   ! ( e1.e1, e1.e2, ... , e1.en,  1 )
@@ -331,7 +339,7 @@ function pulay_(this,iterations) result(output)
   allocate(error_matrix(n+1,n+1), stat=ialloc); call err(ialloc)
   do i=1,n
     do j=1,n
-      error_matrix(j,i) = errors(j) * errors(i)
+      error_matrix(j,i) = preconditioned_errors(j) * preconditioned_errors(i)
     enddo
   enddo
   error_matrix(:n , n+1) = 1
@@ -339,13 +347,8 @@ function pulay_(this,iterations) result(output)
   error_matrix(n+1, n+1) = 0
   
   min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
+  min_error = sqrt(error_matrix(min_guess,min_guess))
   max_guess = maxloc([(error_matrix(i,i), i=1, n)], 1)
-  
-  ! Check for over-convergence.
-  if (error_matrix(max_guess,max_guess)<1e-300_dp) then
-    output = this%xs_(iters(min_guess))
-    return
-  endif
   
   ! Scale error_matrix(:n,:n) such that the problem is well-conditioned.
   ! This has no effect on the result beyond numerical error.
@@ -353,42 +356,6 @@ function pulay_(this,iterations) result(output)
     error_matrix(:n,:n) = error_matrix(:n,:n) &
                       & / error_matrix(max_guess,max_guess)
   endif
-  
-  ! Select a number of iterations to include in the Pulay scheme.
-  ! Recursively pick the iteration i with the smallest error norm,
-  !    and then remove all iterations which form too small an angle
-  !    with iteration i from the list of iterations to consider.
-  error_norms = [(sqrt(error_matrix(i,i)), i=1, n)]
-  unused = [(.true., i=1, n)]
-  to_use = [integer::]
-  do while (any(unused))
-    ! Pick the iteration, i, with the smallest error norm.
-    i = minloc(error_norms, dim=1, mask=unused)
-    unused(i) = .false.
-    to_use = [to_use, i]
-    do j=1,size(unused)
-      if (unused(j)) then
-        ! Remove iteration j from consideration if the angle between iterations
-        !    i and j is cos(angle)>0.9.
-        if (error_matrix(i,j)/(error_norms(i)*error_norms(j))>0.9_dp) then
-          unused(j) = .false.
-        endif
-      endif
-    enddo
-  enddo
-  
-  ! If all iterations but one are removed from consideration before two
-  !    iterations have been picked, simply pick the two iterations with the
-  !    smallest error norm, regardless of the angle between them.
-  if (size(to_use)==1) then
-    to_use = [to_use, minloc(error_norms, dim=1, mask=[(i/=to_use(1),i=1,n)])]
-  endif
-  iters = iters(to_use)
-  errors = errors(to_use)
-  error_matrix = error_matrix([to_use,n+1],[to_use,n+1])
-  n = size(to_use)
-  
-  min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
   
   ! Diagonalise the error matrix.
   ! The i'th eigenvector is (c_i1,c_i2,...,c_in,w_i), where:
@@ -407,15 +374,16 @@ function pulay_(this,iterations) result(output)
   
   ! Sort eigenvectors in descending order of |eval|.
   allocate(estuff(size(unsorted_estuff)), stat=ialloc); call err(ialloc)
-  first = 1
-  last  = n+1
+  first_ = 1
+  last_  = n+1
   do i=1,n+1
-    if (abs(unsorted_estuff(first)%eval)>abs(unsorted_estuff(last)%eval)) then
-      estuff(i) = unsorted_estuff(first)
-      first = first+1
+    if ( abs(unsorted_estuff(first_)%eval) &
+     & > abs(unsorted_estuff(last_)%eval)  ) then
+      estuff(i) = unsorted_estuff(first_)
+      first_ = first_+1
     else
-      estuff(i) = unsorted_estuff(last)
-      last = last-1
+      estuff(i) = unsorted_estuff(last_)
+      last_ = last_-1
     endif
   enddo
   
@@ -440,44 +408,177 @@ function pulay_(this,iterations) result(output)
             prefactor = -maximum_prefactor
           endif
         else
-         prefactor = 0
+          prefactor = 0
         endif
       endif
     else
       ! The self-consistency scheme does not define the position along the i'th
       !    eigenvector. Instead, the gradient descent scheme is called.
-      prefactor = -( vec(estuff(i)%evec(:n))           &
-              &    * vec(this%free_energies_(iters)) ) &
-              & / 10.0_dp*this%data_%energy_convergence
+      prefactor = -( vec(estuff(i)%evec(:n))                &
+              &    * vec(this%free_energies_(iterations)) ) &
+              & / (10.0_dp*this%data_%energy_convergence)
       prefactor = max(-0.01_dp,min(prefactor,0.01_dp))
     endif
     
     coefficients = coefficients + prefactor*estuff(i)%evec(:n)
   enddo
   
-  coefficients = max(-2.0_dp,min(coefficients,2.0_dp))
-  
   ! Increase the coefficient of the last guess such that sum(coefficients)=1.
   coefficients(min_guess) = coefficients(min_guess) + (1-sum(coefficients))
   
   ! Construct Pulay output.
-  output = sum(coefficients*this%xs_(iters))
+  output = sum(coefficients*this%xs_(iterations))
   
   ! Mix in a damped iterative contribution.
-  output = (1-this%data_%iterative_mixing)          &
-       & * output                                   &
-       & + this%data_%iterative_mixing              &
-       & * ( this%data_%iterative_damping           &
-       &   * this%xs_(iterations(size(iterations))) &
-       &   + (1-this%data_%iterative_damping)       &
-       &   * this%fs_(iterations(size(iterations))) )
+  output = (1-this%data_%iterative_mixing)    &
+       & * output                             &
+       & + this%data_%iterative_mixing        &
+       & * ( this%data_%iterative_damping     &
+       &   * this%xs_(iterations(min_guess))  &
+       &   + (1-this%data_%iterative_damping) &
+       &   * this%fs_(iterations(min_guess))  )
   
   ! Add in a random component, to help break out of linearly-dependent
   !    subspaces.
   output = output                                                            &
-       & + 2*this%data_%pulay_noise                                          &
+       & + 2*this%data_%pulay_noise*this%random_generator_%random_number()   &
        & * vec( (this%random_generator_%random_numbers(size(output))-0.5_dp) &
-       &      * dble(output-this%xs_(iters(min_guess)))                      )
+       &      * min(min_error,abs(dble(output)))                             )
+end function
+
+! The Pulay scheme assumes that the error vectors e and input vectors x are
+!    linearly related by some tensor a such that e=a.x', where x' is the
+!    extended vector x'=[x,l] for some Lagrange parameter l.
+! This subroutine performs a linear fit for the tensor a in the subspace of
+!    x for which it is fully specified, and then replaces e vectors with the
+!    corresponding a.x' vectors.
+! If the x' vectors are linearly independent,
+!    this will not change the error vectors.
+! N.B. a weighted fit is used, favouring small values of |e|, so the fit
+!    focusses on the region close to the solution e=0.
+function precondition_errors(inputs,errors,energy_convergence) result(output)
+  implicit none
+  
+  type(RealVector), intent(in)  :: inputs(:)
+  type(RealVector), intent(in)  :: errors(:)
+  real(dp),         intent(in)  :: energy_convergence
+  type(RealVector), allocatable :: output(:)
+  
+  ! Fit weights.
+  real(dp), allocatable :: error_norms(:)
+  real(dp), allocatable :: weights(:)
+  integer,  allocatable :: sort_key(:)
+  
+  ! The inputs in a minimal basis.
+  real(dp)                      :: lambda
+  type(RealVector), allocatable :: extended_inputs(:)
+  type(RealVector), allocatable :: residual_inputs(:)
+  type(RealVector), allocatable :: input_basis(:)
+  type(RealVector), allocatable :: x(:)
+  
+  ! sum [input^input] and sum [error^input].
+  type(RealMatrix) :: xx
+  type(RealMatrix) :: ex
+  type(RealMatrix) :: transformation
+  
+  ! The basis of transformation*input_basis.
+  type(RealVector), allocatable :: error_basis(:)
+  
+  ! Temporary variables.
+  integer :: i,j,k
+  
+  ! Construct |e| and weights, and construct the sort key for the error norms.
+  error_norms = l2_norm(errors)
+  weights = [max(minval(error_norms)/error_norms, 1e-4_dp)]
+  sort_key = sort(error_norms)
+  
+  ! Translate input vectors to be relative to the point with the smallest
+  !    error. This doesn't change the maths, but improves numerical stability.
+  extended_inputs = inputs-inputs(sort_key(1))
+  
+  ! Extend input vectors with the Lagrange parameter lambda.
+  lambda = maxval( [( maxval(abs(dble(extended_inputs(i))), 1),     &
+                 &    i=1,                                          &
+                 &    size(inputs)                              )], &
+                 & 1                                                )
+  extended_inputs = [( vec([dble(extended_inputs(i)),lambda]), &
+                     & i=1,                                    &
+                     & size(inputs)                            )]
+  
+  ! Transform the inputs into a minimal basis.
+  residual_inputs = extended_inputs(sort_key)
+  j = 0
+  allocate(input_basis(0))
+  do i=1,size(residual_inputs)
+    if (l2_norm(residual_inputs(i))>maxval(l2_norm(inputs),1)/100) then
+      j = j+1
+      input_basis = [ input_basis,                                   &
+                    & residual_inputs(i)/l2_norm(residual_inputs(i)) ]
+      do k=i+1,size(inputs)
+        residual_inputs(k) = residual_inputs(k)                  &
+                         & - input_basis(j)*( input_basis(j)     &
+                         &                  * residual_inputs(k) )
+      enddo
+    endif
+  enddo
+  
+  if (j==0) then
+    output = errors
+    return
+  endif
+  
+  !inputs_to_x = mat(column_matrix(input_basis))
+  !x_to_inputs = mat(row_matrix(input_basis))
+  
+  x = [(vec(extended_inputs(i)*input_basis),i=1,size(inputs))]
+  
+  ! Construct sum [input^input] and sum [error^input] in the minimal basis.
+  xx = sum(weights * outer_product(x,x))
+  ex = sum(weights * outer_product(errors,x))
+  
+  ! Construct the inputs -> errors transformation,
+  !    with inputs in the minimal basis.
+  transformation = ex * invert(xx)
+  
+  ! Construct input_basis transformed to the space of errors.
+  error_basis = [(transformation%column(i), i=1, size(transformation,2))]
+  error_basis = error_basis / l2_norm(error_basis)
+  
+  ! Construct outputs, by removing the projection of each error in
+  !    error_basis, and replacing it with the linearised version.
+  output = errors
+  do i=1,size(error_basis)
+    output = output - error_basis(i)*(error_basis(i)*output)
+  enddo
+  
+  output = output + transformation * x
+  
+  !if (size(errors(1))>=55) then
+  !  call set_print_settings(decimal_places=2)
+  !  call print_line('')
+  !  call print_lines(inputs_to_x)
+  !  call print_line('')
+  !  call print_lines(x_to_inputs)
+  !  call print_line('')
+  !  call print_lines(x_to_inputs*inputs_to_x)
+  !  call print_line('')
+  !  call print_lines(inputs_to_x*x_to_inputs)
+  !  call print_line('')
+  !  call print_line(size(inputs(1)))
+  !  call print_line(size(x(1)))
+  !  !sort_key = sort(errors%element(55))
+  !  !call print_line(errors(sort_key)%element(55))
+  !  !call print_line(output(sort_key)%element(55))
+  !  !call print_line(output(sort_key)%element(55)-errors(sort_key)%element(55))
+  !  !call print_line([(transformation%row(55)*x(sort_key(i)), i=1, size(x))])
+  !  !call print_line([(transformation%row(55)*x(sort_key(i)), i=1, size(x))]-errors(sort_key)%element(55))
+  !  !call print_line('')
+  !  !do i=1,size(inputs)
+  !  !  call print_line(inputs(i))
+  !  !  call print_line(x_to_inputs*x(i))
+  !  !enddo
+  !  call unset_print_settings()
+  !endif
 end function
 
 ! Errors for printing progress.

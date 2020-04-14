@@ -10,6 +10,7 @@ module coupling_stress_basis_functions_module
   use basis_function_module
   use stress_basis_function_module
   use sampling_points_module
+  use sample_result_module
   implicit none
   
   private
@@ -53,6 +54,8 @@ module coupling_stress_basis_functions_module
     
     procedure, public :: append => append_CouplingStressBasisFunctions
     
+    procedure, public :: fit_coefficients => &
+                       & fit_coefficients_CouplingStressBasisFunctions
     procedure, public :: interpolate_coefficients => &
                        & interpolate_coefficients_CouplingStressBasisFunctions
     procedure, public :: calculate_dynamical_matrices => &
@@ -66,6 +69,7 @@ module coupling_stress_basis_functions_module
   end type
   
   interface CouplingStressBasisFunctions
+    module procedure new_CouplingStressBasisFunctions_empty
     module procedure new_CouplingStressBasisFunctions
     module procedure new_CouplingStressBasisFunctions_Strings
     module procedure new_CouplingStressBasisFunctions_StringArray
@@ -81,6 +85,19 @@ module coupling_stress_basis_functions_module
 contains
 
 ! Constructor and size function.
+impure elemental function new_CouplingStressBasisFunctions_empty(coupling) &
+   & result(this) 
+  implicit none
+  
+  type(SubspaceCoupling),    intent(in) :: coupling
+  type(CouplingStressBasisFunctions)    :: this
+  
+  integer :: ialloc
+  
+  this%coupling = coupling
+  allocate(this%basis_functions_(0), stat=ialloc); call err(ialloc)
+end function
+
 function new_CouplingStressBasisFunctions(coupling,basis_functions) &
    & result(this)
   implicit none
@@ -342,6 +359,63 @@ function generate_stress_basis_functions_SubspaceCoupling(coupling,     &
   output = CouplingStressBasisFunctions( coupling,                &
                                        & coupling_basis_functions )
 end function
+
+! Uses L2 regression to calculate the coefficients of a set of stress basis
+!    functions.
+subroutine fit_coefficients_CouplingStressBasisFunctions(this, &
+   & sampling_points,sample_results,stress) 
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(inout)        :: this
+  type(RealModeDisplacement),          intent(in)           :: sampling_points(:)
+  type(SampleResult),                  intent(in)           :: sample_results(:)
+  class(StressData),                   intent(in), optional :: stress
+  
+  type(RealMatrix) :: stress_tensor
+  
+  real(dp), allocatable :: a(:,:)
+  real(dp), allocatable :: b(:)
+  
+  real(dp), allocatable :: coefficients(:)
+  
+  integer :: i,j,ialloc
+  
+  ! Check inputs are consistent.
+  if (size(sampling_points)/=size(sample_results)) then
+    call print_line(CODE_ERROR//': The number of sampling points does not &
+       &match the number of results.')
+    call err()
+  endif
+  
+  ! Calculate the stress due to each basis function at each sampling point.
+  allocate( a(9*size(sampling_points), size(this%basis_functions_)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%basis_functions_)
+    do j=1,size(sampling_points)
+      stress_tensor = this%basis_functions_(i)%stress(sampling_points(j))
+      a((j-1)*9+1:j*9, i) = reshape(dble(stress_tensor), [9])
+    enddo
+  enddo
+  
+  ! Calculate the stress sampled at each sampling point.
+  allocate(b(9*size(sampling_points)), stat=ialloc); call err(ialloc)
+  do i=1,size(sampling_points)
+    stress_tensor = sample_results(i)%stress()
+    
+    ! Subtract the existing stress.
+    if (present(stress)) then
+      stress_tensor = stress_tensor - stress%stress(sampling_points(i))
+    endif
+    
+    b((i-1)*9+1:i*9) = reshape(dble(stress_tensor), [9])
+  enddo
+  
+  ! Run linear least squares to get the basis function coefficients.
+  ! This finds x s.t. (a.x-b)^2 is minimised.
+  coefficients = dble(linear_least_squares(a, b))
+  
+  this%basis_functions_ = coefficients * this%basis_functions_
+end subroutine
 
 ! Calculate the contribution to a given monomial from the interpolation of
 !    this basis function.

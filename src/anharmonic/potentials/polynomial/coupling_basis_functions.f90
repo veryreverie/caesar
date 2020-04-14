@@ -9,6 +9,7 @@ module coupling_basis_functions_module
   use polynomial_interpolator_module
   use basis_function_module
   use sampling_points_module
+  use sample_result_module
   implicit none
   
   private
@@ -61,6 +62,10 @@ module coupling_basis_functions_module
     procedure, public :: undisplaced_energy => &
                        & undisplaced_energy_CouplingBasisFunctions
     
+    procedure, public :: fit_coefficients => &
+                       & fit_coefficients_CouplingBasisFunctions
+    procedure, public :: no_coefficients => &
+                       & no_coefficients_CouplingBasisFunctions
     procedure, public :: coefficients => &
                        & coefficients_CouplingBasisFunctions
     procedure, public :: set_coefficients => &
@@ -81,6 +86,7 @@ module coupling_basis_functions_module
   end type
   
   interface CouplingBasisFunctions
+    module procedure new_CouplingBasisFunctions_empty
     module procedure new_CouplingBasisFunctions
     module procedure new_CouplingBasisFunctions_Strings
     module procedure new_CouplingBasisFunctions_StringArray
@@ -99,6 +105,19 @@ module coupling_basis_functions_module
     type(SamplingPoints)         :: sampling_points
   end type
 contains
+
+impure elemental function new_CouplingBasisFunctions_empty(coupling) &
+   & result(this) 
+  implicit none
+  
+  type(SubspaceCoupling), intent(in) :: coupling
+  type(CouplingBasisFunctions)       :: this
+  
+  integer :: ialloc
+  
+  this%coupling = coupling
+  allocate(this%basis_functions_(0), stat=ialloc); call err(ialloc)
+end function
 
 function new_CouplingBasisFunctions(coupling,basis_functions) result(this)
   implicit none
@@ -438,28 +457,100 @@ impure elemental function undisplaced_energy_CouplingBasisFunctions(this) &
   output = this%energy(RealModeDisplacement(zero_displacement))
 end function
 
-! Get and set basis function coefficients.
-function coefficients_CouplingBasisFunctions(this) result(output)
+! Fit basis function coefficients using L2 regression.
+subroutine fit_coefficients_CouplingBasisFunctions(this,sampling_points, &
+   & sample_results,modes,energy_force_ratio,potential)
   implicit none
   
-  class(CouplingBasisFunctions), intent(in) :: this
-  real(dp), allocatable                     :: output(:)
+  class(CouplingBasisFunctions), intent(inout)          :: this
+  type(RealModeDisplacement),    intent(in)             :: sampling_points(:)
+  type(SampleResult),            intent(in)             :: sample_results(:)
+  type(RealMode),                intent(in)             :: modes(:)
+  real(dp),                      intent(in)             :: energy_force_ratio
+  class(PotentialData),          intent(in),   optional :: potential
   
-  output = this%basis_functions_%coefficient()
-end function
-
-subroutine set_coefficients_CouplingBasisFunctions(this,coefficients)
-  implicit none
+  integer               :: dimensions
+  real(dp), allocatable :: a(:,:)
+  real(dp), allocatable :: b(:)
   
-  class(CouplingBasisFunctions), intent(inout) :: this
-  real(dp),                      intent(in)    :: coefficients(:)
+  real(dp), allocatable :: coefficients(:)
   
-  if (size(this)/=size(coefficients)) then
-    call print_line(CODE_ERROR//': Incorrect number of coefficients.')
+  ! Check inputs are consistent.
+  if (size(sampling_points)/=size(sample_results)) then
+    call print_line(CODE_ERROR//': The number of sampling points does not &
+       &match the number of results.')
     call err()
   endif
   
-  call this%basis_functions_%set_coefficient(coefficients)
+  ! Each calculation yields size(modes) forces and one energy.
+  dimensions = 1+size(modes)
+  
+  ! Calculate the energies and forces due to each basis function at each
+  !    sampling point.
+  a = construct_sample_matrix( this%basis_functions_, &
+                             & sampling_points,       &
+                             & modes,                 &
+                             & energy_force_ratio     )
+  
+  ! Calculate the energies and forces sampled at each sampling point.
+  b = construct_sample_vector( sampling_points,   &
+                             & sample_results,    &
+                             & potential,         &
+                             & modes,             &
+                             & energy_force_ratio )
+  
+  ! Run linear least squares to get the basis function coefficients.
+  ! This finds x s.t. (a.x-b)^2 is minimised.
+  coefficients = dble(linear_least_squares(a, b))
+  
+  this%basis_functions_ = coefficients * this%basis_functions_
+end subroutine
+
+! Get and set basis function coefficients.
+impure elemental function no_coefficients_CouplingBasisFunctions(this, &
+   & maximum_power) result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in) :: this
+  integer,                       intent(in) :: maximum_power
+  integer                                   :: output
+  
+  output = count(this%basis_functions_%power()<=maximum_power)
+end function
+
+function coefficients_CouplingBasisFunctions(this,maximum_power) result(output)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in) :: this
+  integer,                       intent(in) :: maximum_power
+  real(dp), allocatable                     :: output(:)
+  
+  output = this%basis_functions_(                           &
+     & filter(this%basis_functions_%power()<=maximum_power) )%coefficient()
+end function
+
+subroutine set_coefficients_CouplingBasisFunctions(this,coefficients, &
+   & maximum_power) 
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  integer,                       intent(in)    :: maximum_power
+  real(dp),                      intent(in)    :: coefficients(:)
+  
+  integer :: i,j
+  
+  j = 0
+  do i=1,size(this%basis_functions_)
+    if (this%basis_functions_(i)%power()<=maximum_power) then
+      j = j+1
+      call this%basis_functions_(i)%set_coefficient(coefficients(j))
+    endif
+  enddo
+  
+  if (j/=size(coefficients)) then
+    call print_line(CODE_ERROR//': Incorrect number of coefficients.')
+    call err()
+  endif
 end subroutine
 
 ! Append another CouplingBasisFunctions to this.

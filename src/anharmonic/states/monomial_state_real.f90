@@ -81,17 +81,14 @@ end subroutine
 ! ----------------------------------------------------------------------
 ! Constructor.
 ! ----------------------------------------------------------------------
-function new_MonomialStateReal(subspace_id,supercell_size,frequency,modes) &
-   & result(this) 
+function new_MonomialStateReal(supercell_size,frequency,modes) result(this) 
   implicit none
   
-  integer,               intent(in) :: subspace_id
   integer,               intent(in) :: supercell_size
   real(dp),              intent(in) :: frequency
   type(MonomialState1D), intent(in) :: modes(:)
   type(MonomialStateReal)           :: this
   
-  this%subspace_id    = subspace_id
   this%supercell_size = supercell_size
   this%frequency      = frequency
   this%modes_         = modes
@@ -185,8 +182,7 @@ function generate_monomial_states(subspace,supercell_size,frequency,modes, &
   type(MonomialState1D) :: zero_modes(0)
   
   ids = subspace%mode_ids(sort(subspace%mode_ids))
-  state = MonomialStateReal( subspace_id    = subspace%id,    &
-                           & supercell_size = supercell_size, &
+  state = MonomialStateReal( supercell_size = supercell_size, &
                            & frequency      = frequency,      &
                            & modes          = zero_modes      )
   output = generate_monomial_states_helper(ids,maximum_power,state)
@@ -211,7 +207,6 @@ recursive function generate_monomial_states_helper(ids,power,state) &
        &      ids   = ids(2:),                                         &
        &      power = power-i,                                         &
        &      state = MonomialStateReal(                               &
-       &           subspace_id    = state%subspace_id,                 &
        &           supercell_size = state%supercell_size,              &
        &           frequency      = state%frequency,                   &
        &           modes          = [ state%modes_,                    &
@@ -579,8 +574,7 @@ impure elemental function change_modes_MonomialStateReal(this,mode_group) &
   powers = powers(sort_key)
   
   ! Construct output using the new ids.
-  output = MonomialStateReal( subspace_id    = this%subspace_id,           &
-                            & supercell_size = this%supercell_size,        &
+  output = MonomialStateReal( supercell_size = this%supercell_size,        &
                             & frequency      = this%frequency,             &
                             & modes          = MonomialState1D(ids,powers) )
 end function
@@ -594,7 +588,6 @@ subroutine read_MonomialStateReal(this,input)
   class(MonomialStateReal), intent(out) :: this
   type(String),             intent(in)  :: input(:)
   
-  integer                            :: subspace_id
   integer                            :: supercell_size
   real(dp)                           :: frequency
   type(MonomialState1D), allocatable :: modes(:)
@@ -604,8 +597,6 @@ subroutine read_MonomialStateReal(this,input)
   integer :: i
   
   select type(this); type is(MonomialStateReal)
-    subspace_id = int(token(input(1),3))
-    
     supercell_size = int(token(input(2),4))
     
     frequency = dble(token(input(3),3))
@@ -614,7 +605,7 @@ subroutine read_MonomialStateReal(this,input)
     line = [(line(i)//'>',i=1,size(line))]
     modes = MonomialState1D(line)
     
-    this = MonomialStateReal(subspace_id,supercell_size,frequency,modes)
+    this = MonomialStateReal(supercell_size,frequency,modes)
   class default
     call err()
   end select
@@ -627,8 +618,7 @@ function write_MonomialStateReal(this) result(output)
   type(String), allocatable        :: output(:)
   
   select type(this); type is(MonomialStateReal)
-    output = [ 'Subspace       : '//this%subspace_id,    &
-             & 'Supercell size : '//this%supercell_size, &
+    output = [ 'Supercell size : '//this%supercell_size, &
              & 'Frequency      : '//this%frequency,      &
              & str('State'),                             &
              & join(str(this%modes_), delimiter='')      ]
