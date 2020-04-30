@@ -12,9 +12,11 @@ module pulay_module
   use precision_module
   use abstract_module
   use io_module
+  use random_module
+  
   use linear_algebra_module
   use hermitian_eigenstuff_module
-  use random_module
+  use qr_decomposition_module
   implicit none
   
   private
@@ -268,18 +270,21 @@ function pulay_(this,iterations) result(output)
   type(RealVector), allocatable :: errors(:)
   type(RealVector), allocatable :: preconditioned_errors(:)
   real(dp),         allocatable :: error_matrix(:,:)
-  real(dp),         allocatable :: coefficients(:)
   
   real(dp) :: min_error
+  real(dp) :: max_error
   
   integer :: min_guess
   integer :: max_guess
   
-  type(RealVector) :: projection
-  real(dp)         :: projection_norm
+  real(dp) :: regularisation
   
-  real(dp) :: maximum_prefactor
-  real(dp) :: prefactor
+  type(RealVector) :: input_projection
+  real(dp)         :: input_projection_norm
+  type(RealVector) :: error_projection
+  real(dp)         :: error_projection_norm
+  
+  real(dp) :: maximum_projection
   
   type(SymmetricEigenstuff), allocatable :: unsorted_estuff(:)
   type(SymmetricEigenstuff), allocatable :: estuff(:)
@@ -325,9 +330,8 @@ function pulay_(this,iterations) result(output)
   endif
   
   ! Precondition errors.
-  preconditioned_errors = precondition_errors( this%xs_(iterations),         &
-                                             & errors,                       &
-                                             & this%data_%energy_convergence )
+  preconditioned_errors = precondition_errors( this%xs_(iterations), &
+                                             & errors                )
   
   ! Construct error matrix.
   ! ( e1.e1, e1.e2, ... , e1.en,  1 )
@@ -348,6 +352,9 @@ function pulay_(this,iterations) result(output)
   min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
   min_error = sqrt(error_matrix(min_guess,min_guess))
   max_guess = maxloc([(error_matrix(i,i), i=1, n)], 1)
+  max_error = sqrt(error_matrix(max_guess,max_guess))
+  
+  regularisation = max(max_error, this%data_%energy_convergence)**2/1e4_dp
   
   ! Scale error_matrix(:n,:n) such that the problem is well-conditioned.
   ! This has no effect on the result beyond numerical error.
@@ -388,45 +395,36 @@ function pulay_(this,iterations) result(output)
   
   ! Construct the contribution to the coefficients from each eigenvector
   !    of the error matrix in turn.
-  coefficients = [(0.0_dp, i=1, n)]
-  maximum_prefactor = 10.0_dp
+  maximum_projection = 1e4_dp                                        &
+                   & * max(min_error, this%data_%energy_convergence) &
+                   & * size(iterations)
+  output = this%xs_(iterations(min_guess))
   do i=1,n+1
-    projection = sum(estuff(i)%evec(:n)*errors)
-    projection_norm = l2_norm(projection)
+    input_projection = sum( estuff(i)%evec(:n)                  &
+                        & * ( this%xs_(iterations)              &
+                        &   - this%xs_(iterations(min_guess)) ) )
+    input_projection_norm = l2_norm(input_projection)
     
-    if (projection_norm > 1e-10_dp*this%data_%energy_convergence) then
+    error_projection = sum(estuff(i)%evec(:n)*errors)
+    error_projection_norm = l2_norm(error_projection)
+    
+    if (error_projection_norm > 1e-10_dp*input_projection_norm) then
       ! The self-consistency scheme defines the position along the i'th
       !    eigenvector of the error matrix.
-      if (abs(estuff(i)%evec(n+1))<abs(estuff(i)%eval)*maximum_prefactor) then
-        prefactor = estuff(i)%evec(n+1)/estuff(i)%eval
-      else
-        if (abs(estuff(i)%eval)>0 .and. abs(estuff(i)%evec(n+1))>0) then
-          if (estuff(i)%eval>0 .eqv. estuff(i)%evec(n+1)>0) then
-            prefactor = maximum_prefactor
-          else
-            prefactor = -maximum_prefactor
-          endif
-        else
-          prefactor = 0
-        endif
-      endif
+      output = output &
+           & + estuff(i)%evec(n+1)&
+           & * input_projection &
+           & / (estuff(i)%eval+regularisation)
     else
       ! The self-consistency scheme does not define the position along the i'th
       !    eigenvector. Instead, the gradient descent scheme is called.
-      prefactor = -( vec(estuff(i)%evec(:n))                &
-              &    * vec(this%free_energies_(iterations)) ) &
-              & / (10.0_dp*this%data_%energy_convergence)
-      prefactor = max(-0.01_dp,min(prefactor,0.01_dp))
+      output = output &
+           & - input_projection &
+           & * ( vec(estuff(i)%evec(:n))                &
+           &   * vec(this%free_energies_(iterations)) ) &
+           & / (10.0_dp*this%data_%energy_convergence)
     endif
-    
-    coefficients = coefficients + prefactor*estuff(i)%evec(:n)
   enddo
-  
-  ! Increase the coefficient of the last guess such that sum(coefficients)=1.
-  coefficients(min_guess) = coefficients(min_guess) + (1-sum(coefficients))
-  
-  ! Construct Pulay output.
-  output = sum(coefficients*this%xs_(iterations))
   
   ! Mix in a damped iterative contribution.
   output = (1-this%data_%iterative_mixing)    &
@@ -455,101 +453,80 @@ end function
 !    this will not change the error vectors.
 ! N.B. a weighted fit is used, favouring small values of |e|, so the fit
 !    focusses on the region close to the solution e=0.
-function precondition_errors(inputs,errors,energy_convergence) result(output)
+function precondition_errors(inputs,errors) result(output)
   implicit none
   
   type(RealVector), intent(in)  :: inputs(:)
   type(RealVector), intent(in)  :: errors(:)
-  real(dp),         intent(in)  :: energy_convergence
   type(RealVector), allocatable :: output(:)
   
-  ! Fit weights.
   real(dp), allocatable :: error_norms(:)
-  real(dp), allocatable :: weights(:)
   integer,  allocatable :: sort_key(:)
+  real(dp), allocatable :: weights(:)
   
-  ! The inputs in a minimal basis.
-  real(dp)                      :: lambda
-  real(dp)                      :: threshold
+  type(RealVector), allocatable :: sorted_inputs(:)
+  
+  real(dp) :: offset
+  
+  real(dp), allocatable :: extended_input_matrix(:,:)
+  
+  type(RealQRDecomposition) :: qr
+  
+  integer                       :: reduced_dimension
   type(RealVector), allocatable :: extended_inputs(:)
-  type(RealVector), allocatable :: residual_inputs(:)
-  type(RealVector), allocatable :: input_basis(:)
-  type(RealVector), allocatable :: x(:)
   
-  ! sum [input^input] and sum [error^input].
   type(RealMatrix) :: xx
   type(RealMatrix) :: ex
-  type(RealMatrix) :: transformation
   
-  ! The basis of transformation*input_basis.
-  type(RealVector), allocatable :: error_basis(:)
+  real(dp) :: regularisation
   
-  ! Temporary variables.
-  integer :: i,j,k
+  type(RealMatrix) :: mapping
   
-  ! Construct |e| and weights, and construct the sort key for the error norms.
+  integer :: i,ialloc
+  
+  ! Sort the inputs in ascending order of |error|.
+  ! Also subtract the input corresponding to the minimum error
+  !    from every input.
   error_norms = l2_norm(errors)
-  weights = [max(minval(error_norms)/error_norms, 1e-4_dp)]
   sort_key = sort(error_norms)
+  sorted_inputs = inputs(sort_key)-inputs(sort_key(1))
   
-  ! Translate input vectors to be relative to the point with the smallest
-  !    error. This doesn't change the maths, but improves numerical stability.
-  extended_inputs = inputs-inputs(sort_key(1))
-  threshold = maxval(l2_norm(extended_inputs),1)/1e2_dp
+  ! Construct the fitting weights.
+  weights = [max((error_norms(sort_key(1))/error_norms)**2.2_dp, 1e-100_dp)]
   
-  ! Extend input vectors with the Lagrange parameter lambda.
-  lambda = maxval( [( maxval(abs(dble(extended_inputs(i))), 1),     &
-                 &    i=1,                                          &
-                 &    size(inputs)                              )], &
-                 & 1                                                )
-  extended_inputs = [( vec([dble(extended_inputs(i)),lambda]), &
-                     & i=1,                                    &
-                     & size(inputs)                            )]
-  
-  ! Transform the inputs into a minimal basis.
-  residual_inputs = extended_inputs(sort_key)
-  j = 0
-  allocate(input_basis(0))
-  do i=1,size(residual_inputs)
-    if (l2_norm(residual_inputs(i))>threshold) then
-      j = j+1
-      input_basis = [ input_basis,                                   &
-                    & residual_inputs(i)/l2_norm(residual_inputs(i)) ]
-      do k=i+1,size(inputs)
-        residual_inputs(k) = residual_inputs(k)                  &
-                         & - input_basis(j)*( input_basis(j)     &
-                         &                  * residual_inputs(k) )
-      enddo
-    endif
+  ! Construct a matrix where each column is an extended input vector,
+  !    and the columns are sorted in ascending order of |e|.
+  offset = minval(l2_norm(sorted_inputs(2:)))
+  allocate( extended_input_matrix(size(inputs(1))+1,size(inputs)), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(inputs)
+    extended_input_matrix(:,i) = [dble(sorted_inputs(i)), offset]
   enddo
   
-  if (j==0) then
-    output = errors
-    return
-  endif
+  ! Use a QR decomposition to express the input vectors in a minimal basis.
+  ! Extract the (sorted) extended inputs in the reduced basis from the
+  !    QR decomposition.
+  qr = qr_decomposition(extended_input_matrix)
+  reduced_dimension = min(size(inputs), size(inputs(1))+1)
+  extended_inputs = [(vec(qr%r(:reduced_dimension,i)), i=1, size(inputs))]
   
-  x = [(vec(extended_inputs(i)*input_basis),i=1,size(inputs))]
+  ! Construct sum_i w_i x_i^x_i and sum_i w_i e_i^x_i,
+  !    where ^ is the outer product.
+  xx = sum(weights(sort_key) * outer_product(extended_inputs,extended_inputs))
+  ex = sum(weights(sort_key) * outer_product(errors(sort_key),extended_inputs))
   
-  ! Construct sum [input^input] and sum [error^input] in the minimal basis.
-  xx = sum(weights * outer_product(x,x))
-  ex = sum(weights * outer_product(errors,x))
+  ! Regularise xx.
+  regularisation = offset**2/1e6_dp
+  xx = xx + regularisation*make_identity_matrix(reduced_dimension)
   
-  ! Construct the inputs -> errors transformation,
-  !    with inputs in the minimal basis.
-  transformation = ex * invert(xx)
+  ! Construct the linearised mapping from x to e.
+  mapping = ex*invert(xx)
   
-  ! Construct input_basis transformed to the space of errors.
-  error_basis = [(transformation%column(i), i=1, size(transformation,2))]
-  error_basis = error_basis / l2_norm(error_basis)
-  
-  ! Construct outputs, by removing the projection of each error in
-  !    error_basis, and replacing it with the linearised version.
-  output = errors
-  do i=1,size(error_basis)
-    output = output - error_basis(i)*(error_basis(i)*output)
+  ! Construct the linearised errors (unsorting the inputs in the process).
+  allocate(output(size(inputs)), stat=ialloc); call err(ialloc)
+  do i=1,size(inputs)
+    output(sort_key(i)) = mapping * extended_inputs(i)
   enddo
-  
-  output = output + transformation * x
 end function
 
 ! Errors for printing progress.

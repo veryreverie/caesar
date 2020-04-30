@@ -92,9 +92,9 @@ def main():
     ax.scatter(x_axis, dx, s=10, color=c)
     ax.scatter(x_axis, dy, s=10, facecolors='none', edgecolors=c)
   
-  ax.hlines(threshold,0,len(x_axis), linestyle='dotted')
-  ax.hlines(-threshold,0,len(x_axis), linestyle='dotted')
-  ax.set_xlim(1,len(x_axis))
+  ax.hlines(threshold,0,len(x_axis)+1, linestyle='dotted')
+  ax.hlines(-threshold,0,len(x_axis)+1, linestyle='dotted')
+  ax.set_xlim(0,len(x_axis)+1)
   ax.set_yscale('symlog', linthreshy=threshold)
   ax.xaxis.set_major_locator(MaxNLocator(integer=True))
   

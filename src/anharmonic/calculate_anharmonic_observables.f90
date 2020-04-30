@@ -60,26 +60,26 @@ subroutine startup_calculate_anharmonic_observables()
      &              'max_pulay_iterations is the maximum number of &
      &self-consistency iterations which will be passed into the Pulay &
      &scheme. This must be at least 2.',                                      &
-     &              default_value='5' ),                                      &
+     &              default_value='100' ),                                    &
      & KeywordData( 'iterative_mixing',                                       &
      &              'iterative_mixing controls how much the Pulay scheme is &
      &mixed with a damped iterative scheme. If iterative_mixing is 0, the &
      &iterations are entirely Pulay, and if it is 1 then the iterations are &
      &entirely damped iterative. iterative_mixing must be between 0 and 1 &
      &inclusive.',                                                            &
-     &              default_value='0.1'),                                     &
+     &              default_value='1e-4'),                                    &
      & KeywordData( 'iterative_damping',                                      &
      &              'iterative_damping is the damping factor of the iterative &
      &scheme which is mixed into the Pulay scheme. iterative_damping must be &
      &between 0 and 1 inclusive.',                                            &
-     &              default_value='0.9'),                                     &
+     &              default_value='0'),                                       &
      & KeywordData( 'pulay_noise',                                            &
      &              "pulay_noise controls the random noise added to each &
      &Pulay iteration. If a Pulay iteration has coefficients xi and the &
      &noise-free next iteration would have coefficients xi', then the next &
      &iteration includes noise up to (xi'-xi)*pulay_noise. Noise is included &
      &to help the Pulay scheme break out of linearly-dependent subspaces.",   &
-     &              default_value='0.01'),                                    &
+     &              default_value='1e-6'),                                    &
      & KeywordData( 'min_temperature',                                        &
      &              'min_temperature is the minimum temperature at which &
      &thermodynamic quantities are calculated. min_temperature should be &
@@ -707,6 +707,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     call mkdir(vscf_temperature_dir)
     
     ! Generate basis of states.
+    call print_line('')
     call print_line('Generating basis for VSCF.')
     do j=1,size(subspaces)
       subspace_modes = subspaces(j)%modes(modes)
