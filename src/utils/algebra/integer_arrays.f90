@@ -12,7 +12,6 @@ module integer_arrays_module
   public :: IntArray2D
   public :: array
   public :: size
-  public :: assignment(=)
   public :: operator(==)
   public :: operator(/=)
   public :: operator(//)
@@ -51,11 +50,6 @@ module integer_arrays_module
   end interface
   
   ! Type conversion to array.
-  interface assignment(=)
-    module procedure assign_IntArray1D_integers
-    module procedure assign_IntArray2D_IntArray1Ds
-  end interface
-  
   interface array
     module procedure array_IntArray1D_integers
     module procedure array_IntArray2D_IntArray1Ds
@@ -113,31 +107,13 @@ end function
 ! ----------------------------------------------------------------------
 ! Conversions from integer(:) to IntArray1D and IntArray1D(:) to IntArray2D
 ! ----------------------------------------------------------------------
-subroutine assign_IntArray1D_integers(output,input)
-  implicit none
-  
-  type(IntArray1D), intent(out) :: output
-  integer,          intent(in)  :: input(:)
-  
-  output = IntArray1D(input)
-end subroutine
-
-subroutine assign_IntArray2D_IntArray1Ds(output,input)
-  implicit none
-  
-  type(IntArray2D), intent(out) :: output
-  type(IntArray1D), intent(in)  :: input(:)
-  
-  output = IntArray2D(input)
-end subroutine
-
 function array_IntArray1D_integers(input) result(output)
   implicit none
   
   integer, intent(in) :: input(:)
   type(IntArray1D)    :: output
   
-  output = input
+  output = IntArray1D(input)
 end function
 
 function array_IntArray2D_IntArray1Ds(input) result(output)
@@ -146,7 +122,7 @@ function array_IntArray2D_IntArray1Ds(input) result(output)
   type(IntArray1D), intent(in) :: input(:)
   type(IntArray2D)             :: output
   
-  output = input
+  output = IntArray2D(input)
 end function
 
 ! ----------------------------------------------------------------------
@@ -182,7 +158,7 @@ function concatenate_IntArray1D_integer(this,that) result(output)
   integer,          intent(in) :: that
   type(IntArray1D)             :: output
   
-  output = [this%i, that]
+  output = array([this%i, that])
 end function
 
 ! IntArray1D = integer // IntArray1D
@@ -193,7 +169,7 @@ function concatenate_integer_IntArray1D(this,that) result(output)
   type(IntArray1D), intent(in) :: that
   type(IntArray1D)             :: output
   
-  output = [this, that%i]
+  output = array([this, that%i])
 end function
 
 ! IntArray1D = IntArray1D // integer(:)
@@ -204,7 +180,7 @@ function concatenate_IntArray1D_integers(this,that) result(output)
   integer,          intent(in) :: that(:)
   type(IntArray1D)             :: output
   
-  output = [this%i, that]
+  output = array([this%i, that])
 end function
 
 ! IntArray1D = integer(:) // IntArray1D
@@ -215,7 +191,7 @@ function concatenate_integers_IntArray1D(this,that) result(output)
   type(IntArray1D), intent(in) :: that
   type(IntArray1D)             :: output
   
-  output = [this, that%i]
+  output = array([this, that%i])
 end function
 
 ! IntArray1D = IntArray1D // IntArray1D
@@ -226,7 +202,7 @@ function concatenate_IntArray1D_IntArray1D(this,that) result(output)
   type(IntArray1D), intent(in) :: that
   type(IntArray1D)             :: output
   
-  output = [this%i, that%i]
+  output = array([this%i, that%i])
 end function
 
 ! IntArray2D = IntArray2D // IntArray1D
@@ -237,7 +213,7 @@ function concatenate_IntArray2D_IntArray1D(this,that) result(output)
   type(IntArray1D), intent(in) :: that
   type(IntArray2D)             :: output
   
-  output = [this%i, that]
+  output = array([this%i, that])
 end function
 
 ! IntArray2D = IntArray1D // IntArray2D
@@ -248,7 +224,7 @@ function concatenate_IntArray1D_IntArray2D(this,that) result(output)
   type(IntArray2D), intent(in) :: that
   type(IntArray2D)             :: output
   
-  output = [this, that%i]
+  output = array([this, that%i])
 end function
 
 ! IntArray2D = IntArray2D // IntArray1D(:)
@@ -259,7 +235,7 @@ function concatenate_IntArray2D_IntArray1Ds(this,that) result(output)
   type(IntArray1D), intent(in) :: that(:)
   type(IntArray2D)             :: output
   
-  output = [this%i, that]
+  output = array([this%i, that])
 end function
 
 ! IntArray2D = IntArray1D(:) // IntArray2D
@@ -270,7 +246,7 @@ function concatenate_IntArray1Ds_IntArray2D(this,that) result(output)
   type(IntArray2D), intent(in) :: that
   type(IntArray2D)             :: output
   
-  output = [this, that%i]
+  output = array([this, that%i])
 end function
 
 ! IntArray2D = IntArray2D // IntArray2D
@@ -281,7 +257,7 @@ function concatenate_IntArray2D_IntArray2D(this,that) result(output)
   type(IntArray2D), intent(in) :: that
   type(IntArray2D)             :: output
   
-  output = [this%i, that%i]
+  output = array([this%i, that%i])
 end function
 
 ! ----------------------------------------------------------------------

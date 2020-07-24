@@ -10,6 +10,7 @@
 !    printed to the terminal.
 module print_module
   use iso_fortran_env, only : OUTPUT_UNIT
+  use string_base_module
   use string_module
   use terminal_module
   use error_module

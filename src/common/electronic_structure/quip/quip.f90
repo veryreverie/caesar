@@ -23,16 +23,25 @@ module quip_module
   
   public :: QUIP_LINKED
   
+  public :: BasicStructure
+  public :: ElectronicStructure
+  
   type :: QuipElectronicStructure
     real(dp)              :: energy
     real(dp), allocatable :: forces(:,:)
     real(dp), allocatable :: stress(:,:)
   end type
   
-  interface assignment(=)
-    module procedure assign_Atoms_BasicStructure
-    module procedure assign_BasicStructure_Atoms
-    module procedure assign_ElectronicStructure_QuipElectronicStructure
+  interface QuipAtoms
+    module procedure new_QuipAtoms_BasicStructure
+  end interface
+  
+  interface BasicStructure
+    module procedure new_BasicStructure_QuipAtoms
+  end interface
+  
+  interface ElectronicStructure
+    module procedure new_ElectronicStructure_QuipElectronicStructure
   end interface
 contains
 
@@ -64,7 +73,7 @@ function run_quip_on_structure(structure,seedname,use_forces,use_hessians, &
   endif
   
   quip_filename = format_path(seedname//'_MEAM.xml')
-  quip_structure = structure
+  quip_structure = QuipAtoms(structure)
   allocate( quip_electronic_structure%forces(3,size(structure%atoms)), &
           & quip_electronic_structure%stress(3,3),                     &
           & stat=ialloc); call err(ialloc)
@@ -101,17 +110,17 @@ function run_quip_on_structure(structure,seedname,use_forces,use_hessians, &
                                    & / structure%volume()
   endif
   
-  output = quip_electronic_structure
+  output = ElectronicStructure(quip_electronic_structure)
 end function
 
 ! ----------------------------------------------------------------------
 ! Conversions between Caesar and Quip types.
 ! ----------------------------------------------------------------------
-subroutine assign_Atoms_BasicStructure(output,input)
+function new_QuipAtoms_BasicStructure(input) result(output)
   implicit none
   
-  type(Atoms),          intent(out) :: output
-  type(BasicStructure), intent(in)  :: input
+  type(BasicStructure), intent(in) :: input
+  type(Atoms)                      :: output
   
   type(String), allocatable :: split_species(:)
   
@@ -135,13 +144,13 @@ subroutine assign_Atoms_BasicStructure(output,input)
     output%pos(:,i) = dble(input%atoms(i)%cartesian_position) &
                   & * ANGSTROM_PER_BOHR
   enddo
-end subroutine
+end function
 
-subroutine assign_BasicStructure_Atoms(output,input)
+function new_BasicStructure_QuipAtoms(input) result(output)
   implicit none
   
-  type(BasicStructure), intent(out) :: output
-  type(Atoms),          intent(in)  :: input
+  type(Atoms), intent(in) :: input
+  type(BasicStructure)    :: output
   
   type(RealMatrix)              :: lattice
   type(RealVector), allocatable :: positions(:)
@@ -159,13 +168,13 @@ subroutine assign_BasicStructure_Atoms(output,input)
                          & str(input%z),                        &
                          & input%mass * KG_PER_AMU / KG_PER_ME, &
                          & positions)
-end subroutine
+end function
 
-subroutine assign_ElectronicStructure_QuipElectronicStructure(output,input)
+function new_ElectronicStructure_QuipElectronicStructure(input) result(output)
   implicit none
   
-  type(ElectronicStructure),     intent(out) :: output
   type(QuipElectronicStructure), intent(in)  :: input
+  type(ElectronicStructure)                  :: output
   
   real(dp)                          :: energy
   type(CartesianForce), allocatable :: forces
@@ -187,5 +196,5 @@ subroutine assign_ElectronicStructure_QuipElectronicStructure(output,input)
   endif
   
   output = ElectronicStructure(energy=energy, forces=forces, stress=stress)
-end subroutine
+end function
 end module

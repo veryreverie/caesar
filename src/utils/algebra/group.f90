@@ -30,6 +30,7 @@ module operator_group_module
   type, extends(Stringable) :: Group
     integer, allocatable :: operation(:)
   contains
+    procedure, public :: inverse => inverse_Group
     ! I/O.
     procedure, public :: read  => read_Group
     procedure, public :: write => write_Group
@@ -77,6 +78,26 @@ function size_Group(this) result(output)
   integer                 :: output
   
   output = size(this%operation)
+end function
+
+! ----------------------------------------------------------------------
+! Get the inverse group, i.e. the group g'(g) such that g*g' is the identity.
+! ----------------------------------------------------------------------
+impure elemental function inverse_Group(this) result(output)
+  implicit none
+  
+  class(Group), intent(in) :: this
+  type(Group)              :: output
+  
+  integer, allocatable :: operation(:)
+  
+  integer :: i,ialloc
+  
+  allocate(operation(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    operation(this%operation(i)) = i
+  enddo
+  output = Group(operation)
 end function
 
 ! ----------------------------------------------------------------------

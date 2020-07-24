@@ -119,13 +119,13 @@ function generate_sampling_points(basis_functions_,potential_expansion_order, &
    & energy_to_force_ratio) result(output)
   implicit none
   
-  type(BasisFunctionsAndUniqueTerms), intent(in) :: basis_functions_(:)
-  integer,                            intent(in) :: potential_expansion_order
-  real(dp),                           intent(in) :: maximum_weighted_displacement
-  real(dp),                           intent(in) :: frequency_of_max_displacement
-  type(RealMode),                     intent(in) :: real_modes(:)
-  real(dp),                           intent(in) :: energy_to_force_ratio
-  type(SamplingPoints)                           :: output
+  type(BasisFunctions), intent(in) :: basis_functions_(:)
+  integer,              intent(in) :: potential_expansion_order
+  real(dp),             intent(in) :: maximum_weighted_displacement
+  real(dp),             intent(in) :: frequency_of_max_displacement
+  type(RealMode),       intent(in) :: real_modes(:)
+  real(dp),             intent(in) :: energy_to_force_ratio
+  type(SamplingPoints)             :: output
   
   type(BasisFunction), allocatable :: basis_functions(:)
   

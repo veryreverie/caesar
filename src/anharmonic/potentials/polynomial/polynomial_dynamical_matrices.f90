@@ -54,8 +54,7 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
   type(ComplexMode) :: mode_k
   type(ComplexMode) :: mode_l
   
-  integer :: q1
-  integer :: q2
+  integer :: q
   
   integer :: i,j,k,l,ialloc
   
@@ -104,8 +103,7 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
       
       mode_k = subspace_modes(k)
       
-      q1 = first(qpoints%id==mode_k%qpoint_id)
-      q2 = first(qpoints%id==mode_k%paired_qpoint_id)
+      q = first(qpoints%id==mode_k%qpoint_id)
       do l=1,size(univariates)
         mode_l = subspace_modes(l)
         
@@ -166,12 +164,12 @@ function calculate_dynamical_matrices_ComplexMonomial(term,qpoints, &
         
         ! Construct the u_k u_l* matrix, multiply by the coefficient,
         !    and add it to the relevant q-point's dynamical matrix.
-        output(q1) = output(q1) + DynamicalMatrix(mode_k,mode_l,coefficient)
+        output(q) = output(q) + DynamicalMatrix(mode_k,mode_l,coefficient)
         
         ! If u_k/=u_k* then the u_l u_k* term is just the conjugate of the
         !    u_k u_l* term.
         if (mode_l%id/=mode_k%id) then
-          output(q2) = output(q2) + DynamicalMatrix(mode_l,mode_k,coefficient)
+          output(q) = output(q) + DynamicalMatrix(mode_l,mode_k,coefficient)
         endif
       enddo
     enddo

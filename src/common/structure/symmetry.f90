@@ -115,167 +115,266 @@ impure elemental function new_BasicSymmetry_SymmetryOperator(this) &
 end function
 
 ! ----------------------------------------------------------------------
-! Returns whether or not two symmetry operators commute.
+! Returns whether or not two symmetry operators commute or anti-commute.
 ! ----------------------------------------------------------------------
-impure elemental function operators_commute(this,that,qpoint) result(output)
+! Each operator is a tensor product of the cartesian tensor and an atom tensor.
+! Two operators commute if:
+!    - Their cartesian and atom tensors both commute.
+!    - Their cartesian and atom tensors both anti-commute.
+! Two operators anti-commute if:
+!    - One tensor commutes and the other anticommutes.
+impure elemental function operators_commute(a,b,qpoint) result(output)
   implicit none
   
-  type(SymmetryOperator), intent(in) :: this
-  type(SymmetryOperator), intent(in) :: that
+  type(SymmetryOperator), intent(in) :: a
+  type(SymmetryOperator), intent(in) :: b
   type(QpointData),       intent(in) :: qpoint
   logical                            :: output
   
-  ! Check that the atom to atom transformations commute
-  !    within a single unit cell.
-  if (this%atom_group*that%atom_group /= that%atom_group*this%atom_group) then
-    output = .false.
+  output = .false.
+  
+  ! Check that the atom groups commute.
+  ! This is a necessary condition for the atom tensors commuting
+  !    or anti-commuting.
+  if (a%atom_group*b%atom_group /= b%atom_group*a%atom_group) then
     return
   endif
   
-  ! Check that either the symmetries' tensors and R-vectors both commute,
-  !    or that they both anti-commute (in which case the anti-commutation
-  !    cancels to leave commutation).
-  if ( matrices_commute(this%tensor,that%tensor) .and. &
-     & operator_rvectors_commute(this,that,qpoint)     ) then
-    output = .true.
-  elseif ( matrices_anticommute(this%tensor,that%tensor) .and. &
-         & operator_rvectors_anticommute(this,that,qpoint)     ) then
-    output = .true.
-  else
-    output = .false.
+  ! Check that either the cartesian and atom tensors both commute
+  !    or both anticommute.
+  if (matrices_commute(a%tensor,b%tensor)) then
+    if (atom_tensors_commute(a,b,qpoint)) then
+      output = .true.
+    endif
+  elseif (matrices_anticommute(a%tensor,b%tensor)) then
+    if (atom_tensors_anticommute(a,b,qpoint)) then
+      output = .true.
+    endif
   endif
 end function
 
-! ----------------------------------------------------------------------
-! Returns whether or not (T+T*) superpositions of operators commute.
-! ----------------------------------------------------------------------
-impure elemental function superposed_operators_commute(this,that,qpoint) &
+impure elemental function operators_anticommute(a,b,qpoint) &
    & result(output)
   implicit none
   
-  type(SymmetryOperator), intent(in) :: this
-  type(SymmetryOperator), intent(in) :: that
+  type(SymmetryOperator), intent(in) :: a
+  type(SymmetryOperator), intent(in) :: b
   type(QpointData),       intent(in) :: qpoint
   logical                            :: output
   
-  type(IntMatrix) :: this_tensor
-  type(IntMatrix) :: that_tensor
+  output = .false.
   
-  ! Check that the atom to atom transformations commute
-  !    within a single unit cell.
-  if (this%atom_group*that%atom_group /= that%atom_group*this%atom_group) then
-    output = .false.
+  ! Check that the atom groups commute.
+  ! This is a necessary condition for the atom tensors commuting
+  !    or anti-commuting.
+  if (a%atom_group*b%atom_group /= b%atom_group*a%atom_group) then
     return
   endif
   
-  ! Check that either the symmetries' (T+T*) tensors and R-vectors both
-  !    commute, or that they both anti-commute
-  !    (in which case the anti-commutation cancels to leave commutation).
-  this_tensor = this%tensor + transpose(this%tensor)
-  that_tensor = that%tensor + transpose(that%tensor)
-  if ( matrices_commute(this_tensor,that_tensor) .and. &
-     & operator_rvectors_commute(this,that,qpoint)     ) then
-    output = .true.
-  elseif ( matrices_anticommute(this_tensor,that_tensor) .and. &
-         & operator_rvectors_anticommute(this,that,qpoint)     ) then
-    output = .true.
-  else
-    output = .false.
+  ! Check that one of the cartesian and atom tensors commute
+  !    and the other anticommutes.
+  if (matrices_commute(a%tensor,b%tensor)) then
+    if (atom_tensors_anticommute(a,b,qpoint)) then
+      output = .true.
+    endif
+  elseif (matrices_anticommute(a%tensor,b%tensor)) then
+    if (atom_tensors_commute(a,b,qpoint)) then
+      output = .true.
+    endif
   endif
 end function
 
-! ----------------------------------------------------------------------
-! Returns whether or not two symmetry operators anti-commute.
-! ----------------------------------------------------------------------
-impure elemental function operators_anticommute(this,that,qpoint) &
-   & result(output)
+! For two symmetries A and B: A1=A,A2=A*,B1=B,B2=B*.
+!    if positive_superposition=.true.  : returns whether [A1+A2,B1+B2]=0.
+!    if positive_superposition=.false. : returns whether [A1-A2,B1-B2]=0.
+! Each symmetry is the tensor product of the cartesian tensor T and the
+!    atom tensor G: A1=TA1^GA1, A2=TA2^GA2, B1=TB1^GB1 and B2=TB2^GB2.
+! [A1+A2,B1+B2] = A1B1+A1B2+A2B1+A2B2-B1A1-B1A2-B2A1-B2A2
+! [A1-A2,B1-B2] = A1B1-A1B2-A2B1+A2B2-B1A1+B1A2+B2A1-B2A2
+impure elemental function superposed_operators_commute(a,b,qpoint, &
+   & positive_superposition) result(output)
   implicit none
   
-  type(SymmetryOperator), intent(in) :: this
-  type(SymmetryOperator), intent(in) :: that
+  type(SymmetryOperator), intent(in) :: a
+  type(SymmetryOperator), intent(in) :: b
   type(QpointData),       intent(in) :: qpoint
+  logical,                intent(in) :: positive_superposition
   logical                            :: output
   
-  ! Check that the atom to atom transformations commute
-  !    within a single unit cell.
-  if (this%atom_group*that%atom_group /= that%atom_group*this%atom_group) then
-    output = .false.
-    return
+  type(IntMatrix)              :: a2_tensor
+  type(Group)                  :: a2_atom_group
+  type(IntVector), allocatable :: a2_rvectors(:)
+  
+  type(IntMatrix)              :: b2_tensor
+  type(Group)                  :: b2_atom_group
+  type(IntVector), allocatable :: b2_rvectors(:)
+  
+  type(Group)          :: groups(8)
+  type(IntMatrix)      :: tensors(8)
+  integer              :: signatures(8)
+  type(IntFraction)    :: qrs(8)
+  logical              :: matched(8)
+  integer, allocatable :: matches(:)
+  
+  type(IntMatrix) :: tensor
+  
+  integer :: i,j,k,ialloc
+  
+  output = .true.
+  
+  ! Construct A2=A* from A, and B2=B* from B.
+  a2_tensor = intmat(invert(a%tensor))
+  a2_atom_group = a%atom_group%inverse()
+  allocate(a2_rvectors(size(a%rvectors)), stat=ialloc); call err(ialloc)
+  do i=1,size(a%rvectors)
+    a2_rvectors(a%atom_group*i) = -a%rvectors(i)
+  enddo
+  
+  b2_tensor = intmat(invert(a%tensor))
+  b2_atom_group = a%atom_group%inverse()
+  allocate(b2_rvectors(size(a%rvectors)), stat=ialloc); call err(ialloc)
+  do i=1,size(a%rvectors)
+    b2_rvectors(a%atom_group*i) = -a%rvectors(i)
+  enddo
+  
+  ! Construct the atom groups for the four AB operators,
+  !    and for the four BA operators.
+  groups = [ a%atom_group*b%atom_group,   &
+           & a%atom_group*b2_atom_group,  &
+           & a2_atom_group*b%atom_group,  &
+           & a2_atom_group*b2_atom_group, &
+           & b%atom_group*a%atom_group,   &
+           & b%atom_group*a2_atom_group,  &
+           & b2_atom_group*a%atom_group,  &
+           & b2_atom_group*a2_atom_group  ]
+  
+  ! Do the same for the cartesian tensors.
+  tensors = [ a%tensor*b%tensor,   &
+            & a%tensor*b2_tensor,  &
+            & a2_tensor*b%tensor,  &
+            & a2_tensor*b2_tensor, &
+            & b%tensor*a%tensor,   &
+            & b%tensor*a2_tensor,  &
+            & b2_tensor*a%tensor,  &
+            & b2_tensor*a2_tensor  ]
+  
+  ! Construct the sign signatures.
+  if (positive_superposition) then
+    signatures = [ 1,  1,  1,  1, -1, -1, -1, -1]
+  else
+    signatures = [ 1, -1, -1,  1, -1,  1,  1, -1]
   endif
   
-  ! Check that either the symmetries' tensors commute and their R-vectors
-  !    anti-commute, or vice-versa.
-  if ( matrices_commute(this%tensor,that%tensor) .and. &
-     & operator_rvectors_anticommute(this,that,qpoint) ) then
-    output = .true.
-  elseif ( matrices_anticommute(this%tensor,that%tensor) .and. &
-         & operator_rvectors_commute(this,that,qpoint)         ) then
-    output = .true.
-  else
-    output = .false.
-  endif
+  ! Loop over atoms.
+  ! For each atom, identify which operator combinations add together.
+  ! For two operator combinations to add, they must have matching atom groups
+  !    and a relative phase which is either +1 or -1.
+  ! Check that the tensor from each matching set is zero.
+  do i=1,size(a%atom_group)
+    qrs = qpoint%qpoint * [                                       &
+       & a%tensor*b%rvectors(i) + a%rvectors(b%atom_group*i),     &
+       & a%tensor*b2_rvectors(i) + a%rvectors(b2_atom_group*i),   &
+       & a2_tensor*b%rvectors(i) + a2_rvectors(b%atom_group*i),   &
+       & a2_tensor*b2_rvectors(i) + a2_rvectors(b2_atom_group*i), &
+       & b%tensor*a%rvectors(i) + b%rvectors(a%atom_group*i),     &
+       & b%tensor*a2_rvectors(i) + b%rvectors(a2_atom_group*i),   &
+       & b2_tensor*a%rvectors(i) + b2_rvectors(a%atom_group*i),   &
+       & b2_tensor*a2_rvectors(i) + b2_rvectors(a2_atom_group*i)  ]
+    
+    matched = .false.
+    do j=1,8
+      if (matched(j)) then
+        cycle
+      endif
+      
+      matches = filter(       groups*i==groups(j)*i  &
+                      & .and. is_int(2*(qrs-qrs(j))) )
+      
+      tensor = zeroes(3,3)
+      
+      do k=1,size(matches)
+        if (is_int(qrs(matches(k))-qrs(j))) then
+          ! e^2pii(q.r(matches(k))-q.r(j)) is 1.
+          tensor = tensor+tensors(matches(k))*signatures(matches(k))
+        else
+          ! e^2pii(q.r(matches(k))-q.r(j)) is -1.
+          tensor = tensor-tensors(matches(k))*signatures(matches(k))
+        endif
+      enddo
+      
+      if (tensor/=zeroes(3,3)) then
+        output = .false.
+        return
+      endif
+      
+      matched(matches) = .true.
+    enddo
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
 ! Helper functions for operators_commute and operators_anticommute,
 !    returning whether or not the operators' R-vectors (anti-)commute.
 ! ----------------------------------------------------------------------
-! The condition on for two operators to commute at q-point q
-!    is that the R-vector translation of their commutator is s.t. q.R=0.
-! The condition on for two operators to anti-commute at q-point q
-!    is that the R-vector translation of their commutator is s.t. q.R=1/2.
-impure elemental function operator_rvectors_commute(this,that,qpoint) &
+! If the primitive cell has N atoms then the atom tensor is an N*N matrix,
+!    with N non-zero elements corresponding to each r_i -> r_j + R_i,
+!    so the ij element is e^(2*pi*i*q*R_i).
+impure elemental function atom_tensors_commute(a,b,qpoint) &
    & result(output)
   implicit none
   
-  type(SymmetryOperator), intent(in) :: this
-  type(SymmetryOperator), intent(in) :: that
+  type(SymmetryOperator), intent(in) :: a
+  type(SymmetryOperator), intent(in) :: b
   type(QpointData),       intent(in) :: qpoint
   logical                            :: output
   
-  type(IntVector) :: commutator_rvector
-  integer         :: i
-  
-  do i=1,size(this%atom_group)
-    commutator_rvector = this%tensor*that%rvectors(i)     &
-                     & + that%rvectors(this%atom_group*i) &
-                     & - that%tensor*this%rvectors(i)     &
-                     & - this%rvectors(that%atom_group*i)
-    if (.not. is_int(qpoint%qpoint*commutator_rvector)) then
-      output = .false.
-      return
-    endif
-  enddo
-  
-  output = .true.
-end function
-
-impure elemental function operator_rvectors_anticommute(this,that,qpoint) &
-   & result(output)
-  implicit none
-  
-  type(SymmetryOperator), intent(in) :: this
-  type(SymmetryOperator), intent(in) :: that
-  type(QpointData),       intent(in) :: qpoint
-  logical                            :: output
-  
-  type(IntVector)   :: commutator_rvector
+  type(IntVector)   :: r_ab
+  type(IntVector)   :: r_ba
   type(IntFraction) :: qr
   integer           :: i
   
-  do i=1,size(this%atom_group)
-    commutator_rvector = this%tensor*that%rvectors(i)     &
-                     & + that%rvectors(this%atom_group*i) &
-                     & - that%tensor*this%rvectors(i)     &
-                     & - this%rvectors(that%atom_group*i)
-    qr = qpoint%qpoint*commutator_rvector
-    if (is_int(qr) .or. .not. is_int(2*qr)) then
+  output = .true.
+  
+  do i=1,size(a%atom_group)
+    r_ab = a%tensor*b%rvectors(i) + a%rvectors(b%atom_group*i)
+    r_ba = b%tensor*a%rvectors(i) + b%rvectors(a%atom_group*i)
+    ! For e^(2pii.q.r_ab) to equal e^(2pii.q.r_ba),
+    !    q.(r_ab-r_ba) must be an integer.
+    qr = qpoint%qpoint*(r_ab-r_ba)
+    if (.not. is_int(qr)) then
       output = .false.
       return
     endif
   enddo
+end function
+
+impure elemental function atom_tensors_anticommute(a,b,qpoint) &
+   & result(output)
+  implicit none
+  
+  type(SymmetryOperator), intent(in) :: a
+  type(SymmetryOperator), intent(in) :: b
+  type(QpointData),       intent(in) :: qpoint
+  logical                            :: output
+  
+  type(IntVector)   :: r_ab
+  type(IntVector)   :: r_ba
+  type(IntFraction) :: qr
+  integer           :: i
   
   output = .true.
+  
+  do i=1,size(a%atom_group)
+    r_ab = a%tensor*b%rvectors(i) + a%rvectors(b%atom_group*i)
+    r_ba = b%tensor*a%rvectors(i) + b%rvectors(a%atom_group*i)
+    ! For e^(2pii.q.r_ab) to equal -e^(2pii.q.r_ba),
+    !    q.(r_ab-r_ba) must be an integer plus 1/2.
+    qr = qpoint%qpoint*(r_ab-r_ba)
+    if (.not. (is_int(2*qr) .and. .not. is_int(qr))) then
+      output = .false.
+      return
+    endif
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

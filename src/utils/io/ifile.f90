@@ -164,13 +164,12 @@ function count_lines(filename) result(output)
   
   integer      :: file_unit
   integer      :: iostat
-  character(1) :: line
   
   file_unit = open_read_file(filename)
   output = 0
   iostat = 0
   do while (iostat==0)
-    read(file_unit, '(a)', iostat=iostat) line
+    read(file_unit, '(a)', iostat=iostat)
     if (iostat==0) then
       output = output+1
     elseif (iostat>0) then

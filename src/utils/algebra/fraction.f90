@@ -11,7 +11,6 @@ module fraction_module
   private
   
   public :: IntFraction
-  public :: assignment(=)
   public :: operator(==)
   public :: operator(/=)
   public :: operator(<)
@@ -44,11 +43,6 @@ module fraction_module
     procedure, public :: read  => read_IntFraction
     procedure, public :: write => write_IntFraction
   end type
-  
-  ! Conversion from integer.
-  interface assignment(=)
-    module procedure assign_IntFraction_integer
-  end interface
   
   ! Comparison.
   interface operator(==)
@@ -235,17 +229,6 @@ impure elemental function dble_IntFraction(this) result(output)
   output = real(this%n_,dp) / this%d_
 end function
 
-! Conversion from integer.
-subroutine assign_IntFraction_integer(output,input)
-  implicit none
-  
-  class(IntFraction), intent(inout) :: output
-  integer,            intent(in)    :: input
-  
-  output%n_ = input
-  output%d_ = 1
-end subroutine
-
 ! Conversion from character(*).
 impure elemental function frac_character(input) result(output)
   implicit none
@@ -273,7 +256,7 @@ impure elemental function frac_integer(input) result(output)
   integer, intent(in) :: input
   type(IntFraction)   :: output
   
-  output = input
+  output = IntFraction(input,1)
 end function
 
 ! Conversion from numerator and denominator.
@@ -704,7 +687,7 @@ subroutine read_IntFraction(this,input)
     split_string = split_line(input, '/')
     if (size(split_string)==1) then
       ! Assume the string is an integer.
-      this = int(split_string(1))
+      this = frac(int(split_string(1)))
     elseif (size(split_string)==2) then
       ! Assume the string is of the form 'a/b'.
       this = IntFraction(int(split_string(1)),int(split_string(2)))

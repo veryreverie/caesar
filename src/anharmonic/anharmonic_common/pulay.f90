@@ -3,17 +3,13 @@
 !    subject to f(x)=x.
 ! ======================================================================
 ! See the example function at the bottom of this file for how to use.
-! Since the Pulay scheme is invariant under the ordering of its inputs,
-!    only the last max_pulay_iterations are stored, and the arrays are
-!    continually overwritten in a sequential 1,2,...,n,1,2,...,n,1,... manner.
-! This is acheived by tracking i_, and taking modulo(i_,max_pulay_iterations)
-!    to identify where each iteration should be stored.
 module pulay_module
   use precision_module
   use abstract_module
   use io_module
   use random_module
   
+  use algebra_utils_module
   use linear_algebra_module
   use hermitian_eigenstuff_module
   use qr_decomposition_module
@@ -49,24 +45,38 @@ module pulay_module
     ! The current set of x, f(x) and the free energy F(x).
     type(RealVector), allocatable, private :: xs_(:)
     type(RealVector), allocatable, private :: fs_(:)
+    real(dp),         allocatable, private :: error_norms_(:)
     real(dp),         allocatable, private :: free_energies_(:)
+    type(RealVector), allocatable, private :: gradients_(:)
+    logical,          allocatable, private :: gradients_set_(:)
+    
+    integer, allocatable, private :: iterations_(:)
+    
+    integer, private :: last_best_guess_
+    integer, private :: best_guess_
+    integer, private :: iterations_since_best_guess_
     
     integer, private :: i_
   contains
     ! Get x_i, from which f(x_i) and F(x_i) should be calculated.
+    procedure, public :: calculate_x
     procedure, public :: get_x
     
     ! Set f(x_i) and F(x_i).
-    ! This also calculates x_{i+1}.
     procedure, public :: set_f
     
+    ! Set the free energy gradient, d(F(x_i))/d(x_i).
+    procedure, public :: gradient_requested
+    procedure, public :: set_gradient
+    
     ! The Pulay scheme itself.
+    procedure, private :: mixed_pulay_
     procedure, private :: pulay_
     
     ! Errors for printing progress.
-    procedure, public :: self_consistency_error
-    procedure, public :: coefficient_change
-    procedure, public :: free_energy_change
+    procedure, private :: self_consistency_error
+    procedure, private :: coefficient_change
+    procedure, private :: free_energy_change
     
     ! Check if the Pulay scheme has converged.
     procedure, public :: converged
@@ -140,11 +150,15 @@ function new_PulaySolver(convergence_data,random_generator,initial_x, &
   
   allocate( this%xs_(array_size),            &
           & this%fs_(array_size),            &
+          & this%error_norms_(array_size),   &
           & this%free_energies_(array_size), &
+          & this%gradients_(array_size),     &
+          & this%gradients_set_(array_size), &
           & stat=ialloc); call err(ialloc)
   this%xs_(1) = vec(initial_x)
+  this%gradients_set_ = .false.
   
-  this%i_ = 1
+  this%i_ = 0
 end function
 
 ! Private index function.
@@ -159,20 +173,16 @@ function i(this,offset) result(output)
     if (offset>0) then
       call print_line(CODE_ERROR//': offset > 0.')
       call err()
-    elseif (this%i_+offset<1) then
-      call print_line(CODE_ERROR//': i+offset <= 0.')
+    elseif (size(this%iterations_)+offset<1) then
+      call print_line(CODE_ERROR//': offset before start of iterations.')
       call err()
     endif
   endif
   
   if (present(offset)) then
-    output = modulo( this%i_+offset-1,                 &
-         &           this%data_%max_pulay_iterations ) &
-         & + 1
+    output = this%iterations_(size(this%iterations_)+offset)
   else
-    output = modulo( this%i_-1,                        &
-         &           this%data_%max_pulay_iterations ) &
-         & + 1
+    output = this%iterations_(size(this%iterations_))
   endif
 end function
 
@@ -186,26 +196,96 @@ function get_x(this) result(output)
   output = dble(this%xs_(this%i()))
 end function
 
-! Set f(x_i) and F(x_i). Also calculates x_{i+1}.
-subroutine set_f(this,f,free_energy)
+! Set f(x_i) and F(x_i).
+subroutine set_f(this,f,free_energy,print_progress)
   implicit none
   
-  class(PulaySolver), intent(inout) :: this
-  real(dp),           intent(in)    :: f(:)
-  real(dp),           intent(in)    :: free_energy
-  
-  integer              :: first_iteration
-  integer              :: last_iteration
-  integer, allocatable :: iterations(:)
+  class(PulaySolver), intent(inout)        :: this
+  real(dp),           intent(in)           :: f(:)
+  real(dp),           intent(in)           :: free_energy
+  logical,            intent(in), optional :: print_progress
   
   integer :: i
   
-  ! Record f(x_i) and F(x_i).
-  this%fs_(this%i()) = vec(f)
-  this%free_energies_(this%i()) = free_energy
+  i = this%i()
   
-  ! Update i.
-  this%i_ = this%i_+1
+  ! Record f(x_i) and F(x_i).
+  this%fs_(i) = vec(f)
+  this%error_norms_(i) = l2_norm(this%fs_(i)-this%xs_(i))
+  this%free_energies_(i) = free_energy
+  
+  if (this%i_==1) then
+    this%last_best_guess_ = i
+    this%best_guess_ = i
+    this%iterations_since_best_guess_ = 0
+  elseif (this%error_norms_(i)<this%error_norms_(this%best_guess_)) then
+    this%last_best_guess_ = this%best_guess_
+    this%best_guess_ = i
+    this%iterations_since_best_guess_ = 0
+  else
+    this%iterations_since_best_guess_ = this%iterations_since_best_guess_ + 1
+  endif
+  
+  if (set_default(print_progress, .false.) .and. this%i_>1) then
+      call print_line('Self-consistency step '//this%i_//'.')
+      call print_line( 'Self-consistency error : '   // &
+                     & this%self_consistency_error() // &
+                     & ' (Ha)'                          )
+      call print_line( 'Change in coefficients : ' // &
+                     & this%coefficient_change()   // &
+                     & ' (Ha)'                        )
+      call print_line( 'Free energy            : '   // &
+                     & this%free_energies_(this%i()) // &
+                     & ' (Ha)'                          )
+      call print_line( 'Change in free energy  : ' // &
+                     & this%free_energy_change()   // &
+                     & ' (Ha)'                        )
+  endif
+end subroutine
+
+! Check if d(F(x_i))/d(x_i) is requested.
+! This is simply an optimisation; calculating the gradient is expensive,
+!    so if it is not needed it should not be calculated.
+function gradient_requested(this) result(output)
+  implicit none
+  
+  class(PulaySolver), intent(in) :: this
+  logical                        :: output
+  
+  ! Only request the gradient if the latest iteration has the smallest
+  !    error norm.
+  output = this%best_guess_==this%i()
+end function
+
+! Set d(F(x_i))/d(x_i).
+subroutine set_gradient(this,gradient)
+  implicit none
+  
+  class(PulaySolver), intent(inout) :: this
+  real(dp),           intent(in)    :: gradient(:)
+  
+  this%gradients_(this%i()) = vec(gradient)
+  this%gradients_set_(this%i()) = .true.
+end subroutine
+
+! Calculates x_{i+1}.
+subroutine calculate_x(this)
+  implicit none
+  
+  class(PulaySolver), intent(inout) :: this
+  
+  type(RealVector) :: x
+  
+  integer :: iteration
+  
+  integer :: i
+  
+  ! If this is the first iteration, nothing needs doing.
+  if (this%i_==0) then
+    this%i_ = 1
+    this%iterations_ = [1]
+    return
+  endif
   
   ! Construct x_{i+1}.
   ! This uses a damped iterative scheme if i<pre_pulay_iterations, and a Pulay
@@ -215,56 +295,127 @@ subroutine set_f(this,f,free_energy)
   if (this%i_<=this%data_%pre_pulay_iterations) then
     ! The damped iterative scheme.
     ! x_{i+1} = ax_i + bf(x_i), where a=pre_pulay_damping and b=1-a.
-    this%xs_(this%i()) = this%data_%pre_pulay_damping     &
-                     & * this%xs_(this%i(offset=-1))      &
-                     & + (1-this%data_%pre_pulay_damping) &
-                     & * this%fs_(this%i(offset=-1))
+    x = this%data_%pre_pulay_damping     &
+    & * this%xs_(this%i())               &
+    & + (1-this%data_%pre_pulay_damping) &
+    & * this%fs_(this%i())
   else
-    ! The Pulay scheme.
-    
-    ! Calculate the positions of the first and last iteration to pass to the
-    !    Pulay scheme.
-    if (this%i_<=this%data_%max_pulay_iterations) then
-      ! If i_ is less than max_pulay_iterations, only the first i_-1 iterations
-      !    are used, as these are all that are available.
-      first_iteration = 1
-      last_iteration  = this%i_-1
-    else
-      ! Otherwise, the last max_pulay_iterations are used.
-      first_iteration = this%i(-this%data_%max_pulay_iterations)
-      last_iteration = this%i(-1)
-    endif
-    
-    ! Construct the array [first_iteration,...,last_iteration], taking into
-    !    account possible wrapping around the end of this%xs_ etc.
-    if (first_iteration<=last_iteration) then
-      iterations = [(i,i=first_iteration,last_iteration)]
-    else
-      iterations = [ [(i,i=first_iteration,size(this%xs_))], &
-                   & [(i,i=1,last_iteration)]                ]
-    endif
-    
     ! Calculate the next iteration using the Pulay scheme.
-    this%xs_(this%i()) = this%pulay_(iterations)
+    x = this%mixed_pulay_()
   endif
   
   ! Bound the input at zero if required.
   ! N.B. this is done by limiting the input to be at least half the previous
   !    output, to avoid sharp changes.
   if (this%bound_at_zero_) then
-    this%xs_(this%i()) = vec(max(dble(this%xs_(this%i())), f/2.0_dp))
+    x = vec(max(dble(x), dble(this%fs_(this%i()))/2.0_dp))
   endif
+  
+  ! Update i.
+  this%i_ = this%i_+1
+  
+  ! Update iterations_.
+  if (this%i_<=size(this%xs_)) then
+    ! If there are less iterations than max_pulay_iterations,
+    !    append the iteration to the list.
+    this%iterations_ = [this%iterations_, this%i_]
+  else
+    ! If max_pulay_iterations has been reached, find the iteration
+    !    with the largest error, and replace it.
+    i = maxloc(this%error_norms_(this%iterations_),1)
+    iteration = this%iterations_(i)
+    this%iterations_(i:size(this%iterations_)-1) = &
+       & this%iterations_(i+1:size(this%iterations_))
+    this%iterations_(size(this%iterations_)) = iteration
+  endif
+  
+  this%xs_(this%i()) = x
+  this%gradients_set_(this%i()) = .false.
 end subroutine
+
+function mixed_pulay_(this) result(output)
+  implicit none
+  
+  class(PulaySolver), intent(in) :: this
+  type(RealVector)               :: output
+  
+  real(dp) :: min_error
+  real(dp) :: max_error
+  
+  integer :: min_guess
+  integer :: max_guess
+  
+  type(RealVector) :: best_guess
+  type(RealVector) :: pulay
+  logical          :: downhill_calculated
+  type(RealVector) :: downhill
+  type(RealVector) :: random
+  
+  ! Check for over-convergence.
+  if (any( this%error_norms_(this%iterations_)     &
+       & < 1e-10_dp*this%data_%energy_convergence  )) then
+    output = this%xs_(this%iterations_(size(this%iterations_)))
+    return
+  endif
+  
+  associate(errors=>this%error_norms_(this%iterations_))
+    min_guess = minloc(errors, 1)
+    min_error = errors(min_guess)
+    max_guess = maxloc(errors, 1)
+    max_error = errors(max_guess)
+  end associate
+  
+  best_guess = this%xs_(this%best_guess_)
+  pulay      = (1-this%data_%iterative_damping)*(this%pulay_()-best_guess)
+  if (this%gradients_set_(this%best_guess_)) then
+    associate(gradient=>this%gradients_(this%best_guess_))
+      downhill_calculated = .true.
+      downhill = - vec(max(-min_error,min(dble(gradient),min_error))) &
+             & * 1e-2_dp
+    end associate
+  else
+    downhill_calculated = .false.
+    downhill = best_guess*0
+  endif
+  random = 2*this%data_%pulay_noise                                         &
+       & * 10**(3*this%random_generator_%random_number())                   &
+       & * vec( ( this%random_generator_%random_numbers(size(best_guess))   &
+       &        - 0.5_dp                                                  ) &
+       &      * min_error*abs(dble(best_guess))                             )
+  
+  if (this%iterations_since_best_guess_==0) then
+    call print_line(colour('pulay','red'))
+    output = best_guess + pulay
+  elseif (       this%iterations_since_best_guess_==1 &
+         & .and. downhill_calculated                  ) then
+    call print_line(colour('downhill','blue'))
+    output = best_guess + downhill
+  elseif (       modulo(this%iterations_since_best_guess_,2)==1 &
+         & .and. downhill_calculated                            ) then
+    call print_line(colour('downhill','magenta'))
+    output = best_guess &
+         & + downhill   &
+         & * this%random_generator_%random_number(0.01_dp,1._dp,.true.)
+  else
+    call print_line(colour('mixed','green'))
+    output = best_guess                                                 &
+         & + pulay                                                      &
+         & * this%random_generator_%random_number(0.01_dp,1._dp,.true.) &
+         & + downhill                                                   &
+         & * this%random_generator_%random_number(0.01_dp,1._dp,.true.) &
+         & + random                                                     &
+         & * this%random_generator_%random_number(0.01_dp,1._dp,.true.)
+  endif
+end function
 
 ! A Pulay scheme to find self-consistent solution to f(x)=x.
 ! If the Pulay scheme is ill-conditioned (i.e. there is a subspace of
 !    self-consistent solutions) then a gradient-descent scheme will be run
 !    within the self-consistent subspace.
-function pulay_(this,iterations) result(output)
+function pulay_(this) result(output)
   implicit none
   
   class(PulaySolver), intent(in) :: this
-  integer,            intent(in) :: iterations(:)
   type(RealVector)               :: output
   
   type(RealVector), allocatable :: errors(:)
@@ -277,12 +428,18 @@ function pulay_(this,iterations) result(output)
   integer :: min_guess
   integer :: max_guess
   
+  real(dp) :: scaling
+  
   real(dp) :: regularisation
   
-  type(RealVector) :: input_projection
-  real(dp)         :: input_projection_norm
+  type(RealVector) :: x_projection
+  real(dp)         :: x_projection_norm
+  type(RealVector) :: f_projection
   type(RealVector) :: error_projection
   real(dp)         :: error_projection_norm
+  
+  type(RealVector) :: x_solution
+  type(RealVector) :: f_solution
   
   real(dp) :: maximum_projection
   
@@ -310,27 +467,27 @@ function pulay_(this,iterations) result(output)
   ! ( en.e1, en.e2, ... , en.en,  1  ) (a_n)   ( 0 )
   ! (   1  ,   1  ,  1  ,   1  ,  0  ) ( l )   ( 1 )
   
-  m = size(this%xs_(iterations(1)))
-  n = size(iterations)
+  m = size(this%xs_(this%iterations_(1)))
+  n = size(this%iterations_)
   
-  if (any([(size(this%xs_(iterations(i))),i=1,n)]/=m)) then
+  if (any([(size(this%xs_(this%iterations_(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Input vectors inconsistent.')
-  elseif (any([(size(this%fs_(iterations(i))),i=1,n)]/=m)) then
+  elseif (any([(size(this%fs_(this%iterations_(i))),i=1,n)]/=m)) then
     call print_line(ERROR//': Output vectors inconsistent.')
   endif
   
-  ! Construct errors, e_i = f(x_i)-x_i.
-  errors = this%fs_(iterations) - this%xs_(iterations)
+  associate(errors=>this%error_norms_(this%iterations_))
+    min_guess = minloc(errors, 1)
+    min_error = errors(min_guess)
+    max_guess = maxloc(errors, 1)
+    max_error = errors(max_guess)
+  end associate
   
-  ! Check for over-convergence.
-  i = first(l2_norm(errors)<=1e-10_dp*this%data_%energy_convergence, default=0)
-  if (i/=0) then
-    output = this%xs_(iterations(i))
-    return
-  endif
+  ! Construct errors, e_i = f(x_i)-x_i.
+  errors = this%fs_(this%iterations_) - this%xs_(this%iterations_)
   
   ! Precondition errors.
-  preconditioned_errors = precondition_errors( this%xs_(iterations), &
+  preconditioned_errors = precondition_errors( this%xs_(this%iterations_), &
                                              & errors                )
   
   ! Construct error matrix.
@@ -349,18 +506,22 @@ function pulay_(this,iterations) result(output)
   error_matrix(n+1, :n ) = 1
   error_matrix(n+1, n+1) = 0
   
-  min_guess = minloc([(error_matrix(i,i), i=1, n)], 1)
-  min_error = sqrt(error_matrix(min_guess,min_guess))
-  max_guess = maxloc([(error_matrix(i,i), i=1, n)], 1)
-  max_error = sqrt(error_matrix(max_guess,max_guess))
-  
-  regularisation = max(max_error, this%data_%energy_convergence)**2/1e4_dp
+  ! Regularise the error matrix.
+  regularisation = max( min_error**2,                    &
+                      & this%data_%energy_convergence**2 ) / 1e2_dp
+  do i=1,n
+    error_matrix(i,i) = error_matrix(i,i)+regularisation
+  enddo
   
   ! Scale error_matrix(:n,:n) such that the problem is well-conditioned.
   ! This has no effect on the result beyond numerical error.
   if (max_guess>0.01_dp*this%data_%energy_convergence**2) then
-    error_matrix(:n,:n) = error_matrix(:n,:n) &
-                      & / error_matrix(max_guess,max_guess)
+    scaling = 1/max_error**2
+  else
+    scaling = 1.0_dp
+  endif
+  if (max_guess>0.01_dp*this%data_%energy_convergence**2) then
+    error_matrix(:n,:n) = error_matrix(:n,:n) * scaling
   endif
   
   ! Diagonalise the error matrix.
@@ -397,50 +558,42 @@ function pulay_(this,iterations) result(output)
   !    of the error matrix in turn.
   maximum_projection = 1e4_dp                                        &
                    & * max(min_error, this%data_%energy_convergence) &
-                   & * size(iterations)
-  output = this%xs_(iterations(min_guess))
+                   & * size(this%iterations_)
+  x_solution = this%xs_(this%iterations_(min_guess))
+  f_solution = this%fs_(this%iterations_(min_guess))
   do i=1,n+1
-    input_projection = sum( estuff(i)%evec(:n)                  &
-                        & * ( this%xs_(iterations)              &
-                        &   - this%xs_(iterations(min_guess)) ) )
-    input_projection_norm = l2_norm(input_projection)
+    x_projection = sum( estuff(i)%evec(:n)                  &
+                      & * ( this%xs_(this%iterations_)              &
+                      &   - this%xs_(this%iterations_(min_guess)) ) )
+    x_projection_norm = l2_norm(x_projection)
     
     error_projection = sum(estuff(i)%evec(:n)*errors)
     error_projection_norm = l2_norm(error_projection)
     
-    if (error_projection_norm > 1e-10_dp*input_projection_norm) then
+    f_projection = sum( estuff(i)%evec(:n)                  &
+                    & * ( this%fs_(this%iterations_)              &
+                    &   - this%fs_(this%iterations_(min_guess)) ) )
+    
+    if (error_projection_norm > 1e-10_dp*x_projection_norm) then
       ! The self-consistency scheme defines the position along the i'th
       !    eigenvector of the error matrix.
-      output = output &
-           & + estuff(i)%evec(n+1)&
-           & * input_projection &
-           & / (estuff(i)%eval+regularisation)
+      x_solution = x_solution &
+               & + x_projection * estuff(i)%evec(n+1) / estuff(i)%eval
+      f_solution = f_solution &
+               & + f_projection * estuff(i)%evec(n+1) / estuff(i)%eval
     else
       ! The self-consistency scheme does not define the position along the i'th
       !    eigenvector. Instead, the gradient descent scheme is called.
-      output = output &
-           & - input_projection &
-           & * ( vec(estuff(i)%evec(:n))                &
-           &   * vec(this%free_energies_(iterations)) ) &
-           & / (10.0_dp*this%data_%energy_convergence)
+      x_solution = x_solution                               &
+               & - x_projection                             &
+               & * ( vec(estuff(i)%evec(:n))                &
+               &   * vec(this%free_energies_(this%iterations_)) ) &
+               & / (10.0_dp*this%data_%energy_convergence)
     endif
   enddo
   
-  ! Mix in a damped iterative contribution.
-  output = (1-this%data_%iterative_mixing)    &
-       & * output                             &
-       & + this%data_%iterative_mixing        &
-       & * ( this%data_%iterative_damping     &
-       &   * this%xs_(iterations(min_guess))  &
-       &   + (1-this%data_%iterative_damping) &
-       &   * this%fs_(iterations(min_guess))  )
-  
-  ! Add in a random component, to help break out of linearly-dependent
-  !    subspaces.
-  output = output                                                            &
-       & + 2*this%data_%pulay_noise*this%random_generator_%random_number()   &
-       & * vec( (this%random_generator_%random_numbers(size(output))-0.5_dp) &
-       &      * min(min_error,abs(dble(output)))                             )
+  output = (1-this%data_%iterative_mixing)*x_solution &
+       & + this%data_%iterative_mixing*f_solution
 end function
 
 ! The Pulay scheme assumes that the error vectors e and input vectors x are
@@ -492,11 +645,13 @@ function precondition_errors(inputs,errors) result(output)
   sorted_inputs = inputs(sort_key)-inputs(sort_key(1))
   
   ! Construct the fitting weights.
-  weights = [max((error_norms(sort_key(1))/error_norms)**2.2_dp, 1e-100_dp)]
+  weights = [max((error_norms(sort_key(1))/error_norms)**1.0_dp, 1e-100_dp)]
   
   ! Construct a matrix where each column is an extended input vector,
   !    and the columns are sorted in ascending order of |e|.
-  offset = minval(l2_norm(sorted_inputs(2:)))
+  i = 1+minloc(l2_norm(sorted_inputs(2:)), 1)
+  offset = max(l2_norm(sorted_inputs(i))*sqrt(weights(i)), 1e-20_dp)
+  offset = maxval(l2_norm(sorted_inputs)*sqrt(weights))
   allocate( extended_input_matrix(size(inputs(1))+1,size(inputs)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(inputs)
@@ -516,16 +671,47 @@ function precondition_errors(inputs,errors) result(output)
   ex = sum(weights(sort_key) * outer_product(errors(sort_key),extended_inputs))
   
   ! Regularise xx.
-  regularisation = offset**2/1e6_dp
-  xx = xx + regularisation*make_identity_matrix(reduced_dimension)
+  ! Ideally, the regularisation would be a small fraction of the offset,
+  !    but this is sometimes too small for numerical stability.
+  regularisation = max(                                             &
+     & offset**2/1e4_dp,                                            &
+     & maxval([(abs(qr%r(i,i)),i=1,reduced_dimension)],1)**2/1e9_dp )
   
-  ! Construct the linearised mapping from x to e.
-  mapping = ex*invert(xx)
+  mapping = ex*regularised_invert(xx, regularisation)
   
   ! Construct the linearised errors (unsorting the inputs in the process).
   allocate(output(size(inputs)), stat=ialloc); call err(ialloc)
   do i=1,size(inputs)
     output(sort_key(i)) = mapping * extended_inputs(i)
+  enddo
+end function
+
+! Adaptively regularises the matrix and inverts it.
+! Replaces the eigenvalues l_i with
+!    l_i + r*e^(-l_i/r),
+!    where r is the regularisation.
+! This regularises the small eigenvalues without overly affecting the large
+!    eigenvalues.
+function regularised_invert(input,regularisation) result(output)
+  implicit none
+  
+  type(RealMatrix), intent(in) :: input
+  real(dp),         intent(in) :: regularisation
+  type(RealMatrix)             :: output
+  
+  type(SymmetricEigenstuff), allocatable :: estuff(:)
+  
+  integer :: i
+  
+  estuff = diagonalise_symmetric(input)
+  
+  output = dblemat(zeroes(size(input,1),size(input,2)))
+  
+  do i=1,size(estuff)
+    output = output                                                 &
+         & + outer_product(vec(estuff(i)%evec),vec(estuff(i)%evec)) &
+         & / ( regularisation*exp(-estuff(i)%eval/regularisation)   &
+         &   + estuff(i)%eval                                       )
   enddo
 end function
 
@@ -536,8 +722,8 @@ function self_consistency_error(this) result(output)
   class(PulaySolver), intent(in) :: this
   real(dp)                       :: output
   
-  output = maxval(abs(dble( this%fs_(this%i(offset=-1)) &
-                        & - this%xs_(this%i(offset=-1)) )))
+  output = maxval(abs(dble( this%fs_(this%i()) &
+                        & - this%xs_(this%i()) )))
 end function
 
 function coefficient_change(this) result(output)
@@ -546,8 +732,16 @@ function coefficient_change(this) result(output)
   class(PulaySolver), intent(in) :: this
   real(dp)                       :: output
   
-  output = maxval(abs(dble( this%xs_(this%i(offset=-1)) &
-                        & - this%xs_(this%i(offset=-2)) )))
+  integer :: i,j
+  
+  i = this%i()
+  if (this%best_guess_/=i) then
+    j = this%best_guess_
+  else
+    j = this%last_best_guess_
+  endif
+  
+  output = maxval(abs(dble(this%xs_(i) - this%xs_(j))))
 end function
 
 function free_energy_change(this) result(output)
@@ -556,8 +750,17 @@ function free_energy_change(this) result(output)
   class(PulaySolver), intent(in) :: this
   real(dp)                       :: output
   
-  output = this%free_energies_(this%i(offset=-1)) &
-       & - this%free_energies_(this%i(offset=-2))
+  integer :: i,j
+  
+  i = this%i()
+  if (this%best_guess_/=i) then
+    j = this%best_guess_
+  else
+    j = this%last_best_guess_
+  endif
+  
+  output = this%free_energies_(i) &
+       & - this%free_energies_(j)
 end function
 
 ! Check for convergence.
@@ -576,9 +779,9 @@ function converged(this) result(output)
   
   if (abs(this%free_energy_change())>100) then
     call print_line(ERROR//': DF > 100. Maybe the system is unstable?')
-    call print_line('free energy: '//this%free_energies_(this%i(offset=-1)))
-    call print_line('DF         : '//(this%free_energies_(this%i(offset=-1)) &
-       & -this%free_energies_(this%i(offset=-2))))
+    call print_line('free energy: '//this%free_energies_(this%i(-1)))
+    call print_line('DF         : '//(this%free_energies_(this%i(-1)) &
+       & -this%free_energies_(this%i(-2))))
   endif
   
   if (this%self_consistency_error() > this%data_%energy_convergence) then
@@ -587,8 +790,8 @@ function converged(this) result(output)
   endif
   
   do i=2,this%data_%no_converged_calculations
-    if ( abs( this%free_energies_(this%i(offset=-i))   &
-     &      - this%free_energies_(this%i(offset=-1)) ) &
+    if ( abs( this%free_energies_(this%i(-i))   &
+     &      - this%free_energies_(this%i(-1)) ) &
      & > this%data_%energy_convergence     ) then
       output = .false.
       return
@@ -714,7 +917,8 @@ subroutine pulay_solver_example()
   ! ------------------------------
   i = 0
   do
-    ! Get x from the solver.
+    ! Calculate and then return x from the solver.
+    call solver%calculate_x()
     x = solver%get_x()
     
     ! Calculate f(x) and F(x).

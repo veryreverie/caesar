@@ -132,9 +132,15 @@ function modes_DegenerateSubspace_ComplexModes(this,modes) result(output)
   type(ComplexMode),         intent(in) :: modes(:)
   type(ComplexMode), allocatable        :: output(:)
   
-  integer :: i
+  integer :: i,j,ialloc
   
-  output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
+  !output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
+  ! WORKAROUND: To avoid a memory leak in ifort 19.1.0.166
+  allocate(output(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    j = first(modes%id==this%mode_ids(i))
+    output(i) = modes(j)
+  enddo
 end function
 
 function modes_DegenerateSubspace_RealModes(this,modes) result(output)
@@ -144,9 +150,15 @@ function modes_DegenerateSubspace_RealModes(this,modes) result(output)
   type(RealMode),            intent(in) :: modes(:)
   type(RealMode), allocatable           :: output(:)
   
-  integer :: i
+  integer :: i,j,ialloc
   
-  output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
+  !output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
+  ! WORKAROUND: To avoid a memory leak in ifort 19.1.0.166
+  allocate(output(size(this)), stat=ialloc); call err(ialloc)
+  do i=1,size(this)
+    j = first(modes%id==this%mode_ids(i))
+    output(i) = modes(j)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

@@ -48,6 +48,11 @@ module harmonic_basis_module
     procedure, public :: integrate_BasisStates => &
                        & integrate_BasisStates_HarmonicBasis
     
+    ! Calculating the derivative of the free energy with respect to
+    !    basis function coefficients.
+    procedure, public :: free_energy_gradient => &
+                       & free_energy_gradient_HarmonicBasis
+    
     ! I/O.
     procedure, public :: read  => read_HarmonicBasis
     procedure, public :: write => write_HarmonicBasis
@@ -115,7 +120,7 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,      &
   
   class(HarmonicBasis),     intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
-  class(PotentialData),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: state_energy_cutoff
   type(ConvergenceData),    intent(in) :: convergence_data
@@ -138,11 +143,30 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,      &
   solver = NewtonRaphson(                                  &
      & starting_value        = this%frequency,             &
      & finite_displacement   = 0.01_dp*energy_convergence, &
-     & convergence_threshold = energy_convergence,         &
-     & lower_bound           = 0.0_dp                      )
+     & convergence_threshold = 0.5_dp*energy_convergence,  &
+     & lower_bound           = 1e-300_dp                   )
   i = 0
   do 
     frequencies = solver%get_inputs()
+    
+    if (frequencies(2)<2e-300_dp) then
+      call print_line(ERROR//': VSCHA frequency in subspace '//subspace%id// &
+         & ' underflowed. This likely means the subspace potential is not &
+         &well bounded from below.')
+      call print_line('Subspace potential:')
+      call print_lines(subspace_potential)
+      call print_line(frequencies)
+      call err()
+    elseif (.not. all(abs(frequencies)<1e300_dp)) then
+      call print_line(ERROR//': Newton-Raphson scheme diverged.')
+      call print_line('Iteration   : '//i)
+      call print_line('Frequency   : '//frequencies)
+      call print_line('Free energy : '//observables%free_energy)
+      call print_line('')
+      call print_line('Subspace potential:')
+      call print_lines(subspace_potential)
+      call err()
+    endif
     
     observables = effective_harmonic_observables( &
          & thermal_energy  = thermal_energy,      &
@@ -166,6 +190,7 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,      &
       call print_line('Iteration   : '//i)
       call print_line('Frequency   : '//frequencies)
       call print_line('Free energy : '//observables%free_energy)
+      call quit()
     endif
   enddo
   
@@ -304,8 +329,8 @@ impure elemental function thermodynamic_data_HarmonicBasis(this,    &
   real(dp),                 intent(in)                  :: thermal_energy
   class(BasisStates),       intent(in),          target :: states
   type(DegenerateSubspace), intent(in)                  :: subspace
-  class(PotentialData),     intent(in)                  :: subspace_potential
-  class(StressData),        intent(in), optional        :: subspace_stress
+  class(PotentialBase),     intent(in)                  :: subspace_potential
+  class(StressBase),        intent(in), optional        :: subspace_stress
   type(StressPrefactors),   intent(in), optional        :: stress_prefactors
   type(AnharmonicData),     intent(in)                  :: anharmonic_data
   type(ThermodynamicData)                               :: output
@@ -355,6 +380,28 @@ impure elemental function integrate_BasisStates_HarmonicBasis(this, &
                       & harmonic_states%frequency,      &
                       & harmonic_states%thermal_energy, &
                       & this%supercell_size             ))
+end function
+
+! Calculate the derivative of the free energy.
+function free_energy_gradient_HarmonicBasis(this,subspace_potential,     &
+   & basis_functions,subspace,states,thermal_energy,state_energy_cutoff, &
+   & anharmonic_data) result(output)
+  implicit none
+  
+  class(HarmonicBasis),     intent(in) :: this
+  class(PotentialBase),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: basis_functions(:)
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(BasisStates),       intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: state_energy_cutoff
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  real(dp), allocatable                :: output(:)
+  
+  integer :: i
+  
+  ! TODO: implement this.
+  output = [(0.0_dp,i=1,size(basis_functions))]
 end function
 
 ! I/O.

@@ -15,7 +15,6 @@ module string_module
   public :: operator(==)
   public :: operator(/=)
   public :: char
-  public :: assignment(=)
   public :: len
   public :: join
   public :: operator(//)
@@ -31,10 +30,6 @@ module string_module
   end type
   
   ! Interfaces
-  interface assignment(=)
-    module procedure assign_character_String
-  end interface
-  
   interface str
     module procedure str_character
     module procedure str_String
@@ -78,19 +73,6 @@ module string_module
     module procedure replace_String
   end interface
 contains
-
-! --------------------------------------------------
-! Assignment.
-! --------------------------------------------------
-! character = String
-subroutine assign_character_String(output,input)
-  implicit none
-  
-  character(*), intent(out) :: output
-  type(String), intent(in)  :: input
-  
-  output = char(input)
-end subroutine
 
 ! ----------------------------------------------------------------------
 ! Conversion to String
@@ -226,7 +208,7 @@ impure elemental function lower_case_String(this) result(output)
   type(String), intent(in) :: this
   type(String)             :: output
   
-  output = str(lower_case(char(this)))
+  output = lower_case(char(this))
 end function
 
 ! --------------------------------------------------
@@ -250,22 +232,19 @@ end function
 ! --------------------------------------------------
 ! Split a string by a given delimiter.
 ! --------------------------------------------------
-! If no delimiter is specified, splits by whitespace.
-function split_line_character(input,delimiter) result(output)
+! If no delimiter or delimiters specified, splits by whitespace.
+function split_line_character(input,delimiter,delimiters) result(output)
   implicit none
   
   character(*), intent(in)           :: input
   character(1), intent(in), optional :: delimiter
+  character(1), intent(in), optional :: delimiters(:)
   type(String), allocatable          :: output(:)
   
   ! The position of a delimiter.
   integer :: first
   ! The position of the next delimiter after 'first'.
   integer :: second
-  
-  ! The number of characters before the next space or tab.
-  integer :: next_space
-  integer :: next_tab
   
   ! Temporary variables.
   integer :: ialloc
@@ -283,19 +262,12 @@ function split_line_character(input,delimiter) result(output)
     ! Find the next delimiter.
     if (present(delimiter)) then
       second = first + index(input(first+1:), delimiter)
+    elseif (present(delimiters)) then
+      second = first + first_index(input(first+1:), delimiters)
     else
       ! If delimiter is not set, find the next space or tab character.
-      next_space = first + index(input(first+1:), ' ')
-      next_tab   = first + index(input(first+1:), '	') ! N.B. '[TAB]'
-      if (next_space==first) then
-        ! No space found.
-        second = next_tab
-      elseif (next_tab==first) then
-        ! No tab found.
-        second = next_space
-      else
-        second = min(next_tab,next_space)
-      endif
+      ! N.B. the delimiter array is [space, tab].
+      second = first + first_index(input(first+1:), [' ', '	'])
     endif
     ! If second==first there is no next delimiter. Parse the final token.
     if (second == first) then
@@ -311,14 +283,39 @@ function split_line_character(input,delimiter) result(output)
   enddo
 end function
 
-function split_line_String(input,delimiter) result(output)
+function split_line_String(input,delimiter,delimiters) result(output)
   implicit none
   
   type(String), intent(in)           :: input
   character(1), intent(in), optional :: delimiter
+  character(1), intent(in), optional :: delimiters(:)
   type(String), allocatable          :: output(:)
   
-  output = split_line(char(input),delimiter)
+  output = split_line(char(input),delimiter,delimiters)
+end function
+
+! Behaves as the index intrinsic, but takes an array of delimiters.
+function first_index(input,delimiters) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  character(1), intent(in) :: delimiters(:)
+  integer                  :: output
+  
+  integer :: i,j
+  
+  output = 0
+  
+  do i=1,size(delimiters)
+    j = index(input,delimiters(i))
+    if (j/=0) then
+      if (output==0) then
+        output = j
+      else
+        output = min(output,j)
+      endif
+    endif
+  enddo
 end function
 
 ! --------------------------------------------------

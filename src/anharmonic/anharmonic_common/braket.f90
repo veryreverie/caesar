@@ -307,7 +307,7 @@ impure elemental function harmonic_observables(thermal_energy,stress, &
   implicit none
   
   real(dp),             intent(in)           :: thermal_energy
-  class(StressData),    intent(in), optional :: stress
+  class(StressBase),    intent(in), optional :: stress
   type(RealMatrix),     intent(in), optional :: stress_prefactor
   real(dp),             intent(in)           :: frequency
   integer,              intent(in)           :: num_dimensions
@@ -350,8 +350,8 @@ impure elemental function effective_harmonic_observables(thermal_energy, &
   implicit none
   
   real(dp),             intent(in)           :: thermal_energy
-  class(PotentialData), intent(in)           :: potential
-  class(StressData),    intent(in), optional :: stress
+  class(PotentialBase), intent(in)           :: potential
+  class(StressBase),    intent(in), optional :: stress
   type(RealMatrix),     intent(in), optional :: stress_prefactor
   real(dp),             intent(in)           :: frequency
   integer,              intent(in)           :: num_dimensions

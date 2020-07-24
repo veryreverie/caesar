@@ -86,7 +86,7 @@ function new_FractionComplex(real_part,imaginary_part) result(this)
   if (present(imaginary_part)) then
     this%imag_ = imaginary_part
   else
-    this%imag_ = 0
+    this%imag_ = frac(0)
   endif
 end function
 

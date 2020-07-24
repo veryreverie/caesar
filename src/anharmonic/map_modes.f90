@@ -363,6 +363,8 @@ subroutine map_modes_subroutine(arguments)
           & l2_cartesian_displacements(size(unscaled_mode_displacements)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(real_modes)
+    call print_line('Mapping potential along mode '//i//' of '// &
+       & size(real_modes)//'.')
     loc = mode_locs(real_modes(i)%id)
     if (loc/=0) then
       ! Scale displacement by 1/sqrt(frequency).
@@ -418,6 +420,8 @@ subroutine map_modes_subroutine(arguments)
             & stat=ialloc); call err(ialloc)
   endif
   do i=1,size(qpoints)
+    call print_line('Writing files for q-point '//i//' of '// &
+       & size(qpoints)//'.')
     if (qpoints(i)%paired_qpoint_id<qpoints(i)%id) then
       cycle
     endif

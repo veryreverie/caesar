@@ -19,26 +19,29 @@ module coupling_stress_basis_functions_module
   public :: size
   public :: generate_stress_basis_functions
   
-  type, extends(Stringsable) :: CouplingStressBasisFunctions
+  type, extends(StressBase) :: CouplingStressBasisFunctions
     type(SubspaceCoupling)                          :: coupling
     type(StressBasisFunction), allocatable, private :: basis_functions_(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_CouplingStressBasisFunctions
+    
     procedure, public :: basis_functions => &
                        & basis_functions_CouplingStressBasisFunctions
     
-    generic,   public  ::                                          &
-       & stress =>                                                 &
-       & stress_RealModeDisplacement_CouplingStressBasisFunctions, &
-       & stress_ComplexModeDisplacement_CouplingStressBasisFunctions
-    procedure, private :: &
+    procedure, public :: undisplaced_stress => &
+                       & undisplaced_stress_CouplingStressBasisFunctions
+    
+    procedure, public :: zero_stress => &
+                       & zero_stress_CouplingStressBasisFunctions
+    procedure, public :: add_constant => &
+                       & add_constant_CouplingStressBasisFunctions
+    
+    procedure, public :: stress_RealModeDisplacement => &
        & stress_RealModeDisplacement_CouplingStressBasisFunctions
-    procedure, private :: &
+    procedure, public :: stress_ComplexModeDisplacement => &
        & stress_ComplexModeDisplacement_CouplingStressBasisFunctions
     
-    generic,   public :: braket =>              &
-                       & braket_SubspaceBraKet, &
-                       & braket_BasisState,     &
-                       & braket_BasisStates
     procedure, public :: braket_SubspaceBraKet => &
                        & braket_SubspaceBraKet_CouplingStressBasisFunctions
     procedure, public :: braket_BasisState => &
@@ -48,9 +51,6 @@ module coupling_stress_basis_functions_module
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_CouplingStressBasisFunctions
-    
-    procedure, public :: undisplaced_stress => &
-                       & undisplaced_stress_CouplingStressBasisFunctions
     
     procedure, public :: append => append_CouplingStressBasisFunctions
     
@@ -110,6 +110,15 @@ function new_CouplingStressBasisFunctions(coupling,basis_functions) &
   this%basis_functions_ = basis_functions
 end function
 
+impure elemental function representation_CouplingStressBasisFunctions() &
+   & result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'Polynomial stress basis functions'
+end function
+
 function size_CouplingStressBasisFunctions(this) result(output)
   implicit none
   
@@ -134,7 +143,7 @@ impure elemental function                                           &
   implicit none
   
   class(CouplingStressBasisFunctions), intent(in) :: this
-  class(RealModeDisplacement),         intent(in) :: displacement
+  type(RealModeDisplacement),          intent(in) :: displacement
   type(RealMatrix)                                :: output
   
   if (size(this%basis_functions_)>0) then
@@ -150,7 +159,7 @@ impure elemental function                                              &
   implicit none
   
   class(CouplingStressBasisFunctions), intent(in) :: this
-  class(ComplexModeDisplacement),      intent(in) :: displacement
+  type(ComplexModeDisplacement),       intent(in) :: displacement
   type(ComplexMatrix)                             :: output
   
   if (size(this%basis_functions_)>0) then
@@ -182,7 +191,8 @@ impure elemental subroutine                                          &
     
     ! Integrate across the basis function, and simplify it.
     do i=1,size(this)
-      call this%basis_functions_(i)%braket(braket, anharmonic_data)
+      call this%basis_functions_(i)%braket( braket,                           &
+                                          & anharmonic_data = anharmonic_data )
     enddo
     
     call this%basis_functions_%simplify()
@@ -213,11 +223,11 @@ impure elemental subroutine braket_BasisState_CouplingStressBasisFunctions( &
   
     ! Integrate across the basis function, and simplify it.
     do i=1,size(this)
-      call this%basis_functions_(i)%braket( bra,            &
-                                          & ket,            &
-                                          & subspace,       &
-                                          & subspace_basis, &
-                                          & anharmonic_data )
+      call this%basis_functions_(i)%braket( bra,                              &
+                                          & ket,                              &
+                                          & subspace,                         &
+                                          & subspace_basis,                   &
+                                          & anharmonic_data = anharmonic_data )
     enddo
     
     call this%basis_functions_%simplify()
@@ -247,10 +257,10 @@ impure elemental subroutine braket_BasisStates_CouplingStressBasisFunctions( &
     
     ! Integrate across the basis function, and simplify it.
     do j=1,size(this)
-      call this%basis_functions_(j)%braket( states,         &
-                                          & subspace,       &
-                                          & subspace_basis, &
-                                          & anharmonic_data )
+      call this%basis_functions_(j)%braket( states,                           &
+                                          & subspace,                         &
+                                          & subspace_basis,                   &
+                                          & anharmonic_data = anharmonic_data )
     enddo
     
     call this%basis_functions_%simplify()
@@ -258,21 +268,29 @@ impure elemental subroutine braket_BasisStates_CouplingStressBasisFunctions( &
 end subroutine
 
 impure elemental function harmonic_expectation_CouplingStressBasisFunctions( &
-   & this,frequency,thermal_energy,supercell_size) result(output)
+   & this,frequency,thermal_energy,supercell_size,anharmonic_data)           &
+   & result(output) 
   implicit none
   
   class(CouplingStressBasisFunctions), intent(in) :: this
   real(dp),                            intent(in) :: frequency
   real(dp),                            intent(in) :: thermal_energy
   integer,                             intent(in) :: supercell_size
+  type(AnharmonicData),                intent(in) :: anharmonic_data
   type(RealMatrix)                                :: output
+  
+  integer :: i
   
   if (size(this%basis_functions_)==0) then
     output = dblemat(zeroes(3,3))
   else
-    output = sum(this%basis_functions_%harmonic_expectation( frequency,      &
-                                                           & thermal_energy, &
-                                                           & supercell_size  ))
+    output = sum([( this%basis_functions_(i)%harmonic_expectation(    &
+                  &                                frequency,         &
+                  &                                thermal_energy,    &
+                  &                                supercell_size,    &
+                  &                                anharmonic_data ), &
+                  & i=1,                                              &
+                  & size(this%basis_functions_)                       )])
   endif
 end function
 
@@ -288,6 +306,28 @@ impure elemental function undisplaced_stress_CouplingStressBasisFunctions( &
   
   output = this%stress(RealModeDisplacement(zero_displacement))
 end function
+
+impure elemental subroutine zero_stress_CouplingStressBasisFunctions(this)
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(inout) :: this
+  
+  call print_line(CODE_ERROR//': zero_energy() cannot be called for type &
+     &CouplingStressBasisFunctions.')
+  call err()
+end subroutine
+
+impure elemental subroutine add_constant_CouplingStressBasisFunctions(this, &
+   & input) 
+  implicit none
+  
+  class(CouplingStressBasisFunctions), intent(inout) :: this
+  type(RealMatrix),                    intent(in)    :: input
+  
+  call print_line(CODE_ERROR//': add_constant() cannot be called for type &
+     &CouplingStressBasisFunctions.')
+  call err()
+end subroutine
 
 ! Append another StressCouplingBasisFunctions to this.
 subroutine append_CouplingStressBasisFunctions(this,that)
@@ -305,17 +345,15 @@ subroutine append_CouplingStressBasisFunctions(this,that)
 end subroutine
 
 ! Generate stress basis functions.
-function generate_stress_basis_functions_SubspaceCoupling(coupling,     &
-   & stress_expansion_order,structure,complex_modes,real_modes,qpoints, &
-   & subspaces,degenerate_symmetries,vscf_basis_functions_only,logfile) &
-   & result(output)
+function generate_stress_basis_functions_SubspaceCoupling(coupling,    &
+   & stress_expansion_order,structure,complex_modes,qpoints,subspaces, &
+   & degenerate_symmetries,vscf_basis_functions_only,logfile) result(output) 
   implicit none
   
   type(SubspaceCoupling),   intent(in)    :: coupling
   integer,                  intent(in)    :: stress_expansion_order
   type(StructureData),      intent(in)    :: structure
   type(ComplexMode),        intent(in)    :: complex_modes(:)
-  type(RealMode),           intent(in)    :: real_modes(:)
   type(QpointData),         intent(in)    :: qpoints(:)
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
@@ -346,7 +384,6 @@ function generate_stress_basis_functions_SubspaceCoupling(coupling,     &
                                    & subspace_monomials(i),     &
                                    & structure,                 &
                                    & complex_modes,             &
-                                   & real_modes,                &
                                    & qpoints,                   &
                                    & subspaces,                 &
                                    & degenerate_symmetries,     &

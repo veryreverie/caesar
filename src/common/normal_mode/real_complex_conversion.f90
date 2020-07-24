@@ -37,6 +37,7 @@ module real_complex_conversion_module
   use real_mode_module
   use complex_polynomial_module
   use real_polynomial_module
+  use paired_polynomial_module
   implicit none
   
   private
@@ -45,6 +46,10 @@ module real_complex_conversion_module
   public :: real_to_complex
   public :: basis_conversion_matrix
   public :: coefficient_conversion_matrix
+  public :: PairedMonomial
+  public :: ComplexMonomial
+  public :: PairedPolynomial
+  public :: ComplexPolynomial
   
   interface complex_to_real
     module procedure complex_to_real_mode
@@ -67,6 +72,22 @@ module real_complex_conversion_module
   interface element
     module procedure element_ComplexMonomial_RealMonomial
     module procedure element_RealMonomial_ComplexMonomial
+  end interface
+  
+  interface PairedMonomial
+    module procedure new_PairedMonomials_ComplexMonomials
+  end interface
+  
+  interface ComplexMonomial
+    module procedure new_ComplexMonomials_PairedMonomials
+  end interface
+  
+  interface PairedPolynomial
+    module procedure new_PairedPolynomial_ComplexPolynomial
+  end interface
+  
+  interface ComplexPolynomial
+    module procedure new_ComplexPolynomial_PairedPolynomial
   end interface
 contains
 
@@ -520,5 +541,117 @@ impure elemental function element_RealMonomial_ComplexMonomial(this,that, &
   if (include_coefficients) then
     output = output * this%coefficient / that%coefficient
   endif
+end function
+
+! Convert between ComplexMonomial and PairedMonomial arrays.
+function new_PairedMonomials_ComplexMonomials(input) result(output)
+  implicit none
+  
+  type(ComplexMonomial), intent(in) :: input(:)
+  type(PairedMonomial), allocatable :: output(:)
+  
+  type(ComplexMonomial) :: conjugate
+  
+  integer, allocatable :: conjugates(:)
+  
+  integer :: i,j,ialloc
+  
+  conjugates = [(0, i=1, size(input))]
+  do i=1,size(input)
+    if (conjugates(i)/=0) then
+      cycle
+    endif
+    
+    conjugate = conjg(input(i))
+    
+    j = first_equivalent( input,                    &
+                        & conjugate,                &
+                        & compare_complex_monomials )
+    
+    conjugates(i) = j
+    conjugates(j) = i
+  enddo
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    if (conjugates(i)==i) then
+      output(i) = PairedMonomial( real(input(i)%coefficient), &
+                                & input(i)%modes(),           &
+                                & pair=0                      )
+    elseif (conjugates(i)>i) then
+      output(i) = PairedMonomial( real(input(i)%coefficient), &
+                                & input(i)%modes(),           &
+                                & pair=1                      )
+      output(conjugates(i)) = PairedMonomial( aimag(input(i)%coefficient), &
+                                            & input(i)%modes(),            &
+                                            & pair=-1                      )
+    else
+      continue
+    endif
+  enddo
+end function
+
+function new_ComplexMonomials_PairedMonomials(input) result(output)
+  implicit none
+  
+  type(PairedMonomial), intent(in)   :: input(:)
+  type(ComplexMonomial), allocatable :: output(:)
+  
+  integer, allocatable :: matches(:)
+  
+  complex(dp) :: coefficient
+  
+  integer :: i,j,ialloc
+  
+  matches = [(0, i=1, size(input))]
+  do i=1,size(input)
+    if (matches(i)/=0) then
+      cycle
+    endif
+    
+    j = first_equivalent( input,        &
+                        & input(i),     &
+                        & matching_pair )
+    
+    matches(i) = j
+    matches(j) = i
+  enddo
+  
+  allocate(output(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    if (matches(i)==i) then
+      coefficient = cmplx(input(i)%coefficient, 0.0_dp, dp)
+      output(i) = ComplexMonomial( coefficient,     &
+                                 & input(i)%modes() )
+    elseif (matches(i)>i) then
+      coefficient = cmplx( input(i)%coefficient,          &
+                         & input(matches(i))%coefficient, &
+                         & dp                             )
+      output(i) = ComplexMonomial( coefficient,     &
+                                 & input(i)%modes() )
+      output(matches(i)) = ComplexMonomial( conjg(coefficient),    &
+                                          & conjg(input(i)%modes()) )
+    else
+      continue
+    endif
+  enddo
+end function
+
+function new_PairedPolynomial_ComplexPolynomial(input) result(output)
+  implicit none
+  
+  type(ComplexPolynomial), intent(in) :: input
+  type(PairedPolynomial)              :: output
+  
+  output = PairedPolynomial(PairedMonomial(input%terms))
+end function
+
+function new_ComplexPolynomial_PairedPolynomial(input) result(output)
+  implicit none
+  
+  type(PairedPolynomial), intent(in) :: input
+  type(ComplexPolynomial)            :: output
+  
+  output = ComplexPolynomial(ComplexMonomial(input%terms))
 end function
 end module

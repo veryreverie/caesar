@@ -29,12 +29,20 @@
 #undef MACRO_TYPE1_MAT_NAME
 #endif
 
+#ifdef MACRO_TYPE1_CONVERT
+#undef MACRO_TYPE1_CONVERT
+#endif
+
 #ifdef MACRO_TYPE2_VEC_NAME
 #undef MACRO_TYPE2_VEC_NAME
 #endif
 
 #ifdef MACRO_TYPE2_MAT_NAME
 #undef MACRO_TYPE2_MAT_NAME
+#endif
+
+#ifdef MACRO_TYPE2_CONVERT
+#undef MACRO_TYPE2_CONVERT
 #endif
 
 #ifdef MACRO_TYPE3_NAME
@@ -47,6 +55,10 @@
 
 #ifdef MACRO_TYPE3_MAT_NAME
 #undef MACRO_TYPE3_MAT_NAME
+#endif
+
+#ifdef MACRO_TYPE3_CONVERT
+#undef MACRO_TYPE3_CONVERT
 #endif
 
 ! Define MACRO_TYPE3_NAME from MACRO_TYPE1_NAME and MACRO_TYPE2_NAME.
@@ -107,18 +119,21 @@
 
 #define MACRO_TYPE1_VEC_NAME IntVector
 #define MACRO_TYPE1_MAT_NAME IntMatrix
+#define MACRO_TYPE1_CONVERT int
 #undef MACRO_1_INTEGER
 
 #elif defined MACRO_1_REAL
 
 #define MACRO_TYPE1_VEC_NAME RealVector
 #define MACRO_TYPE1_MAT_NAME RealMatrix
+#define MACRO_TYPE1_CONVERT dble
 #undef MACRO_1_REAL
 
 #elif defined MACRO_1_COMPLEX
 
 #define MACRO_TYPE1_VEC_NAME ComplexVector
 #define MACRO_TYPE1_MAT_NAME ComplexMatrix
+#define MACRO_TYPE1_CONVERT cmplx
 #undef MACRO_1_COMPLEX
 
 #else
@@ -133,18 +148,21 @@
 
 #define MACRO_TYPE2_VEC_NAME IntVector
 #define MACRO_TYPE2_MAT_NAME IntMatrix
+#define MACRO_TYPE2_CONVERT int
 #undef MACRO_2_INTEGER
 
 #elif defined MACRO_2_REAL
 
 #define MACRO_TYPE2_VEC_NAME RealVector
 #define MACRO_TYPE2_MAT_NAME RealMatrix
+#define MACRO_TYPE2_CONVERT dble
 #undef MACRO_2_REAL
 
 #elif defined MACRO_2_COMPLEX
 
 #define MACRO_TYPE2_VEC_NAME ComplexVector
 #define MACRO_TYPE2_MAT_NAME ComplexMatrix
+#define MACRO_TYPE2_CONVERT cmplx
 #undef MACRO_2_COMPLEX
 
 #else
@@ -159,18 +177,21 @@
 
 #define MACRO_TYPE3_VEC_NAME IntVector
 #define MACRO_TYPE3_MAT_NAME IntMatrix
+#define MACRO_TYPE3_CONVERT int
 #undef MACRO_3_INTEGER
 
 #elif defined MACRO_3_REAL
 
 #define MACRO_TYPE3_VEC_NAME RealVector
 #define MACRO_TYPE3_MAT_NAME RealMatrix
+#define MACRO_TYPE3_CONVERT dble
 #undef MACRO_3_REAL
 
 #elif defined MACRO_3_COMPLEX
 
 #define MACRO_TYPE3_VEC_NAME ComplexVector
 #define MACRO_TYPE3_MAT_NAME ComplexMatrix
+#define MACRO_TYPE3_CONVERT cmplx
 #undef MACRO_3_COMPLEX
 
 #else

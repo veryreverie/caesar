@@ -4,6 +4,7 @@
 module intrinsics_module
   use precision_module
   
+  use string_base_module
   use string_module
   use error_module
   use print_settings_module

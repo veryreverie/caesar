@@ -48,15 +48,15 @@ module complex_polynomial_module
   contains
     procedure(to_ComplexPolynomial_ComplexPolynomialable), deferred, public &
        & :: to_ComplexPolynomial
-    
-    procedure(wavevector_ComplexPolynomialable), deferred, public &
-       & :: wavevector
   end type
   
   type, abstract, extends(ComplexPolynomialable) :: ComplexMonomialable
   contains
     procedure(to_ComplexMonomial_ComplexMonomialable), deferred, public :: &
        & to_ComplexMonomial
+    
+    procedure(wavevector_ComplexMonomialable), deferred, public &
+       & :: wavevector
   end type
   
   type, extends(ComplexMonomialable) :: ComplexUnivariate
@@ -75,15 +75,15 @@ module complex_polynomial_module
     procedure, public :: wavevector => &
                        & wavevector_ComplexUnivariate
     
-    procedure, private :: energy_real => &
-                        & energy_RealSingleDisplacement_ComplexUnivariate
-    procedure, private :: energy_complex => &
-                        & energy_ComplexSingleDisplacement_ComplexUnivariate
+    procedure, public :: energy_real => &
+                       & energy_RealSingleDisplacement_ComplexUnivariate
+    procedure, public :: energy_complex => &
+                       & energy_ComplexSingleDisplacement_ComplexUnivariate
     
-    procedure, private :: force_real => &
-                        & force_RealSingleDisplacement_ComplexUnivariate
-    procedure, private :: force_complex => &
-                        & force_ComplexSingleDisplacement_ComplexUnivariate
+    procedure, public :: force_real => &
+                       & force_RealSingleDisplacement_ComplexUnivariate
+    procedure, public :: force_complex => &
+                       & force_ComplexSingleDisplacement_ComplexUnivariate
     
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_ComplexUnivariate
@@ -160,9 +160,6 @@ module complex_polynomial_module
     
     procedure, public :: simplify => simplify_ComplexPolynomial
     
-    procedure, public :: wavevector => &
-                       & wavevector_ComplexPolynomial
-    
     generic,   public  :: energy =>                                      &
                         & energy_RealModeDisplacement_ComplexPolynomial, &
                         & energy_ComplexModeDisplacement_ComplexPolynomial
@@ -198,20 +195,6 @@ module complex_polynomial_module
       type(ComplexPolynomial)                  :: output
     end function
     
-    function wavevector_ComplexPolynomialable(this,modes,qpoints) &
-       & result(output)
-      import ComplexPolynomialable
-      import ComplexMode
-      import QpointData
-      import FractionVector
-      implicit none
-      
-      class(ComplexPolynomialable), intent(in) :: this
-      type(ComplexMode),            intent(in) :: modes(:)
-      type(QpointData),             intent(in) :: qpoints(:)
-      type(FractionVector)                     :: output
-    end function
-    
     function to_ComplexMonomial_ComplexMonomialable(this) result(output)
       import ComplexMonomial
       import ComplexMonomialable
@@ -219,6 +202,20 @@ module complex_polynomial_module
       
       class(ComplexMonomialable), intent(in) :: this
       type(ComplexMonomial)                  :: output
+    end function
+    
+    function wavevector_ComplexMonomialable(this,modes,qpoints) &
+       & result(output)
+      import ComplexMonomialable
+      import ComplexMode
+      import QpointData
+      import FractionVector
+      implicit none
+      
+      class(ComplexMonomialable), intent(in) :: this
+      type(ComplexMode),            intent(in) :: modes(:)
+      type(QpointData),             intent(in) :: qpoints(:)
+      type(FractionVector)                     :: output
     end function
   end interface
   
@@ -772,7 +769,7 @@ impure elemental subroutine simplify_ComplexPolynomial(this)
   this%terms%coefficient = coefficients
 end subroutine
 
-! Find the conjugate of a univariate or monomial.
+! Find the conjugate of a univariate, monomial or polynomial.
 impure elemental function conjg_ComplexUnivariate(this) result(output)
   implicit none
   
@@ -827,7 +824,7 @@ impure elemental function total_power_ComplexMonomial(this) result(output)
   output = sum(this%modes_%total_power())
 end function
 
-! Returns the Bloch wavevector of a univariate, monomial or polynomial.
+! Returns the Bloch wavevector of a univariate or monomial.
 function wavevector_ComplexUnivariate(this,modes,qpoints) result(output)
   implicit none
   
@@ -866,30 +863,6 @@ function wavevector_ComplexMonomial(this,modes,qpoints) result(output)
   enddo
   
   output = vec(modulo(frac(output),1))
-end function
-
-function wavevector_ComplexPolynomial(this,modes,qpoints) result(output)
-  implicit none
-  
-  class(ComplexPolynomial), intent(in) :: this
-  type(ComplexMode),        intent(in) :: modes(:)
-  type(QpointData),         intent(in) :: qpoints(:)
-  type(FractionVector)                 :: output
-  
-  integer :: i
-  
-  if (size(this)==0) then
-    output = fracvec(zeroes(3))
-  else
-    output = this%terms(1)%wavevector(modes,qpoints)
-    do i=2,size(this)
-      if (this%terms(i)%wavevector(modes,qpoints)/=output) then
-        call print_line(ERROR//': Complex polynomial has inconsistent &
-           & wavevector.')
-        call err()
-      endif
-    enddo
-  endif
 end function
 
 ! Evaluate the contribution to the energy from

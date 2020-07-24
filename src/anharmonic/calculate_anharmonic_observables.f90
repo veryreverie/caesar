@@ -341,7 +341,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   endif
   
   if (min_temperature<=0) then
-    call print_line(WARNING//': min_temperature should not be exactly 0K.')
+    call print_line(WARNING//': Calculation may not converge if &
+       &min_temperature is exactly 0K.')
   endif
   
   ! Read in setup_harmonic settings.
@@ -812,6 +813,10 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
                                             & vscf_basis,          &
                                             & vscf_states,         &
                                             & anharmonic_data      )
+      do j=1,size(dynamical_matrices)
+        call dynamical_matrices(j)%check( anharmonic_data%structure, &
+                                        & vscf_logfile               )
+      enddo
       
       ! Construct effective modes from dynamical matrices.
       do j=1,size(qpoints)

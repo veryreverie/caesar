@@ -296,7 +296,7 @@ subroutine converge_qpoint_grid_subroutine(arguments)
            do k=1,size(complex_mode_file)
               h = findindex_string(complex_mode_file%line(k),str('Mode frequency'))
               if (h>=1) then
-                 line_to_trim = complex_mode_file%line(k)
+                 line_to_trim = char(complex_mode_file%line(k))
                  call normal_modes%print_line( trim(line_to_trim(30:)))
               endif
            enddo
@@ -312,7 +312,7 @@ subroutine converge_qpoint_grid_subroutine(arguments)
            vib_free_en = OFile(dir//'/free_energies')
 
            do k=2,size(therm_vars)
-              line_to_trim = therm_vars%line(k)
+              line_to_trim = char(therm_vars%line(k))
               call vib_free_en%print_line( trim(line_to_trim(55:77)))
            enddo
          endif

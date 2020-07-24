@@ -25,6 +25,7 @@ module normal_mode_module
   use complex_mode_force_module
   use complex_polynomial_module
   use real_polynomial_module
+  use paired_polynomial_module
   use real_complex_conversion_module
   use complex_mode_symmetry_module
   use degenerate_subspace_module

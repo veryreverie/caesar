@@ -353,7 +353,8 @@ function choose_basis_real(input,structure,symmetries,qpoint) &
   do i=1,size(symmetries)
     if (all(superposed_operators_commute( symmetries(i),   &
                                         & used_symmetries, &
-                                        & qpoint           ))) then
+                                        & qpoint, &
+                                        & positive_superposition=.true.))) then
       symmetry_used = .false.
       
       ! Loop over each distinct id.
@@ -384,43 +385,70 @@ function choose_basis_real(input,structure,symmetries,qpoint) &
     endif
   enddo
   
-  ! If the basis can't be fully defined using symmetric symmetries,
-  !    lift the remaining ambiguity using anti-symmetric symmetries.
-  ! If for every pair of modes u1 and u2 there is a symmetry T for which
-  !    T.u1=u2 and T.u2=-u1 then <u1|H|u2>=-(<u1|H|u2>)*. Since the states
-  !    and Hamiltonian are real at 2q=G, <u1|H|u2>=0.
-  id_set = ids(set(ids))
-  if (size(id_set)/=size(ids)) then
-    ! List the symmetries which commute with the used symmetries.
-    antisymmetric_symmetries = symmetries(filter([(                      &
-       & all(operators_commute(symmetries(i), used_symmetries, qpoint)), &
-       & i=1,                                                            &
-       & size(symmetries)                                                )]))
-    
-    ! Remove the symmetries with order 2 or less,
-    !    since for these symmetries S^T+S, so S-S^T=0.
-    antisymmetric_symmetries = antisymmetric_symmetries(           &
-       & filter(antisymmetric_symmetries%symmetry_order(qpoint)>2) )
-    
-    ! Only take one from each commuting set.
-    antisymmetric_symmetries = antisymmetric_symmetries(filter([(         &
-        & .not.any(operators_commute( antisymmetric_symmetries(:i-1),     &
-        &                             antisymmetric_symmetries(i),        &
-        &                             qpoint                          )), &
-        & i=1,                                                            &
-        & size(antisymmetric_symmetries)                                  )]))
-    
-    ! Use the anti-symmetric symmetries to choose the correct basis,
-    !    id by id.
-    do i=1,size(id_set)
-      if (count(ids==id_set(i))>1) then
-        anti_split_modes = AntiSplitModes( output(filter(ids==id_set(i))), &
-                                         & antisymmetric_symmetries,       &
-                                         & qpoint                          )
-        output(filter(ids==id_set(i))) = anti_split_modes%modes
-      endif
-    enddo
-  endif
+  !! If the basis can't be fully defined using symmetric symmetries,
+  !!    lift the remaining ambiguity using anti-symmetric symmetries.
+  !! If for every pair of modes u1 and u2 there is a symmetry T for which
+  !!    T.u1=u2 and T.u2=-u1 then <u1|H|u2>=-(<u1|H|u2>)*. Since the states
+  !!    and Hamiltonian are real at 2q=G, <u1|H|u2>=0.
+  !id_set = ids(set(ids))
+  !if (size(id_set)/=size(ids)) then
+  !  ! List the symmetries which commute with the used symmetries.
+  !  antisymmetric_symmetries = symmetries(filter([(                      &
+  !     & all(operators_commute(symmetries(i), used_symmetries, qpoint)), &
+  !     & i=1,                                                            &
+  !     & size(symmetries)                                                )]))
+  !  
+  !  call print_line('AS syms:')
+  !  call print_line(antisymmetric_symmetries%id)
+  !  
+  !  ! Remove the symmetries with order 2 or less,
+  !  !    since for these symmetries S^T=S, so S-S^T=0.
+  !  antisymmetric_symmetries = antisymmetric_symmetries(           &
+  !     & filter(antisymmetric_symmetries%symmetry_order(qpoint)>2) )
+  !  
+  !  call print_line('Order > 2:')
+  !  call print_line(antisymmetric_symmetries%id)
+  !  
+  !  ! Only take one from each commuting set.
+  !  antisymmetric_symmetries = antisymmetric_symmetries(filter([( &
+  !              & .not.any(superposed_operators_commute(          &
+  !              &             antisymmetric_symmetries(:i-1),     &
+  !              &             antisymmetric_symmetries(i),        &
+  !              &             qpoint,                             &
+  !              &             positive_superposition=.false.  )), &
+  !              & i=1,                                            &
+  !              & size(antisymmetric_symmetries)                  )]))
+  !  
+  !  call print_line('One from each:')
+  !  call print_line(antisymmetric_symmetries%id)
+  !  
+  !  do i=1,size(antisymmetric_symmetries)
+  !    if (antisymmetric_symmetries(i)%id .in. [13,15]) then
+  !    call print_line('')
+  !    call print_line('Symmetry '//antisymmetric_symmetries(i)%id)
+  !    symmetry_matrix = dble(real(calculate_symmetry_in_normal_coordinates( &
+  !                                            & input,                      &
+  !                                            & [(qpoint,j=1,size(input))], &
+  !                                            & antisymmetric_symmetries(i)               )))
+  !    call print_line('')
+  !    call print_lines(mat(symmetry_matrix))
+  !    call print_line('')
+  !    call print_lines(mat((symmetry_matrix - transpose(symmetry_matrix))/2))
+  !    endif
+  !  enddo
+  !  
+  !  
+  !  ! Use the anti-symmetric symmetries to choose the correct basis,
+  !  !    id by id.
+  !  do i=1,size(id_set)
+  !    if (count(ids==id_set(i))>1) then
+  !      anti_split_modes = AntiSplitModes( output(filter(ids==id_set(i))), &
+  !                                       & antisymmetric_symmetries,       &
+  !                                       & qpoint                          )
+  !      output(filter(ids==id_set(i))) = anti_split_modes%modes
+  !    endif
+  !  enddo
+  !endif
   
   ! If 2q=G then every mode is real, and is its own pair under inversion.
   output%paired_id = output%id
@@ -552,18 +580,19 @@ function new_AntiSplitModes_ComplexModes(input,symmetries,qpoint) result(this)
   
   real(dp), allocatable :: symmetry_matrix(:,:)
   
+  type(RealVector) :: vector
+  
+  type(RealVector), allocatable :: vectors(:)
+  
   type(ComplexMode), allocatable :: modes(:)
   
-  integer :: i,j
+  integer :: i,j,k,ialloc
   
-  if (size(symmetries)/=size(input)-1) then
-    call print_line(CODE_ERROR//': The number of symmetries is unexpected.')
-    call err()
-  endif
-  
-  modes = input
   ! The first mode is the first input mode.
   ! The other modes are each a symmetry acting on the first mode.
+  allocate(vectors(size(input)), stat=ialloc); call err(ialloc)
+  vectors(1) = dblevec(vec([1,(0,i=1,size(input)-1)]))
+  k = 1
   do i=1,size(symmetries)
     symmetry_matrix = dble(real(calculate_symmetry_in_normal_coordinates( &
                                             & input,                      &
@@ -571,14 +600,27 @@ function new_AntiSplitModes_ComplexModes(input,symmetries,qpoint) result(this)
                                             & symmetries(i)               )))
     symmetry_matrix = (symmetry_matrix - transpose(symmetry_matrix))/2
     
-    modes(i+1)%unit_vector = cmplxvec(zeroes(3))
+    vector = vec(symmetry_matrix(1,:))/l2_norm(symmetry_matrix(1,:))
+    if (all(abs(vector*vectors(:k))<0.01_dp)) then
+      k = k+1
+      vectors(k) = vector
+    endif
+  enddo
+  
+  if (k/=size(input)) then
+    call print_line(ERROR//': Unable to construct modes from anti-symmetric &
+       &symmetries.')
+    call err()
+  endif
+  
+  modes = input
+  do i=2,size(modes)
+    modes(i)%unit_vector = cmplxvec(zeroes(3))
     do j=1,size(input)
-      modes(i+1)%unit_vector = modes(i+1)%unit_vector &
-                           & + symmetry_matrix(1,j)   &
-                           & * input(j)%unit_vector
+      modes(i)%unit_vector = modes(i)%unit_vector  &
+                         & + vectors(i)%element(j) &
+                         & * input(j)%unit_vector
     enddo
-    modes(i+1)%unit_vector = modes(i+1)%unit_vector &
-                         & / l2_norm(symmetry_matrix(1,:))
   enddo
   
   this = AntiSplitModes(modes)

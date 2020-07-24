@@ -162,8 +162,8 @@ impure elemental function stress_ComplexModeDisplacement_PolynomialStress( &
 end function
 
 ! Integrate the stress between two states.
-subroutine braket_SubspaceBraKet_PolynomialStress(this,braket,whole_subspace, &
-   & anharmonic_data)
+impure elemental subroutine braket_SubspaceBraKet_PolynomialStress(this, &
+   & braket,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PolynomialStress), intent(inout)        :: this
@@ -191,8 +191,8 @@ subroutine braket_SubspaceBraKet_PolynomialStress(this,braket,whole_subspace, &
 end subroutine
 
 ! Integrate the stress between two states.
-subroutine braket_BasisState_PolynomialStress(this,bra,ket,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data)
+impure elemental subroutine braket_BasisState_PolynomialStress(this,bra,ket, &
+   & subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PolynomialStress),  intent(inout)        :: this
@@ -228,8 +228,8 @@ subroutine braket_BasisState_PolynomialStress(this,bra,ket,subspace, &
   endif
 end subroutine
 
-subroutine braket_BasisStates_PolynomialStress(this,states,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data) 
+impure elemental subroutine braket_BasisStates_PolynomialStress(this,states, &
+   & subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PolynomialStress),  intent(inout)        :: this
@@ -310,10 +310,16 @@ impure elemental function harmonic_expectation_PolynomialStress(this, &
   type(AnharmonicData),    intent(in) :: anharmonic_data
   type(RealMatrix)                    :: output
   
-  output = this%reference_stress_                                          &
-       & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
-       &                                                   thermal_energy, &
-       &                                                   supercell_size  ))
+  integer :: i
+  
+  output = this%reference_stress_                                   &
+       & + sum([( this%basis_functions_(i)%harmonic_expectation(    &
+       &                                         frequency,         &
+       &                                         thermal_energy,    &
+       &                                         supercell_size,    &
+       &                                         anharmonic_data ), &
+       &          i=1,                                              &
+       &          size(this%basis_functions_)                       )])
 end function
 
 ! Calculate the contribution to a given monomial from the interpolation of

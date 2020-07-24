@@ -91,7 +91,7 @@ function new_CartesianHessian_elements(supercell,elements,check_symmetry, &
        & 'Fractional L2 error in F(i1,i2)=F(i2,i1)      : '// &
        & sqrt(difference/average))
   endif
-  if (sqrt(difference/average) > 1e-10_dp) then
+  if (sqrt(difference/average) > 1e-6_dp) then
     call print_line(WARNING//': F(i1,i2)/=F(i2,i1). Please check log files.')
     call print_line('Fractional L2 error in F(i1,i2)=F(i2,i1) : '// &
        & sqrt(difference/average))
@@ -127,7 +127,7 @@ function new_CartesianHessian_elements(supercell,elements,check_symmetry, &
          & 'Fractional L2 error in symmetry of F(i1,i2)   : '// &
          & sqrt(difference/average))
     endif
-    if (sqrt(difference/average) > 1e-10_dp) then
+    if (sqrt(difference/average) > 1e-6_dp) then
       call print_line(WARNING//': F(i1,i2) is not as symmetric as expected. &
          &Please check log files.')
       call print_line('Fractional L2 error in symmetry: '//&

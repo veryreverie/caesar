@@ -22,6 +22,7 @@ module wavevector_states_module
   type, extends(BasisStates) :: WavevectorStates
     type(WavevectorState), allocatable :: states(:)
     real(dp),              allocatable :: energies(:)
+    real(dp),              allocatable :: weights(:)
     type(DensityMatrix),   allocatable :: density_matrices(:)
   contains
     procedure, public, nopass :: representation => &
@@ -53,17 +54,21 @@ end subroutine
 ! WavevectorStates methods.
 ! ----------------------------------------------------------------------
 ! Constructors.
-function new_WavevectorStates(subspace_id,states,energies) result(this) 
+function new_WavevectorStates(subspace_id,states,energies,weights) result(this) 
   implicit none
   
-  integer,               intent(in) :: subspace_id
-  type(WavevectorState), intent(in) :: states(:)
-  real(dp),              intent(in) :: energies(:)
-  type(WavevectorStates)            :: this
+  integer,               intent(in)           :: subspace_id
+  type(WavevectorState), intent(in)           :: states(:)
+  real(dp),              intent(in)           :: energies(:)
+  real(dp),              intent(in), optional :: weights(:)
+  type(WavevectorStates)                      :: this
   
   this%subspace_id = subspace_id
   this%states = states
   this%energies = energies
+  if (present(weights)) then
+    this%weights = weights
+  endif
 end function
 
 recursive function new_WavevectorStates_BasisStates(input) result(this)

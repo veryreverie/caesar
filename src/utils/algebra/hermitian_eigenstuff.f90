@@ -150,6 +150,8 @@ function diagonalise_symmetric_reals(input,basis) result(output)
             & info  = info)
   if (info /= 0) then
     call print_line(ERROR//' in diagonalisation: dsyev error code: '//info)
+    call print_line('matrix:')
+    call print_lines(mat(input))
     call err()
   endif
   

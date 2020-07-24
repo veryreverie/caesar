@@ -35,6 +35,7 @@ module wavevector_basis_module
   public :: core_harmonic_observables
   public :: core_effective_harmonic_observables
   public :: core_vci_observables
+  public :: free_energy_gradient
   
   public :: HarmonicBraKetReal
   public :: HarmonicBraKetComplex
@@ -85,6 +86,8 @@ module wavevector_basis_module
                        & thermodynamic_data_WavevectorBasis
     procedure, public :: wavefunctions => &
                        & wavefunctions_WavevectorBasis
+    procedure, public :: free_energy_gradient => &
+                       & free_energy_gradient_WavevectorBasis
   end type
   
   interface WavevectorBasis
@@ -106,6 +109,10 @@ module wavevector_basis_module
     module procedure core_vci_observables_WavevectorBasis
   end interface
   
+  interface free_energy_gradient
+    module procedure free_energy_gradient_WavevectorBases
+  end interface
+  
   interface HarmonicBraKetReal
     module procedure new_HarmonicBraKetReal_WavevectorBasis
   end interface
@@ -115,8 +122,8 @@ module wavevector_basis_module
   end interface
   
   type, extends(NoDefaultConstructor) :: SelectedStatesHamiltonian
-    integer,  allocatable :: selected_states(:)
-    real(dp), allocatable :: hamiltonian(:,:)
+    integer, allocatable   :: selected_states(:)
+    type(SparseRealMatrix) :: hamiltonian
   end type
 contains
 
@@ -1427,7 +1434,7 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace,    &
   
   class(WavevectorBasis),   intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
-  class(PotentialData),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: state_energy_cutoff
   type(ConvergenceData),    intent(in) :: convergence_data
@@ -1439,33 +1446,36 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace,    &
   
   type(WavevectorState), allocatable :: wavevector_states(:)
   
-  integer :: i
+  integer :: i,ialloc
   
   ! Calculate the Hamiltonian.
   associate(harmonic_states=>this%harmonic_states_)
     select type(harmonic_states); type is(HarmonicStateReal)
-      hamiltonian = calculate_hamiltonian_real( this,                &
-                                              & harmonic_states,     &
-                                              & state_energy_cutoff, &
-                                              & subspace_potential,  &
-                                              & anharmonic_data      )
+      hamiltonian = calculate_hamiltonian_real( &
+            & this,                             &
+            & harmonic_states,                  &
+            & state_energy_cutoff,              &
+            & subspace_potential,               &
+            & anharmonic_data = anharmonic_data )
     type is(HarmonicStateComplex)
-      hamiltonian = calculate_hamiltonian_complex( this,                &
-                                                 & harmonic_states,     &
-                                                 & state_energy_cutoff, &
-                                                 & subspace_potential,  &
-                                                 & anharmonic_data      )
+      hamiltonian = calculate_hamiltonian_complex( &
+               & this,                             &
+               & harmonic_states,                  &
+               & state_energy_cutoff,              &
+               & subspace_potential,               &
+               & anharmonic_data = anharmonic_data )
     end select
   end associate
   
-  estuff = diagonalise_symmetric(hamiltonian%hamiltonian)
+  estuff = diagonalise_symmetric(mat(hamiltonian%hamiltonian))
   
-  wavevector_states = [( WavevectorState( this%subspace_id,               &
-                      &                   this%wavevector,                &
-                      &                   hamiltonian%selected_states,    &
-                      &                   estuff(i)%evec               ), &
-                      & i=1,                                              &
-                      & size(estuff)                                      )]
+  allocate(wavevector_states(size(estuff)), stat=ialloc); call err(ialloc)
+  do i=1,size(estuff)
+    wavevector_states(i) = WavevectorState( this%subspace_id,            &
+                                          & this%wavevector,             &
+                                          & hamiltonian%selected_states, &
+                                          & estuff(i)%evec               )
+  enddo
   
   ! N.B. there is not enough information at this stage to calculate weights.
   ! These must be calculated once the states from each wavevector are collated.
@@ -1475,16 +1485,20 @@ impure elemental function calculate_states_WavevectorBasis(this,subspace,    &
      & energies        = estuff%eval                  ))
 end function
 
-function calculate_hamiltonian_real(basis,harmonic_states, &
-   & state_energy_cutoff,subspace_potential,anharmonic_data) result(output) 
+function calculate_hamiltonian_real(basis,harmonic_states,          &
+   & state_energy_cutoff,subspace_potential,include_kinetic_energy, &
+   & anharmonic_data) result(output) 
   implicit none
   
-  type(WavevectorBasis),   intent(in)         :: basis
-  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
-  real(dp),                intent(in)         :: state_energy_cutoff
-  class(PotentialData),    intent(in)         :: subspace_potential
-  type(AnharmonicData),    intent(in)         :: anharmonic_data
-  type(SelectedStatesHamiltonian)             :: output
+  type(WavevectorBasis),   intent(in)           :: basis
+  type(HarmonicStateReal), intent(in), target   :: harmonic_states(:)
+  real(dp),                intent(in)           :: state_energy_cutoff
+  class(PotentialBase),    intent(in)           :: subspace_potential
+  logical,                 intent(in), optional :: include_kinetic_energy
+  type(AnharmonicData),    intent(in)           :: anharmonic_data
+  type(SelectedStatesHamiltonian)               :: output
+  
+  logical :: include_kinetic_energy_
   
   type(HarmonicBraKetReal) :: braket
   
@@ -1493,7 +1507,13 @@ function calculate_hamiltonian_real(basis,harmonic_states, &
   
   type(IntArray1d), allocatable :: selected_couplings(:)
   
-  integer :: i,j,k,ialloc
+  integer                        :: no_elements
+  type(RealElement), allocatable :: elements(:)
+  real(dp)                       :: element
+  
+  integer :: i,j,k,l,ialloc
+  
+  include_kinetic_energy_ = set_default(include_kinetic_energy, .false.)
   
   ! Initialise the braket. This can be done from any state.
   braket = HarmonicBraKetReal(basis, harmonic_states(1), anharmonic_data)
@@ -1515,10 +1535,11 @@ function calculate_hamiltonian_real(basis,harmonic_states, &
                                                 & output%selected_states     )
   
   ! Calculate the Hamiltonian in the basis of selected states.
-  allocate( output%hamiltonian( size(output%selected_states),    &
-          &                     size(output%selected_states)  ), &
-          & stat=ialloc); call err(ialloc)
-  output%hamiltonian = 0
+  no_elements = sum([( size(selected_couplings(i)%i), &
+                     & i=1,                           &
+                     & size(selected_couplings)       )])
+  allocate( elements(no_elements), stat=ialloc); call err(ialloc)
+  l = 0
   do i=1,size(selected_couplings)
     braket%bra_ => harmonic_states(output%selected_states(i))
     do j=1,size(selected_couplings(i))
@@ -1531,27 +1552,42 @@ function calculate_hamiltonian_real(basis,harmonic_states, &
       
       braket%ket_ => harmonic_states(output%selected_states(k))
       
-      output%hamiltonian(i,k) = braket%kinetic_energy(anharmonic_data) &
-                            & + subspace_potential%potential_energy(   &
-                            &                        braket,           &
-                            &                        anharmonic_data )
+      element = braket%kinetic_energy(anharmonic_data)               &
+            & + subspace_potential%potential_energy( braket,         &
+            &                                        anharmonic_data )
+      
+      if (abs(element)<1e-300_dp) then
+        cycle
+      endif
+      
+      l = l+1
+      elements(l) = RealElement(i, k, element)
       if (k/=i) then
-        output%hamiltonian(k,i) = output%hamiltonian(i,k)
+        l = l+1
+        elements(l) = RealElement(k, i, element)
       endif
     enddo
   enddo
+  
+  output%hamiltonian = SparseRealMatrix( size(output%selected_states), &
+                                       & size(output%selected_states), &
+                                       & elements(:l)                  )
 end function
 
-function calculate_hamiltonian_complex(basis,harmonic_states, &
-   & state_energy_cutoff,subspace_potential,anharmonic_data) result(output) 
+function calculate_hamiltonian_complex(basis,harmonic_states,       &
+   & state_energy_cutoff,subspace_potential,include_kinetic_energy, &
+   & anharmonic_data) result(output) 
   implicit none
   
-  type(WavevectorBasis),      intent(in)         :: basis
-  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
-  real(dp),                   intent(in)         :: state_energy_cutoff
-  class(PotentialData),       intent(in)         :: subspace_potential
-  type(AnharmonicData),       intent(in)         :: anharmonic_data
-  type(SelectedStatesHamiltonian)                :: output
+  type(WavevectorBasis),      intent(in)           :: basis
+  type(HarmonicStateComplex), intent(in), target   :: harmonic_states(:)
+  real(dp),                   intent(in)           :: state_energy_cutoff
+  class(PotentialBase),       intent(in)           :: subspace_potential
+  logical,                    intent(in), optional :: include_kinetic_energy
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
+  type(SelectedStatesHamiltonian)                  :: output
+  
+  logical :: include_kinetic_energy_
   
   type(HarmonicBraKetComplex) :: braket
   
@@ -1560,7 +1596,13 @@ function calculate_hamiltonian_complex(basis,harmonic_states, &
   
   type(IntArray1d), allocatable :: selected_couplings(:)
   
-  integer :: i,j,k,ialloc
+  integer                        :: no_elements
+  type(RealElement), allocatable :: elements(:)
+  real(dp)                       :: element
+  
+  integer :: i,j,k,l,ialloc
+  
+  include_kinetic_energy_ = set_default(include_kinetic_energy, .false.)
   
   ! Initialise the braket. This can be done from any state.
   braket = HarmonicBraKetComplex(basis, harmonic_states(1), anharmonic_data)
@@ -1582,10 +1624,11 @@ function calculate_hamiltonian_complex(basis,harmonic_states, &
                                                 & output%selected_states     )
   
   ! Calculate the Hamiltonian in the basis of selected states.
-  allocate( output%hamiltonian( size(output%selected_states),    &
-          &                     size(output%selected_states)  ), &
-          & stat=ialloc); call err(ialloc)
-  output%hamiltonian = 0
+  no_elements = sum([( size(selected_couplings(i)%i), &
+                     & i=1,                           &
+                     & size(selected_couplings)       )])
+  allocate( elements(no_elements), stat=ialloc); call err(ialloc)
+  l = 0
   do i=1,size(selected_couplings)
     braket%bra_ => harmonic_states(output%selected_states(i))
     do j=1,size(selected_couplings(i))
@@ -1598,15 +1641,26 @@ function calculate_hamiltonian_complex(basis,harmonic_states, &
       
       braket%ket_ => harmonic_states(output%selected_states(k))
       
-      output%hamiltonian(i,k) = braket%kinetic_energy(anharmonic_data) &
-                            & + subspace_potential%potential_energy(   &
-                            &                        braket,           &
-                            &                        anharmonic_data )
+      element = braket%kinetic_energy(anharmonic_data)               &
+            & + subspace_potential%potential_energy( braket,         &
+            &                                        anharmonic_data )
+      
+      if (abs(element)<1e-300_dp) then
+        cycle
+      endif
+      
+      l = l+1
+      elements(l) = RealElement(i, k, element)
       if (k/=i) then
-        output%hamiltonian(k,i) = output%hamiltonian(i,k)
+        l = l+1
+        elements(l) = RealElement(k, i, element)
       endif
     enddo
   enddo
+  
+  output%hamiltonian = SparseRealMatrix( size(output%selected_states), &
+                                       & size(output%selected_states), &
+                                       & elements(:l)                  )
 end function
 
 ! Calculate the eigenstates of a wavevector basis.
@@ -1616,7 +1670,7 @@ function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
   
   type(WavevectorBasis),    intent(in) :: basis(:)
   type(DegenerateSubspace), intent(in) :: subspace
-  class(PotentialData),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: state_energy_cutoff
   type(ConvergenceData),    intent(in) :: convergence_data
@@ -1656,11 +1710,23 @@ function calculate_states(basis,subspace,subspace_potential,thermal_energy, &
     energies = [energies, wavevector_states%energies]
   enddo
   
+  weights = calculate_weights(energies,thermal_energy)
+  
+  if (thermal_energy>0) then
+    if (count(weights>1e-100_dp)==1) then
+      call print_line('')
+      call print_line(WARNING//': State energy differences in subspace '// &
+         &subspace%id//' are very large compared to the temperature. This may &
+         &block convergence.')
+      call print_line('Relative Energies / (kB T):')
+      call print_line((energies-minval(energies))/thermal_energy)
+    endif
+  endif
+  
   wavevector_states = WavevectorStates( subspace%id, &
                                       & states,      &
-                                      & energies     )
-  
-  weights = calculate_weights(energies,thermal_energy)
+                                      & energies,    &
+                                      & weights      )
   
   allocate( wavevector_states%density_matrices(size(basis)), &
           & stat=ialloc); call err(ialloc)
@@ -1689,7 +1755,7 @@ function core_harmonic_observables_WavevectorBasis(bases,thermal_energy, &
   
   type(WavevectorBasis),  intent(in), target   :: bases(:)
   real(dp),               intent(in)           :: thermal_energy
-  class(StressData),      intent(in), optional :: stress
+  class(StressBase),      intent(in), optional :: stress
   type(StressPrefactors), intent(in), optional :: stress_prefactors
   type(AnharmonicData),   intent(in)           :: anharmonic_data
   type(ThermodynamicData)                      :: output
@@ -1779,8 +1845,8 @@ function core_effective_harmonic_observables_WavevectorBasis(bases,     &
   
   type(WavevectorBasis),  intent(in), target   :: bases(:)
   real(dp),               intent(in)           :: thermal_energy
-  class(PotentialData),   intent(in)           :: potential
-  class(StressData),      intent(in), optional :: stress
+  class(PotentialBase),   intent(in)           :: potential
+  class(StressBase),      intent(in), optional :: stress
   type(StressPrefactors), intent(in), optional :: stress_prefactors
   type(AnharmonicData),   intent(in)           :: anharmonic_data
   type(ThermodynamicData)                      :: output
@@ -1892,8 +1958,8 @@ function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
   real(dp),                 intent(in)                  :: thermal_energy
   class(BasisStates),       intent(in),          target :: states
   type(DegenerateSubspace), intent(in)                  :: subspace
-  class(PotentialData),     intent(in)                  :: subspace_potential
-  class(StressData),        intent(in), optional        :: subspace_stress
+  class(PotentialBase),     intent(in)                  :: subspace_potential
+  class(StressBase),        intent(in), optional        :: subspace_stress
   type(StressPrefactors),   intent(in), optional        :: stress_prefactors
   type(AnharmonicData),     intent(in)                  :: anharmonic_data
   type(ThermodynamicData)                               :: output
@@ -1902,6 +1968,9 @@ function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
   
   type(RealMatrix) :: stress
   real(dp)         :: volume
+  
+  real(dp) :: internal_energy
+  real(dp) :: energy_difference
   
   integer :: i,j
   
@@ -1917,20 +1986,31 @@ function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
                             & wavevector_states%energies )
   
   ! Calculate stress.
+  internal_energy = 0.0_dp
   if (present(subspace_stress)) then
     stress = dblemat(zeroes(3,3))
-    do i=1,size(bases)
-      j = first(    wavevector_states%density_matrices%wavevector &
-               & == bases(i)%wavevector,                          &
-               & default=0                                        )
-      if (j==0) then
-        cycle
-      elseif (size(wavevector_states%density_matrices(j)%values)==0) then
-        cycle
-      endif
-      
-      associate(harmonic_states=>bases(i)%harmonic_states_)
-        select type(harmonic_states); type is(HarmonicStateReal)
+  endif
+  
+  do i=1,size(bases)
+    j = first(    wavevector_states%density_matrices%wavevector &
+             & == bases(i)%wavevector,                          &
+             & default=0                                        )
+    if (j==0) then
+      cycle
+    elseif (size(wavevector_states%density_matrices(j)%values)==0) then
+      cycle
+    endif
+    
+    associate(harmonic_states=>bases(i)%harmonic_states_)
+      select type(harmonic_states); type is(HarmonicStateReal)
+        internal_energy = internal_energy                           &
+                      & + internal_energy_real(                     &
+                      &      bases(i),                              &
+                      &      harmonic_states,                       &
+                      &      wavevector_states%density_matrices(j), &
+                      &      subspace_potential,                    &
+                      &      anharmonic_data                        )
+        if (present(subspace_stress)) then
           stress = stress                                              &
                & + stress_real( bases(i),                              &
                &                harmonic_states,                       &
@@ -1938,7 +2018,16 @@ function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
                &                subspace_stress,                       &
                &                stress_prefactors,                     &
                &                anharmonic_data                        )
-        type is(HarmonicStateComplex)
+        endif
+      type is(HarmonicStateComplex)
+        internal_energy = internal_energy                           &
+                      & + internal_energy_complex(                  &
+                      &      bases(i),                              &
+                      &      harmonic_states,                       &
+                      &      wavevector_states%density_matrices(j), &
+                      &      subspace_potential,                    &
+                      &      anharmonic_data                        )
+        if (present(subspace_stress)) then
           stress = stress                                                 &
                & + stress_complex( bases(i),                              &
                &                   harmonic_states,                       &
@@ -1946,14 +2035,109 @@ function core_vci_observables_WavevectorBasis(bases,thermal_energy,states, &
                &                   subspace_stress,                       &
                &                   stress_prefactors,                     &
                &                   anharmonic_data                        )
-        end select
-      end associate
-    enddo
-    
+        endif
+      end select
+    end associate
+  enddo
+  
+  energy_difference = internal_energy-output%energy
+  output%energy = output%energy+energy_difference
+  output%free_energy = output%free_energy+energy_difference
+  
+  if (present(subspace_stress)) then
     volume = anharmonic_data%structure%volume
-    
     call output%set_stress(stress,volume)
   endif
+end function
+
+function internal_energy_real(basis,harmonic_states,density_matrix,potential, &
+   & anharmonic_data) result(output) 
+  implicit none
+  
+  type(WavevectorBasis),   intent(in)         :: basis
+  type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
+  type(DensityMatrix),     intent(in)         :: density_matrix
+  class(PotentialBase),    intent(in)         :: potential
+  type(AnharmonicData),    intent(in)         :: anharmonic_data
+  real(dp)                                    :: output
+  
+  type(HarmonicBraKetReal) :: braket
+  
+  real(dp) :: term
+  
+  integer :: i
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetReal(basis, harmonic_states(1), anharmonic_data)
+  
+  output = 0.0_dp
+  do i=1,size(density_matrix%values)
+    ! Ignore terms with ket<bra. These are added when i and k are reversed.
+    if (density_matrix%ket_ids(i)<density_matrix%bra_ids(i)) then
+      cycle
+    endif
+    
+    ! Calculate <bra|X|ket> in the harmonic basis,
+    !    and thermally weight by the density matrix.
+    braket%bra_ => harmonic_states(density_matrix%bra_ids(i))
+    braket%ket_ => harmonic_states(density_matrix%ket_ids(i))
+    term = ( potential%potential_energy(braket, anharmonic_data)   &
+       &   + braket%kinetic_energy(anharmonic_data)              ) &
+       & * density_matrix%values(i)
+    
+    ! If bra==ket, only include <bra|X|bra>,
+    !    otherwise include <bra|X|ket> and <ket|X|bra>.
+    if (density_matrix%bra_ids(i)==density_matrix%ket_ids(i)) then
+      output = output + term
+    else
+      output = output + 2*term
+    endif
+  enddo
+end function
+
+function internal_energy_complex(basis,harmonic_states,density_matrix, &
+   & potential,anharmonic_data) result(output) 
+  implicit none
+  
+  type(WavevectorBasis),      intent(in)         :: basis
+  type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
+  type(DensityMatrix),        intent(in)         :: density_matrix
+  class(PotentialBase),       intent(in)         :: potential
+  type(AnharmonicData),       intent(in)         :: anharmonic_data
+  real(dp)                                       :: output
+  
+  type(HarmonicBraKetComplex) :: braket
+  
+  real(dp) :: term
+  
+  integer :: i
+  
+  ! Initialise the braket. This can be done from any state.
+  braket = HarmonicBraKetComplex(basis, harmonic_states(1), anharmonic_data)
+  
+  output = 0.0_dp
+  do i=1,size(density_matrix%values)
+    ! Ignore terms with ket<bra. These are added when i and k are reversed.
+    if (density_matrix%ket_ids(i)<density_matrix%bra_ids(i)) then
+      cycle
+    endif
+    
+    ! Calculate <bra|X|ket> in the harmonic basis,
+    !    and thermally weight by the density matrix.
+    braket%bra_ => harmonic_states(density_matrix%bra_ids(i))
+    braket%ket_ => harmonic_states(density_matrix%ket_ids(i))
+    term = ( potential%potential_energy(braket, anharmonic_data)   &
+       &   + braket%kinetic_energy(anharmonic_data)              ) &
+       & * density_matrix%values(i)
+    
+    ! If bra==ket, only include <bra|X|bra>,
+    !    otherwise include <bra|X|ket> and <ket|X|bra>.
+    if (density_matrix%bra_ids(i)==density_matrix%ket_ids(i)) then
+      output = output + term
+    else
+      output = output + 2*term
+    endif
+  enddo
 end function
 
 function stress_real(basis,harmonic_states,density_matrix,stress, &
@@ -1963,7 +2147,7 @@ function stress_real(basis,harmonic_states,density_matrix,stress, &
   type(WavevectorBasis),   intent(in)         :: basis
   type(HarmonicStateReal), intent(in), target :: harmonic_states(:)
   type(DensityMatrix),     intent(in)         :: density_matrix
-  class(StressData),       intent(in)         :: stress
+  class(StressBase),       intent(in)         :: stress
   type(StressPrefactors),  intent(in)         :: stress_prefactors
   type(AnharmonicData),    intent(in)         :: anharmonic_data
   type(RealMatrix)                            :: output
@@ -2009,7 +2193,7 @@ function stress_complex(basis,harmonic_states,density_matrix,stress, &
   type(WavevectorBasis),      intent(in)         :: basis
   type(HarmonicStateComplex), intent(in), target :: harmonic_states(:)
   type(DensityMatrix),        intent(in)         :: density_matrix
-  class(StressData),          intent(in)         :: stress
+  class(StressBase),          intent(in)         :: stress
   type(StressPrefactors),     intent(in)         :: stress_prefactors
   type(AnharmonicData),       intent(in)         :: anharmonic_data
   type(RealMatrix)                               :: output
@@ -2072,6 +2256,269 @@ function paired_mode_ids_WavevectorBasis(this,subspace,anharmonic_data) &
   integer, allocatable                 :: output(:)
   
   output = this%harmonic_states_(1)%paired_mode_ids()
+end function
+
+! Calculate the derivative of the free energy.
+function free_energy_gradient_WavevectorBasis(this,subspace_potential,   &
+   & basis_functions,subspace,states,thermal_energy,state_energy_cutoff, &
+   & anharmonic_data) result(output) 
+  implicit none
+  
+  class(WavevectorBasis),   intent(in) :: this
+  class(PotentialBase),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: basis_functions(:)
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(BasisStates),       intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: state_energy_cutoff
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  real(dp), allocatable                :: output(:)
+  
+  ! Calculating the free energy gradient is not simply additive across the
+  !    wavevectors, so free_energy_gradient_WavevectorBases should be called
+  !    instead.
+  call err()
+end function
+
+function free_energy_gradient_WavevectorBases(bases,subspace_potential,  &
+   & basis_functions,subspace,states,thermal_energy,state_energy_cutoff, &
+   & anharmonic_data) result(output) 
+  implicit none
+  
+  type(WavevectorBasis),    intent(in) :: bases(:)
+  class(PotentialBase),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: basis_functions(:)
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(BasisStates),       intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: state_energy_cutoff
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  real(dp), allocatable                :: output(:)
+  
+  type(WavevectorStates) :: states_
+  
+  logical,             allocatable :: wavevector_included(:)
+  type(DensityMatrix), allocatable :: density_matrices(:)
+  
+  type(IntArray1D),    allocatable :: states_at_wavevector(:)
+  
+  type(WavevectorState), allocatable :: eigenstates(:)
+  real(dp),              allocatable :: state_energies(:)
+  real(dp),              allocatable :: state_weights(:)
+  
+  real(dp),  allocatable :: transformation(:,:)
+  
+  type(HarmonicStateReal),         allocatable :: real_states(:)
+  type(HarmonicStateComplex),      allocatable :: complex_states(:)
+  
+  type(SelectedStatesHamiltonian), allocatable :: subspace_hamiltonians_(:)
+  type(SelectedStatesHamiltonian), allocatable :: basis_hamiltonians_(:,:)
+  
+  type(RealMatrix), allocatable :: subspace_hamiltonians(:)
+  type(RealMatrix), allocatable :: basis_hamiltonians(:,:)
+  
+  real(dp), allocatable :: basis_expectations(:)
+  
+  real(dp) :: dmixing_dc
+  real(dp) :: dp_dc
+  
+  integer :: i,j,k,l,ialloc
+  
+  output = [(0.0_dp, i=1, size(basis_functions))]
+  
+  ! The gradient cannot be calculated at zero temperature.
+  if (thermal_energy<1e-300_dp) then
+    return
+  endif
+  
+  states_ = WavevectorStates(states)
+  
+  allocate( wavevector_included(size(bases)),              &
+          & density_matrices(size(bases)),                 &
+          & states_at_wavevector(size(bases)),             &
+          & subspace_hamiltonians_(size(bases)),           &
+          & subspace_hamiltonians(size(bases)),            &
+          & basis_hamiltonians_( size(basis_functions),    &
+          &                      size(bases)            ), &
+          & basis_hamiltonians( size(basis_functions),     &
+          &                     size(bases)            ),  &
+          & stat=ialloc); call err(ialloc)
+  wavevector_included = .true.
+  basis_expectations = [(0.0_dp, i=1, size(basis_functions))]
+  do i=1,size(bases)
+    j = first( states_%density_matrices%wavevector==bases(i)%wavevector, &
+             & default=0                                                 )
+    if (j==0) then
+      wavevector_included(i) = .false.
+      cycle
+    elseif (.not. allocated(states_%density_matrices(j)%values)) then
+      wavevector_included(i) = .false.
+      cycle
+    elseif (thermal_energy<1e-300_dp) then
+      wavevector_included(i) = .false.
+      cycle
+    endif
+    
+    density_matrices(i) = states_%density_matrices(j)
+    
+    states_at_wavevector(i) = array(filter(             &
+       & states_%states%wavevector==bases(i)%wavevector &
+       & .and. states_%weights>1e-300_dp                ))
+    if (size(states_at_wavevector(i)%i)==0) then
+      wavevector_included(i) = .false.
+      cycle
+    endif
+    
+    eigenstates = states_%states(states_at_wavevector(i)%i)
+    state_energies = states_%energies(states_at_wavevector(i)%i)
+    state_weights = states_%weights(states_at_wavevector(i)%i)
+    
+    allocate( transformation( size(eigenstates),                   &
+            &                 size(eigenstates(1)%coefficients) ), &
+            & stat=ialloc); call err(ialloc)
+    do j=1,size(eigenstates)
+      transformation(j,:) = eigenstates(j)%coefficients
+    enddo
+    
+    ! Calculate the Hamiltonian in the harmonic basis for subspace_potential
+    !    and each basis_function.
+    associate(harmonic_states=>bases(i)%harmonic_states_)
+      select type(harmonic_states); type is(HarmonicStateReal)
+        real_states = harmonic_states(eigenstates(1)%state_ids)
+        subspace_hamiltonians_(i) = calculate_hamiltonian_real( &
+                            & bases(i),                         &
+                            & real_states,                      &
+                            & huge(1.0_dp),                     &
+                            & subspace_potential,               &
+                            & anharmonic_data = anharmonic_data )
+        do j=1,size(basis_functions)
+          basis_hamiltonians_(j,i) = calculate_hamiltonian_real( &
+                             & bases(i),                         &
+                             & real_states,                      &
+                             & huge(1.0_dp),                     &
+                             & basis_functions(j),               &
+                             & include_kinetic_energy = .false., &
+                             & anharmonic_data = anharmonic_data )
+        enddo
+      type is(HarmonicStateComplex)
+        complex_states = harmonic_states(eigenstates(1)%state_ids)
+        subspace_hamiltonians_(i) = calculate_hamiltonian_complex( &
+                               & bases(i),                         &
+                               & complex_states,                   &
+                               & huge(1.0_dp),                     &
+                               & subspace_potential,               &
+                               & anharmonic_data = anharmonic_data )
+        do j=1,size(basis_functions)
+          basis_hamiltonians_(j,i) = calculate_hamiltonian_complex( &
+                                & bases(i),                         &
+                                & complex_states,                   &
+                                & huge(1.0_dp),                     &
+                                & basis_functions(j),               &
+                                & include_kinetic_energy = .false., &
+                                & anharmonic_data = anharmonic_data )
+        enddo
+      end select
+    end associate
+    
+    ! Transform the Hamiltonians into the eigenbasis.
+    subspace_hamiltonians(i) = mat(transformation)                   &
+                           & * subspace_hamiltonians_(i)%hamiltonian &
+                           & * mat(transpose(transformation))
+    do j=1,size(basis_functions)
+      basis_hamiltonians(j,i) = mat(transformation)                  &
+                            & * basis_hamiltonians_(j,i)%hamiltonian &
+                            & * mat(transpose(transformation))
+    enddo
+    
+    deallocate(transformation, stat=ialloc); call err(ialloc)
+    
+    ! Calculate the contribution to <V_j> from this wavevector.
+    do j=1,size(basis_functions)
+      basis_expectations(j) = basis_expectations(j)           &
+         & + sum( state_weights                               &
+         &      * [( basis_hamiltonians(j,i)%element(k,k),    &
+         &           k=1,                                     &
+         &           size(eigenstates)                     )] )
+    enddo
+  enddo
+  
+  if (.not. any(wavevector_included)) then
+    return
+  endif
+  
+  ! The subspace Hamiltonian is H.
+  ! The auxilliary Hamiltonian is sum_j c_j V_j + constant terms,
+  !    where each c_j is a coefficient and each V_j is a basis function.
+  ! The free energy of the potential V with the states from the auxilliary
+  !    Hamiltonian is F.
+  ! dF/d(c_j) =
+  ! sum_k P_k[ (<V_j>-<k|V_j|k>) * (<k|H|k>+T*ln(P_k)) / T
+  !          + (sum_l/=k <k|H|l><l|V_j|k>/(E_k-E_l) + c.c.) ]
+  do i=1,size(bases)
+    if (.not. wavevector_included(i)) then
+      cycle
+    endif
+    
+    eigenstates = states_%states(states_at_wavevector(i)%i)
+    state_energies = states_%energies(states_at_wavevector(i)%i)
+    state_weights = states_%weights(states_at_wavevector(i)%i)
+    
+    do j=1,size(basis_functions)
+      do k=1,size(eigenstates)
+        ! Calculate sum_l P_k <k|H|l><l|V_j|k>/(E_k-E_l) + c.c.
+        ! N.B. In the eigenbasis, these operators are real, so (+ c.c.) just
+        !    introduces a factor of 2.
+        do l=1,k-1
+          ! Calculate P_k*<l|V_j|k>/(E_k-E_l) + P_l*<k|V_j|l>/(E_l-E_k)
+          !         = <l|V_j|k>*(P_k-P_l)/(E_k-E_l).
+          ! This is the mixing of state |k> with state |l> under an
+          !    infinitesimal change in c_j, equal to [d(<k|)/d(c_i) |l>].
+          if (   abs(state_energies(l)-state_energies(k)) &
+             & > thermal_energy*1e-10_dp                  ) then
+            ! |E_k-E_l|/T is large. Calculate (P_k-P_l)/(E_k-E_l) directly.
+            dmixing_dc = 2*basis_hamiltonians(j,i)%element(l,k) &
+                     & * (state_weights(k)-state_weights(l))    &
+                     & / (state_energies(k)-state_energies(l))
+          elseif (   abs(state_energies(k)-state_energies(l)) &
+                 & > thermal_energy*1e-20_dp                  ) then
+            ! |E_k-E_l|/T < 1e-20, so O((T/|E_k-E_l|)^2) can be neglected.
+            ! P_k-P_l = P_k * ( 1-e^((E_k-E_l)/T) )
+            !         = P_k ( -(E_k-E_l)/T - ((E_k-E_l)/T)^2/2 + higher orders)
+            ! 2*(P_k-P_l)/(E_k-E_l) = P_k
+            !                       * (-1/T - (E_k-E_l)/(2T^2) + higher orders)
+            !                       + P_l
+            !                       * (-1/T - (E_l-E_k)/(2T^2) + higher orders)
+            dmixing_dc = -basis_hamiltonians(j,i)%element(l,k)   &
+                     & * ( (state_weights(k)+state_weights(l))   &
+                     &   / thermal_energy                        &
+                     &   + (state_weights(k)-state_weights(l))   &
+                     &   * (state_energies(k)-state_energies(l)) &
+                     &   / (2*thermal_energy**2)                 )
+          else
+            ! |E_k-E_l|/T < 1e-20, so O(T/|E_k-E_l|) can be neglected.
+            ! P_k-P_l = P_k * ( 1-e^((E_k-E_l)/T) )
+            !         = P_k ( (E_l-E_k)/T + higher orders )
+            ! 2*(P_k-P_l)/(E_k-E_l) = -(P_k+P_l)/T + higher orders
+            dmixing_dc = -basis_hamiltonians(j,i)%element(l,k) &
+                     & * (state_weights(k)+state_weights(l)) / thermal_energy
+          endif
+          
+          output(j) = output(j) &
+                  & + dmixing_dc * subspace_hamiltonians(i)%element(k,l)
+        enddo
+        
+        ! Calculate d(P_k)/d(c_j) * dF/d(P_k)
+        !         = P_k*(<V_j>-<k|V_j|k>)/T * (<k|H|k>+T*ln(P_k)).
+        dp_dc = ( basis_expectations(j)                  &
+            &   - basis_hamiltonians(j,i)%element(k,k) ) &
+            & * state_weights(k)/thermal_energy
+        output(j) = output(j)                          &
+           & + dp_dc                                   &
+           & * ( subspace_hamiltonians(i)%element(k,k) &
+           &   + thermal_energy*log(state_weights(k))  )
+      enddo
+    enddo
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -2206,8 +2653,8 @@ impure elemental function thermodynamic_data_WavevectorBasis(this,      &
   real(dp),                 intent(in)                  :: thermal_energy
   class(BasisStates),       intent(in),          target :: states
   type(DegenerateSubspace), intent(in)                  :: subspace
-  class(PotentialData),     intent(in)                  :: subspace_potential
-  class(StressData),        intent(in), optional        :: subspace_stress
+  class(PotentialBase),     intent(in)                  :: subspace_potential
+  class(StressBase),        intent(in), optional        :: subspace_stress
   type(StressPrefactors),   intent(in), optional        :: stress_prefactors
   type(AnharmonicData),     intent(in)                  :: anharmonic_data
   type(ThermodynamicData)                               :: output

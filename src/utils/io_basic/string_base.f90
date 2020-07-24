@@ -71,8 +71,8 @@ end subroutine
 subroutine assign_StringBase_character(output,input)
   implicit none
   
-  class(StringBase), intent(inout) :: output
-  character(*),      intent(in)    :: input
+  class(StringBase), intent(out) :: output
+  character(*),      intent(in)  :: input
   
   output%contents_ = input
 end subroutine

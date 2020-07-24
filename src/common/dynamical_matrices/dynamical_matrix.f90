@@ -98,10 +98,19 @@ function new_DynamicalMatrix_zeroes(no_atoms) result(this)
   integer, intent(in)   :: no_atoms
   type(DynamicalMatrix) :: this
   
-  integer :: ialloc
+  type(ComplexMatrix) :: zero_matrix
+  
+  integer :: i,j,ialloc
   
   allocate(this%elements_(no_atoms,no_atoms), stat=ialloc); call err(ialloc)
-  this%elements_ = cmplxmat(zeroes(3,3))
+  ! this%elements_ = cmplxmat(zeroes(3,3))
+  ! WORKAROUND for a memory leak in ifort 19.1.0.166.
+  zero_matrix = cmplxmat(zeroes(3,3))
+  do i=1,size(this%elements_,2)
+    do j=1,size(this%elements_,1)
+      this%elements_(j,i) = zero_matrix
+    enddo
+  enddo
 end function
 
 ! Getter for elements.
@@ -257,7 +266,7 @@ subroutine check(this,structure,logfile)
      & 'Fractional L2 error in hermicity of dynamical matrix :'// &
      & sqrt(difference/average))
   if (average>1e-20_dp) then
-    if (sqrt(difference/average)>1.0e-10_dp) then
+    if (sqrt(difference/average)>1.0e-6_dp) then
       call print_line(WARNING//': Dynamical matrix is not Hermitian. Please &
          &check log files.')
       call print_line('Fractional L2 error in hermicity: '// &
@@ -315,9 +324,17 @@ function calculate_modes_complex(elements,structure) result(output)
   ! Diagonalise dynamical matrix.
   estuff = diagonalise_hermitian(dyn_mat)
   
+  ! Reverse the eigenvalues so that the complex modes are in ascending order
+  !    of eigenvalue.
+  estuff = estuff(size(estuff):1:-1)
+  
   ! Calculate normal modes.
-  ! Eigenvalues are reversed so that the complex modes are in ascending order.
-  output = ComplexMode(estuff(size(estuff):1:-1), structure)
+  !output = ComplexMode(estuff, structure)
+  ! WORKAROUND for a memory leak in ifort 19.1.0.166.
+  allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
+  do i=1,size(output)
+    output(i) = ComplexMode(estuff(i), structure)
+  enddo
 end function
 
 ! Calculate modes at a q-point where 2q=G.
@@ -552,7 +569,19 @@ impure elemental function add_DynamicalMatrix_DynamicalMatrix(this,that) &
   type(DynamicalMatrix), intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this%elements_ + that%elements_)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  integer :: i,j
+  
+  ! output = DynamicalMatrix(this%elements+that%elements)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = this%elements_
+  do i=1,size(elements,2)
+    do j=1,size(elements,1)
+      elements(j,i) = elements(j,i) + that%elements_(j,i)
+    enddo
+  enddo
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function negative_DynamicalMatrix(this) result(output)
@@ -561,7 +590,12 @@ impure elemental function negative_DynamicalMatrix(this) result(output)
   type(DynamicalMatrix), intent(in) :: this
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(-this%elements_)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  ! output = DynamicalMatrix(-this%elements_)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = -this%elements_
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function subtract_DynamicalMatrix_DynamicalMatrix(this,that) &
@@ -572,7 +606,7 @@ impure elemental function subtract_DynamicalMatrix_DynamicalMatrix(this,that) &
   type(DynamicalMatrix), intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this%elements_ - that%elements_)
+  output = this + (-that)
 end function
 
 impure elemental function multiply_DynamicalMatrix_real(this,that) &
@@ -583,7 +617,19 @@ impure elemental function multiply_DynamicalMatrix_real(this,that) &
   real(dp),              intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this%elements_*that)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  integer :: i,j
+  
+  ! output = DynamicalMatrix(this%elements_*that)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = this%elements_
+  do i=1,size(elements,2)
+    do j=1,size(elements,1)
+      elements(j,i) = elements(j,i) * that
+    enddo
+  enddo
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function multiply_real_DynamicalMatrix(this,that) &
@@ -594,7 +640,19 @@ impure elemental function multiply_real_DynamicalMatrix(this,that) &
   type(DynamicalMatrix), intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this*that%elements_)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  integer :: i,j
+  
+  ! output = DynamicalMatrix(this*that%elements_)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = that%elements_
+  do i=1,size(elements,2)
+    do j=1,size(elements,1)
+      elements(j,i) = elements(j,i) * this
+    enddo
+  enddo
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function multiply_DynamicalMatrix_complex(this,that) &
@@ -605,7 +663,19 @@ impure elemental function multiply_DynamicalMatrix_complex(this,that) &
   complex(dp),           intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this%elements_*that)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  integer :: i,j
+  
+  ! output = DynamicalMatrix(this%elements_*that)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = this%elements_
+  do i=1,size(elements,2)
+    do j=1,size(elements,1)
+      elements(j,i) = elements(j,i) * that
+    enddo
+  enddo
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function multiply_complex_DynamicalMatrix(this,that) &
@@ -616,7 +686,19 @@ impure elemental function multiply_complex_DynamicalMatrix(this,that) &
   type(DynamicalMatrix), intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this*that%elements_)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  integer :: i,j
+  
+  ! output = DynamicalMatrix(this*that%elements_)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = that%elements_
+  do i=1,size(elements,2)
+    do j=1,size(elements,1)
+      elements(j,i) = elements(j,i) * this
+    enddo
+  enddo
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function divide_DynamicalMatrix_real(this,that) &
@@ -627,7 +709,19 @@ impure elemental function divide_DynamicalMatrix_real(this,that) &
   real(dp),              intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this%elements_/that)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  integer :: i,j
+  
+  ! output = DynamicalMatrix(this%elements_*that)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = this%elements_
+  do i=1,size(elements,2)
+    do j=1,size(elements,1)
+      elements(j,i) = elements(j,i) / that
+    enddo
+  enddo
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function divide_DynamicalMatrix_complex(this,that) &
@@ -638,7 +732,19 @@ impure elemental function divide_DynamicalMatrix_complex(this,that) &
   complex(dp),           intent(in) :: that
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(this%elements_/that)
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  integer :: i,j
+  
+  ! output = DynamicalMatrix(this%elements_*that)
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = this%elements_
+  do i=1,size(elements,2)
+    do j=1,size(elements,1)
+      elements(j,i) = elements(j,i) / that
+    enddo
+  enddo
+  output = DynamicalMatrix(elements)
 end function
 
 impure elemental function conjg_DynamicalMatrix(input) result(output)
@@ -647,7 +753,13 @@ impure elemental function conjg_DynamicalMatrix(input) result(output)
   type(DynamicalMatrix), intent(in) :: input
   type(DynamicalMatrix)             :: output
   
-  output = DynamicalMatrix(conjg(input%elements_))
+  type(ComplexMatrix), allocatable :: elements(:,:)
+  
+  ! elements = DynamicalMatrix(conjg(input%elements_))
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166.
+  elements = input%elements_
+  elements = conjg(elements)
+  output = DynamicalMatrix(elements)
 end function
 
 ! ----------------------------------------------------------------------

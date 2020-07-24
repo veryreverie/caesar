@@ -11,12 +11,18 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod/)
 #    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=gfortran
 #    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=ifort
 #    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=nagfor
+# N.B. this will require a compatible C compiler, set using the flag -DCMAKE_C_COMPILER in the same manner.
 
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   # Disabled warnings:
   #    maybe-uninitialized: erroneously triggers.
   #    unused-dummy-argument: triggers for inherited functions.
   set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -Wno-unused-dummy-argument -fcheck-array-temporaries -fno-omit-frame-pointer")
+  if (NOT CMAKE_Fortran_COMPILER_VERSION LESS 10)
+    # Disabled warnings:
+    #    function-elimination: this is desirable behaviour.
+    set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all,no-array-temps -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -Wno-unused-dummy-argument -fno-omit-frame-pointer -Wno-function-elimination")
+  endif()
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
   set(CMAKE_Fortran_FLAGS "-f2008 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u -mtrace -nan -info -g -gline -colour")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")

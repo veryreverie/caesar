@@ -43,8 +43,8 @@ module polynomial_potential_module
     procedure, public :: zero_energy => zero_energy_PolynomialPotential
     procedure, public :: add_constant => add_constant_PolynomialPotential
     
-    procedure, public :: finalise_subspace_potential => &
-                       & finalise_subspace_potential_PolynomialPotential
+    procedure, public :: optimise_subspace_potential => &
+                       & optimise_subspace_potential_PolynomialPotential
     
     procedure, public :: energy_RealModeDisplacement => &
                        & energy_RealModeDisplacement_PolynomialPotential
@@ -77,6 +77,10 @@ module polynomial_potential_module
                        & coefficients_PolynomialPotential
     procedure, public :: set_coefficients => &
                        & set_coefficients_PolynomialPotential
+    procedure, public :: all_basis_functions => &
+                       & all_basis_functions_PolynomialPotential
+    procedure, public :: variable_basis_functions => &
+                       & variable_basis_functions_PolynomialPotential
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PolynomialPotential
@@ -464,7 +468,6 @@ function generate_stress_PolynomialPotential(this,anharmonic_data,        &
                  & stress_expansion_order,                &
                  & anharmonic_data%structure,             &
                  & anharmonic_data%complex_modes,         &
-                 & anharmonic_data%real_modes,            &
                  & anharmonic_data%qpoints,               &
                  & anharmonic_data%degenerate_subspaces,  &
                  & anharmonic_data%degenerate_symmetries, &
@@ -679,17 +682,18 @@ end subroutine
 
 ! Finalise a subspace potential.
 ! Re-arranges basis functions to remove duplicates and separate all monomials.
-impure elemental subroutine finalise_subspace_potential_PolynomialPotential( &
-   & this,subspace,subspace_basis,anharmonic_data)
+subroutine optimise_subspace_potential_PolynomialPotential(this,subspace, &
+   & subspace_basis,old_subspace_potential,anharmonic_data) 
   implicit none
   
-  class(PolynomialPotential), intent(inout) :: this
-  type(DegenerateSubspace),   intent(in)    :: subspace
-  class(SubspaceBasis),       intent(in)    :: subspace_basis
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  class(PolynomialPotential), intent(inout)        :: this
+  type(DegenerateSubspace),   intent(in)           :: subspace
+  class(SubspaceBasis),       intent(in)           :: subspace_basis
+  class(PotentialData),       intent(in), optional :: old_subspace_potential
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
   
   if (size(this%basis_functions_)/=1) then
-    call print_line(CODE_ERROR//': Calling finalise_subspace_potential &
+    call print_line(CODE_ERROR//': Calling optimise_subspace_potential &
        &on a potential with more than one coupling.')
     call err()
   endif
@@ -697,9 +701,10 @@ impure elemental subroutine finalise_subspace_potential_PolynomialPotential( &
   this%reference_energy_ = this%reference_energy_ &
                        & + this%basis_functions_(1)%undisplaced_energy()
   
-  call this%basis_functions_(1)%finalise( subspace,       &
-                                        & subspace_basis, &
-                                        & anharmonic_data )
+  call this%basis_functions_(1)%optimise( subspace,               &
+                                        & subspace_basis,         &
+                                        & old_subspace_potential, &
+                                        & anharmonic_data         )
 end subroutine
 
 ! Calculate the energy at a given displacement.
@@ -760,8 +765,8 @@ impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
 end function
 
 ! Integrate the potential between two states.
-subroutine braket_SubspaceBraKet_PolynomialPotential(this,braket, &
-   & whole_subspace,anharmonic_data)
+impure elemental subroutine braket_SubspaceBraKet_PolynomialPotential(this, &
+   & braket,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
@@ -789,8 +794,8 @@ subroutine braket_SubspaceBraKet_PolynomialPotential(this,braket, &
 end subroutine
 
 ! Integrate the potential between two states.
-subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data)
+impure elemental subroutine braket_BasisState_PolynomialPotential(this,bra, &
+   & ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
@@ -826,8 +831,8 @@ subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace, &
   endif
 end subroutine
 
-subroutine braket_BasisStates_PolynomialPotential(this,states,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data) 
+impure elemental subroutine braket_BasisStates_PolynomialPotential(this, &
+   & states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PolynomialPotential), intent(inout)        :: this
@@ -912,7 +917,8 @@ impure elemental function harmonic_expectation_PolynomialPotential(this, &
   output = this%reference_energy_                                          &
        & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
        &                                                   thermal_energy, &
-       &                                                   supercell_size  ))
+       &                                                   supercell_size, &
+       &                                                   anharmonic_data ))
 end function
 
 recursive function potential_energy_SubspaceBraKet_PolynomialPotential(this, &
@@ -924,10 +930,15 @@ recursive function potential_energy_SubspaceBraKet_PolynomialPotential(this, &
   type(AnharmonicData),       intent(in) :: anharmonic_data
   real(dp)                               :: output
   
-  output = this%reference_energy_                                      &
-       & * braket%inner_product(anharmonic_data)                       &
-       & + sum(this%basis_functions_%potential_energy( braket,         &
-       &                                               anharmonic_data ))
+  integer :: i
+  
+  output = this%reference_energy_                               &
+       & * braket%inner_product(anharmonic_data)                &
+       & + sum([( this%basis_functions_(i)%potential_energy(    &
+       &                                     braket,            &
+       &                                     anharmonic_data ), &
+       &          i=1,                                          &
+       &          size(this%basis_functions_)                   )])
 end function
 
 recursive function potential_energy_BasisState_PolynomialPotential(this,bra, &
@@ -942,16 +953,21 @@ recursive function potential_energy_BasisState_PolynomialPotential(this,bra, &
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   real(dp)                                         :: output
   
+  integer :: i
+  
   output = this%reference_energy_                                      &
        & * subspace_basis%inner_product( bra,                          &
        &                                 ket,                          &
        &                                 subspace,                     &
        &                                 anharmonic_data )             &
-       & + sum(this%basis_functions_%potential_energy( bra,            &
-       &                                               ket,            &
-       &                                               subspace,       &
-       &                                               subspace_basis, &
-       &                                               anharmonic_data ))
+       & + sum([( this%basis_functions_(i)%potential_energy(           &
+       &                                     bra,                      &
+       &                                     ket,                      &
+       &                                     subspace,                 &
+       &                                     subspace_basis,           &
+       &                                     anharmonic_data ),        &
+       &          i=1,                                                 &
+       &          size(this%basis_functions_)                   )])
 end function
 
 function coefficients_PolynomialPotential(this,anharmonic_data) &
@@ -992,6 +1008,37 @@ subroutine set_coefficients_PolynomialPotential(this,coefficients, &
     j = j+no_coefficients
   enddo
 end subroutine
+
+function all_basis_functions_PolynomialPotential(this,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in)  :: this
+  type(AnharmonicData),       intent(in)  :: anharmonic_data
+  type(PotentialBasePointer), allocatable :: output(:)
+  
+  integer :: i
+  
+  output = [( this%basis_functions_(i)%all_basis_functions(), &
+            & i=1,                                            &
+            & size(this%basis_functions_)                     )]
+end function
+
+function variable_basis_functions_PolynomialPotential(this,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(PolynomialPotential), intent(in)  :: this
+  type(AnharmonicData),       intent(in)  :: anharmonic_data
+  type(PotentialBasePointer), allocatable :: output(:)
+  
+  integer :: i
+  
+  output = [( this%basis_functions_(i)%variable_basis_functions(    &
+            &        anharmonic_data%potential_expansion_order-1 ), &
+            & i=1,                                                  &
+            & size(this%basis_functions_)                           )]
+end function
 
 ! Interpolate the potential.
 function can_be_interpolated_PolynomialPotential(this) result(output)

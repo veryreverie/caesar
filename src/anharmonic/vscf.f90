@@ -83,10 +83,12 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
   type(StressPointer),      allocatable :: subspace_stresses(:)
   
   ! Potential coefficients.
-  integer,  allocatable :: first_coefficient(:)
-  integer,  allocatable :: last_coefficient(:)
-  real(dp), allocatable :: coefficients(:)
-  real(dp)              :: free_energy
+  integer,                    allocatable :: first_coefficient(:)
+  integer,                    allocatable :: last_coefficient(:)
+  real(dp),                   allocatable :: coefficients(:)
+  real(dp)                                :: free_energy
+  type(PotentialBasePointer), allocatable :: variable_basis_functions(:)
+  real(dp),                   allocatable :: free_energy_gradient(:)
   
   ! The Pulay scheme solver.
   type(PulaySolver) :: solver
@@ -106,11 +108,12 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
                                                       & subspaces,      &
                                                       & thermal_energy, &
                                                       & anharmonic_data ))
-    subspace_potentials = generate_subspace_potentials( potential,       &
-                                                      & subspaces,       &
-                                                      & subspace_bases,  &
-                                                      & subspace_states, &
-                                                      & anharmonic_data  )
+    subspace_potentials = generate_subspace_potentials( &
+                    & potential,                        &
+                    & subspaces,                        &
+                    & subspace_bases,                   &
+                    & subspace_states,                  &
+                    & anharmonic_data = anharmonic_data )
   else
     call print_line('Using previous configuration for initial states and &
        &potentials.')
@@ -129,6 +132,8 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
                    & subspace_potentials(i)%coefficients(anharmonic_data) ]
     last_coefficient(i) = size(coefficients)
   enddo
+  allocate( free_energy_gradient(size(coefficients)), &
+          & stat=ialloc); call err(ialloc)
   
   ! Write initial potentials to file.
   if (present(convergence_file)) then
@@ -159,6 +164,7 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
   free_energies = [real(dp)::]
   do
     ! Generate single-subspace potentials from Pulay scheme.
+    call solver%calculate_x()
     coefficients = solver%get_x()
     do j=1,size(subspaces)
       call subspace_potentials(j)%set_coefficients(                &
@@ -175,13 +181,27 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
     
     ! Use single-subspace potentials to calculate new single-subspace states.
     call print_line('Generating single-subspace ground states.')
-    subspace_states = BasisStatesPointer(                          &
+    subspace_states =                                              &
        & subspace_bases%calculate_states( subspaces,               &
        &                                  subspace_potentials,     &
        &                                  thermal_energy,          &
        &                                  state_energy_cutoff,     &
        &                                  convergence_data,        &
-       &                                  anharmonic_data          ) )
+       &                                  anharmonic_data          )
+    
+    ! Use single-subspace states to calculate new single-subspace potentials.
+    call print_line('Generating single-subspace potentials.')
+    subspace_potentials = generate_subspace_potentials( potential,           &
+                                                      & subspaces,           &
+                                                      & subspace_bases,      &
+                                                      & subspace_states,     &
+                                                      & subspace_potentials, &
+                                                      & anharmonic_data      )
+    
+    do j=1,size(subspaces)
+      coefficients(first_coefficient(j):last_coefficient(j)) = &
+         & subspace_potentials(j)%coefficients(anharmonic_data)
+    enddo
     
     ! Calculate the free energy from the potentials and states.
     thermodynamic_data = subspace_bases%thermodynamic_data( &
@@ -190,44 +210,37 @@ function run_vscf(potential,stress,subspaces,subspace_bases,thermal_energy, &
                           & subspaces,                      &
                           & subspace_potentials,            &
                           & anharmonic_data=anharmonic_data )
-    
-    ! Use single-subspace states to calculate new single-subspace potentials.
-    call print_line('Generating single-subspace potentials.')
-    subspace_potentials = generate_subspace_potentials( potential,       &
-                                                      & subspaces,       &
-                                                      & subspace_bases,  &
-                                                      & subspace_states, &
-                                                      & anharmonic_data  )
-    
-    ! Update the Pulay scheme.
-    do j=1,size(subspaces)
-      coefficients(first_coefficient(j):last_coefficient(j)) = &
-         & subspace_potentials(j)%coefficients(anharmonic_data)
-    enddo
-    
     free_energy = sum(thermodynamic_data%free_energy) &
               & / anharmonic_data%anharmonic_supercell%sc_size
     
-    call solver%set_f(coefficients, free_energy)
+    ! Update the Pulay scheme.
+    call solver%set_f( coefficients,         &
+                     & free_energy,          &
+                     & print_progress=.true. )
+    if (solver%gradient_requested()) then
+      call print_line('Calculating free energy derivative.')
+      do j=1,size(subspaces)
+        variable_basis_functions = &
+           & subspace_potentials(j)%variable_basis_functions(anharmonic_data)
+        free_energy_gradient(first_coefficient(j):last_coefficient(j)) = &
+           & subspace_bases(j)%free_energy_gradient(                     &
+           &               subspace_potentials(j),                       &
+           &               variable_basis_functions,                     &
+           &               subspaces(j),                                 &
+           &               subspace_states(j),                           &
+           &               thermal_energy,                               &
+           &               state_energy_cutoff,                          &
+           &               anharmonic_data           )
+      enddo
+      call solver%set_gradient(free_energy_gradient)
+    endif
     
     ! Write coefficients to file.
     if (present(convergence_file)) then
       call convergence_file%print_line('Output coefficients:')
       call convergence_file%print_line(coefficients)
-    endif
-    
-    ! Print progress.
-    if (i>1) then
-      call print_line('Self-consistency step '//i//'.')
-      call print_line( 'Self-consistency error : '     // &
-                     & solver%self_consistency_error() // &
-                     & ' (Ha)'                            )
-      call print_line( 'Change in coefficients : '  // &
-                     & solver%coefficient_change()  // &
-                     & ' (Ha)'                         )
-      call print_line( 'Change in free energy  : '  // &
-                     & solver%free_energy_change()  // &
-                     & ' (Ha)'                         )
+      call convergence_file%print_line('Free energy:')
+      call convergence_file%print_line(free_energy)
     endif
     
     ! Check for convergence.

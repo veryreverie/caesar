@@ -115,7 +115,7 @@ function new_NewtonRaphson(starting_value,finite_displacement, &
   this%guesses_ = [starting_value]
   
   if (present(lower_bound)) then
-    if (starting_value-lower_bound<finite_displacement) then
+    if (starting_value-finite_displacement<lower_bound) then
       this%inputs_ = [ starting_value,                        &
                      & starting_value + finite_displacement,  &
                      & starting_value + 2*finite_displacement ]
@@ -124,7 +124,7 @@ function new_NewtonRaphson(starting_value,finite_displacement, &
   endif
   
   if (present(upper_bound)) then
-    if (upper_bound-starting_value<finite_displacement) then
+    if (starting_value+finite_displacement>upper_bound) then
       this%inputs_ = [ starting_value - 2*finite_displacement, &
                      & starting_value - finite_displacement,   &
                      & starting_value                          ]
@@ -252,7 +252,7 @@ subroutine set_outputs(this,input)
   else
     ! f(x-d) = f(x+d) <= f(x).
     ! Increase the finite displacement, and try again.
-    this%finite_displacement_ = this%finite_displacement_ * 2
+    this%finite_displacement_ = this%finite_displacement_ * 3
     if (this%has_lower_bound_ .and. this%has_upper_bound_) then
       guess = x
       if ( this%finite_displacement_               &
@@ -295,7 +295,7 @@ subroutine set_outputs(this,input)
   endif
   
   if (this%has_lower_bound_) then
-    if (guess-this%lower_bound_<this%finite_displacement_) then
+    if (guess-this%finite_displacement_<this%lower_bound_) then
       this%inputs_ = [ guess,                              &
                      & guess + this%finite_displacement_,  &
                      & guess + 2*this%finite_displacement_ ]
@@ -307,7 +307,7 @@ subroutine set_outputs(this,input)
   endif
   
   if (this%has_upper_bound_) then
-    if (this%upper_bound_-guess<this%finite_displacement_) then
+    if (guess+this%finite_displacement_>this%upper_bound_) then
       this%inputs_ = [ guess - 2*this%finite_displacement_, &
                      & guess - this%finite_displacement_,   &
                      & guess                                ]

@@ -215,7 +215,7 @@ subroutine read_QpointData(this,input)
     id = int(line(2))
     
     line = split_line(input(2))
-    qpoint = frac(line(3:5))
+    qpoint = vec(frac(line(3:5)))
     
     line = split_line(input(3))
     paired_qpoint_id = int(line(11))

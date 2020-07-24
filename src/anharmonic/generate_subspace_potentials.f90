@@ -39,15 +39,16 @@ contains
 !    corresponding to each interval over the states in the other interval.
 ! This method takes O(n.log(n)) operations.
 function generate_subspace_potentials(potential,subspaces,subspace_bases, &
-   & subspace_states,anharmonic_data) result(output)
+   & subspace_states,old_subspace_potentials,anharmonic_data) result(output)
   implicit none
   
-  class(PotentialData),     intent(in)    :: potential
-  type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
-  class(BasisStates),       intent(inout) :: subspace_states(:)
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(PotentialPointer), allocatable     :: output(:)
+  class(PotentialData),     intent(in)           :: potential
+  type(DegenerateSubspace), intent(in)           :: subspaces(:)
+  class(SubspaceBasis),     intent(in)           :: subspace_bases(:)
+  class(BasisStates),       intent(inout)        :: subspace_states(:)
+  type(PotentialPointer),   intent(in), optional :: old_subspace_potentials(:)
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(PotentialPointer), allocatable            :: output(:)
   
   ! The minimum and maximum indices in each interval.
   integer, allocatable :: mins_in(:)
@@ -139,14 +140,24 @@ function generate_subspace_potentials(potential,subspaces,subspace_bases, &
   call output%add_constant(correction_energy)
   
   ! Process the subspace potentials if necessary.
-  output = subspace_bases%process_subspace_potential( output,          &
-                                                    & subspace_states, &
-                                                    & subspaces,       &
-                                                    & anharmonic_data  )
+  call subspace_bases%process_subspace_potential( output,          &
+                                                & subspace_states, &
+                                                & subspaces,       &
+                                                & anharmonic_data  )
   
-  call output%finalise_subspace_potential( subspaces,      &
-                                         & subspace_bases, &
-                                         & anharmonic_data )
+  do i=1,size(output)
+    if (present(old_subspace_potentials)) then
+      call output(i)%optimise_subspace_potential( subspaces(i),               &
+                                                & subspace_bases(i),          &
+                                                & old_subspace_potentials(i), &
+                                                & anharmonic_data             )
+    else
+      call output(i)%optimise_subspace_potential( &
+              & subspaces(i),                     &
+              & subspace_bases(i),                &
+              & anharmonic_data = anharmonic_data )
+    endif
+  enddo
 end function
 
 ! ----------------------------------------------------------------------
@@ -254,9 +265,9 @@ function generate_subspace_stresses(stress,subspaces,subspace_bases, &
   call output%add_constant(correction_stress)
   
   ! Process the subspace stresses if necessary.
-  output = subspace_bases%process_subspace_stress( output,          &
-                                                 & subspace_states, &
-                                                 & subspaces,       &
-                                                 & anharmonic_data  )
+  call subspace_bases%process_subspace_stress( output,          &
+                                             & subspace_states, &
+                                             & subspaces,       &
+                                             & anharmonic_data  )
 end function
 end module

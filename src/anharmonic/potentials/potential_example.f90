@@ -55,6 +55,10 @@ module potential_example_module
                        & coefficients_PotentialDataExample
     procedure, public :: set_coefficients => &
                        & set_coefficients_PotentialDataExample
+    procedure, public :: all_basis_functions => &
+                       & all_basis_functions_PotentialDataExample
+    procedure, public :: variable_basis_functions => &
+                       & variable_basis_functions_PotentialDataExample
     
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
@@ -239,8 +243,8 @@ impure elemental function force_ComplexModeDisplacement_PotentialDataExample( &
   ! Code to calculate forces at complex displacements goes here.
 end function
 
-subroutine braket_SubspaceBraKet_PotentialDataExample(this,braket, &
-   & whole_subspace,anharmonic_data)
+impure elemental subroutine braket_SubspaceBraKet_PotentialDataExample(this, &
+   & braket,whole_subspace,anharmonic_data)
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
@@ -254,8 +258,8 @@ subroutine braket_SubspaceBraKet_PotentialDataExample(this,braket, &
   ! This likely just involves calling braket on the constituent parts of this.
 end subroutine
 
-subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data)
+impure elemental subroutine braket_BasisState_PotentialDataExample(this,bra, &
+   & ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
@@ -272,8 +276,8 @@ subroutine braket_BasisState_PotentialDataExample(this,bra,ket,subspace, &
   ! This likely just involves calling braket on the constituent parts of this.
 end subroutine
 
-subroutine braket_BasisStates_PotentialDataExample(this,states,subspace, &
-   & subspace_basis,whole_subspace,anharmonic_data) 
+impure elemental subroutine braket_BasisStates_PotentialDataExample(this, &
+   & states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(PotentialDataExample), intent(inout)        :: this
@@ -327,6 +331,29 @@ subroutine set_coefficients_PotentialDataExample(this,coefficients, &
   
   ! Code to convert the coefficients into the potential goes here.
 end subroutine
+
+function all_basis_functions_PotentialDataExample(this,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(PotentialDataExample), intent(in) :: this
+  type(AnharmonicData),        intent(in) :: anharmonic_data
+  type(PotentialBasePointer), allocatable :: output(:)
+  
+  ! Code to return all basis functions goes here.
+end function
+
+function variable_basis_functions_PotentialDataExample(this,anharmonic_data) &
+   & result(output)
+  implicit none
+  
+  class(PotentialDataExample), intent(in) :: this
+  type(AnharmonicData),        intent(in) :: anharmonic_data
+  type(PotentialBasePointer), allocatable :: output(:)
+  
+  ! Code to return the basis functions corresponding to coefficients() goes
+  !    here.
+end function
 
 ! --------------------------------------------------
 ! I/O.

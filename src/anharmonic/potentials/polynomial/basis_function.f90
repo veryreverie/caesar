@@ -13,50 +13,47 @@ module basis_function_module
   
   use polynomial_interpolator_module
   use polynomial_dynamical_matrices_module
+  use polynomial_symmetry_module
   implicit none
   
   private
   
   public :: BasisFunction
-  public :: BasisFunctionsAndUniqueTerms
+  public :: BasisFunctions
   public :: generate_basis_functions
-  public :: finalise
+  public :: optimise
   public :: operator(*)
   public :: operator(/)
   public :: operator(+)
   public :: operator(-)
   
-  public :: find_monomial_conjugates
-  public :: pair_complex_monomials
-  public :: make_basis_projection
-  public :: generate_basis_function
-  
-  type, extends(Stringsable) :: BasisFunction
+  type, extends(PotentialBase) :: BasisFunction
     ! The basis function in complex co-ordinates.
     type(ComplexPolynomial), private :: complex_representation_
     
     ! A leading coefficient.
     real(dp), private :: coefficient_
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_BasisFunction
+    
     procedure, public :: complex_representation
     
-    procedure, public :: simplify => simplify_BasisFunction
+    procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
     
-    generic,   public  :: energy =>                                  &
-                        & energy_RealModeDisplacement_BasisFunction, &
-                        & energy_ComplexModeDisplacement_BasisFunction
-    procedure, private :: energy_RealModeDisplacement_BasisFunction
-    procedure, private :: energy_ComplexModeDisplacement_BasisFunction
-    generic,   public  :: force =>                                  &
-                        & force_RealModeDisplacement_BasisFunction, &
-                        & force_ComplexModeDisplacement_BasisFunction
-    procedure, private :: force_RealModeDisplacement_BasisFunction
-    procedure, private :: force_ComplexModeDisplacement_BasisFunction
+    procedure, public :: zero_energy => zero_energy_BasisFunction
+    procedure, public :: add_constant => add_constant_BasisFunction
     
-    generic,   public :: braket =>              &
-                       & braket_SubspaceBraKet, &
-                       & braket_BasisState,     &
-                       & braket_BasisStates
+    procedure, public :: energy_RealModeDisplacement => &
+                       & energy_RealModeDisplacement_BasisFunction
+    procedure, public :: energy_ComplexModeDisplacement => &
+                       & energy_ComplexModeDisplacement_BasisFunction
+    
+    procedure, public :: force_RealModeDisplacement => &
+                       & force_RealModeDisplacement_BasisFunction
+    procedure, public :: force_ComplexModeDisplacement => &
+                       & force_ComplexModeDisplacement_BasisFunction
+    
     procedure, public :: braket_SubspaceBraKet => &
                        & braket_SubspaceBraKet_BasisFunction
     procedure, public :: braket_BasisState => &
@@ -67,17 +64,14 @@ module basis_function_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_BasisFunction
     
-    generic,   public :: potential_energy =>              &
-                       & potential_energy_SubspaceBraKet, &
-                       & potential_energy_BasisState
     procedure, public :: potential_energy_SubspaceBraKet
     procedure, public :: potential_energy_BasisState
     
-    procedure, public :: undisplaced_energy => undisplaced_energy_BasisFunction
+    procedure, public :: simplify => simplify_BasisFunction
     
-    procedure, public  :: power => power_BasisFunction
-    procedure, public  :: coefficient => coefficient_BasisFunction
-    procedure, public  :: set_coefficient => set_coefficient_BasisFunction
+    procedure, public :: power => power_BasisFunction
+    procedure, public :: coefficient => coefficient_BasisFunction
+    procedure, public :: set_coefficient => set_coefficient_BasisFunction
     
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_BasisFunction
@@ -92,24 +86,25 @@ module basis_function_module
     procedure, public :: write => write_BasisFunction
   end type
   
-  ! Return type for generate_basis_functions
-  type :: BasisFunctionsAndUniqueTerms
+  ! An array of type BasisFunction.
+  type :: BasisFunctions
     type(BasisFunction), allocatable :: basis_functions(:)
-    type(RealMonomial),  allocatable :: unique_terms(:)
   end type
   
   interface BasisFunction
     module procedure new_BasisFunction
+    module procedure new_BasisFunction_PotentialBase
     module procedure new_BasisFunction_Strings
     module procedure new_BasisFunction_StringArray
   end interface
   
   interface generate_basis_functions
     module procedure generate_basis_functions_SubspaceMonomial
+    module procedure generate_basis_functions_ComplexMonomials
   end interface
   
-  interface finalise
-    module procedure finalise_BasisFunctions
+  interface optimise
+    module procedure optimise_BasisFunctions
   end interface
   
   interface operator(*)
@@ -151,6 +146,32 @@ impure elemental function new_BasisFunction(complex_representation, &
   endif
 end function
 
+recursive function new_BasisFunction_PotentialBase(input) result(this)
+  implicit none
+  
+  class(PotentialBase), intent(in) :: input
+  type(BasisFunction)              :: this
+  
+  select type(input); type is(PotentialBasePointer)
+    this = new_BasisFunction_PotentialBase(input%potential())
+  type is(PotentialPointer)
+    this = new_BasisFunction_PotentialBase(input%potential())
+  type is(BasisFunction)
+    this = input
+  class default
+    call err()
+  end select
+end function
+
+! Type representation.
+impure elemental function representation_BasisFunction() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'Polynomial basis function'
+end function
+
 ! ----------------------------------------------------------------------
 ! Getters.
 ! ----------------------------------------------------------------------
@@ -167,39 +188,21 @@ end function
 ! Generate basis functions.
 ! ----------------------------------------------------------------------
 function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
-   & structure,complex_modes,real_modes,qpoints,subspaces,            &
-   & degenerate_symmetries,vscf_basis_functions_only,logfile) result(output)
+   & structure,complex_modes,qpoints,subspaces,degenerate_symmetries, &
+   & vscf_basis_functions_only,logfile) result(output) 
   implicit none
   
   type(SubspaceMonomial),   intent(in)    :: subspace_monomial
   type(StructureData),      intent(in)    :: structure
   type(ComplexMode),        intent(in)    :: complex_modes(:)
-  type(RealMode),           intent(in)    :: real_modes(:)
   type(QpointData),         intent(in)    :: qpoints(:)
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
   logical,                  intent(in)    :: vscf_basis_functions_only
   type(OFile),              intent(inout) :: logfile
-  type(BasisFunctionsAndUniqueTerms)      :: output
+  type(BasisFunctions)                    :: output
   
-  ! Complex monomials, and the corresponding real basis functions.
   type(ComplexMonomial), allocatable :: complex_monomials(:)
-  integer,               allocatable :: conjugates(:)
-  type(BasisFunction),   allocatable :: basis_functions(:)
-  
-  ! Symmetry data.
-  type(ComplexMatrix) :: symmetry
-  type(ComplexMatrix) :: projection
-  type(RealMatrix)    :: basis_projection
-  
-  ! Polynomial coefficients, in both bases.
-  type(SymmetricEigenstuff), allocatable :: estuff(:)
-  
-  ! Variables for constructing the output.
-  integer,             allocatable :: unique_terms(:)
-  
-  ! Temporary variables.
-  integer :: i,j,ialloc
   
   if (sum(subspace_monomial%powers)<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
@@ -217,15 +220,52 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
       & conserve_momentum=.true.,                            &
       & conserve_subspace_momentum=vscf_basis_functions_only )
   
-  ! Pair up each complex monomial with its complex conjugate,
-  !    to form real basis functions.
-  conjugates = find_monomial_conjugates(complex_monomials)
-  basis_functions = pair_complex_monomials(complex_monomials, conjugates)
+  output = generate_basis_functions( complex_monomials,     &
+                                   & structure,             &
+                                   & complex_modes,         &
+                                   & qpoints,               &
+                                   & degenerate_symmetries, &
+                                   & logfile                )
+end function
+
+function generate_basis_functions_ComplexMonomials(complex_monomials, &
+   & structure,complex_modes,qpoints,degenerate_symmetries,logfile)   &
+   & result(output) 
+  implicit none
+  
+  type(ComplexMonomial),    intent(in)              :: complex_monomials(:)
+  type(StructureData),      intent(in)              :: structure
+  type(ComplexMode),        intent(in)              :: complex_modes(:)
+  type(QpointData),         intent(in)              :: qpoints(:)
+  type(DegenerateSymmetry), intent(in)              :: degenerate_symmetries(:)
+  type(OFile),              intent(inout), optional :: logfile
+  type(BasisFunctions)                              :: output
+  
+  type(BasisConversion) :: basis_conversion
+  
+  ! Symmetry data.
+  type(ComplexMatrix) :: symmetry
+  integer             :: order
+  type(ComplexMatrix) :: projection
+  type(RealMatrix)    :: basis_projection
+  
+  ! Polynomial coefficients, in both bases.
+  type(SymmetricEigenstuff), allocatable :: estuff(:)
+  
+  ! Variables for constructing the output.
+  integer, allocatable :: unique_terms(:)
+  
+  ! Temporary variables.
+  integer :: i,j,ialloc
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
   projection = cmplxmat(make_identity_matrix(size(complex_monomials)))
   do i=1,size(degenerate_symmetries)
+    order = structure%symmetries(                                             &
+       & first(structure%symmetries%id==degenerate_symmetries(i)%symmetry_id) &
+       & )%symmetry_order()
+    
     ! Constuct symmetry in complex monomial co-ordinates.
     symmetry = degenerate_symmetries(i)%calculate_symmetry( &
                               & complex_monomials,          &
@@ -235,17 +275,21 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
     
     ! Construct the projection matrix for this symmetry,
     !    and multiply the total projection matrix by this.
-    projection = projection                                                  &
-             & * projection_matrix( symmetry,                                &
-             &                      structure%symmetries(i)%symmetry_order() )
+    projection = projection * projection_matrix(symmetry, order)
   enddo
   call check_hermitian( projection,                   &
                       & 'monomial projection matrix', &
                       & logfile,                      &
                       & ignore_threshold=1e-10_dp     )
   
+  ! Find the indices of the conjugates, such that
+  !    complex_monomials(conjugates(i)) == conjg(complex_monomials(i)).
+  basis_conversion = BasisConversion(complex_monomials)
+  
   ! Transform the projection matrix to basis functions rather than monomials.
-  basis_projection = make_basis_projection(projection, conjugates)
+  basis_projection = basis_conversion%matrix_to_basis( projection, &
+                                                     & lhs=.true., &
+                                                     & rhs=.true.  )
   call check_symmetric( basis_projection,          &
                       & 'basis projection matrix', &
                       & logfile,                   &
@@ -286,191 +330,12 @@ function generate_basis_functions_SubspaceMonomial(subspace_monomial, &
   enddo
   
   allocate( output%basis_functions(size(estuff)), &
-          & output%unique_terms(size(estuff)),    &
           & stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     ! Construct a basis function from the eigenvectors.
-    output%basis_functions(i) = generate_basis_function( estuff(i)%evec,    &
-                                                       & complex_monomials, &
-                                                       & conjugates         )
-    
-    ! Construct a real monomial which stands in for the basis function.
-    output%unique_terms(i) = generate_unique_term( unique_terms(i),   &
-                                                 & complex_monomials, &
-                                                 & conjugates         )
+    output%basis_functions(i) = BasisFunction(                       &
+       & basis_conversion%vector_from_basis(estuff(i)%evec, 1e-4_dp) )
   enddo
-end function
-
-! Convert the projection matrix from the basis of complex monomials to
-!    the basis of basis functions.
-function make_basis_projection(projection,conjugates) result(output)
-  implicit none
-  
-  type(ComplexMatrix), intent(in) :: projection
-  integer,             intent(in) :: conjugates(:)
-  type(RealMatrix)                :: output
-  
-  real(dp), allocatable :: matrix(:,:)
-  
-  integer :: i,j,ip,jp,ialloc
-  
-  ! Construct the output matrix.
-  allocate( matrix(size(projection,1),size(projection,2)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(projection,1)
-    ip = conjugates(i)
-    do j=1,size(projection,2)
-      jp = conjugates(j)
-      if (ip==i) then
-        if (jp==j) then
-          ! ui = Pij uj
-          matrix(i,j) = real(projection%element(i,j))
-        elseif (jp>j) then
-          ! ui = (Pij+Pij')/sqrt(2) (uj+uj')/sqrt(2) + ...
-          matrix(i,j) = real( projection%element(i,j)    &
-                    &       + projection%element(i,jp) ) &
-                    & / sqrt(2.0_dp)
-          ! ... + i(Pij-Pij')/sqrt(2) (uj-uj')/sqrt(2)i
-          matrix(i,jp) = -aimag( projection%element(i,j)    &
-                     &         - projection%element(i,jp) ) &
-                     & / sqrt(2.0_dp)
-        endif
-      elseif (ip>i) then
-        if (jp==j) then
-          ! (ui+ui')/sqrt(2) = (Pij+Pi'j)/sqrt(2) uj
-          matrix(i,j) = real( projection%element(i,j)    &
-                    &       + projection%element(ip,j) ) &
-                    & / sqrt(2.0_dp)
-          ! (ui-ui')/sqrt(2)i = (Pij-Pi'j)/sqrt(2)i uj
-          matrix(ip,j) = aimag( projection%element(i,j)    &
-                     &        - projection%element(ip,j) ) &
-                     & / sqrt(2.0_dp)
-        elseif (jp>j) then
-          ! (ui+ui')/sqrt(2) = (Pij+Pij'+Pi'j+Pi'j')/2 (uj+uj')/sqrt(2) + ...
-          matrix(i,j) = real( projection%element(i,j)   &
-                          & + projection%element(i,jp)  &
-                          & + projection%element(ip,j)  &
-                          & + projection%element(ip,jp) ) / 2
-          ! ... + i(Pij-Pij'+Pi'j-Pi'j')/2 (uj-uj')/sqrt(2)i
-          matrix(i,jp) = -aimag( projection%element(i,j)   &
-                             & - projection%element(i,jp)  &
-                             & + projection%element(ip,j)  &
-                             & - projection%element(ip,jp) ) / 2
-          ! (ui-ui')/sqrt(2)i = (Pij+Pij'-Pi'j-Pi'j')/2i (uj+uj')/sqrt(2) + ...
-          matrix(ip,j) = aimag( projection%element(i,j)   &
-                            & + projection%element(i,jp)  &
-                            & - projection%element(ip,j)  &
-                            & - projection%element(ip,jp) ) / 2
-          ! ... +  (Pij-Pij'-Pi'j+Pi'j')/2 (uj-uj')/sqrt(2)i
-          matrix(ip,jp) = real( projection%element(i,j)   &
-                            & - projection%element(i,jp)  &
-                            & - projection%element(ip,j)  &
-                            & + projection%element(ip,jp) ) / 2
-        endif
-      endif
-    enddo
-  enddo
-  
-  output = mat(matrix)
-end function
-
-! Generate a basis function from an eigenvector.
-function generate_basis_function(evec,monomials,conjugates) result(output)
-  implicit none
-  
-  real(dp),              intent(in) :: evec(:)
-  type(ComplexMonomial), intent(in) :: monomials(:)
-  integer,               intent(in) :: conjugates(:)
-  type(BasisFunction)               :: output
-  
-  real(dp) :: max_coeff
-  
-  integer, allocatable :: included_terms(:)
-  
-  type(ComplexMonomial), allocatable :: terms(:)
-  
-  integer :: i,j,k,ialloc
-  
-  max_coeff = maxval(abs(evec))
-  
-  included_terms = filter( abs(evec)>=max_coeff/1e4_dp             &
-                    & .or. abs(evec(conjugates))>=max_coeff/1e4_dp )
-  
-  allocate(terms(size(included_terms)), stat=ialloc); call err(ialloc)
-  do i=1,size(terms)
-    j = included_terms(i)
-    k = conjugates(j)
-    terms(i) = monomials(j)
-    if (j==k) then
-      ! The monomial is its own pair.
-      terms(i)%coefficient = evec(j)*monomials(j)%coefficient
-    elseif (j<k) then
-      ! The monomial looks like u+ = uc + i*us.
-      terms(i)%coefficient =                                          &
-         &                           evec(j)*monomials(j)%coefficient &
-         & + cmplx(0.0_dp,1.0_dp,dp)*evec(k)*monomials(k)%coefficient
-    else
-      ! The monomial looks like u- = uc - i*us.
-      terms(i)%coefficient =                                          &
-         &                           evec(k)*monomials(k)%coefficient &
-         & - cmplx(0.0_dp,1.0_dp,dp)*evec(j)*monomials(j)%coefficient
-    endif
-  enddo
-  
-  output = BasisFunction(ComplexPolynomial(terms))
-end function
-
-! Takes a complex polynomial, and generates a monomial which can be turned
-!    into a sampling point.
-! It doesn't matter overly much how this is done, as long as the mapping
-!    is unique and the resulting sampling points are distinct under symmetry.
-! Arbitrarily:
-!    -  u+^n * u-^m + u+^m * u-^n      ->   uc^max(m,n) * us^min(m,n)
-!    - (u+^n * u-^m - u+^m * u-^n)/i   ->   uc^min(m,n) * us^max(m,n)
-function generate_unique_term(id,monomials,conjugates) result(output)
-  implicit none
-  
-  integer,               intent(in) :: id
-  type(ComplexMonomial), intent(in) :: monomials(:)
-  integer,               intent(in) :: conjugates(:)
-  type(RealMonomial)                :: output
-  
-  associate (term => monomials(id))
-    if (conjugates(id)==id) then
-      ! The term is its own pair,
-      !    so the real monomial is the same as the complex monomial.
-      output = RealMonomial(                                           &
-         & coefficient = 1.0_dp,                                       &
-         & modes = RealUnivariate( id           = term%ids(),          &
-         &                         paired_id    = term%paired_ids(),   &
-         &                         power        = term%powers(),       &
-         &                         paired_power = term%paired_powers() ))
-    elseif (conjugates(id)>id) then
-      ! The term is a (x+x*)/2 sum of a complex term and its conjugate.
-      ! Construct an output with larger powers of uc than us.
-      output = RealMonomial(                              &
-         & coefficient = 1.0_dp,                          &
-         & modes = RealUnivariate(                        &
-         &    id           = term%ids(),                  &
-         &    paired_id    = term%paired_ids(),           &
-         &    power        = max( term%powers(),          &
-         &                        term%paired_powers() ), &
-         &    paired_power = min( term%powers(),          &
-         &                        term%paired_powers() )  ))
-    else
-      ! The term is a (x-x*)/2i sum of a complex term and its conjugate.
-      ! Construct an output with larger powers of us than uc.
-      output = RealMonomial(                              &
-         & coefficient = 1.0_dp,                          &
-         & modes = RealUnivariate(                        &
-         &    id           = term%ids(),                  &
-         &    paired_id    = term%paired_ids(),           &
-         &    power        = min( term%powers(),          &
-         &                        term%paired_powers() ), &
-         &    paired_power = max( term%powers(),          &
-         &                        term%paired_powers() )  ))
-    endif
-  end associate
 end function
 
 ! Given a unitary matrix U, s.t. U^n=I, returns the matrix
@@ -517,27 +382,32 @@ impure elemental subroutine simplify_BasisFunction(this)
   call this%complex_representation_%simplify()
 end subroutine
 
-function finalise_BasisFunctions(input,subspace,subspace_basis, &
-   & anharmonic_data) result(output)
+function optimise_BasisFunctions(input,subspace,subspace_basis, &
+   & old_subspace_potential,anharmonic_data) result(output)
   implicit none
   
-  type(BasisFunction),      intent(in) :: input(:)
-  type(DegenerateSubspace), intent(in) :: subspace
-  class(SubspaceBasis),     intent(in) :: subspace_basis
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(BasisFunction), allocatable     :: output(:)
+  type(BasisFunction),      intent(in)           :: input(:)
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  class(PotentialData),     intent(in), optional :: old_subspace_potential
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
+  type(BasisFunction), allocatable               :: output(:)
   
   integer :: order
   
+  type(SubspaceMonomial)               :: subspace_monomial
+  type(ComplexMonomial),   allocatable :: complex_monomials(:)
   type(ComplexPolynomial), allocatable :: complex_polynomials(:)
   
   type(ComplexMonomial) :: no_complex_monomials(0)
   
-  integer, allocatable  :: conjugates(:)
+  type(PotentialBasePointer), allocatable :: basis_functions_(:)
+  type(BasisFunction),        allocatable :: basis_functions(:)
+  type(ComplexPolynomial),    allocatable :: basis_polynomials(:)
   
-  real(dp) :: energy_scale
+  type(ComplexPolynomial), allocatable :: order_polynomials(:)
   
-  integer :: i,j,k,ialloc
+  integer :: i,j,ialloc
   
   order = anharmonic_data%potential_expansion_order
   
@@ -566,125 +436,164 @@ function finalise_BasisFunctions(input,subspace,subspace_basis, &
     enddo
   enddo
   
-  ! Pair up conjugate pairs, cx and c*x*,
-  !    into (c+c*)(x+x*) and (c-c*)(x-x*) pairs.
-  ! Multiply the basis functions by energy_scale, E,
-  !    and divide the coefficients by E, to give basis functions
-  !        (c+c*)/ E *  E(x+x*)
-  !    and (c-c*)/iE * iE(x-x*),
-  !    so that the E(x+x*) and iE(x-x*) basis functions are dimensionless,
-  !    and the (c+c*)/E and (c-c*)/iE coefficients are real and have
-  !    dimensions of energy.
-  allocate( output(sum( [(size(complex_polynomials(i)), i=1, order)] )), &
-          & stat=ialloc); call err(ialloc)
-  k = 0
+  if (present(old_subspace_potential)) then
+    basis_functions_ = old_subspace_potential%all_basis_functions( &
+                                                 & anharmonic_data )
+    basis_functions = [( BasisFunction(basis_functions_(i)), &
+                       & i=1,                                &
+                       & size(basis_functions_)              )]
+    
+    basis_polynomials = basis_functions%complex_representation_
+  endif
+  
+  allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,order
-    ! A term |u|^(2n) scales like (2Nw)^{-n}.
-    ! w must be capped so that it is not considered to be too small, otherwise
-    !    some terms become excessively weighted.
-    energy_scale = ( 2                                              &
-              &    * anharmonic_data%anharmonic_supercell%sc_size   &
-              &    * max(subspace_basis%frequency,1e-4_dp)        ) &
-              & ** (0.5_dp*i)
+    if (allocated(basis_polynomials)) then
+      order_polynomials = basis_polynomials(                             &
+         & filter([( basis_polynomials(j)%terms(1)%total_power()==i,     &
+         &           j=1,                                                &
+         &           size(basis_polynomials)                         )]) )
+    else
+      subspace_monomial = SubspaceMonomial( ids    = [subspace%id], &
+                                          & powers = [i]            )
+      complex_monomials = generate_complex_monomials( &
+          & subspace_monomial,                        &
+          & [subspace],                               &
+          & anharmonic_data%complex_modes,            &
+          & anharmonic_data%qpoints,                  &
+          & conserve_momentum=.true.,                 &
+          & conserve_subspace_momentum=.true.         )
+      order_polynomials = construct_basis_polynomials( &
+                                  & complex_monomials, &
+                                  & subspace,          &
+                                  & subspace_basis,    &
+                                  & anharmonic_data    )
+    endif
     
-    associate (terms => output(k+1:k+size(complex_polynomials(i)%terms)))
-      conjugates = find_monomial_conjugates(complex_polynomials(i)%terms)
-      terms = pair_complex_monomials(complex_polynomials(i)%terms, conjugates)
-      terms%coefficient_ = terms%coefficient_ / energy_scale
-      do j=1,size(terms)
-        terms(j)%complex_representation_%terms%coefficient = &
-           & terms(j)%complex_representation_%terms%coefficient * energy_scale
-      enddo
-    end associate
-    
-    k = k+size(complex_polynomials(i)%terms)
+    if (size(order_polynomials)>0) then
+      output = [ output,                                              &
+               & fit_basis_functions( complex_polynomials(i)%terms,   &
+               &                      order_polynomials             ) ]
+    endif
   enddo
 end function
 
-! Find the id of the monomial conjugates,
-!    s.t. conjg(input(i)) = input(output(i)).
-function find_monomial_conjugates(input) result(output)
+! Construct the basis functions at a given order.
+function construct_basis_polynomials(monomials,subspace,subspace_basis, &
+   & anharmonic_data) result(output)
   implicit none
   
-  type(ComplexMonomial), intent(in) :: input(:)
-  integer, allocatable              :: output(:)
+  type(ComplexMonomial),    intent(in) :: monomials(:)
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(SubspaceBasis),     intent(in) :: subspace_basis
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  type(ComplexPolynomial), allocatable :: output(:)
   
-  logical, allocatable :: conjugate_found(:)
+  integer :: order
   
-  type(ComplexMonomial) :: conjugate
+  type(BasisFunctions) :: basis_functions
   
-  integer :: i,j
+  type(DegenerateSymmetry), allocatable :: symmetries(:)
   
-  output = [(0, i=1, size(input))]
-  conjugate_found = [(.false., i=1, size(input))]
-  do i=1,size(input)
-    if (conjugate_found(i)) then
-      cycle
-    endif
-    
-    conjugate = conjg(input(i))
-    do j=1,size(input)
-      if (compare_complex_monomials(input(j),conjugate)) then
-        output(i) = j
-        output(j) = i
-        conjugate_found(i) = .true.
-        conjugate_found(j) = .true.
-        exit
+  real(dp) :: energy_scale
+  
+  integer :: i
+  
+  symmetries = subspace_basis%select_symmetries( &
+        & anharmonic_data%degenerate_symmetries, &
+        & anharmonic_data                        )
+  
+  basis_functions = generate_basis_functions( &
+             & monomials,                     &
+             & anharmonic_data%structure,     &
+             & anharmonic_data%complex_modes, &
+             & anharmonic_data%qpoints,       &
+             & symmetries                     )
+  
+  output = [( basis_functions%basis_functions(i)%complex_representation_, &
+            & i=1,                                                        &
+            & size(basis_functions%basis_functions)                       )]
+  
+  
+  ! A term |u|^(2n) scales like (2Nw)^{-n}.
+  ! w must be capped so that it is not considered to be too small, otherwise
+  !    some terms become excessively weighted.
+  energy_scale = ( 2                                              &
+            &    * anharmonic_data%anharmonic_supercell%sc_size   &
+            &    * max(subspace_basis%frequency,1e-4_dp)        ) &
+            & ** (0.5_dp*order)
+  
+  ! Multiply the basis functions by energy_scale, E,
+  !    so that the basis functions are dimensionless,
+  !    and the coefficients are real and have dimensions of energy.
+  do i=1,size(output)
+    output(i)%terms%coefficient = &
+       & output(i)%terms%coefficient * energy_scale
+  enddo
+end function
+
+! Construct the basis functions at a given order.
+function fit_basis_functions(monomials,basis_functions) result(output) 
+  implicit none
+  
+  type(ComplexMonomial),    intent(in) :: monomials(:)
+  type(ComplexPolynomial),  intent(in) :: basis_functions(:)
+  type(BasisFunction), allocatable     :: output(:)
+  
+  logical, allocatable :: basis_functions_present(:)
+  
+  complex(dp), allocatable :: complex_conversion(:,:)
+  type(RealMatrix)         :: conversion
+  type(RealMatrix)         :: inverse_conversion
+  
+  type(BasisConversion) :: basis_conversion
+  
+  integer :: i,j,k,ialloc
+  
+  ! Find the indices of the conjugates, such that
+  !    monomials(conjugates(i)) == conjg(monomials(i)).
+  basis_conversion = BasisConversion(monomials)
+  
+  basis_functions_present = [(.false., i=1, size(basis_functions))]
+  
+  ! Construct the mapping from the basis functions to the monomials.
+  allocate( complex_conversion(size(monomials),size(basis_functions)), &
+          & stat=ialloc); call err(ialloc)
+  complex_conversion = cmplx(0.0_dp,0.0_dp,dp)
+  do i=1,size(basis_functions)
+    do j=1,size(basis_functions(i)%terms)
+      k = first_equivalent( monomials,                   &
+                          & basis_functions(i)%terms(j), &
+                          & compare_complex_monomials,   &
+                          & default=0                    )
+      if (k/=0) then
+        basis_functions_present(i) = .true.
+        complex_conversion(k,i) = basis_functions(i)%terms(j)%coefficient
       endif
     enddo
-    
-    if (output(i)==0) then
-      call err()
-    endif
   enddo
-end function
-
-! Recombine the complex monomials into real basis functions.
-! If the mode is real, it becomes its own basis function.
-! If the mode is complex, it and its conjugate are paired into a u+u*
-!    and a i(u-u*) basis function, both with real coefficients.
-function pair_complex_monomials(input,conjugates) result(output)
-  implicit none
   
-  type(ComplexMonomial), intent(in) :: input(:)
-  integer,               intent(in) :: conjugates(:)
-  type(BasisFunction), allocatable  :: output(:)
+  if (.not. any(basis_functions_present)) then
+    allocate(output(0), stat=ialloc); call err(ialloc)
+    return
+  endif
   
-  type(ComplexPolynomial) :: representation
+  complex_conversion = complex_conversion(:,filter(basis_functions_present))
+  conversion = basis_conversion%matrix_to_basis( mat(complex_conversion), &
+                                               & lhs=.true.,              &
+                                               & rhs=.false.              )
   
-  integer :: i,j,ialloc
+  ! Invert the conversion from basis functions to paired monomials,
+  !    to give the conversion from paired monomials to basis functions.
+  ! Uses X^-1 = (X^T.X)^-1 . X^T.
+  inverse_conversion = invert(transpose(conversion)*conversion) &
+                   & * transpose(conversion)
   
-  allocate(output(size(input)), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    j = conjugates(i)
-    if (j==i) then
-      ! If i==j the monomial is its own conjugate.
-      ! The basis function is simply the monomial.
-      ! The coefficient of the monomial is moved to that of the basis function.
-      representation = ComplexPolynomial([input(i)])
-      representation%terms%coefficient = 1.0_dp
-      output(i) = BasisFunction(representation)
-      output(i)%coefficient_ = real(input(i)%coefficient)
-    elseif (j>i) then
-      ! If i/=j then monomial i and monomial j are conjugates.
-      ! If i>j, construct (i+j)/2 basis function.
-      representation = ComplexPolynomial([input(i), input(j) ] )
-      representation%terms%coefficient = [0.5_dp, 0.5_dp]
-      output(i) = BasisFunction(representation)
-      output(i)%coefficient_ = real( input(i)%coefficient &
-                                 & + input(j)%coefficient )
-      
-    else
-      ! If i/=j then monomial i and monomial j are conjugates.
-      ! If i>j, construct (j-i)/2i basis function.
-      representation = ComplexPolynomial([input(j), input(i) ] )
-      representation%terms%coefficient = [1,-1] * cmplx(0.0_dp,0.5_dp,dp)
-      output(i) = BasisFunction(representation)
-      output(i)%coefficient_ = real( ( input(j)%coefficient    &
-                                 &   - input(i)%coefficient )  &
-                                 &   / cmplx(0.0_dp,1.0_dp,dp) )
-    endif
-  enddo
+  output = [(BasisFunction(basis_functions(i)), i=1, size(basis_functions))]
+  output = output(filter(basis_functions_present))
+  output%coefficient_ = dble( inverse_conversion                       &
+                          & * vec(basis_conversion%vector_to_basis(    &
+                          &                 monomials%coefficient )) )
 end function
 
 ! ----------------------------------------------------------------------
@@ -694,9 +603,9 @@ impure elemental function energy_RealModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
-  class(BasisFunction),        intent(in) :: this
-  class(RealModeDisplacement), intent(in) :: displacement
-  real(dp)                                :: output
+  class(BasisFunction),       intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  real(dp)                               :: output
   
   output = real( this%coefficient_                                 &
              & * this%complex_representation_%energy(displacement) )
@@ -706,9 +615,9 @@ impure elemental function energy_ComplexModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
-  class(BasisFunction),           intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                                :: output
+  class(BasisFunction),          intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                               :: output
   
   output = this%coefficient_ &
        & * this%complex_representation_%energy(displacement)
@@ -718,9 +627,9 @@ impure elemental function force_RealModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
-  class(BasisFunction),        intent(in) :: this
-  class(RealModeDisplacement), intent(in) :: displacement
-  type(RealModeForce)                     :: output
+  class(BasisFunction),       intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealModeForce)                    :: output
   
   output = this%coefficient_ &
        & * this%complex_representation_%force(displacement)
@@ -730,9 +639,9 @@ impure elemental function force_ComplexModeDisplacement_BasisFunction(this, &
    & displacement) result(output)
   implicit none
   
-  class(BasisFunction),           intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexModeForce)                     :: output
+  class(BasisFunction),          intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                    :: output
   
   output = this%coefficient_ &
        & * this%complex_representation_%force(displacement)
@@ -742,12 +651,13 @@ end function
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
 impure elemental subroutine braket_SubspaceBraKet_BasisFunction(this,braket, &
-   & anharmonic_data)
+   & whole_subspace,anharmonic_data)
   implicit none
   
-  class(BasisFunction),  intent(inout) :: this
-  class(SubspaceBraKet), intent(in)    :: braket
-  type(AnharmonicData),  intent(in)    :: anharmonic_data
+  class(BasisFunction),  intent(inout)        :: this
+  class(SubspaceBraKet), intent(in)           :: braket
+  logical,               intent(in), optional :: whole_subspace
+  type(AnharmonicData),  intent(in)           :: anharmonic_data
   
   ! Perform integration in complex co-ordinates.
   call integrate( this%complex_representation_%terms, &
@@ -756,7 +666,7 @@ impure elemental subroutine braket_SubspaceBraKet_BasisFunction(this,braket, &
 end subroutine
 
 impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data)
+   & subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
   class(BasisFunction),     intent(inout)        :: this
@@ -764,6 +674,7 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
   class(BasisState),        intent(in), optional :: ket
   type(DegenerateSubspace), intent(in)           :: subspace
   class(SubspaceBasis),     intent(in)           :: subspace_basis
+  logical,                  intent(in), optional :: whole_subspace
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   
   ! Perform integration in complex co-ordinates.
@@ -776,14 +687,15 @@ impure elemental subroutine braket_BasisState_BasisFunction(this,bra,ket, &
 end subroutine
 
 impure elemental subroutine braket_BasisStates_BasisFunction(this,states, &
-   & subspace,subspace_basis,anharmonic_data)
+   & subspace,subspace_basis,whole_subspace,anharmonic_data)
   implicit none
   
-  class(BasisFunction),     intent(inout) :: this
-  class(BasisStates),       intent(inout) :: states
-  type(DegenerateSubspace), intent(in)    :: subspace
-  class(SubspaceBasis),     intent(in)    :: subspace_basis
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
+  class(BasisFunction),     intent(inout)        :: this
+  class(BasisStates),       intent(inout)        :: states
+  type(DegenerateSubspace), intent(in)           :: subspace
+  class(SubspaceBasis),     intent(in)           :: subspace_basis
+  logical,                  intent(in), optional :: whole_subspace
+  type(AnharmonicData),     intent(in)           :: anharmonic_data
   
   integer :: i
   
@@ -801,13 +713,14 @@ end subroutine
 ! Returns the thermal expectation of the basis function.
 ! ----------------------------------------------------------------------
 impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
-   & thermal_energy,supercell_size) result(output)
+   & thermal_energy,supercell_size,anharmonic_data) result(output)
   implicit none
   
   class(BasisFunction), intent(in) :: this
   real(dp),             intent(in) :: frequency
   real(dp),             intent(in) :: thermal_energy
   integer,              intent(in) :: supercell_size
+  type(AnharmonicData), intent(in) :: anharmonic_data
   real(dp)                         :: output
   
   output = this%coefficient_                                                  &
@@ -816,8 +729,8 @@ impure elemental function harmonic_expectation_BasisFunction(this,frequency, &
        &                                                      supercell_size  )
 end function
 
-impure elemental function potential_energy_SubspaceBraKet(this,braket, &
-   & anharmonic_data) result(output)
+function potential_energy_SubspaceBraKet(this,braket,anharmonic_data) &
+   & result(output) 
   implicit none
   
   class(BasisFunction),  intent(in) :: this
@@ -831,8 +744,8 @@ impure elemental function potential_energy_SubspaceBraKet(this,braket, &
        &                               anharmonic_data               ))
 end function
 
-impure elemental function potential_energy_BasisState(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+function potential_energy_BasisState(this,bra,ket,subspace,subspace_basis, &
+   & anharmonic_data) result(output) 
   implicit none
   
   class(BasisFunction),     intent(in)           :: this
@@ -865,6 +778,27 @@ impure elemental function undisplaced_energy_BasisFunction(this) result(output)
   
   output = this%energy(RealModeDisplacement(zero_displacement))
 end function
+
+impure elemental subroutine zero_energy_BasisFunction(this)
+  implicit none
+  
+  class(BasisFunction), intent(inout) :: this
+  
+  call print_line(CODE_ERROR//': zero_energy() cannot be called for type &
+     &BasisFunction.')
+  call err()
+end subroutine
+
+impure elemental subroutine add_constant_BasisFunction(this,input) 
+  implicit none
+  
+  class(BasisFunction), intent(inout) :: this
+  real(dp),             intent(in)    :: input
+  
+  call print_line(CODE_ERROR//': add_constant() cannot be called for type &
+     &BasisFunction.')
+  call err()
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Converts the basis function to and from a single coefficient.

@@ -32,6 +32,7 @@ module algebra_utils_module
   public :: real_multinomial
   public :: log_multinomial
   public :: int_sqrt
+  public :: bound
   
   ! Greatest common denominator.
   interface gcd
@@ -1083,5 +1084,24 @@ impure elemental function sin_2pi_real(input) result(output)
   real(dp)             :: output
   
   output = sin(2*PI*input)
+end function
+
+! bound(input,lower,upper) = input if lower < input < upper
+!                            lower if input < lower
+!                            upper if upper < input
+impure elemental function bound(input,lower_bound,upper_bound) result(output)
+  implicit none
+  
+  real(dp), intent(in) :: input
+  real(dp), intent(in) :: lower_bound
+  real(dp), intent(in) :: upper_bound
+  real(dp)             :: output
+  
+  if (lower_bound>upper_bound) then
+    call print_line(ERROR//': Upper bound < lower bound.')
+    call err()
+  endif
+  
+  output = max(lower_bound,min(input,upper_bound))
 end function
 end module

@@ -2,6 +2,7 @@
 ! Provides settings for changing how print_line and related functions work.
 ! ======================================================================
 module print_settings_module
+  use string_base_module
   use string_module
   implicit none
   

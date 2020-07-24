@@ -248,12 +248,12 @@ module linear_algebra_module
     module procedure linear_least_squares_RealMatrix_RealVector
   end interface
 
-! Include headers.
+! Include preprocessed procedure headers.
 #include "linear_algebra_includes.fpp"
 
 contains
 
-! Include bodies.
+! Include preprocessed procedure bodies.
 #define MACRO_BODY
 #include "linear_algebra_includes.fpp"
 
@@ -723,7 +723,9 @@ function invert_reals(input) result(output)
   integer               :: lwork
   real(dp), allocatable :: work(:)
   
-  integer :: ialloc
+  integer, allocatable :: pivots(:)
+  
+  integer :: i,ialloc
   
   n = size(input,1)
   if (size(input,2)/=n) then
@@ -739,7 +741,19 @@ function invert_reals(input) result(output)
   ! Run LU factorisation.
   call dgetrf(n,n,output,n,ipiv,info)
   if (info/=0) then
-    call print_line(ERROR//' in LU factorisation: dgetrf error code: '//info)
+    if (info<0) then
+      call print_line(ERROR//' in matrix inversion: argument '//-info//&
+         &' had an illegal value.')
+    else
+      pivots = [(i,i=1,size(ipiv))]
+      do i=1,size(ipiv)
+        pivots([i,ipiv(i)]) = pivots([ipiv(i),i])
+      enddo
+    endif
+    call print_line(ERROR//' in matrix inversion: row '//pivots(info)//' is &
+       &linearly dependent on previous rows.')
+    call print_line('Matrix:')
+    call print_lines(mat(input))
     call err()
   endif
   
@@ -747,7 +761,7 @@ function invert_reals(input) result(output)
   allocate(work(n),stat=ialloc); call err(ialloc)
   call dgetri(n,output,n,ipiv,work,-1,info)
   if (info/=0) then
-    call print_line(ERROR//' in LU factorisation: dgetrf error code: '//info)
+    call print_line(ERROR//' in matrix inversion: dgetri error code: '//info)
     call err()
   endif
   lwork = nint(work(1))
@@ -757,7 +771,7 @@ function invert_reals(input) result(output)
   ! Run matrix inversion.
   call dgetri(n,output,n,ipiv,work,lwork,info)
   if (info/=0) then
-    call print_line(ERROR//'in LU factorisation: dgetrf error code: '//info)
+    call print_line(ERROR//'in matrix inversion: dgetri error code: '//info)
     call err()
   endif
 end function

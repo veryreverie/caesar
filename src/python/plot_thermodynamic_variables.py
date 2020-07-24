@@ -217,6 +217,11 @@ def main():
               (xmin_hartree,xmax_hartree),
               r"$k_BT$",
               r"Ha")
+  else:
+    set_xaxis(axes['entropy']['b'],
+              (xmin_hartree,xmax_hartree),
+              r"$k_BT$",
+              r"Ha")
   
   set_yaxis(axes['energy']['l'],
             (ymin_hartree,ymax_hartree),

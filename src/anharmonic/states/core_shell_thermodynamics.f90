@@ -51,8 +51,8 @@ function core_shell_thermodynamics(thermal_energy,frequency,supercell_size, &
   type(DegenerateSubspace), intent(in)           :: subspace
   type(WavevectorBasis),    intent(in)           :: bases(:)
   class(BasisStates),       intent(in)           :: states
-  class(PotentialData),     intent(in)           :: potential
-  class(StressData),        intent(in), optional :: stress
+  class(PotentialBase),     intent(in)           :: potential
+  class(StressBase),        intent(in), optional :: stress
   type(StressPrefactors),   intent(in), optional :: stress_prefactors
   type(AnharmonicData),     intent(in)           :: anharmonic_data
   type(ThermodynamicData)                        :: output

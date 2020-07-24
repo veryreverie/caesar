@@ -94,7 +94,7 @@ subroutine check_identity_String(input,matrix_name,logfile, &
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   error = sqrt(sum_squares(input-make_identity_matrix(size(input,1))))
@@ -142,7 +142,7 @@ subroutine check_symmetric_String(input,matrix_name,logfile, &
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   scale = sqrt(sum_squares(input))
@@ -211,7 +211,7 @@ subroutine check_hermitian_String(input,matrix_name,logfile, &
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   scale = sqrt(sum_squares(input))
@@ -284,7 +284,7 @@ subroutine check_orthogonal_String(input,matrix_name,logfile,warning_threshold)
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   error = sqrt(sum_squares( input*transpose(input) &
@@ -334,7 +334,7 @@ subroutine check_unitary_String(input,matrix_name,logfile,warning_threshold)
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   error = sqrt(sum_squares( input*hermitian(input) &
@@ -377,7 +377,7 @@ subroutine check_orthonormal_RealMatrix_String(input,matrix_name,logfile, &
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   if (size(input,1)<size(input,2)) then
@@ -427,7 +427,7 @@ subroutine check_orthonormal_ComplexMatrix_String(input,matrix_name,logfile, &
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   if (size(input,1)<size(input,2)) then
@@ -476,7 +476,7 @@ subroutine check_real_String(input,matrix_name,logfile,warning_threshold)
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   error = sqrt(sum_squares(aimag(input)))
@@ -517,7 +517,7 @@ subroutine check_int_String(input,matrix_name,logfile,warning_threshold)
   if (present(warning_threshold)) then
     threshold = warning_threshold
   else
-    threshold = 1e-10_dp
+    threshold = 1e-6_dp
   endif
   
   error = sqrt(sum_squares(input-nint(input)))

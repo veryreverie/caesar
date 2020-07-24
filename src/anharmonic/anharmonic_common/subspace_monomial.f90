@@ -17,7 +17,7 @@ module subspace_monomial_module
   public :: operator(==)
   public :: operator(/=)
   public :: generate_complex_monomials
-  public :: generate_real_monomials
+  public :: generate_paired_monomials
   
   type, extends(Stringable) :: SubspaceMonomial
     ! The ids and powers of the degenerate subspaces in the monomial.
@@ -92,6 +92,9 @@ function new_SubspaceMonomial_ids_powers(ids,powers) result(this)
     call print_line(CODE_ERROR//': IDs and powers do not match.')
     call err()
   endif
+  
+  this%ids = ids
+  this%powers = powers
 end function
 
 function new_SubspaceMonomial_DegenerateSubspaces(subspaces) result(this)
@@ -316,8 +319,7 @@ recursive function generate_subspace_monomials_helper(coupled_subspaces, &
 end function
 
 ! ----------------------------------------------------------------------
-! Generate the ComplexMonomials or RealMonomials corresponding to
-!    a given SubspaceMonomial.
+! Generate the ComplexMonomials corresponding to a given SubspaceMonomial.
 ! ----------------------------------------------------------------------
 ! The coefficients are chosen such that symmetry operations are unitary
 !    in the basis of monomials.
@@ -395,47 +397,28 @@ contains
   end function
 end function
 
-function generate_real_monomials(this,subspaces,modes,qpoints) result(output)
+function generate_paired_monomials(this,subspaces,modes,qpoints, &
+   & conserve_momentum,conserve_subspace_momentum) result(output)
   implicit none
   
   type(SubspaceMonomial),   intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspaces(:)
-  type(RealMode),           intent(in) :: modes(:)
+  type(ComplexMode),        intent(in) :: modes(:)
   type(QpointData),         intent(in) :: qpoints(:)
-  type(RealMonomial), allocatable      :: output(:)
+  logical,                  intent(in) :: conserve_momentum
+  logical,                  intent(in) :: conserve_subspace_momentum
+  type(PairedMonomial), allocatable    :: output(:)
   
-  type(RealUnivariate) :: zero_univariate(0)
-  type(RealMonomial)   :: root
+  type(ComplexMonomial), allocatable :: complex_monomials(:)
   
-  type(DegenerateSubspace)    :: subspace
-  type(RealMode), allocatable :: subspace_modes(:)
+  complex_monomials = generate_complex_monomials( this,                      &
+                                                & subspaces,                 &
+                                                & modes,                     &
+                                                & qpoints,                   &
+                                                & conserve_momentum,         &
+                                                & conserve_subspace_momentum )
   
-  type(RealMonomial), allocatable :: subspace_monomials(:)
-  
-  integer :: i,j,k,ialloc
-  
-  if (size(this)==0) then
-    allocate(output(0), stat=ialloc); call err(ialloc)
-    return
-  endif
-  
-  root = RealMonomial(coefficient=1.0_dp, modes=zero_univariate)
-  
-  do i=1,size(this)
-    subspace = subspaces(first(subspaces%id==this%ids(i)))
-    subspace_modes = subspace%modes(modes)
-    subspace_monomials = generate_subspace_real_monomials( subspace_modes, &
-                                                         & this%powers(i), &
-                                                         & root            )
-    if (i==1) then
-      output = subspace_monomials
-    else
-      output = [(                                                            &
-         & (output(k)*subspace_monomials(j), j=1, size(subspace_monomials)), &
-         & k=1,                                                              &
-         & size(output)                                                      )]
-    endif
-  enddo
+  output = PairedMonomial(complex_monomials)
 end function
 
 ! Helper functions for the above. These generate monomials for a single
@@ -477,71 +460,23 @@ recursive function generate_subspace_complex_monomials(modes,power,root) &
   endif
 end function
 
-recursive function generate_subspace_real_monomials(modes,power,root) &
-   & result(output)
-  implicit none
-  
-  type(RealMode),     intent(in)  :: modes(:)
-  integer,            intent(in)  :: power
-  type(RealMonomial), intent(in)  :: root
-  type(RealMonomial), allocatable :: output(:)
-  
-  integer :: i
-  
-  if (size(modes)==0) then
-    if (power>0) then
-      call print_line(CODE_ERROR//': Monomial requires further modes, but no &
-         &modes remain to append.')
-      call err()
-    endif
-  endif
-  
-  if (power==0) then
-    output = [root]
-    output%coefficient = sqrt(no_permutations(output(1)))
-  elseif (size(modes)==1) then
-    output = [root*RealUnivariate(mode=modes(1), power=power)]
-    output%coefficient = sqrt(no_permutations(output(1)))
-  else
-    output = [generate_subspace_real_monomials(modes(2:),power,root)]
-    do i=1,power
-      output = [ output,                                         &
-               & generate_subspace_real_monomials(               &
-               &   modes(2:),                                    &
-               &   power-i,                                      &
-               &   root*RealUnivariate(mode=modes(1), power=i) ) ]
-    enddo
-  endif
-end function
-
 function no_permutations(input) result(output)
   implicit none
   
-  class(*), intent(in) :: input
-  real(dp)             :: output
+  type(ComplexMonomial), intent(in) :: input
+  real(dp)                          :: output
   
   integer, allocatable :: powers(:)
   
   integer :: i,ialloc
   
   allocate(powers(0), stat=ialloc); call err(ialloc)
-  select type(input); type is (ComplexMonomial)
-    do i=1,size(input)
-      powers = [powers, input%power(i)]
-      if (input%id(i)/=input%paired_id(i)) then
-        powers = [powers, input%paired_power(i)]
-      endif
-    enddo
-  type is(RealMonomial)
-    do i=1,size(input)
-      powers = [powers, input%power(i)]
-      if (input%id(i)/=input%paired_id(i)) then
-        powers = [powers, input%paired_power(i)]
-      endif
-    enddo
-  class default
-    call err()
-  end select
+  do i=1,size(input)
+    powers = [powers, input%power(i)]
+    if (input%id(i)/=input%paired_id(i)) then
+      powers = [powers, input%paired_power(i)]
+    endif
+  enddo
   
   output = real_multinomial(sum(powers), powers)
 end function

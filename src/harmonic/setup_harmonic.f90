@@ -47,7 +47,7 @@ subroutine startup_setup_harmonic()
      &Bohr. Ideally, symmetry_precision should be much smaller than the &
      &minimum inter-atomic distance, and much larger than the geometry &
      &optimisation tolerance.',                                               &
-     &              default_value='0.1'),                                     &
+     &              default_value='0.01'),                                    &
      & KeywordData( 'harmonic_displacement',                                  &
      &              'harmonic_displacement is the distance in bohr by which &
      &atoms will be displaced when mapping the harmonic Born-Oppenheimer &

@@ -82,11 +82,17 @@ end function
 ! ----------------------------------------------------------------------
 ! Return a random number, or an array of random numbers.
 ! ----------------------------------------------------------------------
-function random_number_RandomReal(this) result(output)
+function random_number_RandomReal(this,minimum,maximum,log_distributed) &
+   & result(output)
   implicit none
   
-  class(RandomReal), intent(in) :: this
-  real(dp)                      :: output
+  class(RandomReal), intent(in)           :: this
+  real(dp),          intent(in), optional :: minimum
+  real(dp),          intent(in), optional :: maximum
+  logical,           intent(in), optional :: log_distributed
+  real(dp)                                :: output
+  
+  logical :: log_distributed_
   
   if (.not. this%initialised_) then
     call print_line(CODE_ERROR//': Calling random number generator before it &
@@ -94,7 +100,43 @@ function random_number_RandomReal(this) result(output)
     call err()
   endif
   
+  if (present(minimum).neqv.present(maximum)) then
+    call print_line(CODE_ERROR//': If one bound is specified, &
+       &the other must be too.')
+    call err()
+  endif
+  
+  if (present(minimum)) then
+    if (minimum>maximum) then
+      call print_line(CODE_ERROR//': minimum>maximum.')
+      call err()
+    elseif (minimum>=maximum) then
+      ! minimum=maximum.
+      output = minimum
+    endif
+  endif
+  
+  log_distributed_ = set_default(log_distributed, .false.)
+  
+  if (log_distributed_) then
+    if (.not. present(minimum)) then
+      call print_line(CODE_ERROR//': If a log distribution is &
+         &requested then minimum and maximum must be specified.')
+      call err()
+    elseif (minimum<=0) then
+      call print_line(CODE_ERROR//': If a log distribution is &
+         &requested then the bounds must be >0.')
+      call err()
+    endif
+  endif
+  
   call random_number(output)
+  
+  if (log_distributed_) then
+    output = minimum*(maximum/minimum)**output
+  elseif (present(minimum)) then
+    output = minimum+(maximum-minimum)*output
+  endif
 end function
 
 function random_numbers_RandomReal(this,no_numbers) result(output)

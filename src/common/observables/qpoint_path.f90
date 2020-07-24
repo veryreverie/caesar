@@ -161,7 +161,7 @@ function new_QpointPath_string(path,total_path_points) result(this)
   integer :: i,ialloc
   
   ! Split the path into segments.
-  segments = tokens(path, delimiter='|')
+  segments = tokens(path, delimiters=['|'])
   
   ! Parse vertices and edges, segment by segment.
   no_edges = 0

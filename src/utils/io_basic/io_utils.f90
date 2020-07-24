@@ -7,6 +7,7 @@ module io_utils_module
   
   use terminal_module
   use error_module
+  use string_base_module
   use string_module
   use print_module
   use intrinsics_module
@@ -285,7 +286,7 @@ function get_flag(args,flags_without_arguments,flags_with_arguments) &
     
     ! The flag has no argument.
     elseif (output%flag==':') then
-      output%flag = output%argument
+      output%flag = char(output%argument)
       output%argument = ''
     endif
   endif
@@ -545,7 +546,7 @@ subroutine call_caesar_character(arguments)
   
   command = 'cd '//CWD//'; '//EXE_LOCATION
   if (present(arguments)) then
-    command = command//' '//arguments
+    command = command//' '//escape_bash_characters(arguments)
   endif
   
   result_code = system_call(command)
@@ -587,5 +588,25 @@ function parse_c_string(input) result(output)
        & input)
     call err()
   endif
+end function
+
+recursive function escape_bash_characters(input) result(output)
+  implicit none
+  
+  character(*), intent(in) :: input
+  type(String)             :: output
+  
+  integer :: i,j
+  
+  output = ''
+  
+  j = 0
+  do i=1,len(input)
+    if (input(i:i)=='|' .or. input(i:i)=='\') then
+      output = output//input(j+1:i-1)//'\'//input(i:i)
+      j = i
+    endif
+  enddo
+  output = output//input(j+1:)
 end function
 end module

@@ -91,7 +91,6 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
   integer,                  allocatable :: symmetric_mode_positions(:)
   complex(dp),              allocatable :: symmetric_mode_coefficients(:)
   complex(dp),              allocatable :: subspace_symmetry(:,:)
-  integer,                  allocatable :: non_zero_elements(:)
   
   integer :: i,j,ialloc
   
@@ -154,23 +153,11 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
                         & symmetric_mode_positions,  &
                         & mode_i_position            )
     
-    ! Filter out the zero elements.
-    !non_zero_elements = filter(abs(symmetric_mode_coefficients)>1e-5_dp)
-    !
-    !! Check symmetry elements.
-    !if (any( abs(symmetric_mode_coefficients)>1e-10_dp .and. &
-    !       & abs(symmetric_mode_coefficients)<1e-2_dp        )) then
-    !  call print_line(WARNING//': Symmetry '//this%symmetry_id//' acting on &
-    !     &mode '//mode%id//' has elements which are neither zero nor >0.01.')
-    !  call print_line('Symmetry elements: '//symmetric_mode_coefficients)
-    !endif
-    non_zero_elements = [(j,j=1,size(symmetric_mode_coefficients))]
-    
     ! Construct the symmetry.
-    this%symmetries_(i) = SingleModeSymmetry(           &
-       & mode%id,                                       &
-       & symmetric_modes(non_zero_elements)%id,         &
-       & symmetric_mode_coefficients(non_zero_elements) )
+    this%symmetries_(i) = SingleModeSymmetry( &
+                & mode%id,                    &
+                & symmetric_modes%id,         &
+                & symmetric_mode_coefficients )
     
     if (abs(l2_norm(symmetric_mode_coefficients)-1)>1e-10_dp) then
       call print_line(CODE_ERROR//': Error constructing symmetry '// &
@@ -207,23 +194,20 @@ function calculate_symmetry(this,input,modes,include_coefficients) &
   endif
   
   allocate(symmetry(size(input), size(input)), stat=ialloc); call err(ialloc)
+  symmetry = 0
   do i=1,size(input)
     transformed_input = this%transform_monomial(input(i), modes)
-    do j=1,size(input)
-      k = first_equivalent( transformed_input%terms,   &
-                          & input(j),                  &
-                          & compare_complex_monomials, &
-                          & default = 0                )
-      if (k==0) then
-        symmetry(j,i) = 0
-      else
-        symmetry(j,i) = transformed_input%terms(k)%coefficient
-      endif
+    
+    do j=1,size(transformed_input%terms)
+      k = first_equivalent( input,                      &
+                          & transformed_input%terms(j), &
+                          & compare_complex_monomials   )
+      symmetry(k,i) = transformed_input%terms(j)%coefficient
       
       if (include_coefficients) then
-        symmetry(j,i) = symmetry(j,i)        &
+        symmetry(k,i) = symmetry(k,i) &
                     & * input(i)%coefficient &
-                    & / input(j)%coefficient
+                    & / input(k)%coefficient
       endif
     enddo
   enddo

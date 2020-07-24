@@ -19,30 +19,32 @@ module coupling_basis_functions_module
   public :: size
   public :: generate_basis_functions
   
-  type, extends(Stringsable) :: CouplingBasisFunctions
+  type, extends(PotentialBase) :: CouplingBasisFunctions
     type(SubspaceCoupling)                    :: coupling
     type(BasisFunction), allocatable, private :: basis_functions_(:)
   contains
+    procedure, public, nopass :: representation => &
+                               & representation_CouplingBasisFunctions
+    
     procedure, public :: basis_functions => &
                        & basis_functions_CouplingBasisFunctions
     
-    procedure, public :: finalise => finalise_CouplingBasisFunctions
+    procedure, public :: undisplaced_energy => &
+                       & undisplaced_energy_CouplingBasisFunctions
     
-    generic,   public  :: energy =>                                           &
-                        & energy_RealModeDisplacement_CouplingBasisFunctions, &
-                        & energy_ComplexModeDisplacement_CouplingBasisFunctions
-    procedure, private :: energy_RealModeDisplacement_CouplingBasisFunctions
-    procedure, private :: energy_ComplexModeDisplacement_CouplingBasisFunctions
-    generic,   public  :: force =>                                           &
-                        & force_RealModeDisplacement_CouplingBasisFunctions, &
-                        & force_ComplexModeDisplacement_CouplingBasisFunctions
-    procedure, private :: force_RealModeDisplacement_CouplingBasisFunctions
-    procedure, private :: force_ComplexModeDisplacement_CouplingBasisFunctions
+    procedure, public :: zero_energy => zero_energy_CouplingBasisFunctions
+    procedure, public :: add_constant => add_constant_CouplingBasisFunctions
     
-    generic,   public :: braket =>              &
-                       & braket_SubspaceBraKet, &
-                       & braket_BasisState,     &
-                       & braket_BasisStates
+    procedure, public :: energy_RealModeDisplacement => &
+                       & energy_RealModeDisplacement_CouplingBasisFunctions
+    procedure, public :: energy_ComplexModeDisplacement => &
+                       & energy_ComplexModeDisplacement_CouplingBasisFunctions
+    
+    procedure, public :: force_RealModeDisplacement => &
+                       & force_RealModeDisplacement_CouplingBasisFunctions
+    procedure, public :: force_ComplexModeDisplacement => &
+                       & force_ComplexModeDisplacement_CouplingBasisFunctions
+    
     procedure, public :: braket_SubspaceBraKet => &
                        & braket_SubspaceBraKet_CouplingBasisFunctions
     procedure, public :: braket_BasisState => &
@@ -53,14 +55,10 @@ module coupling_basis_functions_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_CouplingBasisFunctions
     
-    generic,   public :: potential_energy =>              &
-                       & potential_energy_SubspaceBraKet, &
-                       & potential_energy_BasisState
-    procedure, public :: potential_energy_SubspaceBraKet
-    procedure, public :: potential_energy_BasisState
-    
-    procedure, public :: undisplaced_energy => &
-                       & undisplaced_energy_CouplingBasisFunctions
+    procedure, public :: potential_energy_SubspaceBraKet => &
+                       & potential_energy_SubspaceBraKet_CouplingBasisFunctions
+    procedure, public :: potential_energy_BasisState => &
+                       & potential_energy_BasisState_CouplingBasisFunctions
     
     procedure, public :: fit_coefficients => &
                        & fit_coefficients_CouplingBasisFunctions
@@ -70,6 +68,12 @@ module coupling_basis_functions_module
                        & coefficients_CouplingBasisFunctions
     procedure, public :: set_coefficients => &
                        & set_coefficients_CouplingBasisFunctions
+    procedure, public :: all_basis_functions => &
+                       & all_basis_functions_CouplingBasisFunctions
+    procedure, public :: variable_basis_functions => &
+                       & variable_basis_functions_CouplingBasisFunctions
+    
+    procedure, public :: optimise => optimise_CouplingBasisFunctions
     
     procedure, public :: append => append_CouplingBasisFunctions
     
@@ -130,6 +134,15 @@ function new_CouplingBasisFunctions(coupling,basis_functions) result(this)
   this%basis_functions_ = basis_functions
 end function
 
+impure elemental function representation_CouplingBasisFunctions() &
+   & result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'Polynomial basis functions'
+end function
+
 function size_CouplingBasisFunctions(this) result(output)
   implicit none
   
@@ -148,30 +161,32 @@ function basis_functions_CouplingBasisFunctions(this) result(output)
   output = this%basis_functions_
 end function
 
-impure elemental subroutine finalise_CouplingBasisFunctions(this,subspace, &
-   & subspace_basis,anharmonic_data)
+impure elemental subroutine optimise_CouplingBasisFunctions(this,subspace, &
+   & subspace_basis,old_subspace_potential,anharmonic_data)
   implicit none
   
-  class(CouplingBasisFunctions), intent(inout) :: this
-  type(DegenerateSubspace),      intent(in)    :: subspace
-  class(SubspaceBasis),          intent(in)    :: subspace_basis
-  type(AnharmonicData),          intent(in)    :: anharmonic_data
+  class(CouplingBasisFunctions), intent(inout)        :: this
+  type(DegenerateSubspace),      intent(in)           :: subspace
+  class(SubspaceBasis),          intent(in)           :: subspace_basis
+  class(PotentialData),          intent(in), optional :: old_subspace_potential
+  type(AnharmonicData),          intent(in)           :: anharmonic_data
   
   if (size(this%coupling%ids)/=1) then
-    call print_line(CODE_ERROR//': Calling finalise_subspace_potential &
+    call print_line(CODE_ERROR//': Calling optimise_subspace_potential &
        &on a potential with coupled subspaces.')
     call err()
   elseif (this%coupling%ids(1)/=subspace%id) then
-    call print_line(CODE_ERROR//': Calling finalise_subspace_potential &
+    call print_line(CODE_ERROR//': Calling optimise_subspace_potential &
        &with the wrong subspace.')
     call err()
   endif
   
   ! Remove constant terms and split basis functions by power.
-  this%basis_functions_ = finalise( this%basis_functions_, &
-                                  & subspace,              &
-                                  & subspace_basis,        &
-                                  & anharmonic_data        )
+  this%basis_functions_ = optimise( this%basis_functions_,  &
+                                  & subspace,               &
+                                  & subspace_basis,         &
+                                  & old_subspace_potential, &
+                                  & anharmonic_data         )
 end subroutine
 
 impure elemental function energy_RealModeDisplacement_CouplingBasisFunctions( &
@@ -179,7 +194,7 @@ impure elemental function energy_RealModeDisplacement_CouplingBasisFunctions( &
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
-  class(RealModeDisplacement),   intent(in) :: displacement
+  type(RealModeDisplacement),    intent(in) :: displacement
   real(dp)                                  :: output
   
   output = sum(this%basis_functions_%energy(displacement))
@@ -190,9 +205,9 @@ impure elemental function                                                     &
    & result(output)
   implicit none
   
-  class(CouplingBasisFunctions),  intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                                :: output
+  class(CouplingBasisFunctions), intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  complex(dp)                               :: output
   
   output = sum(this%basis_functions_%energy(displacement))
 end function
@@ -202,7 +217,7 @@ impure elemental function force_RealModeDisplacement_CouplingBasisFunctions( &
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
-  class(RealModeDisplacement),   intent(in) :: displacement
+  type(RealModeDisplacement),    intent(in) :: displacement
   type(RealModeForce)                       :: output
   
   if (size(this%basis_functions_)>0) then
@@ -217,9 +232,9 @@ impure elemental function                                                    &
    & result(output)
   implicit none
   
-  class(CouplingBasisFunctions),  intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexModeForce)                     :: output
+  class(CouplingBasisFunctions), intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexModeForce)                    :: output
   
   if (size(this%basis_functions_)>0) then
     output = sum(this%basis_functions_%force(displacement))
@@ -250,7 +265,8 @@ impure elemental subroutine braket_SubspaceBraKet_CouplingBasisFunctions( &
     
     ! Integrate across the basis function, and simplify it.
     do i=1,size(this)
-      call this%basis_functions_(i)%braket(braket, anharmonic_data)
+      call this%basis_functions_(i)%braket( braket,                           &
+                                          & anharmonic_data = anharmonic_data )
     enddo
     
     call this%basis_functions_%simplify()
@@ -281,11 +297,11 @@ impure elemental subroutine braket_BasisState_CouplingBasisFunctions(this, &
     
     ! Integrate across the basis function, and simplify it.
     do i=1,size(this)
-      call this%basis_functions_(i)%braket( bra,            &
-                                          & ket,            &
-                                          & subspace,       &
-                                          & subspace_basis, &
-                                          & anharmonic_data )
+      call this%basis_functions_(i)%braket( bra,                              &
+                                          & ket,                              &
+                                          & subspace,                         &
+                                          & subspace_basis,                   &
+                                          & anharmonic_data = anharmonic_data )
     enddo
     
     call this%basis_functions_%simplify()
@@ -315,10 +331,10 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
     
     ! Integrate across the basis function, and simplify it.
     do j=1,size(this)
-      call this%basis_functions_(j)%braket( states,         &
-                                          & subspace,       &
-                                          & subspace_basis, &
-                                          & anharmonic_data )
+      call this%basis_functions_(j)%braket( states,                           &
+                                          & subspace,                         &
+                                          & subspace_basis,                   &
+                                          & anharmonic_data = anharmonic_data )
     enddo
     
     call this%basis_functions_%simplify()
@@ -326,22 +342,29 @@ impure elemental subroutine braket_BasisStates_CouplingBasisFunctions(this, &
 end subroutine
 
 impure elemental function harmonic_expectation_CouplingBasisFunctions(this, &
-   & frequency,thermal_energy,supercell_size) result(output)
+   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
   real(dp),                      intent(in) :: frequency
   real(dp),                      intent(in) :: thermal_energy
   integer,                       intent(in) :: supercell_size
+  type(AnharmonicData),          intent(in) :: anharmonic_data
   real(dp)                                  :: output
   
-  output = sum(this%basis_functions_%harmonic_expectation( frequency,      &
-                                                         & thermal_energy, &
-                                                         & supercell_size  ))
+  integer :: i
+  
+  output = sum([( this%basis_functions_(i)%harmonic_expectation(    &
+                &                                frequency,         &
+                &                                thermal_energy,    &
+                &                                supercell_size,    &
+                &                                anharmonic_data ), &
+                & i=1,                                              &
+                & size(this%basis_functions_)                       )])
 end function
 
-impure elemental function potential_energy_SubspaceBraKet(this,braket, &
-   & anharmonic_data) result(output)
+function potential_energy_SubspaceBraKet_CouplingBasisFunctions(this,braket, &
+   & anharmonic_data) result(output) 
   implicit none
   
   class(CouplingBasisFunctions), intent(in) :: this
@@ -349,12 +372,17 @@ impure elemental function potential_energy_SubspaceBraKet(this,braket, &
   type(AnharmonicData),          intent(in) :: anharmonic_data
   real(dp)                                  :: output
   
-  output = sum(this%basis_functions_%potential_energy( braket,         &
-                                                     & anharmonic_data ))
+  integer :: i
+  
+  output = sum([( this%basis_functions_(i)%potential_energy(    &
+                &                            braket,            &
+                &                            anharmonic_data ), &
+                & i=1,                                          &
+                & size(this%basis_functions_)                   )])
 end function
 
-impure elemental function potential_energy_BasisState(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output)
+function potential_energy_BasisState_CouplingBasisFunctions(this,bra,ket, &
+   & subspace,subspace_basis,anharmonic_data) result(output) 
   implicit none
   
   class(CouplingBasisFunctions), intent(in)           :: this
@@ -365,11 +393,16 @@ impure elemental function potential_energy_BasisState(this,bra,ket, &
   type(AnharmonicData),          intent(in)           :: anharmonic_data
   real(dp)                                            :: output
   
-  output = sum(this%basis_functions_%potential_energy( bra,            &
-                                                     & ket,            &
-                                                     & subspace,       &
-                                                     & subspace_basis, &
-                                                     & anharmonic_data ))
+  integer :: i
+  
+  output = sum([( this%basis_functions_(i)%potential_energy(    &
+                &                            bra,               &
+                &                            ket,               &
+                &                            subspace,          &
+                &                            subspace_basis,    &
+                &                            anharmonic_data ), &
+                & i=1,                                          &
+                & size(this%basis_functions_)                   )])
 end function
 
 function generate_basis_functions_SubspaceCoupling(coupling,               &
@@ -396,7 +429,7 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
   
   type(SubspaceMonomial), allocatable :: subspace_monomials(:)
   
-  type(BasisFunctionsAndUniqueTerms), allocatable :: basis_functions(:)
+  type(BasisFunctions), allocatable :: basis_functions(:)
   
   type(BasisFunction), allocatable :: coupling_basis_functions(:)
   
@@ -419,7 +452,6 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
     basis_functions(i) = generate_basis_functions( subspace_monomials(i),     &
                                                  & structure,                 &
                                                  & complex_modes,             &
-                                                 & real_modes,                &
                                                  & qpoints,                   &
                                                  & subspaces,                 &
                                                  & degenerate_symmetries,     &
@@ -456,6 +488,27 @@ impure elemental function undisplaced_energy_CouplingBasisFunctions(this) &
   
   output = this%energy(RealModeDisplacement(zero_displacement))
 end function
+
+impure elemental subroutine zero_energy_CouplingBasisFunctions(this)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  
+  call print_line(CODE_ERROR//': zero_energy() cannot be called for type &
+     &CouplingBasisFunctions.')
+  call err()
+end subroutine
+
+impure elemental subroutine add_constant_CouplingBasisFunctions(this,input)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  real(dp),                      intent(in)    :: input
+  
+  call print_line(CODE_ERROR//': add_constant() cannot be called for type &
+     &CouplingBasisFunctions.')
+  call err()
+end subroutine
 
 ! Fit basis function coefficients using L2 regression.
 subroutine fit_coefficients_CouplingBasisFunctions(this,sampling_points, &
@@ -552,6 +605,37 @@ subroutine set_coefficients_CouplingBasisFunctions(this,coefficients, &
     call err()
   endif
 end subroutine
+
+function all_basis_functions_CouplingBasisFunctions(this) result(output) 
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in) :: this
+  type(PotentialBasePointer), allocatable   :: output(:)
+  
+  type(BasisFunction), allocatable :: basis_functions(:)
+  
+  basis_functions = this%basis_functions_
+  call basis_functions%set_coefficient(1.0_dp)
+  
+  output = PotentialBasePointer(basis_functions)
+end function
+
+function variable_basis_functions_CouplingBasisFunctions(this,maximum_power) &
+   & result(output) 
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(in) :: this
+  integer,                       intent(in) :: maximum_power
+  type(PotentialBasePointer), allocatable   :: output(:)
+  
+  type(BasisFunction), allocatable :: basis_functions(:)
+  
+  basis_functions = this%basis_functions_(                  &
+     & filter(this%basis_functions_%power()<=maximum_power) )
+  call basis_functions%set_coefficient(1.0_dp)
+  
+  output = PotentialBasePointer(basis_functions)
+end function
 
 ! Append another CouplingBasisFunctions to this.
 subroutine append_CouplingBasisFunctions(this,that)

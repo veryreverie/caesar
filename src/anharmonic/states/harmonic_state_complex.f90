@@ -179,9 +179,11 @@ function wavevector_HarmonicStateComplex(this,modes,qpoints) result(output)
   
   integer :: i
   
-  output = sum([( this%modes_(i)%wavevector(modes,qpoints), &
-                & i=1,                                      &
-                & size(this%modes_)                         )])
+  ! Effectively sum(this%modes_(:)%wavevector(modes,qpoints)).
+  output = this%modes_(1)%wavevector(modes,qpoints)
+  do i=2,size(this%modes_)
+    output = output + this%modes_(i)%wavevector(modes,qpoints)
+  enddo
 end function
 
 ! ----------------------------------------------------------------------

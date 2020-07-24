@@ -228,9 +228,14 @@ function selected_states_couplings(input,selected_states) result(output)
   
   ! Generate a list such that state_map(selected_states(i))=i,
   !    and state_map(i)=0 if i is not in selected_states.
-  state_map = [( first(selected_states==i, default=0), &
-               & i=1,                                  &
-               & size(input)                           )]
+  !state_map = [( first(selected_states==i, default=0), &
+  !             & i=1,                                  &
+  !             & size(input)                           )]
+  ! WORKAROUND to avoid memory leak in ifort 19.1.0.166
+  allocate(state_map(size(input)), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    state_map(i) = first(selected_states==i, default=0)
+  enddo
   
   ! Generate the couplings.
   allocate(output(size(selected_states)), stat=ialloc); call err(ialloc)

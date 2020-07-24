@@ -7,8 +7,8 @@ module stress_basis_function_module
   use anharmonic_common_module
   
   use polynomial_interpolator_module
-  use basis_function_module
   use polynomial_dynamical_matrices_module
+  use polynomial_symmetry_module
   implicit none
   
   private
@@ -18,25 +18,29 @@ module stress_basis_function_module
   public :: operator(*)
   public :: operator(/)
   
-  type, extends(Stringsable) :: StressBasisFunction
+  type, extends(StressBase) :: StressBasisFunction
     ! This will always be 3x3, but is allocatable to avoid stack overflows.
     type(ComplexPolynomial), private, allocatable :: elements_(:,:)
     
     ! A leading coefficient.
     real(dp), private :: coefficient_
   contains
-    procedure, public :: simplify => simplify_StressBasisFunction
+    procedure, public, nopass :: representation => &
+                               & representation_StressBasisFunction
     
-    generic,   public  :: stress =>                                        &
-                        & stress_RealModeDisplacement_StressBasisFunction, &
-                        & stress_ComplexModeDisplacement_StressBasisFunction
-    procedure, private :: stress_RealModeDisplacement_StressBasisFunction
-    procedure, private :: stress_ComplexModeDisplacement_StressBasisFunction
+    procedure, public :: undisplaced_stress => &
+                       & undisplaced_stress_StressBasisFunction
     
-    generic,   public :: braket =>              &
-                       & braket_SubspaceBraKet, &
-                       & braket_BasisState,     &
-                       & braket_BasisStates
+    procedure, public :: zero_stress => &
+                       & zero_stress_StressBasisFunction
+    procedure, public :: add_constant => &
+                       & add_constant_StressBasisFunction
+    
+    procedure, public :: stress_RealModeDisplacement => &
+                       & stress_RealModeDisplacement_StressBasisFunction
+    procedure, public :: stress_ComplexModeDisplacement => &
+                       & stress_ComplexModeDisplacement_StressBasisFunction
+    
     procedure, public :: braket_SubspaceBraKet => &
                        & braket_SubspaceBraKet_StressBasisFunction
     procedure, public :: braket_BasisState => &
@@ -47,8 +51,7 @@ module stress_basis_function_module
     procedure, public :: harmonic_expectation => &
                        & harmonic_expectation_StressBasisFunction
     
-    procedure, public :: undisplaced_stress => &
-                       & undisplaced_stress_StressBasisFunction
+    procedure, public :: simplify => simplify_StressBasisFunction
     
     procedure, public :: interpolate_coefficients => &
                        & interpolate_coefficients_StressBasisFunction
@@ -98,16 +101,24 @@ function new_StressBasisFunction(elements,coefficient) result(this)
   endif
 end function
 
+! Type representation.
+impure elemental function representation_StressBasisFunction() result(output)
+  implicit none
+  
+  type(String) :: output
+  
+  output = 'Polynomial stress basis function'
+end function
+
 ! Generate basis functions.
 function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
-   & structure,complex_modes,real_modes,qpoints,subspaces,                   &
-   & degenerate_symmetries,vscf_basis_functions_only,logfile) result(output)
+   & structure,complex_modes,qpoints,subspaces,degenerate_symmetries,        &
+   & vscf_basis_functions_only,logfile) result(output) 
   implicit none
   
   type(SubspaceMonomial),   intent(in)    :: subspace_monomial
   type(StructureData),      intent(in)    :: structure
   type(ComplexMode),        intent(in)    :: complex_modes(:)
-  type(RealMode),           intent(in)    :: real_modes(:)
   type(QpointData),         intent(in)    :: qpoints(:)
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
@@ -115,10 +126,9 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   type(OFile),              intent(inout) :: logfile
   type(StressBasisFunction), allocatable  :: output(:)
   
-  ! Complex monomials, and the corresponding real basis functions.
+  ! Complex monomials, and the indices of their conjugates, such that
+  !    complex_monomials(conjugates(i)) == conjg(complex_monomials(i)).
   type(ComplexMonomial), allocatable :: complex_monomials(:)
-  integer,               allocatable :: conjugates(:)
-  type(BasisFunction),   allocatable :: basis_functions(:)
   
   ! Each symmetry, acting on scalar basis functions, the stress tensor,
   !    and the combined basis function.
@@ -133,7 +143,7 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   
   ! Variables for constructing the output.
   type(ComplexPolynomial) :: elements(3,3)
-  type(BasisFunction)     :: basis_function
+  type(ComplexPolynomial) :: basis_function
   
   ! Mappings between 3x3 indices and 6 indices.
   integer :: x(6)
@@ -142,6 +152,8 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   ! Temporary variables.
   integer  :: i,j,k,l,m,n,o,ialloc
   real(dp) :: tensor(3,3)
+  
+  type(BasisConversion) :: basis_conversion
   
   ! Initialise index mappings.
   x = [1,2,3,1,1,2]
@@ -162,10 +174,8 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
     return
   endif
   
-  ! Pair up each complex monomial with its complex conjugate,
-  !    to form real basis functions.
-  conjugates = find_monomial_conjugates(complex_monomials)
-  basis_functions = pair_complex_monomials(complex_monomials, conjugates)
+  ! Locate the conjugate of each complex monomial.
+  basis_conversion = BasisConversion(complex_monomials)
   
   ! Construct projection matrix, which has allowed basis functions as
   !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
@@ -183,9 +193,10 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
                       & logfile                               )
     
     ! Transform the symmetry into real co-ordinates.
-    real_scalar_symmetry = dble(make_basis_projection( &
-                            & complex_scalar_symmetry, &
-                            & conjugates               ))
+    real_scalar_symmetry = dble(basis_conversion%matrix_to_basis( &
+                                       & complex_scalar_symmetry, &
+                                       & lhs=.true.,              &
+                                       & rhs=.true.               ))
     
     ! Construct the symmetry acting on the tensor components.
     do j=1,6
@@ -258,22 +269,17 @@ function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial, &
   allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     do j=1,6
-      basis_function = generate_basis_function(                      &
-         & evec = estuff(i)%evec( size(complex_monomials)*(j-1)+1    &
-         &                      : size(complex_monomials)*j       ), &
-         & monomials = complex_monomials,                            &
-         & conjugates = conjugates                                   )
+      basis_function = basis_conversion%vector_from_basis(    &
+         & estuff(i)%evec( size(complex_monomials)*(j-1)+1    &
+         &               : size(complex_monomials)*j       ), &
+         & 1e-4_dp                                            )
+      call basis_function%simplify()
       
       if (x(j)==y(j)) then
-        elements(x(j),y(j)) = basis_function%complex_representation()
-        call elements(x(j),y(j))%simplify()
+        elements(x(j),y(j)) = basis_function
       else
-        elements(x(j),y(j)) = basis_function%complex_representation() &
-                          & / sqrt(2.0_dp)
-        call elements(x(j),y(j))%simplify()
-        elements(y(j),x(j)) = basis_function%complex_representation() &
-                          & / sqrt(2.0_dp)
-        call elements(y(j),x(j))%simplify()
+        elements(x(j),y(j)) = basis_function / sqrt(2.0_dp)
+        elements(y(j),x(j)) = elements(x(j),y(j))
       endif
     enddo
     
@@ -332,9 +338,9 @@ impure elemental function stress_RealModeDisplacement_StressBasisFunction( &
    & this,displacement) result(output)
   implicit none
   
-  class(StressBasisFunction),  intent(in) :: this
-  class(RealModeDisplacement), intent(in) :: displacement
-  type(RealMatrix)                        :: output
+  class(StressBasisFunction), intent(in) :: this
+  type(RealModeDisplacement), intent(in) :: displacement
+  type(RealMatrix)                       :: output
   
   real(dp) :: elements(3,3)
   
@@ -353,9 +359,9 @@ impure elemental function stress_ComplexModeDisplacement_StressBasisFunction( &
    & this,displacement) result(output)
   implicit none
   
-  class(StressBasisFunction),     intent(in) :: this
-  class(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexMatrix)                        :: output
+  class(StressBasisFunction),    intent(in) :: this
+  type(ComplexModeDisplacement), intent(in) :: displacement
+  type(ComplexMatrix)                       :: output
   
   complex(dp) :: elements(3,3)
   
@@ -373,13 +379,14 @@ end function
 ! ----------------------------------------------------------------------
 ! Integrate the basis function between two states.
 ! ----------------------------------------------------------------------
-subroutine braket_SubspaceBraKet_StressBasisFunction(this,braket, &
-   & anharmonic_data)
+impure elemental subroutine braket_SubspaceBraKet_StressBasisFunction(this, &
+   & braket,whole_subspace,anharmonic_data) 
   implicit none
   
-  class(StressBasisFunction), intent(inout) :: this
-  class(SubspaceBraKet),      intent(in)    :: braket
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  class(StressBasisFunction), intent(inout)        :: this
+  class(SubspaceBraKet),      intent(in)           :: braket
+  logical,                    intent(in), optional :: whole_subspace
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
   
   integer :: i,j
   
@@ -392,8 +399,8 @@ subroutine braket_SubspaceBraKet_StressBasisFunction(this,braket, &
   enddo
 end subroutine
 
-subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
-   & subspace_basis,anharmonic_data)
+impure elemental subroutine braket_BasisState_StressBasisFunction(this,bra, &
+   & ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
   class(StressBasisFunction), intent(inout)        :: this
@@ -401,6 +408,7 @@ subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
   class(BasisState),          intent(in), optional :: ket
   type(DegenerateSubspace),   intent(in)           :: subspace
   class(SubspaceBasis),       intent(in)           :: subspace_basis
+  logical,                    intent(in), optional :: whole_subspace
   type(AnharmonicData),       intent(in)           :: anharmonic_data
   
   integer :: i,j
@@ -417,15 +425,16 @@ subroutine braket_BasisState_StressBasisFunction(this,bra,ket,subspace, &
   enddo
 end subroutine
 
-subroutine braket_BasisStates_StressBasisFunction(this,states,subspace, &
-   & subspace_basis,anharmonic_data) 
+impure elemental subroutine braket_BasisStates_StressBasisFunction(this, &
+   & states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
   implicit none
   
-  class(StressBasisFunction), intent(inout) :: this
-  class(BasisStates),         intent(inout) :: states
-  type(DegenerateSubspace),   intent(in)    :: subspace
-  class(SubspaceBasis),       intent(in)    :: subspace_basis
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
+  class(StressBasisFunction), intent(inout)        :: this
+  class(BasisStates),         intent(inout)        :: states
+  type(DegenerateSubspace),   intent(in)           :: subspace
+  class(SubspaceBasis),       intent(in)           :: subspace_basis
+  logical,                    intent(in), optional :: whole_subspace
+  type(AnharmonicData),       intent(in)           :: anharmonic_data
   
   integer :: i,j,k
   
@@ -446,13 +455,14 @@ end subroutine
 ! Returns the thermal expectation of the basis function.
 ! ----------------------------------------------------------------------
 impure elemental function harmonic_expectation_StressBasisFunction(this, &
-   & frequency,thermal_energy,supercell_size) result(output)
+   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
   implicit none
   
   class(StressBasisFunction), intent(in) :: this
   real(dp),                   intent(in) :: frequency
   real(dp),                   intent(in) :: thermal_energy
   integer,                    intent(in) :: supercell_size
+  type(AnharmonicData),       intent(in) :: anharmonic_data
   type(RealMatrix)                       :: output
   
   real(dp) :: elements(3,3)
@@ -485,6 +495,27 @@ impure elemental function undisplaced_stress_StressBasisFunction(this) &
   
   output = this%stress(RealModeDisplacement(zero_displacement))
 end function
+
+impure elemental subroutine zero_stress_StressBasisFunction(this)
+  implicit none
+  
+  class(StressBasisFunction), intent(inout) :: this
+  
+  call print_line(CODE_ERROR//': zero_energy() cannot be called for type &
+     &StressBasisFunction.')
+  call err()
+end subroutine
+
+impure elemental subroutine add_constant_StressBasisFunction(this,input) 
+  implicit none
+  
+  class(StressBasisFunction), intent(inout) :: this
+  type(RealMatrix),           intent(in)    :: input
+  
+  call print_line(CODE_ERROR//': add_constant() cannot be called for type &
+     &StressBasisFunction.')
+  call err()
+end subroutine
 
 ! ----------------------------------------------------------------------
 ! Arithmetic.

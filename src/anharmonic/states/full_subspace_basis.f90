@@ -71,6 +71,10 @@ module full_subspace_basis_module
     procedure, public :: integrate_BasisStates => &
                        & integrate_BasisStates_FullSubspaceBasis
     
+    ! The derivative of the free energy.
+    procedure, public :: free_energy_gradient => &
+                       & free_energy_gradient_FullSubspaceBasis
+    
     ! I/O.
     procedure, public :: read  => read_FullSubspaceBasis
     procedure, public :: write => write_FullSubspaceBasis
@@ -229,7 +233,7 @@ impure elemental function calculate_states_FullSubspaceBasis(this,subspace,  &
   
   class(FullSubspaceBasis), intent(in) :: this
   type(DegenerateSubspace), intent(in) :: subspace
-  class(PotentialData),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: subspace_potential
   real(dp),                 intent(in) :: thermal_energy
   real(dp),                 intent(in) :: state_energy_cutoff
   type(ConvergenceData),    intent(in) :: convergence_data
@@ -441,8 +445,8 @@ impure elemental function thermodynamic_data_FullSubspaceBasis(this,    &
   real(dp),                 intent(in)                  :: thermal_energy
   class(BasisStates),       intent(in),          target :: states
   type(DegenerateSubspace), intent(in)                  :: subspace
-  class(PotentialData),     intent(in)                  :: subspace_potential
-  class(StressData),        intent(in), optional        :: subspace_stress
+  class(PotentialBase),     intent(in)                  :: subspace_potential
+  class(StressBase),        intent(in), optional        :: subspace_stress
   type(StressPrefactors),   intent(in), optional        :: stress_prefactors
   type(AnharmonicData),     intent(in)                  :: anharmonic_data
   type(ThermodynamicData)                               :: output
@@ -526,6 +530,32 @@ impure elemental function integrate_BasisStates_FullSubspaceBasis(this, &
                                                    & subspace,       &
                                                    & anharmonic_data )
   enddo
+end function
+
+! Calculate the derivative of the free energy.
+function free_energy_gradient_FullSubspaceBasis(this,subspace_potential, &
+   & basis_functions,subspace,states,thermal_energy,state_energy_cutoff, &
+   & anharmonic_data) result(output) 
+  implicit none
+  
+  class(FullSubspaceBasis), intent(in) :: this
+  class(PotentialBase),     intent(in) :: subspace_potential
+  class(PotentialBase),     intent(in) :: basis_functions(:)
+  type(DegenerateSubspace), intent(in) :: subspace
+  class(BasisStates),       intent(in) :: states
+  real(dp),                 intent(in) :: thermal_energy
+  real(dp),                 intent(in) :: state_energy_cutoff
+  type(AnharmonicData),     intent(in) :: anharmonic_data
+  real(dp), allocatable                :: output(:)
+  
+  output = free_energy_gradient( this%wavevectors,    &
+                               & subspace_potential,  &
+                               & basis_functions,     &
+                               & subspace,            &
+                               & states,              &
+                               & thermal_energy,      &
+                               & state_energy_cutoff, &
+                               & anharmonic_data      )
 end function
 
 ! ----------------------------------------------------------------------

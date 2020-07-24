@@ -28,29 +28,55 @@ module token_module
 contains
 
 ! Split a string, and return the token at the given index.
-impure elemental function token_String(input,index,delimiter) result(output)
+function token_String(input,index,delimiter,delimiters) result(output)
   implicit none
   
   type(String), intent(in)           :: input
   integer,      intent(in)           :: index
   character(1), intent(in), optional :: delimiter
+  character(1), intent(in), optional :: delimiters(:)
   type(String)                       :: output
   
   type(String), allocatable :: line(:)
+  
+  type(String) :: delimiters_string
+  
+  integer :: i
   
   if (index<1) then
     call print_line(ERROR//': index<1.')
     call err()
   endif
   
-  line = split_line(input, delimiter)
+  line = split_line(input, delimiter, delimiters)
   
   if (index>size(line)) then
     call print_line(ERROR//': String does not contain enough tokens.')
     call print_line('Input string    : '//input)
     call print_line('Requested index : '//index)
     if (present(delimiter)) then
-      call print_line('Delimiter       : "'//delimiter//'"')
+      if (delimiter=='"') then
+        call print_line("Delimiter       : '"//delimiter//"'")
+      else
+        call print_line('Delimiter       : "'//delimiter//'"')
+      endif
+    elseif (present(delimiters)) then
+      if (size(delimiters)==0) then
+        call print_line('No Delimiters given.')
+      else
+        delimiters_string = str("")
+        do i=1,size(delimiters)
+          if (delimiters(i)=='"') then
+            delimiters_string = delimiters_string//"'"//delimiters(i)//"'"
+          else
+            delimiters_string = delimiters_string//'"'//delimiters(i)//'"'
+          endif
+          if (i<size(delimiters)) then
+            delimiters_string = delimiters_string//', '
+          endif
+        enddo
+        call print_line('Delimiters      : '//delimiters_string)
+      endif
     endif
     call err()
   endif
@@ -58,12 +84,13 @@ impure elemental function token_String(input,index,delimiter) result(output)
   output = line(index)
 end function
 
-function token_character(input,index,delimiter) result(output)
+function token_character(input,index,delimiter,delimiters) result(output)
   implicit none
   
   character(*), intent(in)           :: input
   integer,      intent(in)           :: index
   character(1), intent(in), optional :: delimiter
+  character(1), intent(in), optional :: delimiters(:)
   type(String)                       :: output
   
   output = token(str(input), index, delimiter)
@@ -72,18 +99,19 @@ end function
 ! Split a string, and return the tokens in the given range of indices.
 ! first defaults to 1.
 ! last defaults to the number of tokens.
-function tokens_String(input,first,last,delimiter) result(output)
+function tokens_String(input,first,last,delimiter,delimiters) result(output)
   implicit none
   
   type(String), intent(in)           :: input
   integer,      intent(in), optional :: first
   integer,      intent(in), optional :: last
   character(1), intent(in), optional :: delimiter
+  character(1), intent(in), optional :: delimiters(:)
   type(String), allocatable          :: output(:)
   
   type(String), allocatable :: line(:)
   
-  line = split_line(input, delimiter)
+  line = split_line(input, delimiter, delimiters)
   
   ! If first is present, check that 1 <= first <= len(line).
   if (present(first)) then
@@ -136,15 +164,16 @@ function tokens_String(input,first,last,delimiter) result(output)
   endif
 end function
 
-function tokens_character(input,first,last,delimiter) result(output)
+function tokens_character(input,first,last,delimiter,delimiters) result(output)
   implicit none
   
   character(*), intent(in)           :: input
   integer,      intent(in), optional :: first
   integer,      intent(in), optional :: last
   character(1), intent(in), optional :: delimiter
+  character(1), intent(in), optional :: delimiters(:)
   type(String), allocatable          :: output(:)
   
-  output = tokens(str(input), first, last, delimiter)
+  output = tokens(str(input), first, last, delimiter, delimiters)
 end function
 end module

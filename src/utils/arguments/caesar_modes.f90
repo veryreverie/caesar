@@ -18,7 +18,6 @@ module caesar_modes_module
   public :: CaesarModes
   public :: MainSubroutine
   public :: Dictionary
-  public :: assignment(=)
   public :: add_mode
   
   ! An interface for the main subroutines of Caesar, each of which takes a
@@ -50,10 +49,6 @@ module caesar_modes_module
     procedure, private :: remove_keyword_String
     procedure, private :: remove_keyword_character
   end type
-  
-  interface assignment(=)
-    module procedure :: assign_CaesarMode
-  end interface
   
   interface CaesarMode
     module procedure new_CaesarMode_character
@@ -255,30 +250,6 @@ function new_Dictionary_CaesarMode(mode) result(this)
   
   this = Dictionary(mode%keywords)
 end function
-
-! Copies one CaesarMode to another.
-! Required to be explicit due to an apparent nagfort 6.2 bug with automatic
-!    reallocation from an empty list.
-! N.B. output%keywords = [KeywordData::] fails under nagfort 6.2.
-subroutine assign_CaesarMode(output,input)
-  implicit none
-  
-  class(CaesarMode), intent(out) :: output
-  class(CaesarMode), intent(in)  :: input
-  
-  integer :: ialloc
-  
-  output%mode_name = input%mode_name
-  output%description = input%description
-  if (size(input%keywords)==0) then
-    allocate(output%keywords(0), stat=ialloc); call err(ialloc)
-  else
-    output%keywords = input%keywords
-  endif
-  output%main_subroutine => input%main_subroutine
-  output%suppress_from_helptext = input%suppress_from_helptext
-  output%suppress_settings_file = input%suppress_settings_file
-end subroutine
 
 ! Prints helptext.
 subroutine print_help_CaesarMode(this)
