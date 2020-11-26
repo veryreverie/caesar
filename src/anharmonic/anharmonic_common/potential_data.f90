@@ -340,7 +340,7 @@ impure elemental function representation_PotentialPointer() result(output)
 end function
 
 ! Return the stored potential.
-impure elemental function potential_PotentialPointer(this) result(output)
+impure function potential_PotentialPointer(this) result(output)
   implicit none
   
   class(PotentialPointer), intent(in) :: this

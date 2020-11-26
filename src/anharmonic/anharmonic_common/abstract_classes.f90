@@ -1405,7 +1405,7 @@ impure elemental function representation_PotentialBasePointer() result(output)
 end function
 
 ! Return the stored potential.
-impure elemental function potential_PotentialBasePointer(this) result(output)
+impure function potential_PotentialBasePointer(this) result(output)
   implicit none
   
   class(PotentialBasePointer), intent(in) :: this
