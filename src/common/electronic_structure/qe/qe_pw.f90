@@ -490,6 +490,8 @@ subroutine read_QeInputFile(this,input)
   class(QeInputFile), intent(out) :: this
   type(String),       intent(in)  :: input(:)
   
+  type(String), allocatable :: lines(:)
+  
   type(String), allocatable :: namelists(:)
   type(String), allocatable :: atomic_species(:)
   type(String), allocatable :: atomic_positions(:)
@@ -515,11 +517,26 @@ subroutine read_QeInputFile(this,input)
   
   type(String), allocatable :: line(:)
   
-  integer :: i
+  integer :: i,j,ialloc
   
   select type(this); type is(QeInputFile)
+    ! Remove blank lines and comment lines.
+    allocate(lines(size(input)), stat=ialloc); call err(ialloc)
+    j = 0
+    do i=1,size(input)
+      line = tokens(input(i))
+      if (size(line)==0) then
+        cycle
+      elseif (slice(line(1),1,1)=='!' .or. slice(line(1),1,1)=='#') then
+        cycle
+      endif
+      j = j+1
+      lines(j) = input(i)
+    enddo
+    lines = lines(:j)
+    
     ! Locate lines.
-    namelists_end_lines = filter([(input(i)=='/',i=1,size(input))])
+    namelists_end_lines = filter([(lines(i)=='/',i=1,size(lines))])
     namelists_end_line = namelists_end_lines(size(namelists_end_lines))
     
     atomic_species_line = 0
@@ -532,8 +549,8 @@ subroutine read_QeInputFile(this,input)
     
     end_lines = [integer::]
     
-    do i=namelists_end_line+1,size(input)
-      line = split_line(lower_case(input(i)))
+    do i=namelists_end_line+1,size(lines)
+      line = split_line(lower_case(lines(i)))
       if (size(line)==0) then
         cycle
       endif
@@ -590,54 +607,54 @@ subroutine read_QeInputFile(this,input)
       endif
     enddo
     
-    end_lines = [end_lines, size(input)]
+    end_lines = [end_lines, size(lines)]
     
-    namelists = input(:namelists_end_line)
+    namelists = lines(:namelists_end_line)
     
     if (atomic_species_line==0) then
       call print_line(ERROR//': atomic_species card not present.')
     else
       end_line = minval(end_lines(filter(end_lines>=atomic_species_line)))
-      atomic_species = input(atomic_species_line:end_line)
+      atomic_species = lines(atomic_species_line:end_line)
     endif
     
     if (atomic_positions_line==0) then
       call print_line(ERROR//': atomic_positions card not present.')
     else
       end_line = minval(end_lines(filter(end_lines>=atomic_positions_line)))
-      atomic_positions = input(atomic_positions_line:end_line)
+      atomic_positions = lines(atomic_positions_line:end_line)
     endif
     
     if (k_points_line==0) then
       call print_line(ERROR//': k_points card not present.')
     else
       end_line = minval(end_lines(filter(end_lines>=k_points_line)))
-      k_points = input(k_points_line:end_line)
+      k_points = lines(k_points_line:end_line)
     endif
     
     this = QeInputFile(namelists, atomic_species, atomic_positions, k_points)
     
     if (cell_parameters_line/=0) then
       end_line = minval(end_lines(filter(end_lines>=cell_parameters_line)))
-      cell_parameters = input(cell_parameters_line:end_line)
+      cell_parameters = lines(cell_parameters_line:end_line)
       this%cell_parameters = cell_parameters
     endif
     
     if (occupations_line/=0) then
       end_line = minval(end_lines(filter(end_lines>=occupations_line)))
-      occupations = input(occupations_line:end_line)
+      occupations = lines(occupations_line:end_line)
       this%occupations = occupations
     endif
     
     if (constraints_line/=0) then
       end_line = minval(end_lines(filter(end_lines>=constraints_line)))
-      constraints = input(constraints_line:end_line)
+      constraints = lines(constraints_line:end_line)
       this%constraints = constraints
     endif
     
     if (atomic_forces_line/=0) then
       end_line = minval(end_lines(filter(end_lines>=atomic_forces_line)))
-      atomic_forces = input(atomic_forces_line:end_line)
+      atomic_forces = lines(atomic_forces_line:end_line)
       this%atomic_forces = atomic_forces
     endif
   class default
