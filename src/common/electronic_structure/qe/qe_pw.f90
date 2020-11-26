@@ -237,7 +237,9 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   ! Update 'nat' in namelists.
   do i=1,size(qe_file%namelists)
     if (len(qe_file%namelists(i))>=4) then
-      if (slice(qe_file%namelists(i),1,4)=='nat=') then
+      if (slice(qe_file%namelists(i),1,4)=='nat ') then
+        qe_file%namelists(i) = 'nat='//structure%no_atoms
+      elseif (slice(qe_file%namelists(i),1,4)=='nat=') then
         qe_file%namelists(i) = 'nat='//structure%no_atoms
       endif
     endif
