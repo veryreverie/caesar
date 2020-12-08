@@ -42,30 +42,34 @@ function new_InterpolatedSupercell(supercell,qpoints,dynamical_matrices, &
   this%real_modes         = real_modes
 end function
 
-function new_InterpolatedSupercell_interpolated(qpoint_grid,structure,    &
-   & harmonic_qpoints,harmonic_dynamical_matrices,harmonic_complex_modes) &
-   & result(this) 
+function new_InterpolatedSupercell_interpolated(qpoint_grid,structure, &
+   & harmonic_supercell,harmonic_qpoints,harmonic_dynamical_matrices,  &
+   & harmonic_complex_modes,logfile) result(this) 
   implicit none
   
-  integer,               intent(in) :: qpoint_grid(:)
-  type(StructureData),   intent(in) :: structure
-  type(QpointData),      intent(in) :: harmonic_qpoints(:)
-  type(DynamicalMatrix), intent(in) :: harmonic_dynamical_matrices(:)
-  type(ComplexMode),     intent(in) :: harmonic_complex_modes(:,:)
-  type(InterpolatedSupercell)       :: this
+  integer,               intent(in)    :: qpoint_grid(:)
+  type(StructureData),   intent(in)    :: structure
+  type(StructureData),   intent(in)    :: harmonic_supercell
+  type(QpointData),      intent(in)    :: harmonic_qpoints(:)
+  type(DynamicalMatrix), intent(in)    :: harmonic_dynamical_matrices(:)
+  type(ComplexMode),     intent(in)    :: harmonic_complex_modes(:,:)
+  type(OFile),           intent(inout) :: logfile
+  type(InterpolatedSupercell)          :: this
   
-  type(IntMatrix) :: supercell_matrix
-  
-  type(ComplexMode), allocatable :: qpoint_modes(:)
-  
+  type(IntMatrix)                    :: supercell_matrix
   type(StructureData)                :: supercell
   type(QpointData),      allocatable :: qpoints(:)
+  type(CartesianHessian)             :: hessian
+  type(MinImages),       allocatable :: min_images(:,:)
   type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
+  type(MatrixAndModes),  allocatable :: matrices_and_modes(:)
   type(ComplexMode),     allocatable :: complex_modes(:)
   type(RealMode),        allocatable :: real_modes(:)
   
-  integer :: i,j,ialloc
+  integer :: i,ialloc
   
+  ! Calculate the supercell matrix, supercell and q-points
+  !    for the anharmonic supercell.
   supercell_matrix =                                           &
      & mat([ qpoint_grid(1), 0             , 0            ,    &
      &       0             , qpoint_grid(2), 0            ,    &
@@ -75,29 +79,51 @@ function new_InterpolatedSupercell_interpolated(qpoint_grid,structure,    &
                                  & supercell_matrix )
   qpoints = generate_qpoints(supercell)
   
+  ! Construct the Hessian and minimum images of the harmonic supercell.
+  hessian = reconstruct_hessian( harmonic_supercell,          &
+                               & harmonic_qpoints,            &
+                               & harmonic_dynamical_matrices, &
+                               & logfile                      )
+  
+  min_images = calculate_min_images(harmonic_supercell)
+  
+  ! Construct the dynamical matrices and Hessian corresponding to
+  !    the anharmonic q-points.
   allocate( dynamical_matrices(size(qpoints)), &
-          & complex_modes(0),                  &
-          & real_modes(0),                     &
           & stat=ialloc); call err(ialloc)
   do i=1,size(qpoints)
-    ! TODO: interpolate rather than finding.
-    j = first(harmonic_qpoints==qpoints(i), default=0)
-    if (j==0) then
-      call print_line(ERROR//': interpolated q-point '//qpoints(i)%qpoint// &
-         &' is not also a harmonic q-point.')
-      call quit()
-    endif
-    
-    dynamical_matrices(i) = harmonic_dynamical_matrices(j)
-    qpoint_modes = harmonic_complex_modes(:,j)
-    qpoint_modes%qpoint_id = qpoints(i)%id
-    qpoint_modes%paired_qpoint_id = qpoints(i)%paired_qpoint_id
-    complex_modes = [complex_modes, qpoint_modes]
+    dynamical_matrices(i) = DynamicalMatrix( dblevec(qpoints(i)%qpoint), &
+                                           & harmonic_supercell,         &
+                                           & hessian,                    &
+                                           & min_images                  )
   enddo
   
+  hessian = reconstruct_hessian( supercell, &
+                               & qpoints, &
+                               & dynamical_matrices, &
+                               & logfile)
+  
+  ! Re-calculate the dynamical matrices and calculate the normal modes
+  !    corresponding to the anahrmonic q-points, using the symmetry relations.
+  matrices_and_modes = calculate_dynamical_matrices( structure,   &
+                                                   & [supercell], &
+                                                   & [hessian],   &
+                                                   & qpoints,     &
+                                                   & logfile      )
+  
+  dynamical_matrices = [( matrices_and_modes(i)%matrix, &
+                        & i=1,                          &
+                        & size(matrices_and_modes)      )]
+  
+  allocate(complex_modes(0), stat=ialloc); call err(ialloc)
+  do i=1,size(qpoints)
+    complex_modes = [complex_modes, matrices_and_modes(i)%modes]
+  enddo
   complex_modes = complex_modes(filter(.not.complex_modes%translational_mode))
+  
   real_modes = complex_to_real(complex_modes)
   
+  ! Construct the output.
   this = InterpolatedSupercell( supercell,          &
                               & qpoints,            &
                               & dynamical_matrices, &

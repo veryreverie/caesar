@@ -3,7 +3,12 @@
 !    non-diagonal supercells.
 ! ======================================================================
 module calculate_dynamical_matrices_module
-  use common_module
+  use utils_module
+  
+  use structure_module
+  use normal_mode_module
+  
+  use dynamical_matrix_module
   implicit none
   
   private
@@ -16,11 +21,15 @@ module calculate_dynamical_matrices_module
     type(DynamicalMatrix)          :: matrix
     type(ComplexMode), allocatable :: modes(:)
   end type
+  
+  interface calculate_dynamical_matrices
+    module procedure calculate_dynamical_matrices_hessians
+  end interface
 contains
 
 ! Calculate dynamical matrices at each q-point from the Hessians of each
 !    non-diagonal supercell.
-function calculate_dynamical_matrices(structure,supercells, &
+function calculate_dynamical_matrices_hessians(structure,supercells, &
    & supercell_hessians,qpoints,logfile) result(output)
   implicit none
   

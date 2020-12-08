@@ -148,6 +148,7 @@ subroutine map_modes_subroutine(arguments)
   
   ! Harmonic data.
   type(StructureData)                :: structure
+  type(StructureData)                :: harmonic_supercell
   type(QpointData),      allocatable :: harmonic_qpoints(:)
   type(DynamicalMatrix), allocatable :: harmonic_dynamical_matrices(:)
   type(ComplexMode),     allocatable :: harmonic_complex_modes(:,:)
@@ -201,6 +202,7 @@ subroutine map_modes_subroutine(arguments)
   
   ! Files and directories.
   type(IFile)  :: structure_file
+  type(IFile)  :: harmonic_supercell_file
   type(IFile)  :: harmonic_qpoints_file
   type(IFile)  :: harmonic_dynamical_matrices_file
   type(IFile)  :: harmonic_complex_modes_file
@@ -210,6 +212,7 @@ subroutine map_modes_subroutine(arguments)
   type(String) :: qpoint_dir
   type(String) :: subspace_dir
   type(String) :: output_dir
+  type(OFile)  :: map_modes_logfile
   type(OFile)  :: supercell_file
   type(OFile)  :: mode_maps_file
   type(String) :: mode_dir
@@ -255,6 +258,9 @@ subroutine map_modes_subroutine(arguments)
   structure_file = IFile(harmonic_path//'/structure.dat')
   structure = StructureData(structure_file%lines())
   
+  harmonic_supercell_file = IFile(harmonic_path//'/large_supercell.dat')
+  harmonic_supercell = StructureData(harmonic_supercell_file%lines())
+  
   ! Construct max displacement data.
   max_displacement = MaxDisplacement(                                 &
      & maximum_displacement          = maximum_displacement,          &
@@ -293,12 +299,15 @@ subroutine map_modes_subroutine(arguments)
          & harmonic_complex_modes_file%sections() )
     enddo
     
+    map_modes_logfile = OFile('map_modes_log.dat')
     interpolated_supercell = InterpolatedSupercell( &
                      & qpoint_grid,                 &
                      & structure,                   &
+                     & harmonic_supercell,          &
                      & harmonic_qpoints,            &
                      & harmonic_dynamical_matrices, &
-                     & harmonic_complex_modes       )
+                     & harmonic_complex_modes,      &
+                     & map_modes_logfile            )
     
     large_supercell = interpolated_supercell%supercell
     qpoints         = interpolated_supercell%qpoints

@@ -143,6 +143,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Harmonic data.
   type(StructureData)                :: structure
+  type(StructureData)                :: harmonic_supercell
   type(QpointData),      allocatable :: harmonic_qpoints(:)
   type(DynamicalMatrix), allocatable :: harmonic_dynamical_matrices(:)
   type(ComplexMode),     allocatable :: harmonic_complex_modes(:,:)
@@ -164,6 +165,7 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Input files.
   type(IFile) :: structure_file
+  type(IFile) :: harmonic_supercell_file
   type(IFile) :: harmonic_qpoints_file
   type(IFile) :: harmonic_dynamical_matrices_file
   type(IFile) :: harmonic_complex_modes_file
@@ -228,6 +230,9 @@ subroutine setup_anharmonic_subroutine(arguments)
   structure_file = IFile(harmonic_path//'/structure.dat')
   structure = StructureData(structure_file%lines())
   
+  harmonic_supercell_file = IFile(harmonic_path//'/large_supercell.dat')
+  harmonic_supercell = StructureData(harmonic_supercell_file%lines())
+  
   harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
   harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
   
@@ -255,12 +260,15 @@ subroutine setup_anharmonic_subroutine(arguments)
   
   ! Interpolate the supercell, and construct data at the interpolated q-points.
   call print_line('Generating anharmonic supercell.')
+  logfile = OFile('setup_anharmonic_logfile.dat')
   interpolated_supercell = InterpolatedSupercell( &
                    & qpoint_grid,                 &
                    & structure,                   &
+                   & harmonic_supercell,          &
                    & harmonic_qpoints,            &
                    & harmonic_dynamical_matrices, &
-                   & harmonic_complex_modes       )
+                   & harmonic_complex_modes,      &
+                   & logfile                      )
   
   ! Construct the maximum displacement in normal-mode co-ordinates.
   max_displacement = MaxDisplacement(                                 &
@@ -344,7 +352,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Generate the sampling points which will be used to map out the anharmonic
   !    Born-Oppenheimer surface in the chosen representation.
   call print_line('Generating sampling points.')
-  logfile = OFile('setup_anharmonic_logfile.dat')
   call potential%generate_sampling_points( anharmonic_data,             &
                                          & use_forces,                  &
                                          & weighted_energy_force_ratio, &

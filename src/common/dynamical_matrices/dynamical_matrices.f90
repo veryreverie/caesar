@@ -10,5 +10,6 @@ module dynamical_matrices_module
   use unique_directions_module
   use min_images_module
   use dynamical_matrix_module
+  use calculate_dynamical_matrices_module
   implicit none
 end module

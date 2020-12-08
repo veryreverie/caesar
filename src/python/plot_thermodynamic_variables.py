@@ -5,6 +5,7 @@ import numpy as np
 import math
 import operator
 from matplotlib import rc
+import matplotlib.ticker as mticker
 import matplotlib.lines as mlines
 import os.path
 
@@ -24,6 +25,11 @@ def set_xaxis(axis,limits,label,units):
     axis.set_xlabel(label+' ('+units+')')
   else:
     axis.set_xlabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
+  sf = mticker.ScalarFormatter()
+  sf.set_useOffset(False)
+  sf.set_scientific(True)
+  sf.set_powerlimits((-1,1))
+  axis.xaxis.set_major_formatter(sf)
   axis.xaxis.offsetText.set_visible(False)
 
 def set_yaxis(axis,limits,label,units):
@@ -37,6 +43,11 @@ def set_yaxis(axis,limits,label,units):
     axis.set_ylabel(label+' ('+units+')')
   else:
     axis.set_ylabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
+  sf = mticker.ScalarFormatter()
+  sf.set_useOffset(False)
+  sf.set_scientific(True)
+  sf.set_powerlimits((-1,1))
+  axis.yaxis.set_major_formatter(sf)
   axis.yaxis.offsetText.set_visible(False)
 
 def main():
@@ -206,7 +217,6 @@ def main():
   axes['entropy']['b'].set_xlim(xmin_hartree,xmax_hartree)
   axes['entropy']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
   axes['entropy']['t'].tick_params(labelbottom=False,labeltop=False)
-  axes['entropy']['b'].tick_params(labelbottom=False,labeltop=False)
   if calculating_stress:
     axes['stress']['b'].set_xlim(xmin_hartree,xmax_hartree)
     axes['stress']['t'].set_xlim(xmin_kelvin,xmax_kelvin)
@@ -217,11 +227,13 @@ def main():
               (xmin_hartree,xmax_hartree),
               r"$k_BT$",
               r"Ha")
+    axes['entropy']['b'].tick_params(labelbottom=False,labeltop=False)
   else:
     set_xaxis(axes['entropy']['b'],
               (xmin_hartree,xmax_hartree),
               r"$k_BT$",
               r"Ha")
+    axes['entropy']['b'].tick_params(labelbottom=True,labeltop=False)
   
   set_yaxis(axes['energy']['l'],
             (ymin_hartree,ymax_hartree),

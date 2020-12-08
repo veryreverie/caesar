@@ -9,7 +9,6 @@ module calculate_normal_modes_module
   use common_module
   
   use construct_supercell_hessian_module
-  use calculate_dynamical_matrices_module
   implicit none
   
   private
