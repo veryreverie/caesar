@@ -159,7 +159,7 @@ function new_DegenerateSymmetry(symmetry,subspaces,modes,qpoints) result(this)
                 & symmetric_modes%id,         &
                 & symmetric_mode_coefficients )
     
-    if (abs(l2_norm(symmetric_mode_coefficients)-1)>1e-10_dp) then
+    if (abs(l2_norm(symmetric_mode_coefficients)-1)>1e-6_dp) then
       call print_line(CODE_ERROR//': Error constructing symmetry '// &
          & symmetry%id//' in normal mode co-ordinates.')
       call print_line(this%symmetries_(i))

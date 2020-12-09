@@ -96,8 +96,6 @@ def main():
   
   x_axis = [i+1 for i in range(len(dxs[0]))]
   
-  ax_grid[0][1].scatter(x_axis, dfs, s=3)
-  
   ax = ax_grid[0][0]
   
   for c,dx,dy in [(line_colours[i],dxs[i],dys[i]) for i in reversed(sort_key)]:
@@ -112,6 +110,13 @@ def main():
   
   ax.set_xlabel('Iteration')
   ax.set_ylabel('Error in Coefficients, (Ha)')
+  
+  ax = ax_grid[0][1]
+  ax.scatter(x_axis, dfs, s=3)
+  miny = min([x for x in dfs if x>0]) * 0.9
+  maxy = max(dfs) * 1.1
+  ax.set_ylim(miny,maxy)
+  ax.set_yscale('log')
   
   for ax,i in zip(ax_grid[0][2:],highlighted):
     colour_map = []
