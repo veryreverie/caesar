@@ -322,7 +322,13 @@ subroutine calculate_x(this)
   else
     ! If max_pulay_iterations has been reached, find the iteration
     !    with the largest error, and replace it.
-    i = maxloc(this%error_norms_(this%iterations_),1)
+    ! The last two iterations are never replaced, to prevent the Pulay scheme
+    !    calculating f(x) for the same x values repeatedly.
+    i = maxloc( this%error_norms_(                                &
+              &    this%iterations_(:size(this%iterations_)-2) ), &
+              & 1)
+    call print_line(this%error_norms_(this%iterations_))
+    call print_line(i)
     iteration = this%iterations_(i)
     this%iterations_(i:size(this%iterations_)-1) = &
        & this%iterations_(i+1:size(this%iterations_))
@@ -383,11 +389,13 @@ function mixed_pulay_(this) result(output)
        &        - 0.5_dp                                                  ) &
        &      * min_error*abs(dble(best_guess))                             )
   
-  if (this%iterations_since_best_guess_==0) then
+  if ( this%iterations_since_best_guess_==0 .and.                 &
+     & this%random_generator_%random_number(0.0_dp,1.0_dp)<0.8_dp ) then
     call print_line(colour('pulay','red'))
     output = best_guess + pulay
-  elseif (       this%iterations_since_best_guess_==1 &
-         & .and. downhill_calculated                  ) then
+  elseif ( this%iterations_since_best_guess_<=1 .and.                 &
+         & downhill_calculated                  .and.                 &
+         & this%random_generator_%random_number(0.0_dp,1.0_dp)<0.8_dp ) then
     call print_line(colour('downhill','blue'))
     output = best_guess + downhill
   elseif (       modulo(this%iterations_since_best_guess_,2)==1 &
@@ -645,7 +653,7 @@ function precondition_errors(inputs,errors) result(output)
   sorted_inputs = inputs(sort_key)-inputs(sort_key(1))
   
   ! Construct the fitting weights.
-  weights = [max((error_norms(sort_key(1))/error_norms)**1.0_dp, 1e-100_dp)]
+  weights = [max((error_norms(sort_key(1))/error_norms)**2.0_dp, 1e-100_dp)]
   
   ! Construct a matrix where each column is an extended input vector,
   !    and the columns are sorted in ascending order of |e|.

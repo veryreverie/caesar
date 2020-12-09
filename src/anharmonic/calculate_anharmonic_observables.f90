@@ -67,12 +67,12 @@ subroutine startup_calculate_anharmonic_observables()
      &iterations are entirely Pulay, and if it is 1 then the iterations are &
      &entirely damped iterative. iterative_mixing must be between 0 and 1 &
      &inclusive.',                                                            &
-     &              default_value='1e-4'),                                    &
+     &              default_value='0.1'),                                     &
      & KeywordData( 'iterative_damping',                                      &
      &              'iterative_damping is the damping factor of the iterative &
      &scheme which is mixed into the Pulay scheme. iterative_damping must be &
      &between 0 and 1 inclusive.',                                            &
-     &              default_value='0'),                                       &
+     &              default_value='0.1'),                                     &
      & KeywordData( 'pulay_noise',                                            &
      &              "pulay_noise controls the random noise added to each &
      &Pulay iteration. If a Pulay iteration has coefficients xi and the &
