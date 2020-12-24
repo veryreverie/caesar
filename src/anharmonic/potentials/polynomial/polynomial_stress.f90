@@ -8,8 +8,8 @@ module polynomial_stress_module
   use anharmonic_common_module
   
   use polynomial_interpolator_module
+  use stress_basis_function_module
   use coupling_stress_basis_functions_module
-  use polynomial_interpolation_module
   implicit none
   
   private
@@ -50,8 +50,6 @@ module polynomial_stress_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PolynomialStress
-    procedure, public :: interpolate => &
-                       & interpolate_PolynomialStress
     
     procedure, public :: interpolate_coefficients => &
                        & interpolate_coefficients_PolynomialStress
@@ -332,132 +330,6 @@ function can_be_interpolated_PolynomialStress(this) result(output)
   logical                             :: output
   
   output = .true.
-end function
-
-! TODO: integrate and unintegrate polynomial, to give interpolation under
-!    VSCF rather than raw interpolation.
-function interpolate_PolynomialStress(this,qpoint,subspace,subspace_modes, &
-   & anharmonic_min_images,anharmonic_data) result(output)
-  implicit none
-  
-  class(PolynomialStress),  intent(in) :: this
-  type(RealVector),         intent(in) :: qpoint
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(ComplexMode),        intent(in) :: subspace_modes(:)
-  type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(StressPointer)                  :: output
-  
-  type(ComplexMode), allocatable :: modes(:)
-  
-  type(RealVector), allocatable :: qpoints(:)
-  
-  type(PolynomialInterpolator) :: interpolator
-  
-  integer :: expansion_order
-  integer :: power
-  
-  type(ComplexMonomial), allocatable :: monomials(:)
-  
-  type(ComplexMatrix) :: coefficients
-  
-  type(StressBasisFunction), allocatable :: basis_functions(:)
-  type(StressBasisFunction), allocatable :: old_basis_functions(:)
-  type(StressBasisFunction), allocatable :: new_basis_functions(:)
-  
-  type(CouplingStressBasisFunctions) :: coupling_basis_functions
-  
-  integer :: i,j,k,l,ialloc
-  
-  expansion_order = this%expansion_order()
-  
-  if (modulo(expansion_order,2)/=0) then
-    call print_line(ERROR//': stress expansion order must be even.')
-    call err()
-  elseif (expansion_order<2) then
-    call print_line(ERROR//': stress expansion order must be at least 2.')
-    call err()
-  endif
-  
-  modes = subspace_modes(filter(subspace_modes%id<=subspace_modes%paired_id))
-  
-  allocate(qpoints(size(subspace_modes)), stat=ialloc); call err(ialloc)
-  do i=1,size(qpoints)
-    if (subspace_modes(i)%id<=subspace_modes(i)%paired_id) then
-      qpoints(i) = qpoint
-    else
-      qpoints(i) = -qpoint
-    endif
-  enddo
-  
-  ! Construct the polynomial interpolator.
-  interpolator = PolynomialInterpolator(                &
-     & fine_modes      = subspace_modes,                &
-     & fine_qpoints    = qpoints,                       &
-     & coarse_modes    = anharmonic_data%complex_modes, &
-     & min_images      = anharmonic_min_images,         &
-     & anharmonic_data = anharmonic_data                )
-  
-  do power=1,expansion_order/2
-    ! Construct all translationally-invariant monomials of the given power
-    !    using the given modes.
-    monomials = construct_fine_monomials(power, modes)
-    
-    ! Interpolate the stress to find monomial coefficients,
-    !    then convert the monomials into real basis functions.
-    ! If power=paired_power, construct the u                 basis function.
-    ! If power<paired_power, construct the u+u* and (u-u*)/i basis function.
-    ! If power>paired_power, ignore the monomial, as it is included above.
-    allocate( new_basis_functions(6*size(monomials)), &
-            & stat=ialloc); call err(ialloc)
-    l = 0
-    do i=1,size(monomials)
-      j = first( monomials(i)%powers()<monomials(i)%paired_powers(), &
-               & default=size(monomials(i))+1                        )
-      k = first( monomials(i)%powers()>monomials(i)%paired_powers(), &
-               & default=size(monomials(i))+1                        )
-      if (j==k) then
-        coefficients = this%interpolate_coefficients( monomials(i), &
-                                                    & interpolator  )
-        new_basis_functions(l+1:l+6) = generate_stress_elements( &
-                                           & [monomials(i)],     &
-                                           & real(coefficients)  )
-        l = l+6
-      elseif (j<k) then
-        coefficients = this%interpolate_coefficients( monomials(i), &
-                                                    & interpolator  )
-        new_basis_functions(l+1:l+6) = generate_stress_elements( &
-                          & [monomials(i), conjg(monomials(i))], &
-                          & real(coefficients)                   )
-        l = l+6
-        new_basis_functions(l+1:l+6) = generate_stress_elements(           &
-           & [monomials(i), -conjg(monomials(i))]/cmplx(0.0_dp,1.0_dp,dp), &
-           & aimag(coefficients)                                           )
-        l = l+6
-      endif
-    enddo
-    
-    ! Append the new basis functions to the basis functions
-    !    from previous powers.
-    if (power==1) then
-      basis_functions = new_basis_functions
-    else
-      old_basis_functions = basis_functions
-      basis_functions = [old_basis_functions, new_basis_functions]
-    endif
-    deallocate(new_basis_functions, stat=ialloc); call err(ialloc)
-  enddo
-  
-  ! Construct output.
-  coupling_basis_functions = CouplingStressBasisFunctions(    &
-     & coupling        = SubspaceCoupling(ids=[subspace%id]), &
-     & basis_functions = basis_functions                      )
-  
-  ! TODO: calculate reference stress correctly.
-  output = StressPointer(PolynomialStress(                 &
-     & stress_expansion_order = expansion_order,           &
-     & reference_stress       = dblemat(zeroes(3,3)),      &
-     & basis_functions        = [coupling_basis_functions] ))
 end function
 
 ! Constructs the six tensor elements from an array of monomials and a matrix

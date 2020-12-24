@@ -45,8 +45,8 @@ module potential_data_module
     ! Interpolation of the potential.
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PotentialData
-    procedure, public :: interpolate => &
-                       & interpolate_PotentialData
+    procedure, public :: interpolate_potential => &
+                       & interpolate_potential_PotentialData
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_PotentialData
     procedure, public :: energy_correction => &
@@ -127,8 +127,8 @@ module potential_data_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PotentialPointer
-    procedure, public :: interpolate => &
-                       & interpolate_PotentialPointer
+    procedure, public :: interpolate_potential => &
+                       & interpolate_potential_PotentialPointer
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_PotentialPointer
     procedure, public :: energy_correction => &
@@ -691,35 +691,28 @@ function can_be_interpolated_PotentialPointer(this) result(output)
   output = this%potential_%can_be_interpolated()
 end function
 
-function interpolate_PotentialPointer(this,qpoint,subspace,subspace_modes, &
-   & anharmonic_min_images, thermal_energy,subspaces,subspace_bases,       &
-   & subspace_states,anharmonic_data) result(output)
+subroutine interpolate_potential_PotentialPointer(this, &
+   & anharmonic_min_images,potential,anharmonic_data,   &
+   & interpolated_anharmonic_data,difference_dynamical_matrices,logfile) 
   implicit none
   
-  class(PotentialPointer),  intent(in)    :: this
-  type(RealVector),         intent(in)    :: qpoint
-  type(DegenerateSubspace), intent(in)    :: subspace
-  type(ComplexMode),        intent(in)    :: subspace_modes(:)
-  type(MinImages),          intent(in)    :: anharmonic_min_images(:,:)
-  real(dp),                 intent(in)    :: thermal_energy
-  type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
-  class(BasisStates),       intent(inout) :: subspace_states(:)
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(PotentialPointer)                  :: output
+  class(PotentialPointer), intent(inout) :: this
+  type(MinImages),         intent(in)    :: anharmonic_min_images(:,:)
+  class(PotentialData),    intent(in)    :: potential
+  type(AnharmonicData),    intent(in)    :: anharmonic_data
+  type(AnharmonicData),    intent(in)    :: interpolated_anharmonic_data
+  type(DynamicalMatrix),   intent(in)    :: difference_dynamical_matrices(:)
+  type(OFile),             intent(inout) :: logfile
   
   call this%check()
   
-  output = this%potential_%interpolate( qpoint, &
-                                      & subspace, &
-                                      & subspace_modes, &
-                                      & anharmonic_min_images, &
-                                      & thermal_energy,      &
-                                      & subspaces,           &
-                                      & subspace_bases,      &
-                                      & subspace_states,     &
-                                      & anharmonic_data      )
-end function
+  call this%potential_%interpolate_potential( anharmonic_min_images,         &
+                                            & potential,                     &
+                                            & anharmonic_data,               &
+                                            & interpolated_anharmonic_data,  &
+                                            & difference_dynamical_matrices, &
+                                            & logfile                        )
+end subroutine
 
 function calculate_dynamical_matrices_PotentialPointer(this,qpoints,          &
    & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
@@ -774,28 +767,24 @@ function can_be_interpolated_PotentialData(this) result(output)
   output = .false.
 end function
 
-function interpolate_PotentialData(this,qpoint,subspace,subspace_modes,  &
-   & anharmonic_min_images,thermal_energy,subspaces,subspace_bases,      &
-   & subspace_states,anharmonic_data) result(output)
+subroutine interpolate_potential_PotentialData(this,anharmonic_min_images, &
+   & potential,anharmonic_data,interpolated_anharmonic_data,               &
+   & difference_dynamical_matrices,logfile) 
   implicit none
   
-  class(PotentialData),     intent(in)    :: this
-  type(RealVector),         intent(in)    :: qpoint
-  type(DegenerateSubspace), intent(in)    :: subspace
-  type(ComplexMode),        intent(in)    :: subspace_modes(:)
-  type(MinImages),          intent(in)    :: anharmonic_min_images(:,:)
-  real(dp),                 intent(in)    :: thermal_energy
-  type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
-  class(BasisStates),       intent(inout) :: subspace_states(:)
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(PotentialPointer)                  :: output
+  class(PotentialData),  intent(inout) :: this
+  type(MinImages),       intent(in)    :: anharmonic_min_images(:,:)
+  class(PotentialData),  intent(in)    :: potential
+  type(AnharmonicData),  intent(in)    :: anharmonic_data
+  type(AnharmonicData),  intent(in)    :: interpolated_anharmonic_data
+  type(DynamicalMatrix), intent(in)    :: difference_dynamical_matrices(:)
+  type(OFile),           intent(inout) :: logfile
   
   ! This should be gated behind can_be_interpolated.
-  call print_line(CODE_ERROR//': calculate_interpolated_thermodynamics not &
-     &implemented for this potential.')
+  call print_line(CODE_ERROR//': interpolate_potential not implemented for &
+     &this potential.')
   call err()
-end function
+end subroutine
 
 function calculate_dynamical_matrices_PotentialData(this,qpoints,             &
    & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &

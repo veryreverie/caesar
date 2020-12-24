@@ -135,7 +135,7 @@ def main():
     if not (anharmonic or sampled):
       min_energy = min(min_energy, min(mode['Harmonic energies']))
       max_energy = max(max_energy, max(mode['Harmonic energies']))
-    if anharmonic:
+    if anharmonic and not sampled:
       min_energy = min(min_energy, min(mode['Anharmonic energies']))
       max_energy = max(max_energy, max(mode['Anharmonic energies']))
     if sampled:
@@ -157,7 +157,7 @@ def main():
     if not (anharmonic or sampled):
       min_force = min(min_force, min(mode['Harmonic forces']))
       max_force = max(max_force, max(mode['Harmonic forces']))
-    if anharmonic:
+    if anharmonic and not sampled:
       min_force = min(min_force, min(mode['Anharmonic forces']))
       max_force = max(max_force, max(mode['Anharmonic forces']))
     if sampled:

@@ -75,6 +75,10 @@ module basis_function_module
     
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_BasisFunction
+    procedure, public :: add_interpolated_contribution => &
+                       & add_interpolated_contribution_BasisFunction
+    procedure, public :: add_harmonic_contribution => &
+                       & add_harmonic_contribution_BasisFunction
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_BasisFunction
     procedure, public :: energy_correction => &
@@ -915,6 +919,69 @@ impure elemental function interpolate_coefficient_BasisFunction(this, &
   output = interpolator%overlap(monomial, this%complex_representation_) &
        & * this%coefficient_
 end function
+
+! Calculate the contribution to this basis function from
+!    another basis function, and add this to this basis function's coefficient.
+subroutine add_interpolated_contribution_BasisFunction(this,basis_function, &
+   & interpolator) 
+  implicit none
+  
+  class(BasisFunction),         intent(inout) :: this
+  type(BasisFunction),          intent(in)    :: basis_function
+  type(PolynomialInterpolator), intent(in)    :: interpolator
+  
+  type(ComplexMonomial) :: monomial
+  
+  complex(dp) :: coefficient
+  
+  ! Locate the monomial in the basis function with the largest coefficient
+  monomial = this%complex_representation_%terms(                      &
+     & maxloc(abs(this%complex_representation_%terms%coefficient), 1) )
+  
+  ! Calculate the coefficient of this monomial when the input basis function
+  !    is interpolated.
+  coefficient = basis_function%interpolate_coefficient(monomial, interpolator)
+  
+  ! Divide by the monomial's coefficient to get the contribution to this basis
+  !    function from the input basis function.
+  this%coefficient_ = this%coefficient_ &
+                  & + real(coefficient/monomial%coefficient)
+end subroutine
+
+! Calculate the contribution to this basis function from a set of harmonic
+!    dynamical matrices.
+subroutine add_harmonic_contribution_BasisFunction(this,dynamical_matrices, &
+   & anharmonic_data)
+  implicit none
+  
+  class(BasisFunction),  intent(inout) :: this
+  type(DynamicalMatrix), intent(in)    :: dynamical_matrices(:)
+  type(AnharmonicData),  intent(in)    :: anharmonic_data
+  
+  type(ComplexMode) :: mode
+  
+  real(dp) :: frequency
+  
+  integer :: i
+  
+  if (size(this%complex_representation_%terms)==0) then
+    return
+  endif
+  
+  associate(monomial=>this%complex_representation_%terms(1))
+    if (monomial%total_power()==2) then
+      mode = anharmonic_data%complex_modes(                        &
+         & first(anharmonic_data%complex_modes%id==monomial%id(1)) )
+      i = first(anharmonic_data%qpoints%id==mode%qpoint_id)
+      
+      frequency = dynamical_matrices(i)%expectation(mode)
+      
+      this%coefficient_ = this%coefficient_                    &
+                      & + real(frequency/monomial%coefficient) &
+                      & * anharmonic_data%anharmonic_supercell%sc_size
+    endif
+  end associate
+end subroutine
 
 ! Calculate this basis function's contribution to the effective dynamical
 !    matrix from which the potential can be interpolated in the large-supercell

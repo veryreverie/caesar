@@ -36,8 +36,8 @@ subroutine startup_map_modes()
   & KeywordData( 'q-point_grid',                                              &
   &              'q-point_grid is the number of q-points in each direction in &
   &a Monkhorst-Pack grid. This should be specified as three integers &
-  &separated by spaces. All q-points in this grid must also appear in the &
-  &grid used for harmonic calculations.'),                                    &
+  &separated by spaces. q-point_grid will be ignored if use_potential is &
+  &true, as in that case the q-point grid of the potential will be used.'),   &
   & KeywordData( 'mode_ids',                                                  &
   &              'mode_ids is the list of mode IDs of the real modes which &
   &should be mapped. If mode_ids is not present then all modes will be &
@@ -52,6 +52,11 @@ subroutine startup_map_modes()
   &              'use_potential specifies whether or not to use the &
   &anharmonic potential. The anharmonic potential must have been &
   &calculated using calculate_potential in order for this to be true.',       &
+  &              default_value='false'),                                      &
+  & KeywordData( 'use_interpolated_potential',                                &
+  &              'use_interpolated_potential specifies whether to use the &
+  &interpolated potential calculated using calculate_potential. This input &
+  &is ignored if use_potential is false.',                                    &
   &              default_value='false'),                                      &
   & KeywordData( 'maximum_displacement',                                      &
   &              'maximum_displacement, u_max, is the largest distance any &
@@ -79,7 +84,8 @@ subroutine startup_map_modes()
   & KeywordData( 'calculate_stress',                                          &
   &              'calculate_stress specifies whether or not to calculate &
   &stress and pressure. If calculate_stress is true then calculate_stress &
-  &for setup_anharmonic must also have been true.',                           &
+  &for setup_anharmonic must also have been true. calculate_stress will be &
+  &ignored if use_interpolated_potential is true.',                           &
   &              default_value='true'),                                       &
   & KeywordData( 'validate_potential',                                        &
   &              'validate_potential specifies that the potential should &
@@ -130,6 +136,7 @@ subroutine map_modes_subroutine(arguments)
   integer,  allocatable :: mode_ids(:)
   integer               :: no_single_mode_samples
   logical               :: use_potential
+  logical               :: use_interpolated_potential
   logical               :: calculate_stress
   logical               :: validate_potential
   real(dp)              :: maximum_displacement
@@ -225,12 +232,17 @@ subroutine map_modes_subroutine(arguments)
   ! Read in inputs and previously calculated data.
   ! --------------------------------------------------
   harmonic_path = arguments%value('harmonic_path')
-  qpoint_grid = int(split_line(arguments%value('q-point_grid')))
   if (arguments%is_set('mode_ids')) then
     mode_ids = int(tokens(arguments%value('mode_ids')))
   endif
   no_single_mode_samples = int(arguments%value('no_single_mode_samples'))
   use_potential = lgcl(arguments%value('use_potential'))
+  if (use_potential) then
+    use_interpolated_potential = lgcl(                 &
+       & arguments%value('use_interpolated_potential') )
+  else
+    qpoint_grid = int(split_line(arguments%value('q-point_grid')))
+  endif
   calculate_stress = lgcl(arguments%value('calculate_stress'))
   validate_potential = lgcl(arguments%value('validate_potential'))
   maximum_displacement = dble(arguments%value('maximum_displacement'))
@@ -270,7 +282,11 @@ subroutine map_modes_subroutine(arguments)
   
   if (use_potential) then
     ! Read in anharmonic data.
-    anharmonic_data_file = IFile('anharmonic_data.dat')
+    if (use_interpolated_potential) then
+      anharmonic_data_file = IFile('interpolated_anharmonic_data.dat')
+    else
+      anharmonic_data_file = IFile('anharmonic_data.dat')
+    endif
     anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
     
     large_supercell = anharmonic_data%anharmonic_supercell
@@ -329,11 +345,17 @@ subroutine map_modes_subroutine(arguments)
   
   ! Read in anharmonic potential and stress.
   if (use_potential) then
-    potential_file = IFile('potential.dat')
-    potential = PotentialPointer(potential_file%lines())
-    if (calculate_stress) then
-      stress_file = IFile('stress.dat')
-      stress = StressPointer(stress_file%lines())
+    if (use_interpolated_potential) then
+      potential_file = IFile('interpolated_potential.dat')
+      potential = PotentialPointer(potential_file%lines())
+      calculate_stress = .false.
+    else
+      potential_file = IFile('potential.dat')
+      potential = PotentialPointer(potential_file%lines())
+      if (calculate_stress) then
+        stress_file = IFile('stress.dat')
+        stress = StressPointer(stress_file%lines())
+      endif
     endif
   endif
   

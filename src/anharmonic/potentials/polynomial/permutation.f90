@@ -28,6 +28,8 @@ module permutation_module
                        & a_PermutationData
     procedure, public :: b => &
                        & b_PermutationData
+    procedure, public :: log_no_permutations => &
+                       & log_no_permutations_PermutationData
     procedure, public :: all_permutations_done => &
                        & all_permutations_done_PermutationData
   end type
@@ -194,6 +196,32 @@ function b_PermutationData(this) result(output)
   output = this%b_(this%b_permutation_)
 end function
 
+function log_no_permutations_PermutationData(this) result(output)
+  implicit none
+  
+  class(PermutationData), intent(in) :: this
+  real(dp)                           :: output
+  
+  integer :: start
+  
+  integer :: i,j
+  
+  output = 0
+  
+  do i=1,size(this%bins_,2)
+    output = log_factorial(this%bins_(2,i)-this%bins_(1,i)+1)
+    start = this%bins_(1,i)
+    do j=this%bins_(1,i)+1,this%bins_(2,i)
+      if (    this%a_(this%a_permutation_(j  )) &
+         & == this%a_(this%a_permutation_(j-1)) ) then
+        output = output - log_factorial(j-start+1)
+        start = j
+      endif
+    enddo
+    output = output - log_factorial(this%bins_(2,i)-start)
+  enddo
+end function
+
 function all_permutations_done_PermutationData(this) result(output)
   implicit none
   
@@ -223,6 +251,7 @@ subroutine permutation_example()
     call print_line('')
     call print_line(permutation%a())
     call print_line(permutation%b())
+    call print_line(exp(permutation%log_no_permutations()))
     
     call permutation%next_permutation()
     

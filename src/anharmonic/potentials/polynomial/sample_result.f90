@@ -97,10 +97,10 @@ function new_SampleResult_calculation(calculation,supercell,real_modes, &
        & * anharmonic_data%anharmonic_supercell%sc_size
   
   ! Transform the forces into normal mode co-ordinates.
-  force = RealModeForce( calculation%forces(),  &
-      &                 supercell,              &
-      &                 real_modes,             &
-      &                 qpoints               ) &
+  force = RealModeForce( calculation%forces(),   &
+      &                  supercell,              &
+      &                  real_modes,             &
+      &                  qpoints               ) &
       & * real(anharmonic_data%anharmonic_supercell%sc_size,dp)
   
   ! Construct output.
@@ -168,7 +168,7 @@ end function
 !    sampling point, minus the energies and forces already accounted for
 !    by the potential (if given).
 function construct_sample_vector(sampling_points,sample_results,potential, &
-   & modes,energy_force_ratio) result(output)
+   & modes,energy_force_ratio,sample_weights) result(output)
   implicit none
   
   type(RealModeDisplacement), intent(in)           :: sampling_points(:)
@@ -176,10 +176,12 @@ function construct_sample_vector(sampling_points,sample_results,potential, &
   class(PotentialData),       intent(in), optional :: potential
   type(RealMode),             intent(in)           :: modes(:)
   real(dp),                   intent(in)           :: energy_force_ratio
+  real(dp),                   intent(in), optional :: sample_weights(:)
   real(dp), allocatable                            :: output(:)
   
-  real(dp)            :: energy
-  type(RealModeForce) :: forces
+  real(dp)              :: energy
+  type(RealModeForce)   :: forces
+  real(dp), allocatable :: weight
   
   integer :: dims
   
@@ -192,6 +194,9 @@ function construct_sample_vector(sampling_points,sample_results,potential, &
   do i=1,size(sampling_points)
     energy = sample_results(i)%energy
     forces = sample_results(i)%force
+    if (present(sample_weights)) then
+      weight = sample_weights(i)
+    endif
     
     ! Subtract the energy and forces from the existing potential.
     if (present(potential)) then
@@ -200,10 +205,11 @@ function construct_sample_vector(sampling_points,sample_results,potential, &
     endif
     
     ! Construct the vector.
-    output((i-1)*dims+1:i*dims) = make_sample_vector( energy,            &
-                                                    & forces,            &
-                                                    & modes,             &
-                                                    & energy_force_ratio )
+    output((i-1)*dims+1:i*dims) = make_sample_vector( energy,             &
+                                                    & forces,             &
+                                                    & modes,              &
+                                                    & energy_force_ratio, &
+                                                    & weight              )
   enddo
 end function
 end module

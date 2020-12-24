@@ -32,9 +32,9 @@ subroutine startup_setup_anharmonic()
   &              is_path=.true.),                                             &
   & KeywordData( 'q-point_grid',                                              &
   &              'q-point_grid is the number of q-points in each direction in &
-  &a Monkhorst-Pack grid. This should be specified as three integers &
-  &separated by spaces. All q-points in this grid must also appear in the &
-  &grid used for harmonic calculations.'),                                    &
+  &the Monkhorst-Pack grid on which the anharmonic potential will be &
+  &calculated. This should be specified as three integers separated by &
+  &spaces.'),                                                                 &
   & KeywordData( 'potential_representation',                                  &
   &              'potential_representation specifies the representation of &
   &the potential which will be used for calculations. Options are &
@@ -173,13 +173,6 @@ subroutine setup_anharmonic_subroutine(arguments)
   ! Output files.
   type(OFile) :: logfile
   type(OFile) :: anharmonic_data_file
-  type(Ofile) :: anharmonic_supercell_file
-  type(OFile) :: anharmonic_qpoints_file
-  type(OFile) :: complex_modes_file
-  type(OFile) :: real_modes_file
-  type(OFile) :: subspaces_file
-  type(OFile) :: coupling_file
-  type(OFile) :: symmetry_file
   type(OFile) :: calculation_directories_file
   
   ! Temporary variables.
@@ -287,39 +280,8 @@ subroutine setup_anharmonic_subroutine(arguments)
      & vscf_basis_functions_only     = vscf_basis_functions_only,     &
      & energy_to_force_ratio         = energy_to_force_ratio          )
   
-  call print_line('Writing common data.')
-  ! Write out anharmonic supercell and q-points.
-  anharmonic_supercell_file = OFile('anharmonic_supercell.dat')
-  call anharmonic_supercell_file%print_lines( &
-     & anharmonic_data%anharmonic_supercell )
-  
-  anharmonic_qpoints_file = OFile('anharmonic_qpoints.dat')
-  call anharmonic_qpoints_file%print_lines( anharmonic_data%qpoints, &
-                                          & separating_line=''       )
-  
-  ! Write out complex and real normal modes.
-  complex_modes_file = OFile('complex_modes.dat')
-  call complex_modes_file%print_lines( anharmonic_data%complex_modes, &
-                                     & separating_line=''             )
-  
-  real_modes_file = OFile('real_modes.dat')
-  call real_modes_file%print_lines( anharmonic_data%real_modes, &
-                                  & separating_line=''          )
-  
-  ! Write out subspaces and subspace coupling.
-  subspaces_file = OFile('degenerate_subspaces.dat')
-  call subspaces_file%print_lines( anharmonic_data%degenerate_subspaces, &
-                                 & separating_line=''                    )
-  
-  coupling_file = OFile('subspace_coupling.dat')
-  call coupling_file%print_lines(anharmonic_data%subspace_couplings)
-  
-  ! Write out symmetries.
-  symmetry_file = OFile('symmetries.dat')
-  call symmetry_file%print_lines( anharmonic_data%degenerate_symmetries, &
-                                & separating_line=''                     )
-  
   ! Write out anharmonic data.
+  call print_line('Writing anharmonic data.')
   anharmonic_data_file = OFile('anharmonic_data.dat')
   call anharmonic_data_file%print_lines(anharmonic_data)
   

@@ -27,8 +27,6 @@ module stress_data_module
     ! Interpolation of the stress.
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_StressData
-    procedure, public :: interpolate => &
-                       & interpolate_StressData
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_StressData
     procedure, public :: stress_correction => &
@@ -69,8 +67,6 @@ module stress_data_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_StressPointer
-    procedure, public :: interpolate => &
-                       & interpolate_StressPointer
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_StressPointer
     procedure, public :: stress_correction => &
@@ -335,27 +331,6 @@ function can_be_interpolated_StressPointer(this) result(output)
   output = this%stress_%can_be_interpolated()
 end function
 
-function interpolate_StressPointer(this,qpoint,subspace,subspace_modes, &
-   & anharmonic_min_images,anharmonic_data) result(output)
-  implicit none
-  
-  class(StressPointer),     intent(in) :: this
-  type(RealVector),         intent(in) :: qpoint
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(ComplexMode),        intent(in) :: subspace_modes(:)
-  type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(StressPointer)                  :: output
-  
-  call this%check()
-  
-  output = this%stress_%interpolate( qpoint,                &
-                                   & subspace,              &
-                                   & subspace_modes,        &
-                                   & anharmonic_min_images, &
-                                   & anharmonic_data        )
-end function
-
 function calculate_dynamical_matrices_StressPointer(this,qpoints,             &
    & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
    & result(output) 
@@ -406,24 +381,6 @@ function can_be_interpolated_StressData(this) result(output)
   logical                       :: output
   
   output = .false.
-end function
-
-function interpolate_StressData(this,qpoint,subspace,subspace_modes, &
-   & anharmonic_min_images,anharmonic_data) result(output)
-  implicit none
-  
-  class(StressData),        intent(in) :: this
-  type(RealVector),         intent(in) :: qpoint
-  type(DegenerateSubspace), intent(in) :: subspace
-  type(ComplexMode),        intent(in) :: subspace_modes(:)
-  type(MinImages),          intent(in) :: anharmonic_min_images(:,:)
-  type(AnharmonicData),     intent(in) :: anharmonic_data
-  type(StressPointer)                  :: output
-  
-  ! This should be gated behind can_be_interpolated.
-  call print_line(CODE_ERROR//': calculate_interpolated_stress not &
-     &implemented for this stress.')
-  call err()
 end function
 
 function calculate_dynamical_matrices_StressData(this,qpoints,                &

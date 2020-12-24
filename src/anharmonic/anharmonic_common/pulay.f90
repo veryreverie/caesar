@@ -327,8 +327,6 @@ subroutine calculate_x(this)
     i = maxloc( this%error_norms_(                                &
               &    this%iterations_(:size(this%iterations_)-2) ), &
               & 1)
-    call print_line(this%error_norms_(this%iterations_))
-    call print_line(i)
     iteration = this%iterations_(i)
     this%iterations_(i:size(this%iterations_)-1) = &
        & this%iterations_(i+1:size(this%iterations_))
@@ -377,7 +375,7 @@ function mixed_pulay_(this) result(output)
     associate(gradient=>this%gradients_(this%best_guess_))
       downhill_calculated = .true.
       downhill = - vec(max(-min_error,min(dble(gradient),min_error))) &
-             & * 1e-2_dp
+             & * 1e-3_dp
     end associate
   else
     downhill_calculated = .false.
@@ -389,13 +387,14 @@ function mixed_pulay_(this) result(output)
        &        - 0.5_dp                                                  ) &
        &      * min_error*abs(dble(best_guess))                             )
   
-  if ( this%iterations_since_best_guess_==0 .and.                 &
-     & this%random_generator_%random_number(0.0_dp,1.0_dp)<0.8_dp ) then
+  if ( this%iterations_since_best_guess_==0 .or.                  &
+     & this%random_generator_%random_number(0.0_dp,1.0_dp)<0.2_dp ) then
     call print_line(colour('pulay','red'))
     output = best_guess + pulay
-  elseif ( this%iterations_since_best_guess_<=1 .and.                 &
-         & downhill_calculated                  .and.                 &
-         & this%random_generator_%random_number(0.0_dp,1.0_dp)<0.8_dp ) then
+  elseif ( this%iterations_since_best_guess_<=1 .and.                      &
+         & this%random_generator_%random_number(0.0_dp,1.0_dp)<0.2_dp .or. &
+         & ( downhill_calculated                  .and.                    &
+         &   this%random_generator_%random_number(0.0_dp,1.0_dp)<0.8_dp ) ) then
     call print_line(colour('downhill','blue'))
     output = best_guess + downhill
   elseif (       modulo(this%iterations_since_best_guess_,2)==1 &
@@ -653,12 +652,11 @@ function precondition_errors(inputs,errors) result(output)
   sorted_inputs = inputs(sort_key)-inputs(sort_key(1))
   
   ! Construct the fitting weights.
-  weights = [max((error_norms(sort_key(1))/error_norms)**2.0_dp, 1e-100_dp)]
+  weights = [ max((error_norms(sort_key(1))/error_norms(sort_key))**2.0_dp, &
+            & 1e-100_dp)                                                    ]
   
   ! Construct a matrix where each column is an extended input vector,
   !    and the columns are sorted in ascending order of |e|.
-  i = 1+minloc(l2_norm(sorted_inputs(2:)), 1)
-  offset = max(l2_norm(sorted_inputs(i))*sqrt(weights(i)), 1e-20_dp)
   offset = maxval(l2_norm(sorted_inputs)*sqrt(weights))
   allocate( extended_input_matrix(size(inputs(1))+1,size(inputs)), &
           & stat=ialloc); call err(ialloc)
@@ -675,8 +673,8 @@ function precondition_errors(inputs,errors) result(output)
   
   ! Construct sum_i w_i x_i^x_i and sum_i w_i e_i^x_i,
   !    where ^ is the outer product.
-  xx = sum(weights(sort_key) * outer_product(extended_inputs,extended_inputs))
-  ex = sum(weights(sort_key) * outer_product(errors(sort_key),extended_inputs))
+  xx = sum(weights * outer_product(extended_inputs,extended_inputs))
+  ex = sum(weights * outer_product(errors(sort_key),extended_inputs))
   
   ! Regularise xx.
   ! Ideally, the regularisation would be a small fraction of the offset,
@@ -780,13 +778,19 @@ function converged(this) result(output)
   
   integer :: i
   
+  if (size(this%xs_(this%i()))==0) then
+    output = .true.
+    return
+  endif
+  
   if (this%i_<=this%data_%no_converged_calculations) then
     output = .false.
     return
   endif
   
   if (abs(this%free_energy_change())>100) then
-    call print_line(ERROR//': DF > 100. Maybe the system is unstable?')
+    call print_line(ERROR//': Change in free energy > 100 (Ha). &
+       &Maybe the system is unstable?')
     call print_line('free energy: '//this%free_energies_(this%i(-1)))
     call print_line('DF         : '//(this%free_energies_(this%i(-1)) &
        & -this%free_energies_(this%i(-2))))

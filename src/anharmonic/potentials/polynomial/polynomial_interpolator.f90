@@ -24,10 +24,10 @@ module polynomial_interpolator_module
   public :: construct_fine_monomials
   
   type, extends(NoDefaultConstructor) :: PolynomialInterpolator
-    complex(dp), allocatable :: absolute_(:,:,:)
-    complex(dp), allocatable :: relative_(:,:,:)
-    integer,     allocatable :: fine_map_(:)
-    integer,     allocatable :: coarse_map_(:)
+    complex(dp), allocatable, private :: absolute_(:,:,:)
+    complex(dp), allocatable, private :: relative_(:,:,:)
+    integer,     allocatable, private :: fine_map_(:)
+    integer,     allocatable, private :: coarse_map_(:)
   contains
     procedure, private :: absolute_overlap
     procedure, private :: relative_overlap
@@ -40,24 +40,26 @@ module polynomial_interpolator_module
     procedure, private :: overlap_ComplexMonomial_ComplexPolynomial
   end type
   
+  public :: new_PolynomialInterpolator
   interface PolynomialInterpolator
     module procedure new_PolynomialInterpolator
   end interface
 contains
 
 ! Constructor.
-function new_PolynomialInterpolator(fine_modes,fine_qpoints,coarse_modes, &
-   & min_images,anharmonic_data) result(this)
+function new_PolynomialInterpolator(min_images,anharmonic_data, &
+   & interpolated_anharmonic_data) result(this) 
   implicit none
   
-  type(ComplexMode),    intent(in) :: fine_modes(:)
-  type(RealVector),     intent(in) :: fine_qpoints(:)
-  type(ComplexMode),    intent(in) :: coarse_modes(:)
   type(MinImages),      intent(in) :: min_images(:,:)
   type(AnharmonicData), intent(in) :: anharmonic_data
+  type(AnharmonicData), intent(in) :: interpolated_anharmonic_data
   type(PolynomialInterpolator)     :: this
   
-  type(Realvector), allocatable :: coarse_qpoints(:)
+  type(ComplexMode), allocatable :: fine_modes(:)
+  type(RealVector),  allocatable :: fine_qpoints(:)
+  type(ComplexMode), allocatable :: coarse_modes(:)
+  type(Realvector),  allocatable :: coarse_qpoints(:)
   
   type(AtomData) :: atom_i
   type(AtomData) :: atom_l
@@ -68,11 +70,21 @@ function new_PolynomialInterpolator(fine_modes,fine_qpoints,coarse_modes, &
   
   type(IntVector), allocatable :: rvectors(:)
   
+  coarse_modes = anharmonic_data%complex_modes
+  fine_modes = interpolated_anharmonic_data%complex_modes
+  fine_qpoints = dblevec(interpolated_anharmonic_data%qpoints%qpoint)
+  
   coarse_qpoints = [(                                                       &
      & dblevec(anharmonic_data%qpoints(first(                               &
      &    anharmonic_data%qpoints%id==coarse_modes(i)%qpoint_id ))%qpoint), &
      & i=1,                                                                 &
      & size(coarse_modes)                                                   )]
+  fine_qpoints = [(                                                         &
+     & dblevec(interpolated_anharmonic_data%qpoints(first(                  &
+     &    interpolated_anharmonic_data%qpoints%id==fine_modes(i)%qpoint_id  &
+     &                                                     ))%qpoint),      &
+     & i=1,                                                                 &
+     & size(fine_modes)                                                     )]
   
   this%fine_map_ = [(0,i=1,maxval(fine_modes%id))]
   do i=1,size(fine_modes)
@@ -114,8 +126,11 @@ function new_PolynomialInterpolator(fine_modes,fine_qpoints,coarse_modes, &
     enddo
   enddo
   
-  this%absolute_ = this%absolute_ &
-               & / anharmonic_data%anharmonic_supercell%sc_size
+  this%absolute_ =                                                   &
+     & ( this%absolute_                                              &
+     & * interpolated_anharmonic_data%anharmonic_supercell%sc_size ) &
+     & / anharmonic_data%anharmonic_supercell%sc_size
+  
   this%relative_ = this%relative_ &
                & / anharmonic_data%anharmonic_supercell%sc_size
 end function
@@ -232,25 +247,30 @@ impure elemental function overlap_ComplexMonomial_ComplexMonomial(this,fine, &
   fine_ids = to_ids(fine)
   coarse_ids = to_ids(coarse)
   
-  permutation = PermutationData(fine_ids, coarse_ids)
-  no_permutations = 0
+  permutation = PermutationData(coarse_ids, fine_ids)
   
+  no_permutations = 0
   output = 0
   do
-    fine_ids = permutation%a()
-    coarse_ids = permutation%b()
+    fine_ids = permutation%b()
+    coarse_ids = permutation%a()
     
-    output = output + this%product_overlap(fine_ids,coarse_ids)
-    no_permutations = no_permutations + 1
+    output = output                                    &
+         & + this%product_overlap(fine_ids,coarse_ids) &
+         & * exp(permutation%log_no_permutations())
     
     call permutation%next_permutation()
+    
+    no_permutations = no_permutations + 1
     
     if (permutation%all_permutations_done()) then
       exit
     endif
   enddo
   
-  output = output * coarse%coefficient / no_permutations
+  output = output             &
+       & * coarse%coefficient &
+       & * exp(log_no_permutations(fine) - log_no_permutations(coarse))
 end function
 
 function to_ids(monomial) result(output)
@@ -273,6 +293,35 @@ function to_ids(monomial) result(output)
   enddo
 end function
 
+! Calculates the number of ways a given monomial can be permuted.
+function log_no_permutations(monomial) result(output)
+  implicit none
+  
+  type(ComplexMonomial), intent(in) :: monomial
+  real(dp)                          :: output
+  
+  integer :: power
+  integer :: total
+  
+  integer :: i
+  
+  output = 0
+  
+  total = 0
+  do i=1,size(monomial)
+    power = monomial%power(i)
+    total = total + power
+    output = output - log_factorial(power)
+    if (monomial%id(i)/=monomial%paired_id(i)) then
+      power = monomial%paired_power(i)
+      total = total + power
+      output = output - log_factorial(power)
+    endif
+  enddo
+  
+  output = output + log_factorial(total)
+end function
+
 ! Calculates the overlap between an monomial on the fine grid and a polynomial
 !    on the coarse grid.
 impure elemental function overlap_ComplexMonomial_ComplexPolynomial( &
@@ -287,7 +336,7 @@ impure elemental function overlap_ComplexMonomial_ComplexPolynomial( &
   output = sum(this%overlap(fine,coarse%terms))
 end function
 
-! Construct the monomials at q-point on the fine grid.
+! Construct the monomials at a q-point on the fine grid.
 function construct_fine_monomials(power,modes) result(output)
   implicit none
   

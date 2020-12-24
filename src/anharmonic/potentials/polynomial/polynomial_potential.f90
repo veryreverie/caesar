@@ -84,8 +84,8 @@ module polynomial_potential_module
     
     procedure, public :: can_be_interpolated => &
                        & can_be_interpolated_PolynomialPotential
-    procedure, public :: interpolate => &
-                       & interpolate_PolynomialPotential
+    procedure, public :: interpolate_potential => &
+                       & interpolate_potential_PolynomialPotential
     
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_PolynomialPotential
@@ -105,6 +105,7 @@ module polynomial_potential_module
   
   interface PolynomialPotential
     module procedure new_PolynomialPotential
+    module procedure new_PolynomialPotential_PotentialData
     module procedure new_PolynomialPotential_BasisFunctions
     module procedure new_PolynomialPotential_Strings
     module procedure new_PolynomialPotential_StringArray
@@ -128,6 +129,21 @@ function new_PolynomialPotential(anharmonic_data) result(this)
   type(PolynomialPotential)        :: this
   
   this%potential_expansion_order_ = anharmonic_data%potential_expansion_order
+end function
+
+recursive function new_PolynomialPotential_PotentialData(input) result(this)
+  implicit none
+  
+  class(PotentialData), intent(in) :: input
+  type(PolynomialPotential)        :: this
+  
+  select type(input); type is(PolynomialPotential)
+    this = input
+  type is(PotentialPointer)
+    this = new_PolynomialPotential_PotentialData(input%potential())
+  class default
+    call err()
+  end select
 end function
 
 function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
@@ -171,7 +187,6 @@ subroutine generate_sampling_points_PolynomialPotential(this,       &
   type(OFile),                intent(inout) :: logfile
   
   ! Variables used when generating sampling points.
-  type(BasisFunctionsAndSamplingPoints)     :: basis_functions_and_points
   type(CouplingBasisFunctions), allocatable :: basis_functions(:)
   type(SamplingPoints),         allocatable :: sampling_points(:)
   
@@ -224,26 +239,29 @@ subroutine generate_sampling_points_PolynomialPotential(this,       &
     ! Generate basis functions at each coupling,
     !    and the sampling points from which the basis function coefficients
     !    can be constructed.
-    if (modulo(i,max(size(anharmonic_data%subspace_couplings)/100,1))==0) then
-      call print_line('Generating sampling points in subspace coupling '// &
-         & i//' of '//size(anharmonic_data%subspace_couplings)//'.')
-    endif
-    basis_functions_and_points = generate_basis_functions( &
-          & anharmonic_data%subspace_couplings(i),         &
-          & this%potential_expansion_order_,               &
-          & anharmonic_data%structure,                     &
-          & anharmonic_data%complex_modes,                 &
-          & anharmonic_data%real_modes,                    &
-          & anharmonic_data%qpoints,                       &
-          & anharmonic_data%degenerate_subspaces,          &
-          & anharmonic_data%degenerate_symmetries,         &
-          & anharmonic_data%vscf_basis_functions_only,     &
-          & anharmonic_data%maximum_weighted_displacement, &
-          & anharmonic_data%frequency_of_max_displacement, &
-          & energy_to_force_ratio,                         &
-          & logfile                                        )
-    basis_functions(i) = basis_functions_and_points%basis_functions
-    sampling_points(i) = basis_functions_and_points%sampling_points
+    call print_line('Generating sampling points in subspace coupling '// &
+       & i//' of '//size(anharmonic_data%subspace_couplings)//'.')
+    basis_functions(i) = generate_basis_functions(  &
+       & anharmonic_data%subspace_couplings(i),     &
+       & this%potential_expansion_order_,           &
+       & anharmonic_data%structure,                 &
+       & anharmonic_data%complex_modes,             &
+       & anharmonic_data%real_modes,                &
+       & anharmonic_data%qpoints,                   &
+       & anharmonic_data%degenerate_subspaces,      &
+       & anharmonic_data%degenerate_symmetries,     &
+       & anharmonic_data%vscf_basis_functions_only, &
+       & logfile                                    )
+    call print_line( 'Coupling contains '//size(basis_functions(i))// &
+                   & ' basis functions.' )
+    
+    sampling_points(i) = generate_sampling_points(      &
+       & basis_functions(i)%basis_functions(),          &
+       & this%potential_expansion_order_,               &
+       & anharmonic_data%maximum_weighted_displacement, &
+       & anharmonic_data%frequency_of_max_displacement, &
+       & anharmonic_data%real_modes,                    &
+       & energy_to_force_ratio                          )
   enddo
   
   ! --------------------------------------------------
@@ -398,11 +416,11 @@ subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
                                         & calculation_reader  )
     
     ! Fit basis function coefficients.
-    call basis_functions%fit_coefficients( sampling_points%points,            &
-                                         & sample_results%results,            &
-                                         & anharmonic_data%real_modes,        &
-                                         & weighted_energy_force_ratio,       &
-                                         & this                               )
+    call basis_functions%fit_coefficients( sampling_points%points,      &
+                                         & sample_results%results,      &
+                                         & anharmonic_data%real_modes,  &
+                                         & weighted_energy_force_ratio, &
+                                         & this                         )
     
     ! Add fitted basis functions to potential.
     this%basis_functions_(i) = basis_functions
@@ -1050,130 +1068,75 @@ function can_be_interpolated_PolynomialPotential(this) result(output)
   output = .true.
 end function
 
-! TODO: integrate and unintegrate polynomial, to give interpolation under
-!    VSCF rather than raw interpolation.
-function interpolate_PolynomialPotential(this,qpoint,subspace,subspace_modes, &
-   & anharmonic_min_images,thermal_energy,subspaces,subspace_bases,           &
-   & subspace_states,anharmonic_data) result(output)
+subroutine interpolate_potential_PolynomialPotential(this, &
+   & anharmonic_min_images,potential,anharmonic_data,      &
+   & interpolated_anharmonic_data,difference_dynamical_matrices,logfile) 
   implicit none
   
-  class(PolynomialPotential), intent(in)    :: this
-  type(RealVector),           intent(in)    :: qpoint
-  type(DegenerateSubspace),   intent(in)    :: subspace
-  type(ComplexMode),          intent(in)    :: subspace_modes(:)
+  class(PolynomialPotential), intent(inout) :: this
   type(MinImages),            intent(in)    :: anharmonic_min_images(:,:)
-  real(dp),                   intent(in)    :: thermal_energy
-  type(DegenerateSubspace),   intent(in)    :: subspaces(:)
-  class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
-  class(BasisStates),         intent(inout) :: subspace_states(:)
+  class(PotentialData),       intent(in)    :: potential
   type(AnharmonicData),       intent(in)    :: anharmonic_data
-  type(PotentialPointer)                    :: output
+  type(AnharmonicData),       intent(in)    :: interpolated_anharmonic_data
+  type(DynamicalMatrix),      intent(in)    :: difference_dynamical_matrices(:)
+  type(OFile),                intent(inout) :: logfile
   
-  integer :: expansion_order
-  
-  type(ComplexMode), allocatable :: modes(:)
-  
-  type(RealVector), allocatable :: qpoints(:)
+  type(PolynomialPotential) :: potential_
   
   type(PolynomialInterpolator) :: interpolator
   
-  integer :: power
+  integer :: i,j,ialloc
   
-  type(ComplexMonomial), allocatable :: monomials(:)
+  potential_ = PolynomialPotential(potential)
   
-  type(BasisFunction), allocatable :: basis_functions(:)
-  type(BasisFunction), allocatable :: new_basis_functions(:)
-  type(BasisFunction), allocatable :: old_basis_functions(:)
+  this%reference_energy_ =                                           &
+     & ( potential_%reference_energy_                                &
+     & * interpolated_anharmonic_data%anharmonic_supercell%sc_size ) &
+     & / anharmonic_data%anharmonic_supercell%sc_size
   
-  complex(dp) :: coefficient
-  
-  type(CouplingBasisFunctions) :: coupling_basis_functions
-  
-  integer :: i,j,k,l,ialloc
-  
-  expansion_order = this%expansion_order()
-  
-  modes = subspace_modes(filter(subspace_modes%id<=subspace_modes%paired_id))
-  
-  allocate(qpoints(size(subspace_modes)), stat=ialloc); call err(ialloc)
-  do i=1,size(qpoints)
-    if (subspace_modes(i)%id<=subspace_modes(i)%paired_id) then
-      qpoints(i) = qpoint
-    else
-      qpoints(i) = -qpoint
-    endif
+  allocate( this%basis_functions_(                                      &
+          &    size(interpolated_anharmonic_data%subspace_couplings) ), &
+          & stat=ialloc); call err(ialloc)
+  do i=1,size(this%basis_functions_)
+    call print_line('Generating basis functions for interpolated potential &
+       &in subspace coupling '//i//' of '//size(this%basis_functions_)//'.' )
+    ! Generate basis functions at each coupling,
+    !    and the sampling points from which the basis function coefficients
+    !    can be constructed.
+    this%basis_functions_(i) = generate_basis_functions(         &
+       & interpolated_anharmonic_data%subspace_couplings(i),     &
+       & this%potential_expansion_order_,                        &
+       & interpolated_anharmonic_data%structure,                 &
+       & interpolated_anharmonic_data%complex_modes,             &
+       & interpolated_anharmonic_data%real_modes,                &
+       & interpolated_anharmonic_data%qpoints,                   &
+       & interpolated_anharmonic_data%degenerate_subspaces,      &
+       & interpolated_anharmonic_data%degenerate_symmetries,     &
+       & interpolated_anharmonic_data%vscf_basis_functions_only, &
+       & logfile                                                 )
+    call this%basis_functions_(i)%zero_coefficients()
   enddo
   
   ! Construct the polynomial interpolator.
-  interpolator = PolynomialInterpolator(                &
-     & fine_modes      = subspace_modes,                &
-     & fine_qpoints    = qpoints,                       &
-     & coarse_modes    = anharmonic_data%complex_modes, &
-     & min_images      = anharmonic_min_images,         &
-     & anharmonic_data = anharmonic_data                )
+  interpolator = new_PolynomialInterpolator(                       &
+     & min_images                   = anharmonic_min_images,       &
+     & anharmonic_data              = anharmonic_data,             &
+     & interpolated_anharmonic_data = interpolated_anharmonic_data )
   
-  do power=1,expansion_order/2
-    ! Construct all translationally-invariant monomials of the given power
-    !    using the given modes.
-    monomials = construct_fine_monomials(power, modes)
-    
-    ! Interpolate the stress to find monomial coefficients,
-    !    then convert the monomials into real basis functions.
-    ! If power=paired_power, construct the u                 basis function.
-    ! If power<paired_power, construct the u+u* and (u-u*)/i basis function.
-    ! If power>paired_power, ignore the monomial, as it is included above.
-    l = 0
-    allocate( new_basis_functions(size(monomials)), &
-            & stat=ialloc); call err(ialloc)
-    do i=1,size(monomials)
-      j = first( monomials(i)%powers()<monomials(i)%paired_powers(), &
-               & default=size(monomials(i))+1                        )
-      k = first( monomials(i)%powers()>monomials(i)%paired_powers(), &
-               & default=size(monomials(i))+1                        )
-      if (j==k) then
-        coefficient = this%interpolate_coefficient( monomials(i), &
-                                                  & interpolator  )
-        l = l+1
-        new_basis_functions(l) = BasisFunction( &
-           & ComplexPolynomial([monomials(i)]), &
-           & real(coefficient)                  )
-      elseif (j<k) then
-        coefficient = this%interpolate_coefficient( monomials(i), &
-                                                  & interpolator  )
-        l = l+1
-        new_basis_functions(l) = BasisFunction(                      &
-           & ComplexPolynomial([monomials(i), conjg(monomials(i))]), &
-           & real(coefficient)                                       )
-        l = l+1
-        new_basis_functions(l) = BasisFunction(                         &
-           & ComplexPolynomial( [monomials(i), -conjg(monomials(i))]    &
-           &                  / cmplx(0.0_dp,1.0_dp,dp)              ), &
-           & aimag(coefficient)                                         )
-      endif
+  do i=1,size(this%basis_functions_)
+    call print_line( 'Interpolating coefficients in subspace coupling '//i// &
+                   & ' of '//size(this%basis_functions_)//'.'                )
+    do j=1,size(potential_%basis_functions_)
+      call this%basis_functions_(i)%add_interpolated_contribution( &
+                                 & potential_%basis_functions_(j), &
+                                 & interpolator                    )
     enddo
     
-    ! Append the new basis functions to the basis functions
-    !    from previous powers.
-    if (power==1) then
-      basis_functions = new_basis_functions
-    else
-      old_basis_functions = basis_functions
-      basis_functions = [old_basis_functions, new_basis_functions]
-    endif
-    deallocate(new_basis_functions, stat=ialloc); call err(ialloc)
+    call this%basis_functions_(i)%add_harmonic_contribution( &
+                            & difference_dynamical_matrices, &
+                            & interpolated_anharmonic_data   )
   enddo
-  
-  ! Construct output.
-  coupling_basis_functions = CouplingBasisFunctions(           &
-     & coupling        = SubspaceCoupling(ids=[subspaces%id]), &
-     & basis_functions = basis_functions                       )
-  
-  ! TODO: calculate reference energy correctly.
-  output = PotentialPointer(PolynomialPotential(              &
-     & potential_expansion_order = expansion_order,           &
-     & reference_energy          = 0.0_dp,                    &
-     & basis_functions           = [coupling_basis_functions] ))
-end function
+end subroutine
 
 ! Calculate the contribution to a given monomial from the interpolation of
 !    this potential.

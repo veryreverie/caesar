@@ -6,6 +6,7 @@ module calculate_potential_module
   
   use anharmonic_common_module
   use potentials_module
+  use interpolation_module
   implicit none
   
   private
@@ -31,6 +32,33 @@ subroutine startup_calculate_potential()
      &to the value set in setup_anharmonic. This may be varied here to check &
      &that it does not have a large effect on the observables.',              &
      &              is_optional=.true.),                                      &
+     & KeywordData( 'interpolate_potential',                                  &
+     &              'interpolate_potential determines whether or not the &
+     &potential should be interpolated before vscf and statistical mechanical &
+     &calculations are performed. The interpolated_ keywords are only used if &
+     &interpolate_potential is true.',                                        &
+     &              default_value='false'),                                   &
+     & KeywordData( 'interpolated_q-point_grid',                              &
+     &              'interpolated_q-point_grid is the number of q-points in &
+     &each direction in the Monkhorst-Pack grid onto which the potential will &
+     &be interpolated. This should be specified as three integers separated &
+     &by spaces.'),                                                           &
+     & KeywordData( 'interpolated_maximum_coupling_order',                    &
+     &              'interpolated_maximum_coupling_order is the maximum &
+     &number of degenerate subspaces which may be coupled together in the &
+     &interpolated potential. Must be at least 1.'),                          &
+     & KeywordData( 'interpolated_potential_expansion_order',                 &
+     &              'interpolated_potential_expansion_order is the order up &
+     &to which the interpolated potential is expanded. e.g. if &
+     &interpolated_potential_expansion_order=4 then terms up to and including &
+     &u^4 are included. Must be at least 2, and at least as large as &
+     &interpolated_maximum_coupling_order, and no larger than &
+     &potential_expansion_order from setup_anharmonic.'),                     &
+     & KeywordData( 'interpolated_vscf_basis_functions_only',                 &
+     &              'interpolated_vscf_basis_functions_only specifies that &
+     &the interpolated potential will only be expanded in terms of basis &
+     &functions which are relevant to vscf.',                                 &
+     &              default_value='true'),                                    &
      & KeywordData( 'loto_direction',                                         &
      &              'loto_direction specifies the direction (in reciprocal &
      &co-ordinates from which the gamma point is approached when calculating &
@@ -55,6 +83,11 @@ subroutine calculate_potential_subroutine(arguments)
   
   ! Input arguments.
   real(dp)             :: weighted_energy_force_ratio
+  logical              :: interpolate_potential
+  integer              :: interpolated_qpoint_grid(3)
+  integer              :: interpolated_coupling_order
+  integer              :: interpolated_expansion_order
+  logical              :: interpolated_vscf_only
   type(Fractionvector) :: loto_direction
   logical              :: loto_direction_set
   
@@ -77,6 +110,21 @@ subroutine calculate_potential_subroutine(arguments)
   ! Anharmonic potential.
   type(PotentialPointer) :: potential
   
+  ! Harmonic variables.
+  type(StructureData)                :: harmonic_supercell
+  type(QpointData),      allocatable :: harmonic_qpoints(:)
+  type(DynamicalMatrix), allocatable :: harmonic_dynamical_matrices(:)
+  type(ComplexMode),     allocatable :: harmonic_complex_modes(:,:)
+  type(MinImages),       allocatable :: harmonic_min_images(:,:)
+  type(DynamicalMatrix), allocatable :: difference_dynamical_matrices(:)
+  
+  ! Variables for interpolating the potential.
+  type(MinImages), allocatable :: anharmonic_min_images(:,:)
+  type(InterpolatedSupercell)  :: interpolated_supercell
+  type(MaxDisplacement)        :: max_displacement
+  type(AnharmonicData)         :: interpolated_anharmonic_data
+  type(PotentialPointer)       :: interpolated_potential
+  
   ! Stress
   type(SubspaceCoupling), allocatable :: stress_subspace_coupling(:)
   type(StressPointer)                 :: stress
@@ -86,8 +134,32 @@ subroutine calculate_potential_subroutine(arguments)
   type(String) :: sampling_points_dir
   type(OFile)  :: logfile
   type(OFile)  :: potential_file
+  type(String) :: harmonic_path
+  type(IFile)  :: harmonic_supercell_file
+  type(IFile)  :: harmonic_qpoints_file
+  type(String) :: qpoint_dir
+  type(IFile)  :: harmonic_dynamical_matrices_file
+  type(IFile)  :: harmonic_complex_modes_file
+  type(OFile)  :: interpolated_anharmonic_data_file
+  type(OFile)  :: interpolated_potential_file
   type(OFile)  :: stress_subspace_coupling_file
   type(OFile)  :: stress_file
+  
+  ! Temporary variables.
+  integer :: i,ialloc
+  
+  ! Parse input arguments.
+  interpolate_potential = lgcl(arguments%value('interpolate_potential'))
+  if (interpolate_potential) then
+    interpolated_qpoint_grid = int(split_line(        &
+       & arguments%value('interpolated_q-point_grid') ))
+    interpolated_coupling_order = int(                          &
+       & arguments%value('interpolated_maximum_coupling_order') )
+    interpolated_expansion_order = int(                            &
+       & arguments%value('interpolated_potential_expansion_order') )
+    interpolated_vscf_only = lgcl(                                 &
+       & arguments%value('interpolated_vscf_basis_functions_only') )
+  endif
   
   ! Read in setup_harmonic arguments.
   setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
@@ -102,8 +174,7 @@ subroutine calculate_potential_subroutine(arguments)
   potential_expansion_order = &
      & int(setup_anharmonic_arguments%value('potential_expansion_order'))
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
-  
-  ! Initialise energy_to_force_ratio.
+  harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
   if (arguments%is_set('energy_to_force_ratio')) then
     energy_to_force_ratio = &
        & dble(arguments%value('energy_to_force_ratio'))
@@ -178,6 +249,106 @@ subroutine calculate_potential_subroutine(arguments)
   
   potential_file = OFile('potential.dat')
   call potential_file%print_lines(potential)
+  
+  ! Interpolate the potential.
+  if (interpolate_potential) then
+    ! Read in harmonic q-points and dynamical matrices.
+    harmonic_supercell_file = IFile(harmonic_path//'/large_supercell.dat')
+    harmonic_supercell = StructureData(harmonic_supercell_file%lines())
+    harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
+    harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
+    allocate( harmonic_dynamical_matrices(size(harmonic_qpoints)),           &
+            & harmonic_complex_modes( anharmonic_data%structure%no_modes,    &
+            &                         size(harmonic_qpoints)              ), &
+            & stat=ialloc); call err(ialloc)
+    do i=1,size(harmonic_qpoints)
+      qpoint_dir = harmonic_path// &
+                 & '/qpoint_'//left_pad(i,str(size(harmonic_qpoints)))
+      harmonic_dynamical_matrices_file = IFile( &
+          & qpoint_dir//'/dynamical_matrix.dat' )
+      harmonic_dynamical_matrices(i) = DynamicalMatrix( &
+             & harmonic_dynamical_matrices_file%lines() )
+      
+      harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
+      harmonic_complex_modes(:,i) = ComplexMode(  &
+         & harmonic_complex_modes_file%sections() )
+    enddo
+    
+    harmonic_min_images = calculate_min_images(harmonic_supercell)
+    
+    anharmonic_min_images = calculate_min_images( &
+           & anharmonic_data%anharmonic_supercell )
+    
+    interpolated_supercell = InterpolatedSupercell( &
+                     & interpolated_qpoint_grid,    &
+                     & anharmonic_data%structure,   &
+                     & harmonic_supercell,          &
+                     & harmonic_qpoints,            &
+                     & harmonic_dynamical_matrices, &
+                     & harmonic_complex_modes,      &
+                     & logfile                      )
+    
+    ! max_displacement is not used, so a dummy is created.
+    max_displacement = MaxDisplacement(                             &
+       & maximum_displacement          = 0.0_dp,                    &
+       & structure                     = anharmonic_data%structure, &
+       & frequency_of_max_displacement = 0.0_dp,                    &
+       & max_energy_of_displacement    = 0.0_dp                     )
+    
+    interpolated_anharmonic_data = AnharmonicData(                     &
+       & structure                     = anharmonic_data%structure,    &
+       & interpolated_supercell        = interpolated_supercell,       &
+       & max_displacement              = max_displacement,             &
+       & potential_expansion_order     = interpolated_expansion_order, &
+       & maximum_coupling_order        = interpolated_coupling_order,  &
+       & vscf_basis_functions_only     = interpolated_vscf_only,       &
+       & energy_to_force_ratio         = 0.0_dp                        )
+    
+    interpolated_anharmonic_data_file = OFile( &
+          & 'interpolated_anharmonic_data.dat' )
+    call interpolated_anharmonic_data_file%print_lines( &
+                         & interpolated_anharmonic_data )
+    
+    if (potential_representation=='polynomial') then
+      interpolated_potential = PotentialPointer( &
+          & PolynomialPotential(anharmonic_data) )
+    else
+      call print_line( ERROR//': Unrecognised potential representation: '// &
+                     & potential_representation)
+      call err()
+    endif
+    
+    ! Calculate the harmonic terms which have longer range than the anharmonic
+    !    supercell can represent.
+    difference_dynamical_matrices = calculate_difference_dynamical_matrices( &
+                                     & harmonic_dynamical_matrices,          &
+                                     & harmonic_qpoints,                     &
+                                     & harmonic_supercell,                   &
+                                     & harmonic_min_images,                  &
+                                     & anharmonic_data%qpoints,              &
+                                     & anharmonic_data%anharmonic_supercell, &
+                                     & anharmonic_min_images                 )
+    difference_dynamical_matrices = interpolate_dynamical_matrices( &
+                             & difference_dynamical_matrices,       &
+                             & harmonic_qpoints,                    &
+                             & harmonic_supercell,                  &
+                             & harmonic_min_images,                 &
+                             & interpolated_anharmonic_data%qpoints )
+    
+    ! Interpolate the potential, including the calculated anharmonic potential
+    !    and the parts of the calculated harmonic potential which have longer
+    !    range than the anharmonic supercell can represent.
+    call interpolated_potential%interpolate_potential(                  &
+       & anharmonic_min_images         = anharmonic_min_images,         &
+       & potential                     = potential,                     &
+       & anharmonic_data               = anharmonic_data,               &
+       & interpolated_anharmonic_data  = interpolated_anharmonic_data,  &
+       & difference_dynamical_matrices = difference_dynamical_matrices, &
+       & logfile                       = logfile                        )
+    
+    interpolated_potential_file = OFile('interpolated_potential.dat')
+    call interpolated_potential_file%print_lines(interpolated_potential)
+  endif
   
   ! If calculate_stress is true, generate the stress and write it to file.
   if (calculate_stress) then

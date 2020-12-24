@@ -30,6 +30,12 @@ subroutine startup_calculate_anharmonic_observables()
   mode%description = 'Calculates observables under the VSCF approximation. &
      &Should be run after calculate_potential.'
   mode%keywords = [                                                           &
+     & KeywordData( 'use_interpolated_potential', &
+     &              'use_interpolated_potential specifies whether to use the &
+     &interpolated potential from calculate_potential or to use the potential &
+     &as calculated on the anharmonic q-point grid. If &
+     &use_interpolated_potential is true then stress cannot be calculated.',  &
+     &              default_value='false'),                                   &
      & KeywordData( 'split_q-points',                                         &
      &              'split_q-points specifies whether or not to split up VSCF &
      &subspaces by q-point. Doing so makes the calculation somewhat less &
@@ -141,6 +147,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   ! Inputs.
   type(RandomReal)      :: random_generator
   integer               :: random_generator_seed
+  logical               :: use_interpolated_potential
   logical               :: split_qpoints
   real(dp)              :: energy_convergence
   integer               :: no_converged_calculations
@@ -167,9 +174,11 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(Dictionary)                   :: setup_anharmonic_arguments
   type(String)                       :: harmonic_path
   logical                            :: calculate_stress
+  type(String)                       :: potential_representation
   type(StructureData)                :: harmonic_supercell
   type(QpointData),      allocatable :: harmonic_qpoints(:)
   type(DynamicalMatrix), allocatable :: harmonic_dynamical_matrices(:)
+  type(ComplexMode),     allocatable :: harmonic_complex_modes(:,:)
   
   ! Anharmonic data.
   type(AnharmonicData)                  :: anharmonic_data
@@ -242,12 +251,14 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   type(ThermodynamicData), allocatable :: interpolated_vscf_thermodynamics(:)
   
   ! Input files.
-  type(IFile) :: anharmonic_data_file
-  type(IFile) :: potential_file
-  type(IFile) :: stress_file
-  type(IFile) :: harmonic_supercell_file
-  type(IFile) :: harmonic_qpoints_file
-  type(IFile) :: harmonic_dynamical_matrices_file
+  type(IFile)  :: anharmonic_data_file
+  type(IFile)  :: potential_file
+  type(IFile)  :: stress_file
+  type(IFile)  :: harmonic_supercell_file
+  type(IFile)  :: harmonic_qpoints_file
+  type(String) :: qpoint_dir
+  type(IFile)  :: harmonic_dynamical_matrices_file
+  type(IFile)  :: harmonic_complex_modes_file
   
   ! Output directories.
   type(String) :: observables_dir
@@ -289,6 +300,8 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     random_generator = RandomReal()
   endif
   random_generator_seed = random_generator%get_seed()
+  use_interpolated_potential = lgcl(                 &
+     & arguments%value('use_interpolated_potential') )
   split_qpoints = lgcl(arguments%value('split_q-points'))
   energy_convergence = dble(arguments%value('energy_convergence'))
   no_converged_calculations = int(                       &
@@ -355,23 +368,33 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
   harmonic_path = setup_anharmonic_arguments%value('harmonic_path')
   calculate_stress = lgcl(setup_anharmonic_arguments%value('calculate_stress'))
+  potential_representation = setup_anharmonic_arguments%value( &
+                                  & 'potential_representation' )
+  
+  ! TODO: remove this constraint by interpolating stress correctly.
+  if (use_interpolated_potential) then
+    calculate_stress = .false.
+  endif
   
   ! --------------------------------------------------
   ! Read in previously calculated data.
   ! --------------------------------------------------
   
   ! Read in anharmonic data.
-  anharmonic_data_file = IFile('anharmonic_data.dat')
+  if (use_interpolated_potential) then
+    anharmonic_data_file = IFile('interpolated_anharmonic_data.dat')
+    potential_file = IFile('interpolated_potential.dat')
+  else
+    anharmonic_data_file = IFile('anharmonic_data.dat')
+    potential_file = IFile('potential.dat')
+  endif
   anharmonic_data = AnharmonicData(anharmonic_data_file%lines())
+  potential = PotentialPointer(potential_file%lines())
   
   modes = anharmonic_data%complex_modes
   qpoints = anharmonic_data%qpoints
   subspaces = anharmonic_data%degenerate_subspaces
   anharmonic_supercell = anharmonic_data%anharmonic_supercell
-  
-  ! Read in anharmonic potential.
-  potential_file = IFile('potential.dat')
-  potential = PotentialPointer(potential_file%lines())
   
   ! Read in anharmonic stress.
   if (calculate_stress) then
@@ -384,15 +407,21 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
   harmonic_supercell = StructureData(harmonic_supercell_file%lines())
   harmonic_qpoints_file = IFile(harmonic_path//'/qpoints.dat')
   harmonic_qpoints = QpointData(harmonic_qpoints_file%sections())
-  allocate( harmonic_dynamical_matrices(size(harmonic_qpoints)), &
+  allocate( harmonic_dynamical_matrices(size(harmonic_qpoints)),           &
+          & harmonic_complex_modes( anharmonic_data%structure%no_modes,    &
+          &                         size(harmonic_qpoints)              ), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(harmonic_qpoints)
-    harmonic_dynamical_matrices_file = IFile(                   &
-       & harmonic_path                                       // &
-       & '/qpoint_'//left_pad(i,str(size(harmonic_qpoints))) // &
-       & '/dynamical_matrix.dat'                                )
+    qpoint_dir = harmonic_path// &
+               & '/qpoint_'//left_pad(i,str(size(harmonic_qpoints)))
+    harmonic_dynamical_matrices_file = IFile( &
+        & qpoint_dir//'/dynamical_matrix.dat' )
     harmonic_dynamical_matrices(i) = DynamicalMatrix( &
            & harmonic_dynamical_matrices_file%lines() )
+    
+    harmonic_complex_modes_file = IFile(qpoint_dir//'/complex_modes.dat')
+    harmonic_complex_modes(:,i) = ComplexMode(  &
+       & harmonic_complex_modes_file%sections() )
   enddo
   
   ! --------------------------------------------------

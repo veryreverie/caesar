@@ -15,7 +15,6 @@ module coupling_basis_functions_module
   private
   
   public :: CouplingBasisFunctions
-  public :: BasisFunctionsAndSamplingPoints
   public :: size
   public :: generate_basis_functions
   
@@ -68,6 +67,8 @@ module coupling_basis_functions_module
                        & coefficients_CouplingBasisFunctions
     procedure, public :: set_coefficients => &
                        & set_coefficients_CouplingBasisFunctions
+    procedure, public :: zero_coefficients => &
+                       & zero_coefficients_CouplingBasisFunctions
     procedure, public :: all_basis_functions => &
                        & all_basis_functions_CouplingBasisFunctions
     procedure, public :: variable_basis_functions => &
@@ -79,6 +80,10 @@ module coupling_basis_functions_module
     
     procedure, public :: interpolate_coefficient => &
                        & interpolate_coefficient_CouplingBasisFunctions
+    procedure, public :: add_interpolated_contribution => &
+                       & add_interpolated_contribution_CouplingBasisFunctions
+    procedure, public :: add_harmonic_contribution => &
+                       & add_harmonic_contribution_CouplingBasisFunctions
     procedure, public :: calculate_dynamical_matrices => &
                        & calculate_dynamical_matrices_CouplingBasisFunctions
     procedure, public :: energy_correction => &
@@ -103,11 +108,6 @@ module coupling_basis_functions_module
   interface generate_basis_functions
     module procedure generate_basis_functions_SubspaceCoupling
   end interface
-  
-  type :: BasisFunctionsAndSamplingPoints
-    type(CouplingBasisFunctions) :: basis_functions
-    type(SamplingPoints)         :: sampling_points
-  end type
 contains
 
 impure elemental function new_CouplingBasisFunctions_empty(coupling) &
@@ -407,9 +407,8 @@ end function
 
 function generate_basis_functions_SubspaceCoupling(coupling,               &
    & potential_expansion_order,structure,complex_modes,real_modes,qpoints, &
-   & subspaces,degenerate_symmetries,vscf_basis_functions_only,            &
-   & maximum_weighted_displacement,frequency_of_max_displacement,          &
-   & energy_to_force_ratio,logfile) result(output)
+   & subspaces,degenerate_symmetries,vscf_basis_functions_only,logfile)    &
+   & result(output)
   implicit none
   
   type(SubspaceCoupling),   intent(in)    :: coupling
@@ -421,11 +420,8 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
   type(DegenerateSubspace), intent(in)    :: subspaces(:)
   type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
   logical,                  intent(in)    :: vscf_basis_functions_only
-  real(dp),                 intent(in)    :: maximum_weighted_displacement
-  real(dp),                 intent(in)    :: frequency_of_max_displacement
-  real(dp),                 intent(in)    :: energy_to_force_ratio
   type(OFile),              intent(inout) :: logfile
-  type(BasisFunctionsAndSamplingPoints)   :: output
+  type(CouplingBasisFunctions)            :: output
   
   type(SubspaceMonomial), allocatable :: subspace_monomials(:)
   
@@ -464,16 +460,7 @@ function generate_basis_functions_SubspaceCoupling(coupling,               &
                               & i=1,                                &
                               & size(subspace_monomials)            )]
   
-  output = BasisFunctionsAndSamplingPoints(                                 &
-     & basis_functions = CouplingBasisFunctions( coupling,                  &
-     &                                           coupling_basis_functions), &
-     & sampling_points = generate_sampling_points(                          &
-     &                                     basis_functions,                 &
-     &                                     potential_expansion_order,       &
-     &                                     maximum_weighted_displacement,   &
-     &                                     frequency_of_max_displacement,   &
-     &                                     real_modes,                      &
-     &                                     energy_to_force_ratio          ) )
+  output = CouplingBasisFunctions(coupling, coupling_basis_functions)
 end function
 
 ! Return the energy at zero displacement.
@@ -523,10 +510,16 @@ subroutine fit_coefficients_CouplingBasisFunctions(this,sampling_points, &
   class(PotentialData),          intent(in),   optional :: potential
   
   integer               :: dimensions
+  real(dp), allocatable :: energy_differences(:)
+  real(dp), allocatable :: sample_weights(:)
   real(dp), allocatable :: a(:,:)
   real(dp), allocatable :: b(:)
   
   real(dp), allocatable :: coefficients(:)
+  
+  if (size(this%basis_functions_)==0) then
+    return
+  endif
   
   ! Check inputs are consistent.
   if (size(sampling_points)/=size(sample_results)) then
@@ -538,19 +531,26 @@ subroutine fit_coefficients_CouplingBasisFunctions(this,sampling_points, &
   ! Each calculation yields size(modes) forces and one energy.
   dimensions = 1+size(modes)
   
+  ! Calculate the weights to give to each sample.
+  energy_differences = sample_results%energy-minval(sample_results%energy)
+  sample_weights = min( 0.00003_dp/(0.00003_dp+energy_differences), &
+                      & 0.01_dp)
+  
   ! Calculate the energies and forces due to each basis function at each
   !    sampling point.
   a = construct_sample_matrix( this%basis_functions_, &
                              & sampling_points,       &
                              & modes,                 &
-                             & energy_force_ratio     )
+                             & energy_force_ratio,    &
+                             & sample_weights         )
   
   ! Calculate the energies and forces sampled at each sampling point.
-  b = construct_sample_vector( sampling_points,   &
-                             & sample_results,    &
-                             & potential,         &
-                             & modes,             &
-                             & energy_force_ratio )
+  b = construct_sample_vector( sampling_points,    &
+                             & sample_results,     &
+                             & potential,          &
+                             & modes,              &
+                             & energy_force_ratio, &
+                             & sample_weights      )
   
   ! Run linear least squares to get the basis function coefficients.
   ! This finds x s.t. (a.x-b)^2 is minimised.
@@ -604,6 +604,18 @@ subroutine set_coefficients_CouplingBasisFunctions(this,coefficients, &
     call print_line(CODE_ERROR//': Incorrect number of coefficients.')
     call err()
   endif
+end subroutine
+
+subroutine zero_coefficients_CouplingBasisFunctions(this)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  
+  integer :: i
+  
+  do i=1,size(this%basis_functions_)
+    call this%basis_functions_(i)%set_coefficient(0.0_dp)
+  enddo
 end subroutine
 
 function all_basis_functions_CouplingBasisFunctions(this) result(output) 
@@ -671,6 +683,48 @@ impure elemental function interpolate_coefficient_CouplingBasisFunctions( &
   output = sum(this%basis_functions_%interpolate_coefficient( monomial,    &
                                                             & interpolator ))
 end function
+
+! Calculate the contribution to this basis function from another
+!    basis function, and add this to this basis function's coefficients.
+subroutine add_interpolated_contribution_CouplingBasisFunctions(this, &
+   & basis_function,interpolator) 
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  type(CouplingBasisFunctions),  intent(in)    :: basis_function
+  type(PolynomialInterpolator),  intent(in)    :: interpolator
+  
+  integer :: i,j
+  
+  do i=1,size(this%basis_functions_)
+    do j=1,size(basis_function%basis_functions_)
+      call this%basis_functions_(i)%add_interpolated_contribution( &
+                             & basis_function%basis_functions_(j), &
+                             & interpolator                        )
+    enddo
+  enddo
+end subroutine
+
+! Calculate the contribution to this basis function from a set of harmonic
+!    dynamical matrices.
+subroutine add_harmonic_contribution_CouplingBasisFunctions(this, &
+   & dynamical_matrices,anharmonic_data)
+  implicit none
+  
+  class(CouplingBasisFunctions), intent(inout) :: this
+  type(DynamicalMatrix),         intent(in)    :: dynamical_matrices(:)
+  type(AnharmonicData),          intent(in)    :: anharmonic_data
+  
+  integer :: i
+  
+  if (size(this%coupling%ids)==1) then
+    do i=1,size(this%basis_functions_)
+      call this%basis_functions_(i)%add_harmonic_contribution( &
+                                         & dynamical_matrices, &
+                                         & anharmonic_data     )
+    enddo
+  endif
+end subroutine
 
 ! Calculate this basis function's contribution to the effective dynamical
 !    matrix from which the potential can be interpolated in the large-supercell

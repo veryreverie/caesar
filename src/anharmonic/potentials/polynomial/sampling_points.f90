@@ -58,17 +58,19 @@ end function
 ! The elements are the energies and forces at a given sampling point due to
 !    a given basis function.
 function construct_sample_matrix(basis_functions,sampling_points, &
-   & modes,energy_force_ratio) result(output)
+   & modes,energy_force_ratio,sample_weights) result(output)
   implicit none
   
-  type(BasisFunction),        intent(in) :: basis_functions(:)
-  type(RealModeDisplacement), intent(in) :: sampling_points(:)
-  type(RealMode),             intent(in) :: modes(:)
-  real(dp),                   intent(in) :: energy_force_ratio
-  real(dp), allocatable                  :: output(:,:)
+  type(BasisFunction),        intent(in)           :: basis_functions(:)
+  type(RealModeDisplacement), intent(in)           :: sampling_points(:)
+  type(RealMode),             intent(in)           :: modes(:)
+  real(dp),                   intent(in)           :: energy_force_ratio
+  real(dp),                   intent(in), optional :: sample_weights(:)
+  real(dp), allocatable                            :: output(:,:)
   
-  real(dp)            :: energy
-  type(RealModeForce) :: forces
+  real(dp)              :: energy
+  type(RealModeForce)   :: forces
+  real(dp), allocatable :: weight
   
   integer :: dims
   
@@ -83,26 +85,32 @@ function construct_sample_matrix(basis_functions,sampling_points, &
     do j=1,size(sampling_points)
       energy = basis_functions(i)%energy(sampling_points(j))
       forces = basis_functions(i)%force(sampling_points(j))
+      if (present(sample_weights)) then
+        weight = sample_weights(j)
+      endif
       
-      output((j-1)*dims+1:j*dims, i) = make_sample_vector( energy,            &
-                                                         & forces,            &
-                                                         & modes,             &
-                                                         & energy_force_ratio )
+      output((j-1)*dims+1:j*dims, i) = make_sample_vector( &
+                                     & energy,             &
+                                     & forces,             &
+                                     & modes,              &
+                                     & energy_force_ratio, &
+                                     & weight              )
     enddo
   enddo
 end function
 
 ! Convert an energy and force into a single vector which can be inserted
 !    into a matrix for passing to LAPACK.
-function make_sample_vector(energy,force,modes,energy_force_ratio) &
+function make_sample_vector(energy,force,modes,energy_force_ratio,weight) &
    & result(output)
   implicit none
   
-  real(dp),            intent(in) :: energy
-  type(RealModeForce), intent(in) :: force
-  type(RealMode),      intent(in) :: modes(:)
-  real(dp),            intent(in) :: energy_force_ratio
-  real(dp), allocatable           :: output(:)
+  real(dp),            intent(in)           :: energy
+  type(RealModeForce), intent(in)           :: force
+  type(RealMode),      intent(in)           :: modes(:)
+  real(dp),            intent(in)           :: energy_force_ratio
+  real(dp),            intent(in), optional :: weight
+  real(dp), allocatable                     :: output(:)
   
   integer :: i,ialloc
   
@@ -111,23 +119,25 @@ function make_sample_vector(energy,force,modes,energy_force_ratio) &
   do i=1,size(modes)
     output(1+i) = force%force(modes(i))
   enddo
+  
+  if (present(weight)) then
+    output = output * weight
+  endif
 end function
 
 ! Generates a set of sampling points for sampling a set of basis functions.
-function generate_sampling_points(basis_functions_,potential_expansion_order, &
+function generate_sampling_points(basis_functions,potential_expansion_order, &
    & maximum_weighted_displacement,frequency_of_max_displacement,real_modes, &
    & energy_to_force_ratio) result(output)
   implicit none
   
-  type(BasisFunctions), intent(in) :: basis_functions_(:)
-  integer,              intent(in) :: potential_expansion_order
-  real(dp),             intent(in) :: maximum_weighted_displacement
-  real(dp),             intent(in) :: frequency_of_max_displacement
-  type(RealMode),       intent(in) :: real_modes(:)
-  real(dp),             intent(in) :: energy_to_force_ratio
-  type(SamplingPoints)             :: output
-  
-  type(BasisFunction), allocatable :: basis_functions(:)
+  type(BasisFunction), intent(in) :: basis_functions(:)
+  integer,             intent(in) :: potential_expansion_order
+  real(dp),            intent(in) :: maximum_weighted_displacement
+  real(dp),            intent(in) :: frequency_of_max_displacement
+  type(RealMode),      intent(in) :: real_modes(:)
+  real(dp),            intent(in) :: energy_to_force_ratio
+  type(SamplingPoints)            :: output
   
   type(RealModeDisplacement), allocatable :: basis_points(:)
   logical,                    allocatable :: basis_points_used(:)
@@ -137,18 +147,31 @@ function generate_sampling_points(basis_functions_,potential_expansion_order, &
   
   integer :: points_per_basis_function
   
-  integer :: i,j,k,l,m,ialloc
+  real(dp), allocatable :: sample_matrix(:,:)
+  
+  integer :: dims
+  
+  integer :: i,j,k,l,ialloc
+  
+  dims = 1+size(real_modes)
   
   points_per_basis_function = 2
   
-  basis_functions = [( basis_functions_(i)%basis_functions, &
-                     & i=1,                                 &
-                     & size(basis_functions_)               )]
-  
-  allocate( sampling_points(points_per_basis_function*size(basis_functions)), &
+  allocate( sampling_points( size(basis_functions)       &
+          &                * points_per_basis_function), &
+          & sample_matrix( size(sampling_points)         &
+          &              * dims,                         &
+          &                size(basis_functions)         &
+          &              * points_per_basis_function),   &
           & stat=ialloc); call err(ialloc)
   l = 0
   do i=1,size(basis_functions)
+    sample_matrix(:l*dims,i:i) = construct_sample_matrix( &
+                                 & basis_functions(i:i),  &
+                                 & sampling_points(:l),   &
+                                 & real_modes,            &
+                                 & energy_to_force_ratio  )
+    
     ! Generate the possible sampling points for this basis function.
     basis_points = generate_basis_points( basis_functions(i),            &
                                         & potential_expansion_order,     &
@@ -165,20 +188,29 @@ function generate_sampling_points(basis_functions_,potential_expansion_order, &
       do k=1,size(basis_points)
         if (.not. basis_points_used(k)) then
           sampling_points(l) = basis_points(k)
+          
+          sample_matrix((l-1)*dims+1:l*dims,:i) = construct_sample_matrix( &
+                                                  & basis_functions(:i),   &
+                                                  & sampling_points(l:l),  &
+                                                  & real_modes,            &
+                                                  & energy_to_force_ratio  )
           determinants(k) = calculate_average_eigenvalue( &
-                                  & basis_functions(:i),  &
-                                  & sampling_points(:l),  &
-                                  & real_modes,           &
-                                  & energy_to_force_ratio )
+                         & mat(sample_matrix(:l*dims,:i)) )
         endif
       enddo
-      m = maxloc(abs(determinants), 1, mask=.not.basis_points_used)
-      sampling_points(l) = basis_points(m)
-      basis_points_used(m) = .true.
+      k = maxloc(abs(determinants), 1, mask=.not.basis_points_used)
+      sampling_points(l) = basis_points(k)
+      basis_points_used(k) = .true.
+      
+      sample_matrix((l-1)*dims+1:l*dims,:i) = construct_sample_matrix( &
+                                               & basis_functions(:i),  &
+                                               & basis_points(k:k),    &
+                                               & real_modes,           &
+                                               & energy_to_force_ratio )
       
       if (i==size(basis_functions) .and. j==points_per_basis_function) then
         call print_line( 'Average |eigenvalue| of fitting matrix: '// &
-                       & determinants(m)*energy_to_force_ratio//' (Ha).')
+                       & determinants(k)*energy_to_force_ratio//' (Ha).')
       endif
     enddo
   enddo
@@ -246,26 +278,16 @@ end function
 ! Calculates the geometric average of the absolute eigenvalues of A^T . A,
 !    the matrix which must be inverted to calculate
 !    basis function coefficients.
-function calculate_average_eigenvalue(basis_functions,sampling_points,modes, &
-   & energy_force_ratio) result(output)
+function calculate_average_eigenvalue(matrix) result(output)
   implicit none
   
-  type(BasisFunction),        intent(in) :: basis_functions(:)
-  type(RealModeDisplacement), intent(in) :: sampling_points(:)
-  type(RealMode),             intent(in) :: modes(:)
-  real(dp),                   intent(in) :: energy_force_ratio
-  real(dp)                               :: output
+  type(RealMatrix), intent(in) :: matrix
+  real(dp)                     :: output
   
-  type(RealMatrix)          :: matrix
   type(RealQRDecomposition) :: qr
   real(dp), allocatable     :: evals(:)
   
   integer :: i
-  
-  matrix = mat( construct_sample_matrix( basis_functions,     &
-              &                          sampling_points,     &
-              &                          modes,               &
-              &                          energy_force_ratio ) )
   
   qr = qr_decomposition(transpose(matrix)*matrix)
   

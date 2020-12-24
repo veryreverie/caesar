@@ -9,9 +9,92 @@ module interpolation_module
   
   private
   
+  public :: interpolate_dynamical_matrices
+  public :: calculate_difference_dynamical_matrices
   public :: calculate_interpolated_hessian
   public :: calculate_interpolated_stress_hessian
 contains
+
+! Takes a set of dynamical matrices defined on a coarse q-point grid,
+!    and interpolates to give the dynamical matrices on a fine q-point grid.
+function interpolate_dynamical_matrices(coarse_dynamical_matrices,   &
+   & coarse_qpoints,coarse_supercell,coarse_min_images,fine_qpoints) &
+   & result(output) 
+   
+  type(DynamicalMatrix), intent(in)  :: coarse_dynamical_matrices(:)
+  type(QpointData),      intent(in)  :: coarse_qpoints(:)
+  type(StructureData),   intent(in)  :: coarse_supercell
+  type(MinImages),       intent(in)  :: coarse_min_images(:,:)
+  type(QpointData),      intent(in)  :: fine_qpoints(:)
+  type(DynamicalMatrix), allocatable :: output(:)
+  
+  type(CartesianHessian) :: coarse_hessian
+  
+  integer :: i
+   
+  coarse_hessian = reconstruct_hessian( coarse_supercell,         &
+                                      & coarse_qpoints,           &
+                                      & coarse_dynamical_matrices )
+  
+  output = [(                                &
+     & DynamicalMatrix( fine_qpoints(i),     &
+     &                  coarse_supercell,    &
+     &                  coarse_hessian,      &
+     &                  coarse_min_images ), &
+     & i=1,                                  &
+     & size(fine_qpoints)                    )]
+end function
+
+! When dynamical matrices are interpolated from a fine q-point grid
+!    onto a coarse q-point grid, some information may be lost.
+! This function takes two inputs:
+!    - a set of dynamical matrices defined on a fine q-point grid.
+!    - a coarse q-point grid.
+! The function separates the dynamical matrices into the sum of two parts:
+!    - the part which is preserved when the dynamical matrices are interpolated
+!         onto the coarse q-point grid and back again.
+!    - the part which is lost when the dynamical matrices are interpolated
+!         onto the coarse q-point grid and back again.
+! The function then returns only the contribution to the dynamical matrices
+!    which is lost under interpolation.
+function calculate_difference_dynamical_matrices(fine_dynamical_matrices, &
+   & fine_qpoints,fine_supercell,fine_min_images,coarse_qpoints,          &
+   & coarse_supercell,coarse_min_images) result(output) 
+  implicit none
+  
+  type(DynamicalMatrix), intent(in)  :: fine_dynamical_matrices(:)
+  type(QpointData),      intent(in)  :: fine_qpoints(:)
+  type(StructureData),   intent(in)  :: fine_supercell
+  type(MinImages),       intent(in)  :: fine_min_images(:,:)
+  type(QpointData),      intent(in)  :: coarse_qpoints(:)
+  type(StructureData),   intent(in)  :: coarse_supercell
+  type(MinImages),       intent(in)  :: coarse_min_images(:,:)
+  type(DynamicalMatrix), allocatable :: output(:)
+  
+  type(DynamicalMatrix), allocatable :: coarse_dynamical_matrices(:)
+  type(DynamicalMatrix), allocatable :: interpolated_dynamical_matrices(:)
+  
+  ! Interpolate the dynamical matrices onto the coarse grid.
+  coarse_dynamical_matrices = interpolate_dynamical_matrices( &
+                                   & fine_dynamical_matrices, &
+                                   & fine_qpoints,            &
+                                   & fine_supercell,          &
+                                   & fine_min_images,         &
+                                   & coarse_qpoints           )
+  
+  ! Interpolate the dynamical matrices back onto the fine grid.
+  interpolated_dynamical_matrices = interpolate_dynamical_matrices( &
+                                       & coarse_dynamical_matrices, &
+                                       & coarse_qpoints,            &
+                                       & coarse_supercell,          &
+                                       & coarse_min_images,         &
+                                       & fine_qpoints               )
+  
+  ! The output is the difference between the original dynamical matrices,
+  !    and the contribution to these dynamical matrices which has survived
+  !    interpolation.
+  output = fine_dynamical_matrices - interpolated_dynamical_matrices
+end function
 
 ! Takes anharmonic dynamical matrices on a coarse q-point grid,
 !    and harmonic dynamical matrices on a fine grid,
@@ -32,68 +115,30 @@ function calculate_interpolated_hessian(anharmonic_supercell,                &
   type(MinImages),       intent(in) :: harmonic_min_images(:,:)
   type(CartesianHessian)            :: output
   
-  type(CartesianHessian) :: fine_harmonic_hessian
-  type(CartesianHessian) :: coarse_harmonic_hessian
-  type(CartesianHessian) :: coarse_anharmonic_hessian
+  type(DynamicalMatrix), allocatable :: dynamical_matrices(:)
   
-  type(DynamicalMatrix), allocatable :: coarse_harmonic_dynamical_matrices(:)
-  type(DynamicalMatrix), allocatable :: interpolated_harmonic_dynamical_matrices(:)
-  type(DynamicalMatrix), allocatable :: interpolated_anharmonic_dynamical_matrices(:)
-  type(DynamicalMatrix), allocatable :: output_dynamical_matrices(:)
-  
-  integer :: i
-  
-  ! Interpolate the harmonic hessian onto the coarse grid and then back to the
-  !    fine grid, to remove the fine-grid-only components.
-  fine_harmonic_hessian = reconstruct_hessian( harmonic_supercell,         &
-                                             & harmonic_qpoints,           &
-                                             & harmonic_dynamical_matrices )
-  
-  coarse_harmonic_dynamical_matrices = [(         &
-     & DynamicalMatrix( anharmonic_qpoints(i),    &
-     &                  harmonic_supercell,       &
-     &                  fine_harmonic_hessian,    &
-     &                  harmonic_min_images    ), &
-     & i=1,                                       &
-     & size(anharmonic_qpoints)                   )]
-  
-  coarse_harmonic_hessian = reconstruct_hessian( &
-            & anharmonic_supercell,              &
-            & anharmonic_qpoints,                &
-            & coarse_harmonic_dynamical_matrices )
-  
-  interpolated_harmonic_dynamical_matrices = [(     &
-     & DynamicalMatrix( harmonic_qpoints(i),        &
-     &                  anharmonic_supercell,       &
-     &                  coarse_harmonic_hessian,    &
-     &                  anharmonic_min_images    ), &
-     & i=1,                                         &
-     & size(harmonic_qpoints)                       )]
-  
-  ! Interpolate the anharmonic Hessian onto the fine grid.
-  coarse_anharmonic_hessian = reconstruct_hessian( &
-                   & anharmonic_supercell,         &
-                   & anharmonic_qpoints,           &
-                   & anharmonic_dynamical_matrices )
-  
-  interpolated_anharmonic_dynamical_matrices = [(     &
-     & DynamicalMatrix( harmonic_qpoints(i),          &
-     &                  anharmonic_supercell,         &
-     &                  coarse_anharmonic_hessian,    &
-     &                  anharmonic_min_images      ), &
-     & i=1,                                           &
-     & size(harmonic_qpoints)                         )]
   
   ! Construct the output: the interpolated anharmonic hessian,
   !    plus the difference between the harmonic hessian and the interpolated
   !    coarse-grained harmonic hessian.
-  output_dynamical_matrices = interpolated_anharmonic_dynamical_matrices &
-                          & + harmonic_dynamical_matrices                &
-                          & - interpolated_harmonic_dynamical_matrices
+  dynamical_matrices =                                                    &
+     &   interpolate_dynamical_matrices( anharmonic_dynamical_matrices,   &
+     &                                   anharmonic_qpoints,              &
+     &                                   anharmonic_supercell,            &
+     &                                   anharmonic_min_images,           &
+     &                                   harmonic_qpoints               ) &
+     & + calculate_difference_dynamical_matrices(                         &
+     &               harmonic_dynamical_matrices,                         &
+     &               harmonic_qpoints,                                    &
+     &               harmonic_supercell,                                  &
+     &               harmonic_min_images,                                 &
+     &               anharmonic_qpoints,                                  &
+     &               anharmonic_supercell,                                &
+     &               anharmonic_min_images        )
   
-  output = reconstruct_hessian( harmonic_supercell,       &
-                              & harmonic_qpoints,         &
-                              & output_dynamical_matrices )
+  output = reconstruct_hessian( harmonic_supercell, &
+                              & harmonic_qpoints,   &
+                              & dynamical_matrices  )
 end function
 
 function calculate_interpolated_stress_hessian(anharmonic_supercell,         &
