@@ -48,6 +48,7 @@ def main():
   
   # Plot data.
   fig, axs = plt.subplots(len(keys), len(modes), squeeze=False)
+  fig.subplots_adjust(left=0.175,right=0.95)
   axes = {}
   for key,ax in zip(keys,axs):
     axes[key] = ax
@@ -124,7 +125,7 @@ def main():
       ax.set_ylim(ymin,ymax)
       ax.set_xticks([])
     axes['frequency'][0].tick_params(direction='out')
-    axes['frequency'][0].set_ylabel('Frequency (Ha)')
+    axes['frequency'][0].set_ylabel('Frequency\n(Ha)')
     for ax in axes['frequency'][1:]:
       ax.tick_params(direction='out', labelleft='off')
   
@@ -148,7 +149,7 @@ def main():
     ax.set_ylim(ymin,ymax)
   for ax in axes['energies'][1:]:
     ax.tick_params(labelleft='off')
-  axes['energies'][0].set_ylabel('Energy (Ha)')
+  axes['energies'][0].set_ylabel('Energy\n(Ha)')
   
   # Configure force y-axes.
   min_force = 0
@@ -170,7 +171,7 @@ def main():
     ax.set_ylim(ymin,ymax)
   for ax in axes['forces'][1:]:
     ax.tick_params(labelleft='off')
-  axes['forces'][0].set_ylabel('Force (Ha/Bohr)')
+  axes['forces'][0].set_ylabel('Force\n(Ha/Bohr)')
   
   # Configure pressure y-axes.
   if pressure:
@@ -190,7 +191,7 @@ def main():
       ax.set_ylim(ymin,ymax)
     for ax in axes['pressures'][1:]:
       ax.tick_params(labelleft='off')
-    axes['pressures'][0].set_ylabel(r'Pressure (Ha/Bohr$^3$)')
+    axes['pressures'][0].set_ylabel(r'Pressure\\(Ha/Bohr$^3$)')
   
   if sampled:
     # Configure energy difference y-axes.
@@ -216,7 +217,7 @@ def main():
       ax.set_ylim(ymin,ymax)
     for ax in axes['energy differences'][1:]:
       ax.tick_params(labelleft='off')
-    axes['energy differences'][0].set_ylabel(r'$\Delta$ Energy (Ha)')
+    axes['energy differences'][0].set_ylabel('Energy\ndifference\n(Ha)')
     
     # Configure force difference y-axes.
     min_difference = 0
@@ -241,7 +242,7 @@ def main():
       ax.set_ylim(ymin,ymax)
     for ax in axes['force differences'][1:]:
       ax.tick_params(labelleft='off')
-    axes['force differences'][0].set_ylabel(r'$\Delta$ Force (Ha/Bohr)')
+    axes['force differences'][0].set_ylabel('Force\ndifference\n(Ha/Bohr)')
     
     # Configure pressure difference y-axes.
     if pressure and anharmonic:
@@ -261,7 +262,7 @@ def main():
         ax.set_ylim(ymin,ymax)
       for ax in axes['pressure differences'][1:]:
         ax.tick_params(labelleft='off')
-      axes['pressure differences'][0].set_ylabel(r'$\Delta$ Pressure (Ha/Bohr$^3$)')
+      axes['pressure differences'][0].set_ylabel(r'$\Delta$ Pressure\\(Ha/Bohr$^3$)')
   
   # Configure displacement x-axes.
   min_displacement = 0
@@ -270,14 +271,18 @@ def main():
     min_displacement = min(min_displacement, mode['L2 Cartesian displacements'][0])
     max_displacement = max(max_displacement, mode['L2 Cartesian displacements'][-1])
   
-  xmin = min_displacement - 0.1*(max_displacement-min_displacement)
-  xmax = max_displacement + 0.1*(max_displacement-min_displacement)
+  xmin = min_displacement# - 0.1*(max_displacement-min_displacement)
+  xmax = max_displacement# + 0.1*(max_displacement-min_displacement)
   for key,axis in axes.items():
     if key=='frequency':
       continue
     for ax in axis:
       ax.set_xlim(xmin,xmax)
+  
+  for key in keys[1:-1]:
+    for ax in axes[key]:
       ax.tick_params(direction='out', labelbottom='off')
+      ax.xaxis.set_ticklabels([])
   
   for ax in axes[keys[-1]]:
     ax.tick_params(labelbottom='on')

@@ -88,7 +88,8 @@ subroutine startup_setup_anharmonic()
   &per primitive cell) divided by (Hartree per bohr). Due to the use of &
   &mass-weighted co-ordinates, in systems containing different elements &
   &forces along modes with higher contributions from heavier elements will &
-  &be weighted less than this.'),                                             &
+  &be weighted less than this. Increasing energy_to_force_ratio causes the &
+  &fit to focus more on the forces and less on the energies.'),               &
   & KeywordData( 'use_hessians',                                              &
   &              'use_hessians specifies whether or not each single-point &
   &calculation will produce a Hessian (the second derivatives of the &

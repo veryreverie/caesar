@@ -80,13 +80,25 @@ def main():
     if data[i]['y type'] not in y_axes:
       y_axes.append(data[i]['y type'])
   
+  # Read settings file.
+  file_name = 'converge_harmonic_frequencies.used_settings'
+  settings_file = [line.rstrip('\n').split() for line in open(file_name)]
+  for line in settings_file:
+    if line[0]=='min_temperature':
+      min_temperature = float(line[1])
+    if line[0]=='max_temperature':
+      max_temperature = float(line[1])
+    if line[0]=='no_temperature_steps':
+      no_temperature_steps = int(line[1])
+    if line[0]=='energy_tolerance':
+      energy_tolerance = float(line[1])
+  
   # Plot data.
   width_ratios = [x for _ in x_axes for x in [15,1]]
   fig, ax_grid = plt.subplots(len(y_axes),
                               2*len(x_axes),
-                              gridspec_kw={'width_ratios':width_ratios})
-  if len(y_axes)==1:
-    ax_grid = [ax_grid]
+                              gridspec_kw={'width_ratios':width_ratios},
+                              squeeze=False)
   ax_grid = [[[x,y] for x,y in zip(ax[::2],ax[1::2])] for ax in ax_grid]
   
   for i,entry in enumerate(data):
@@ -156,6 +168,33 @@ def main():
     norm = colors.Normalize(vmin=min_y,vmax=max_y)
     colorbar.ColorbarBase(cb, cmap=cmap, norm=norm)
     cb.yaxis.set_ticks_position('left')
+  
+  # Plot energy convergence.
+  fig, ax_grid = plt.subplots(1,2,squeeze=False)
+  
+  temperatures = np.linspace(min_temperature,max_temperature,no_temperature_steps)
+  cmap = plt.get_cmap('inferno')
+  temp_colours = []
+  for temperature in temperatures:
+    fraction = 0.9*(temperature-temperatures[0])/ \
+               (temperatures[-1]-temperatures[0])
+    temp_colours.append(cmap(fraction))
+  
+  for i,entry in enumerate(data):
+    if entry['x type']=='cutoff' and entry['y type']=='free energies':
+      ax = ax_grid[0][0]
+      for i,y in enumerate(entry['dy']):
+        ax.plot(entry['x'],y,color=temp_colours[i])
+      ax.set_yscale('symlog', linthreshy=energy_tolerance)
+      ax.hlines(energy_tolerance,entry['x'][0],entry['x'][-1],linestyle='dotted')
+      ax.hlines(-energy_tolerance,entry['x'][0],entry['x'][-1],linestyle='dotted')
+    elif entry['x type']=='k-point' and entry['y type']=='free energies':
+      ax = ax_grid[0][1]
+      for i,y in enumerate(entry['dy']):
+        ax.plot(entry['x'],y,color=temp_colours[i])
+      ax.set_yscale('symlog', linthreshy=energy_tolerance)
+      ax.hlines(energy_tolerance,entry['x'][0],entry['x'][-1],linestyle='dotted')
+      ax.hlines(-energy_tolerance,entry['x'][0],entry['x'][-1],linestyle='dotted')
   
   plt.show()
 

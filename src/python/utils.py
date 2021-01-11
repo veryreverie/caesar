@@ -2,6 +2,9 @@
 # Shared functions between python plotting scripts.
 # ======================================================================
 import os.path
+import math
+import numpy as np
+import matplotlib.ticker as mticker
 
 def read_file(filename):
   if os.path.isfile(filename):
@@ -117,4 +120,40 @@ def parse_mode_maps(filename):
             mode['Anharmonic pressure difference'].append(anharmonic-sampled)
   
   return frequencies, anharmonic, sampled, pressure, modes
+
+def set_xaxis(axis,limits,label,units):
+  '''
+  Set limits, scientific notation and offsets.
+  '''
+  axis.set_xlim(limits)
+  offset = math.floor(np.log10(max(abs(limits[0]),abs(limits[1]))))
+  axis.ticklabel_format(axis='x', style='sci',scilimits=(offset,offset))
+  if offset==0:
+    axis.set_xlabel(label+' ('+units+')')
+  else:
+    axis.set_xlabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
+  sf = mticker.ScalarFormatter()
+  sf.set_useOffset(False)
+  sf.set_scientific(True)
+  sf.set_powerlimits((-1,1))
+  axis.xaxis.set_major_formatter(sf)
+  axis.xaxis.offsetText.set_visible(False)
+
+def set_yaxis(axis,limits,label,units):
+  '''
+  Set limits, scientific notation and offsets.
+  '''
+  axis.set_ylim(limits)
+  offset = math.floor(np.log10(max(abs(limits[0]),abs(limits[1]))))
+  axis.ticklabel_format(axis='y', style='sci',scilimits=(offset,offset))
+  if offset==0:
+    axis.set_ylabel(label+' ('+units+')')
+  else:
+    axis.set_ylabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
+  sf = mticker.ScalarFormatter()
+  sf.set_useOffset(False)
+  sf.set_scientific(True)
+  sf.set_powerlimits((-1,1))
+  axis.yaxis.set_major_formatter(sf)
+  axis.yaxis.offsetText.set_visible(False)
 

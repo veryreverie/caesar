@@ -5,50 +5,15 @@ import numpy as np
 import math
 import operator
 from matplotlib import rc
-import matplotlib.ticker as mticker
 import matplotlib.lines as mlines
 import os.path
+
+from utils import set_xaxis,set_yaxis
 
 rc('font', **{'family':'serif','serif':['sffamily']})
 rc('text', usetex=True)
 params = {'text.latex.preamble' : [r'\usepackage{amsmath}']}
 plt.rcParams.update(params)
-
-def set_xaxis(axis,limits,label,units):
-  '''
-  Set limits, scientific notation and offsets.
-  '''
-  axis.set_xlim(limits)
-  offset = math.floor(np.log10(max(abs(limits[0]),abs(limits[1]))))
-  axis.ticklabel_format(axis='x', style='sci',scilimits=(offset,offset))
-  if offset==0:
-    axis.set_xlabel(label+' ('+units+')')
-  else:
-    axis.set_xlabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
-  sf = mticker.ScalarFormatter()
-  sf.set_useOffset(False)
-  sf.set_scientific(True)
-  sf.set_powerlimits((-1,1))
-  axis.xaxis.set_major_formatter(sf)
-  axis.xaxis.offsetText.set_visible(False)
-
-def set_yaxis(axis,limits,label,units):
-  '''
-  Set limits, scientific notation and offsets.
-  '''
-  axis.set_ylim(limits)
-  offset = math.floor(np.log10(max(abs(limits[0]),abs(limits[1]))))
-  axis.ticklabel_format(axis='y', style='sci',scilimits=(offset,offset))
-  if offset==0:
-    axis.set_ylabel(label+' ('+units+')')
-  else:
-    axis.set_ylabel(label+' ('+r"$\times10^{{{}}}$".format(offset)+' '+units+')')
-  sf = mticker.ScalarFormatter()
-  sf.set_useOffset(False)
-  sf.set_scientific(True)
-  sf.set_powerlimits((-1,1))
-  axis.yaxis.set_major_formatter(sf)
-  axis.yaxis.offsetText.set_visible(False)
 
 def main():
   # Define some static data.

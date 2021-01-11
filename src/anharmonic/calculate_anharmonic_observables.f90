@@ -583,7 +583,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
     endif
     call print_line('')
     
-    ! Calculate thermodynamic quantities with VSCHA basis.
+    !! Calculate thermodynamic quantities with VSCHA basis.
     call print_line('Calculating thermodynamic observables under VSCHA.')
     do j=1,size(subspaces)
       if (calculate_stress) then
@@ -629,6 +629,7 @@ subroutine calculate_anharmonic_observables_subroutine(arguments)
          &    i                                                 ), &
          & k=1,                                                    &
          & size(qpoint_modes)                                      )]
+      qpoint_frequencies = max(qpoint_frequencies, min_frequency)
       if (size(qpoint_modes)==anharmonic_data%structure%no_modes) then
         vscha_modes(:,j) = qpoint_modes
         vscha_modes(:,j)%frequency = qpoint_frequencies

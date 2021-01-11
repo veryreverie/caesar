@@ -7,6 +7,8 @@ from matplotlib import rc
 import os.path
 import sys
 
+from utils import set_xaxis,set_yaxis
+
 rc('font', **{'family':'serif','serif':['sffamily']})
 rc('text', usetex=True)
 params = {'text.latex.preamble' : [r'\usepackage{amsmath}']}
@@ -104,7 +106,7 @@ def main():
   # Plot dispersion.
   if plotting_dispersion:
     axes['dispersion'].set_xlim(0,1)
-    axes['dispersion'].set_ylim(ymin,ymax)
+    set_yaxis(axes['dispersion'], (ymin,ymax), 'Frequency', 'Hartrees')
     for i,datum in reversed(list(enumerate(data))):
       xs = datum['dispersion']['path_length']
       for band in datum['dispersion']['bands']:
@@ -156,13 +158,13 @@ def main():
     axes['dispersion'].set_xticks(data[0]['points']['path_lengths'])
     axes['dispersion'].set_xticklabels(data[0]['points']['labels'])
     axes['dispersion'].minorticks_off()
-    axes['dispersion'].set_ylabel('Energy, Hartrees')
+    #axes['dispersion'].set_ylabel('Energy, Hartrees')
     axes['dispersion'].tick_params(bottom=False)
     
     hartree_to_mev = 2.721138602e4
-    axes['ev'] = axes['dispersion'].twinx()
-    axes['ev'].set_ylim(ymin*hartree_to_mev, ymax*hartree_to_mev)
-    axes['ev'].set_ylabel('Energy, meV')
+    #axes['ev'] = axes['dispersion'].twinx()
+    #axes['ev'].set_ylim(ymin*hartree_to_mev, ymax*hartree_to_mev)
+    #axes['ev'].set_ylabel('Energy, meV')
   
   # Plot DOS.
   if plotting_dos:
@@ -196,9 +198,9 @@ def main():
     axes['dos'].minorticks_off()
     
     hartree_to_inverse_cm = 2.194746313702e5
-    axes['cm'] = axes['dos'].twinx()
-    axes['cm'].set_ylim(ymin*hartree_to_inverse_cm, ymax*hartree_to_inverse_cm)
-    axes['cm'].set_ylabel(r'Frequency, cm$^{-1}$')
+    #axes['cm'] = axes['dos'].twinx()
+    #axes['cm'].set_ylim(ymin*hartree_to_inverse_cm, ymax*hartree_to_inverse_cm)
+    #axes['cm'].set_ylabel(r'Frequency, cm$^{-1}$')
   
   #plt.tight_layout()
   #plt.savefig('esdg_fig.pdf', bbox_inches='tight')

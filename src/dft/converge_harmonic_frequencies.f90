@@ -336,10 +336,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     
     ! Loop over cutoffs, running calculations at each.
     do i=1,no_cutoffs
-      directory = 'cutoff_'//trim(str(                           &
-         & cutoffs(i),                                           &
-         & settings=PrintSettings( decimal_places        = 2,    &
-         &                         floating_point_format = 'f' ) ))
+      directory = 'cutoff_'//left_pad(i,str(no_cutoffs))
       call mkdir(directory)
       
       cutoff_frequencies = [                               &
@@ -486,10 +483,7 @@ subroutine converge_harmonic_frequencies_subroutine(arguments)
     
     ! Loop over cutoffs, running calculations at each.
     do i=1,no_smearings
-      directory = 'smearing_'//trim(str(                         &
-         & smearings(i),                                         &
-         & settings=PrintSettings( decimal_places        = 6,    &
-         &                         floating_point_format = 'f' ) ))
+      directory = 'cutoff_'//left_pad(i,str(no_smearings))
       call mkdir(directory)
       
       smearing_frequencies = [                               &

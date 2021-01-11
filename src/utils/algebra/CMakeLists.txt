@@ -19,6 +19,5 @@ target_link_libraries(algebra linear_algebra)
 
 # Link against required modules.
 target_link_libraries(algebra precision)
-target_link_libraries(algebra profiling)
 target_link_libraries(algebra abstract)
 target_link_libraries(algebra io)

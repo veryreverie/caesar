@@ -789,11 +789,14 @@ function converged(this) result(output)
   endif
   
   if (abs(this%free_energy_change())>100) then
-    call print_line(ERROR//': Change in free energy > 100 (Ha). &
+    call print_line(WARNING//': Change in free energy > 100 (Ha). &
        &Maybe the system is unstable?')
     call print_line('free energy: '//this%free_energies_(this%i(-1)))
     call print_line('DF         : '//(this%free_energies_(this%i(-1)) &
        & -this%free_energies_(this%i(-2))))
+    if (abs(this%free_energy_change())>1e4) then
+      call err()
+    endif
   endif
   
   if (this%self_consistency_error() > this%data_%energy_convergence) then

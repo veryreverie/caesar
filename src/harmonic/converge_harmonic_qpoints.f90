@@ -88,6 +88,8 @@ subroutine converge_harmonic_qpoints_subroutine(arguments)
   logical      :: repeat_calculations
   real(dp)     :: energy_tolerance
   integer      :: convergence_count
+  real(dp)     :: min_temperature
+  real(dp)     :: max_temperature
   integer      :: random_seed
   
   ! Random generator for generating seed if not set.
@@ -121,6 +123,8 @@ subroutine converge_harmonic_qpoints_subroutine(arguments)
   repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   energy_tolerance = dble(arguments%value('energy_tolerance'))
   convergence_count = int(arguments%value('convergence_count'))
+  min_temperature = dble(arguments%value('min_temperature'))
+  max_temperature = dble(arguments%value('max_temperature'))
   if (arguments%is_set('random_seed')) then
     random_generator = RandomReal(int(arguments%value('random_seed')))
   else
@@ -193,9 +197,12 @@ subroutine converge_harmonic_qpoints_subroutine(arguments)
          & < energy_tolerance                                             )
     endif
     
-    call write_output_file( structure,       &
-                          & qpoint_spacings, &
-                          & free_energies    )
+    call write_output_file( structure,        &
+                          & energy_tolerance, &
+                          & min_temperature,  &
+                          & max_temperature,  &
+                          & qpoint_spacings,  &
+                          & free_energies     )
     
     call print_line('q-point spacing: '//qpoint_spacings(i)//' (Bohr^-1)')
     if (converged) then
@@ -300,10 +307,14 @@ subroutine copy_file(input,output)
   call out_file%print_lines(in_file%lines())
 end subroutine
 
-subroutine write_output_file(structure,qpoint_spacings,free_energies)
+subroutine write_output_file(structure,energy_tolerance,min_temperature, &
+   & max_temperature,qpoint_spacings,free_energies) 
   implicit none
   
   type(StructureData), intent(in) :: structure
+  real(dp),            intent(in) :: energy_tolerance
+  real(dp),            intent(in) :: min_temperature
+  real(dp),            intent(in) :: max_temperature
   real(dp),            intent(in) :: qpoint_spacings(:)
   type(RealVector),    intent(in) :: free_energies(:)
   
@@ -313,8 +324,12 @@ subroutine write_output_file(structure,qpoint_spacings,free_energies)
   
   output_file = OFile('convergence.dat')
   
-  call output_file%print_line('No. atoms   : '//structure%no_atoms)
-  call output_file%print_line('Cell volume : '//structure%volume)
+  call output_file%print_line('No. atoms                  : '// &
+                             &structure%no_atoms)
+  call output_file%print_line('Cell volume                : '//structure%volume)
+  call output_file%print_line('Convergence threshold (Ha) : '//energy_tolerance)
+  call output_file%print_line('Temperature range     (Ha) : '// &
+                             &min_temperature//' '//max_temperature)
   call output_file%print_line('')
   
   call output_file%print_line('q-point spacing (Bohr^-1) | Free energies &

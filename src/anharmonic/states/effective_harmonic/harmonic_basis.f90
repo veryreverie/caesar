@@ -141,7 +141,8 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,      &
   energy_convergence = convergence_data%energy_convergence
   
   solver = NewtonRaphson(                                  &
-     & starting_value        = this%frequency,             &
+     !& starting_value        = this%frequency,             &
+     & starting_value        = 1e-2_dp,                    &
      & finite_displacement   = 0.01_dp*energy_convergence, &
      & convergence_threshold = 0.5_dp*energy_convergence,  &
      & lower_bound           = 1e-300_dp                   )
@@ -193,6 +194,8 @@ impure elemental function calculate_states_HarmonicBasis(this,subspace,      &
       call quit()
     endif
   enddo
+  
+  frequency = max(frequency, 1e-3_dp)
   
   output = BasisStatesPointer(HarmonicStates( this%subspace_id, &
                                             & frequency,        &

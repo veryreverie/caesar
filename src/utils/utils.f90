@@ -10,7 +10,6 @@
 ! This module is simply an interface to various subsidiary modules.
 module utils_module
   use precision_module
-  use profiling_module
   use io_module
   use abstract_module
   use arguments_module
