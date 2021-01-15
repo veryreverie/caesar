@@ -8,9 +8,9 @@ To install Caesar, run:
   cmake path
   make
 
-This should be run from the directory where cmake should be built.
+This should be run from the directory where caesar should be built.
 'path' should be the path to the CAESAR/src/ directory.
-The executable 'caesar' will be placed in a 'bin' directory.
+The executable 'caesar' will be placed in a 'bin' directory inside the build directory.
 
 The compiler can be specified using the flag -DCMAKE_Fortran_COMPILER, e.g.
 
@@ -24,7 +24,7 @@ Caesar has been tested with the following compiler versions:
 gfortran 7.3.0
 ifort 19.0.4
 
-There is a known gfortran bug affecting shared counters. To test for this bug, call 'caesar check_counter'. If this bug is present, the behaviour can be corrected by setting the CMake variable CORRECT_COUNTER_BUG (e.g. by using the command line arguments -DCORRECT_COUNTER_BUG:LOGICAL=true). If not fixed, this bug will likely manifest as a "Too many open files" error.
+There is a known gfortran bug affecting shared counters. To test for this bug, call 'caesar check_counter'. If this bug is present, the behaviour can be corrected by setting the CMake variable CORRECT_COUNTER_BUG (e.g. by using the CMake command line argument -DCORRECT_COUNTER_BUG:LOGICAL=true). If not fixed, this bug will likely manifest as a "Too many open files" error.
 
 Gfortran also fails to handle finalisation / deallocation correctly, which may lead to catastrophic memory leaks when running the longer parts of Caesar.
 
@@ -44,7 +44,7 @@ Caesar requires the C API of spglib, which can be obtained as:
    mkdir _install
    make DESTDIR=_install install
 
-spglib/_build/_install/lib should then be placed on LIB, and spglib/_build/_install/include should then be places on PATH.
+spglib/_build/_install/lib should then be placed on LIB, and spglib/_build/_install/include should then be placed on PATH.
 
 ----------------------------------------
 BLAS/LAPACK

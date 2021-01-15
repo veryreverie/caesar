@@ -17,4 +17,5 @@ contains
 function read_qe_dynamical_matrix_file(directory,seedname,structure) &
    & result(output)
   ! TODO
+end function
 end module

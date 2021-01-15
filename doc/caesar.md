@@ -20,3 +20,4 @@ graph: true
 coloured_edges: true
 search: false
 warn: false
+parallel: 0

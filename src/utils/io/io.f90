@@ -3,7 +3,7 @@
 !    - File handling.
 !    - Base types from which extended types can be written and read.
 ! ======================================================================
-! This module is simply an interface for the various I/O submodules.
+! This module is simply an interface for the various I/O modules.
 module io_module
   use io_basic_module
   

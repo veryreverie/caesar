@@ -4,7 +4,7 @@
 !    - Formatted and error-checked writing to the terminal.
 !    - System calls.
 ! ======================================================================
-! This module is simply an interface for the various I/O submodules.
+! This module is simply an interface for the various I/O modules.
 module io_basic_module
   use error_module
   use string_base_module

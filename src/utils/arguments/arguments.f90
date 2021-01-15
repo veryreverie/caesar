@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Processes input arguments, and provides help functionality.
 ! ======================================================================
-! This module is simply an interface for the various arguments submodules.
+! This module is simply an interface for the various arguments modules.
 module arguments_module
   use keyword_module
   use help_module

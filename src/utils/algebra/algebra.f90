@@ -8,7 +8,7 @@
 !    - Integer arrays.
 !    - Groups.
 ! ======================================================================
-! This module is simply an interface for the various algebra submodules.
+! This module is simply an interface for the various algebra modules.
 module algebra_module
   use mathematical_constants_module
   use linear_algebra_module
