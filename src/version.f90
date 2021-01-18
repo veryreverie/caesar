@@ -8,6 +8,6 @@ contains
 subroutine print_version()
   implicit none
   
-  call print_line('Caesar version: 0.1.210115A (Julius)')
+  call print_line('Caesar version: 0.1.210118A (Julius)')
 end subroutine
 end module
