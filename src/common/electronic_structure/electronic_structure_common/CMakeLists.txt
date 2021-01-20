@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(electronic_structure_common)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(electronic_structure_common)
 
 add_library(electronic_structure_common kpoint_grid.f90 structure_file.f90 loto_splitting.f90 electronic_structure_common.f90)
 

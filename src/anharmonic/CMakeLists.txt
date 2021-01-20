@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(anharmonic)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(anharmonic)
 
 add_library(anharmonic generate_subspace_potentials.f90 mode_map.f90 vscf.f90 interpolation.f90 setup_anharmonic.f90 run_anharmonic.f90 calculate_potential.f90 map_modes.f90 plot_modes.f90 map_potential.f90 plot_potential_map.f90 map_vscf_modes.f90 plot_vscf_modes.f90 calculate_anharmonic_observables.f90 plot_vscf_states.f90 plot_vscf_convergence.f90 anharmonic.f90)
 target_include_directories(anharmonic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

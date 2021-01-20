@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(algebra)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(algebra)
 
 add_library(algebra algebra_utils.f90 fraction.f90 phase.f90 fraction_algebra.f90 qr_decomposition.f90 hermitian_eigenstuff.f90 orthonormal.f90 unitary_eigenstuff.f90 integer_arrays.f90 group.f90 integer_complex.f90 fraction_complex.f90 lanczos.f90 newton_raphson.f90 tests.f90 algebra.f90)
 

@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(testing)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(testing)
 
 add_library(testing atom_mapping.f90 displacement_patterns.f90 linear_algebra_test.f90 structure_test.f90 check_counter.f90 update_basis_functions.f90 test.F90 testing.f90)
 target_include_directories(testing PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

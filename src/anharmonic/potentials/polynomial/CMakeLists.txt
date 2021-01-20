@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(polynomial)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(polynomial)
 
 add_library(polynomial polynomial_dynamical_matrices.f90 polynomial_interpolator.f90 polynomial_symmetry.f90 basis_function.f90 sampling_points.f90 coupling_basis_functions.f90 stress_basis_function.f90 coupling_stress_basis_functions.f90 vscf_rvector.f90 vscf_rvectors.f90 sample_result.f90 sample_results.f90 polynomial_stress.f90 polynomial_potential.f90 permutation.f90 polynomial.f90)
 target_include_directories(polynomial PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

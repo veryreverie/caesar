@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(spglib)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(spglib)
 
 if (NOT DEFINED LINK_TO_SPGLIB OR LINK_TO_SPGLIB)
   add_library(spglib spglib_symmetries.f90 spglib_wrapper.c spglib_wrapper.f90 spglib.f90)

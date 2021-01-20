@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(harmonic_stress)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(harmonic_stress)
 
 # Normal mode modules.
 add_library(harmonic_stress stress_hessian.f90 stress_dynamical_matrix.f90 harmonic_stress_conversion.f90 harmonic_stress.f90)

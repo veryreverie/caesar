@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(arguments)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(arguments)
 
 add_library(arguments keyword.f90 common_keywords.f90 help.f90 dictionary.f90 caesar_modes.f90 arguments.f90)
 

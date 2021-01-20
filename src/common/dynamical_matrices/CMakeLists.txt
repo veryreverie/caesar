@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(dynamical_matrices)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(dynamical_matrices)
 
 # Normal mode modules.
 add_library(dynamical_matrices unique_directions.f90 min_images.f90 dynamical_matrix.f90 calculate_dynamical_matrices.f90 dynamical_matrices.f90)

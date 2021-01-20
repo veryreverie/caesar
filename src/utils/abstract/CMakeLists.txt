@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/include_guard.cmake)
-include_guard(abstract)
+include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+cmake_include_guard(abstract)
 
 # Compile the correct version of shared_counter_bugfix.f90
 if (NOT DEFINED CORRECT_COUNTER_BUG OR NOT CORRECT_COUNTER_BUG)
