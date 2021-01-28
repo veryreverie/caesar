@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Uses spglib to snap a structure to a symmetry.
 ! ======================================================================
-module snap_to_symmetry_module
-  use common_module
+module caesar_snap_to_symmetry_module
+  use caesar_common_module
   
-  use generate_supercells_module
+  use caesar_generate_supercells_module
   implicit none
   
   private

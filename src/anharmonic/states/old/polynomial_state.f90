@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A sum of monomial states and coefficients.
 ! ======================================================================
-module polynomial_state_module
-  use common_module
+module caesar_polynomial_state_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use monomial_state_module
+  use caesar_monomial_state_module
   implicit none
   
   private

@@ -1,13 +1,13 @@
 ! ======================================================================
 ! An example module, showing how to use PotentialData and PotentialPointer.
 ! ======================================================================
-module potential_example_module
-  use common_module
+module caesar_potential_example_module
+  use caesar_common_module
   
-  use anharmonic_common_module
-  use states_module
+  use caesar_anharmonic_common_module
+  use caesar_states_module
   
-  use anharmonic_data_module
+  use caesar_anharmonic_data_module
   implicit none
   
   private

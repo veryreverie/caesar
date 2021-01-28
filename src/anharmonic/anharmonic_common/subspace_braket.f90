@@ -5,13 +5,13 @@
 ! This module exists since Fortran does not support multiple passed-object
 !    dummy arguments, so functions which take two states can only be made
 !    fast if they are polymorphic over a type which points to both states.
-module subspace_braket_module
-  use common_module
+module caesar_subspace_braket_module
+  use caesar_common_module
   
-  use stress_prefactors_module
-  use anharmonic_data_module
-  use sparse_monomial_module
-  use subspace_state_module
+  use caesar_stress_prefactors_module
+  use caesar_anharmonic_data_module
+  use caesar_sparse_monomial_module
+  use caesar_subspace_state_module
   implicit none
   
   private

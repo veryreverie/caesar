@@ -1,11 +1,11 @@
 ! ======================================================================
 ! Linear response data, including permittivity and Born effective charges.
 ! ======================================================================
-module linear_response_module
-  use utils_module
+module caesar_linear_response_module
+  use caesar_utils_module
   
-  use structure_module
-  use normal_mode_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
   implicit none
   
   private

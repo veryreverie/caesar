@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Methods for generating supercells.
 ! ======================================================================
-module supercell_module
-  use utils_module
+module caesar_supercell_module
+  use caesar_utils_module
   
-  use atom_module
+  use caesar_atom_module
   
-  use qpoint_module
-  use structure_data_module
+  use caesar_qpoint_module
+  use caesar_structure_data_module
   implicit none
   
   private

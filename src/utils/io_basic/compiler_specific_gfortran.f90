@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Provides gfortran implementations of compiler-specific functions.
 ! ======================================================================
-module compiler_specific_module
+module caesar_compiler_specific_module
   implicit none
   
   private

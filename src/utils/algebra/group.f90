@@ -12,9 +12,9 @@
 !    group*3 = 1
 ! Also:
 !    (group*group)*1 = group*(group*1) = group*2 = 3
-module operator_group_module
-  use precision_module
-  use io_module
+module caesar_operator_group_module
+  use caesar_precision_module
+  use caesar_io_module
   implicit none
   
   private

@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Wavefunctions which treat q-points separately.
 ! ======================================================================
-module split_qpoints_wavefunctions_module
-  use common_module
+module caesar_split_qpoints_wavefunctions_module
+  use caesar_common_module
   
-  use subspace_wavefunctions_module
+  use caesar_subspace_wavefunctions_module
   implicit none
   
   private

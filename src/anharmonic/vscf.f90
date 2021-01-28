@@ -13,15 +13,15 @@
 !
 ! The Pulay scheme sees P as a vector of real coefficients. It is down to the
 !    implementation of the potential to define how P is generated.
-module vscf_module
-  use common_module
+module caesar_vscf_module
+  use caesar_common_module
   
-  use states_module
+  use caesar_states_module
   
-  use anharmonic_common_module
-  use potentials_module
+  use caesar_anharmonic_common_module
+  use caesar_potentials_module
   
-  use generate_subspace_potentials_module
+  use caesar_generate_subspace_potentials_module
   implicit none
   
   private

@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Holds information about a degenerate subspace.
 ! ======================================================================
-module degenerate_subspace_module
-  use utils_module
+module caesar_degenerate_subspace_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   
-  use complex_mode_module
-  use real_mode_module
+  use caesar_complex_mode_module
+  use caesar_real_mode_module
   implicit none
   
   private

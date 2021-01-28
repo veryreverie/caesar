@@ -3,8 +3,8 @@
 ! ======================================================================
 ! This module is simply an interface for the various subsidiary
 !    integration modules.
-module integration_module
-  use integratable_module
-  use integrated_module
+module caesar_integration_module
+  use caesar_integratable_module
+  use caesar_integrated_module
   implicit none
 end module

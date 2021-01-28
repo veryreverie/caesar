@@ -1,11 +1,11 @@
 ! ======================================================================
 ! Runs anharmonic DFT calculations, as set up by setup_anharmonic.
 ! ======================================================================
-module run_anharmonic_module
-  use common_module
+module caesar_run_anharmonic_module
+  use caesar_common_module
   
-  use anharmonic_common_module
-  use potentials_module
+  use caesar_anharmonic_common_module
+  use caesar_potentials_module
   implicit none
   
   private

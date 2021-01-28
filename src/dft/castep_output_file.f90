@@ -1,5 +1,5 @@
-module castep_output_file_module
-  use common_module
+module caesar_castep_output_file_module
+  use caesar_common_module
   implicit none
   
   type, extends(NoDefaultConstructor) :: CastepOutputFile

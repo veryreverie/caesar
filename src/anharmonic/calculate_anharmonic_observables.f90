@@ -2,15 +2,15 @@
 ! Calculates observables under the VSCF approximation.
 ! ======================================================================
 ! Should be run after calculate_potential.
-module calculate_anharmonic_observables_module
-  use common_module 
-  use states_module
-  use anharmonic_common_module
-  use potentials_module
+module caesar_calculate_anharmonic_observables_module
+  use caesar_common_module 
+  use caesar_states_module
+  use caesar_anharmonic_common_module
+  use caesar_potentials_module
   
-  use generate_subspace_potentials_module
-  use vscf_module
-  use interpolation_module
+  use caesar_generate_subspace_potentials_module
+  use caesar_vscf_module
+  use caesar_interpolation_module
   implicit none
   
   private

@@ -2,8 +2,8 @@
 ! The second stage of Caesar's anharmonic process.
 ! Runs DFT for anharmonic calculations.
 ! ======================================================================
-module run_quadratic_module
-  use common_module
+module caesar_run_quadratic_module
+  use caesar_common_module
   implicit none
 contains
 

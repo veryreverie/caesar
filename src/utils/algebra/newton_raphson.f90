@@ -2,10 +2,10 @@
 ! Performs a bounded Newton-Raphson minimisation.
 ! ======================================================================
 ! See the example function at the bottom of this file for how to use.
-module newton_raphson_module
-  use precision_module
-  use abstract_module
-  use io_module
+module caesar_newton_raphson_module
+  use caesar_precision_module
+  use caesar_abstract_module
+  use caesar_io_module
   implicit none
   
   private

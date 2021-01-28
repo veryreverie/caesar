@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Sampling points for sampling a given set of basis functions.
 ! ======================================================================
-module sampling_points_module
-  use common_module
+module caesar_sampling_points_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use basis_function_module
+  use caesar_basis_function_module
   implicit none
   
   private

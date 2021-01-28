@@ -8,12 +8,12 @@
 ! The %state_pointer() and %states_pointer() methods should
 !    not be called on objects which do not have the TARGET attribute,
 !    as this will silently lead to undefined behaviour.
-module subspace_state_module
-  use common_module
+module caesar_subspace_state_module
+  use caesar_common_module
   
-  use stress_prefactors_module
-  use anharmonic_data_module
-  use sparse_monomial_module
+  use caesar_stress_prefactors_module
+  use caesar_anharmonic_data_module
+  use caesar_sparse_monomial_module
   implicit none
   
   private

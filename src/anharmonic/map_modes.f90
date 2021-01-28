@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Maps the potential along each normal mode.
 ! ======================================================================
-module map_modes_module
-  use common_module
+module caesar_map_modes_module
+  use caesar_common_module
   
-  use anharmonic_common_module
-  use potentials_module
+  use caesar_anharmonic_common_module
+  use caesar_potentials_module
   
-  use mode_map_module
+  use caesar_mode_map_module
   implicit none
   
   private

@@ -4,12 +4,12 @@
 
 ! N.B. This module has never been tested.
 
-module vasp_wrapper_module
-  use utils_module
+module caesar_vasp_wrapper_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   
-  use electronic_structure_data_module
+  use caesar_electronic_structure_data_module
   implicit none
   
   private

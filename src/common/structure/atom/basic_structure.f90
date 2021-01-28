@@ -1,10 +1,10 @@
 ! ======================================================================
 ! A minimal representation of the Structure class.
 ! ======================================================================
-module basic_structure_module
-  use utils_module
+module caesar_basic_structure_module
+  use caesar_utils_module
   
-  use basic_atoms_module
+  use caesar_basic_atoms_module
   implicit none
   
   private

@@ -3,16 +3,16 @@
 ! ======================================================================
 ! N.B. only states at a single q-point are calculated and stored.
 ! All other q-points are included by symmetry.
-module split_qpoints_basis_module
-  use common_module
+module caesar_split_qpoints_basis_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use wavevector_state_module
-  use wavevector_states_module
-  use wavevector_basis_module
-  use split_qpoints_wavefunctions_module
-  use core_shell_thermodynamics_module
+  use caesar_wavevector_state_module
+  use caesar_wavevector_states_module
+  use caesar_wavevector_basis_module
+  use caesar_split_qpoints_wavefunctions_module
+  use caesar_core_shell_thermodynamics_module
   implicit none
   
   private

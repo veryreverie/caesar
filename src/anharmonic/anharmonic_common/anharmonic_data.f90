@@ -2,13 +2,13 @@
 ! A storage class, for all the variables which are passed to the
 !    various potential methods.
 ! ======================================================================
-module anharmonic_data_module
-  use common_module
+module caesar_anharmonic_data_module
+  use caesar_common_module
   
-  use interpolated_supercell_module
-  use max_displacement_module
-  use degenerate_symmetry_module
-  use subspace_coupling_module
+  use caesar_interpolated_supercell_module
+  use caesar_max_displacement_module
+  use caesar_degenerate_symmetry_module
+  use caesar_subspace_coupling_module
   implicit none
   
   private

@@ -2,10 +2,10 @@
 ! An array of type SampleResult.
 ! ======================================================================
 ! Exists to allow heterogeneous storage of sampling results.
-module sample_results_module
-  use common_module
+module caesar_sample_results_module
+  use caesar_common_module
   
-  use sample_result_module
+  use caesar_sample_result_module
   implicit none
   
   private

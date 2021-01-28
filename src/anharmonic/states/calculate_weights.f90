@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Calculates w=e^(-E/kT)/Z, using numerically stable strategies.
 ! ======================================================================
-module calculate_weights_module
-  use common_module
+module caesar_calculate_weights_module
+  use caesar_common_module
   implicit none
   
   private

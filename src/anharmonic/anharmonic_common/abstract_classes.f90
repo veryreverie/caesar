@@ -24,20 +24,20 @@
 ! The %state_pointer() and %states_pointer() methods should
 !    not be called on objects which do not have the TARGET attribute,
 !    as this will silently lead to undefined behaviour.
-module abstract_classes_module
-  use common_module
+module caesar_abstract_classes_module
+  use caesar_common_module
   
-  use subspace_coupling_module
-  use anharmonic_data_module
-  use degenerate_symmetry_module
-  use subspace_wavefunctions_module
-  use stress_prefactors_module
-  use subspace_state_module
-  use subspace_braket_module
-  use basis_state_module
-  use basis_states_module
-  use sparse_monomial_module
-  use pulay_module
+  use caesar_subspace_coupling_module
+  use caesar_anharmonic_data_module
+  use caesar_degenerate_symmetry_module
+  use caesar_subspace_wavefunctions_module
+  use caesar_stress_prefactors_module
+  use caesar_subspace_state_module
+  use caesar_subspace_braket_module
+  use caesar_basis_state_module
+  use caesar_basis_states_module
+  use caesar_sparse_monomial_module
+  use caesar_pulay_module
   implicit none
   
   private

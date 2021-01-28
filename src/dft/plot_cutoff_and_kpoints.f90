@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Plots the results of converge_cutoff_and_kpoints.
 ! ======================================================================
-module plot_cutoff_and_kpoints_module
-  use common_module
+module caesar_plot_cutoff_and_kpoints_module
+  use caesar_common_module
   implicit none
   
   private

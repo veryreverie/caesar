@@ -1,8 +1,8 @@
 ! ======================================================================
 ! A class to hold the output of Spglib.
 ! ======================================================================
-module spglib_symmetries_module
-  use utils_module
+module caesar_spglib_symmetries_module
+  use caesar_utils_module
   implicit none
   
   private

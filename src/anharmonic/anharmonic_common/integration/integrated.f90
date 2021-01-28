@@ -2,8 +2,8 @@
 ! A type which can be a scalar, vector or tensor.
 ! Allows for polymorphic integration procedures.
 ! ======================================================================
-module integrated_module
-  use common_module
+module caesar_integrated_module
+  use caesar_common_module
   implicit none
   
   public :: Integrated

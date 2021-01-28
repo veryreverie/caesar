@@ -2,10 +2,10 @@
 ! Provides tests.
 ! ======================================================================
 ! This module is simply an interface to various subsidiary modules.
-module testing_module
-  use check_counter_module
-  use update_basis_functions_module
-  use test_module
+module caesar_testing_module
+  use caesar_check_counter_module
+  use caesar_update_basis_functions_module
+  use caesar_test_module
   implicit none
 contains
 subroutine startup_testing()

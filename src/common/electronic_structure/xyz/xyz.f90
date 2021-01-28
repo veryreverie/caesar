@@ -1,9 +1,9 @@
 ! ======================================================================
 ! Reads and writes extended .xyz files.
 ! ======================================================================
-module xyz_module
-  use utils_module
-  use structure_module
+module caesar_xyz_module
+  use caesar_utils_module
+  use caesar_structure_module
   implicit none
   
   private

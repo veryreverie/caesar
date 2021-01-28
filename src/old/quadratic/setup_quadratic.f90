@@ -3,8 +3,8 @@
 ! Generates configurations along normal modes, and prepares anharmonic
 !    DFT calculations.
 ! ======================================================================
-module setup_quadratic_module
-  use common_module
+module caesar_setup_quadratic_module
+  use caesar_common_module
   implicit none
 contains
 

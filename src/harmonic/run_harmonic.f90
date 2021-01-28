@@ -2,8 +2,8 @@
 ! The second stage of Caesar.
 ! Runs DFT for harmonic calculations.
 ! ======================================================================
-module run_harmonic_module
-  use common_module
+module caesar_run_harmonic_module
+  use caesar_common_module
   implicit none
   
   private

@@ -3,16 +3,16 @@
 !    subject to f(x)=x.
 ! ======================================================================
 ! See the example function at the bottom of this file for how to use.
-module pulay_module
-  use precision_module
-  use abstract_module
-  use io_module
-  use random_module
+module caesar_pulay_module
+  use caesar_precision_module
+  use caesar_abstract_module
+  use caesar_io_module
+  use caesar_random_module
   
-  use algebra_utils_module
-  use linear_algebra_module
-  use hermitian_eigenstuff_module
-  use qr_decomposition_module
+  use caesar_algebra_utils_module
+  use caesar_linear_algebra_module
+  use caesar_hermitian_eigenstuff_module
+  use caesar_qr_decomposition_module
   implicit none
   
   private

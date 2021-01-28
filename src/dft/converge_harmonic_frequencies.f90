@@ -4,8 +4,8 @@
 ! Runs multiple harmonic caesar calculations with different
 !    cutoff energies and k-point spacings.
 ! ======================================================================
-module converge_harmonic_frequencies_module
-  use common_module
+module caesar_converge_harmonic_frequencies_module
+  use caesar_common_module
 
   implicit none
   

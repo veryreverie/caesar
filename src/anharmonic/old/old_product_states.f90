@@ -1,13 +1,13 @@
 ! ======================================================================
 ! A product of VSCF states.
 ! ======================================================================
-module product_states_module
-  use common_module
+module caesar_product_states_module
+  use caesar_common_module
   
-  use vscf_states_module
-  use single_mode_states_module
-  use coupled_modes_module
-  use grid_types_module
+  use caesar_vscf_states_module
+  use caesar_single_mode_states_module
+  use caesar_coupled_modes_module
+  use caesar_grid_types_module
   implicit none
   
   type :: ProductStates

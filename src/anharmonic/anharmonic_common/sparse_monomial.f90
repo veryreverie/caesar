@@ -2,8 +2,8 @@
 ! A ComplexMonomial in a sparse representation to make it faster to
 !    process.
 ! ======================================================================
-module sparse_monomial_module
-  use common_module
+module caesar_sparse_monomial_module
+  use caesar_common_module
   implicit none
   
   private

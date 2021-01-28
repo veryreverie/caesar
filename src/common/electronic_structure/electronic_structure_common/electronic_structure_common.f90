@@ -3,9 +3,9 @@
 ! ======================================================================
 ! This module is simpy an interface for the various common electronic structure
 !    modules.
-module electronic_structure_common_module
-  use kpoint_grid_module
-  use structure_file_module
-  use loto_splitting_module
+module caesar_electronic_structure_common_module
+  use caesar_kpoint_grid_module
+  use caesar_structure_file_module
+  use caesar_loto_splitting_module
   implicit none
 end module

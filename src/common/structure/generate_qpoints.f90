@@ -2,11 +2,11 @@
 ! Generate the set of q-points of the primitive structure which correspond
 !    to G-vectors of a supercell.
 ! ======================================================================
-module generate_qpoints_module
-  use utils_module
+module caesar_generate_qpoints_module
+  use caesar_utils_module
   
-  use structure_data_module
-  use qpoint_module
+  use caesar_structure_data_module
+  use caesar_qpoint_module
   implicit none
   
   private

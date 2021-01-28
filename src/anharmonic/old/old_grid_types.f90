@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Anharmonic calculations for different grid types.
 ! ======================================================================
-module grid_types_module
-  use common_module
+module caesar_grid_types_module
+  use caesar_common_module
   
-  use mode_vector_module
+  use caesar_mode_vector_module
   implicit none
   
   private

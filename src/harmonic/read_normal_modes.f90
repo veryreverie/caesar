@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Reads in normal modes from a separate calculation.
 ! ======================================================================
-module read_normal_modes_module
-  use common_module
+module caesar_read_normal_modes_module
+  use caesar_common_module
   
-  use harmonic_data_module
+  use caesar_harmonic_data_module
   implicit none
   
   private

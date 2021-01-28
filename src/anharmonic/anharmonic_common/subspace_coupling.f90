@@ -4,8 +4,8 @@
 ! Coupling here means that there are terms in the Hamiltonian which contain
 !    products of one subspace with another.
 ! ======================================================================
-module subspace_coupling_module
-  use common_module
+module caesar_subspace_coupling_module
+  use caesar_common_module
   implicit none
   
   private

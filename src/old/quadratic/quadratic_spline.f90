@@ -12,8 +12,8 @@
 !  (2) No warranties, express or implied, are made for this program.      !
 !                                                                         !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-module quadratic_spline_module
-  use common_module
+module caesar_quadratic_spline_module
+  use caesar_common_module
   implicit none
 contains
 

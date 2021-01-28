@@ -1,7 +1,7 @@
 ! ======================================================================
 ! Defines the variable SHARED_COUNTER_BUG to .true.
 ! ======================================================================
-module shared_counter_bugfix_module
+module caesar_shared_counter_bugfix_module
   implicit none
   
   private

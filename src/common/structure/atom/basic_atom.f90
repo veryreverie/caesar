@@ -1,8 +1,8 @@
 ! ======================================================================
 ! A minimal representation of the Atom class.
 ! ======================================================================
-module basic_atoms_module
-  use utils_module
+module caesar_basic_atoms_module
+  use caesar_utils_module
   implicit none
   
   private

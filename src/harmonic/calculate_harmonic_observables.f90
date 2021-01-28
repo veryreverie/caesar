@@ -6,8 +6,8 @@
 ! ======================================================================
 ! Should be run after calculate_normal_modes.
 ! Not required for anharmonic calculations.
-module calculate_harmonic_observables_module
-  use common_module
+module caesar_calculate_harmonic_observables_module
+  use caesar_common_module
   implicit none
   
   private

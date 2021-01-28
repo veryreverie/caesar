@@ -15,8 +15,8 @@
 ! Added finding gradient of BO surface to be used in fitting process
 ! Added in coupled mapping, 09 Feb 2016
 
-module bo_mappingforcescoupled_module
-  use common_module
+module caesar_bo_mappingforcescoupled_module
+  use caesar_common_module
   implicit none
 contains
 

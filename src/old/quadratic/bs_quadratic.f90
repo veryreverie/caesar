@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Program to calculate quadratic band gap correction.
 ! ======================================================================
-module bs_quadratic_module
-  use common_module
+module caesar_bs_quadratic_module
+  use caesar_common_module
   implicit none
 contains
 

@@ -1,18 +1,18 @@
 ! ======================================================================
 ! Converts input files to and from StructureData.
 ! ======================================================================
-module electronic_structure_file_module
-  use utils_module
+module caesar_electronic_structure_file_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   
-  use electronic_structure_data_module
-  use electronic_structure_common_module
-  use quip_module
-  use castep_module
-  use qe_module
-  use vasp_module
-  use xyz_module
+  use caesar_electronic_structure_data_module
+  use caesar_electronic_structure_common_module
+  use caesar_quip_module
+  use caesar_castep_module
+  use caesar_qe_module
+  use caesar_vasp_module
+  use caesar_xyz_module
   implicit none
   
   private

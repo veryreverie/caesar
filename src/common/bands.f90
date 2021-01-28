@@ -2,8 +2,8 @@
 ! Electronic band structure information.
 ! ======================================================================
 ! N.B. this module is entirely untested.
-module bands_module
-  use utils_module
+module caesar_bands_module
+  use caesar_utils_module
   implicit none
   
   private

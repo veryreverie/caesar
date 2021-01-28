@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Reads harmonic forces, and generates the cartesian Hessian matrix.
 ! ======================================================================
-module construct_supercell_hessian_module
-  use common_module
+module caesar_construct_supercell_hessian_module
+  use caesar_common_module
   implicit none
   
   private

@@ -1,8 +1,8 @@
 ! ======================================================================
 ! A single R-vector at which a subspace should be sampled.
 ! ======================================================================
-module vscf_rvector_module
-  use common_module
+module caesar_vscf_rvector_module
+  use caesar_common_module
   implicit none
   
   private

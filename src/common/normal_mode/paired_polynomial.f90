@@ -2,16 +2,16 @@
 ! Polynomials in the complex representation, but with monomials stored as
 !    (m+m*) and i(m-m*) pairs with real coefficients.
 ! ======================================================================
-module paired_polynomial_module
-  use utils_module
-  use structure_module
+module caesar_paired_polynomial_module
+  use caesar_utils_module
+  use caesar_structure_module
   
-  use real_mode_module
-  use real_single_mode_displacement_module
-  use real_single_mode_force_module
-  use real_mode_displacement_module
-  use real_mode_force_module
-  use complex_polynomial_module
+  use caesar_real_mode_module
+  use caesar_real_single_mode_displacement_module
+  use caesar_real_single_mode_force_module
+  use caesar_real_mode_displacement_module
+  use caesar_real_mode_force_module
+  use caesar_complex_polynomial_module
   implicit none
   
   private

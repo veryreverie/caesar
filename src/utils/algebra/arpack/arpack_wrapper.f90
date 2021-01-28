@@ -1,9 +1,9 @@
 ! ======================================================================
 ! An interface to various ARPACK routines.
 ! ======================================================================
-module arpack_wrapper_module
-  use precision_module
-  use io_module
+module caesar_arpack_wrapper_module
+  use caesar_precision_module
+  use caesar_io_module
   implicit none
   
   private

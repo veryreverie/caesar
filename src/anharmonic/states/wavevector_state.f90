@@ -2,10 +2,10 @@
 ! A state in a wavevector basis.
 ! See wavevector_basis.f90 for more information.
 ! ======================================================================
-module wavevector_state_module
-  use common_module
+module caesar_wavevector_state_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   implicit none
   
   private

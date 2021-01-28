@@ -2,8 +2,8 @@
 ! Plots the anharmonic potential along each mode, along with the harmonic
 !    and sampled potentials along each mode.
 ! ======================================================================
-module plot_modes_module
-  use common_module
+module caesar_plot_modes_module
+  use caesar_common_module
   implicit none
   
   private

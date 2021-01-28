@@ -2,11 +2,11 @@
 ! The first stage of Caesar.
 ! Generates supercells, and prepares harmonic DFT calculations.
 ! ======================================================================
-module setup_harmonic_module
-  use common_module
+module caesar_setup_harmonic_module
+  use caesar_common_module
   
-  use harmonic_data_module
-  use generate_supercells_module
+  use caesar_harmonic_data_module
+  use caesar_generate_supercells_module
   implicit none
   
   private

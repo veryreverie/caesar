@@ -3,8 +3,8 @@
 !    free energies wrt qpoint grid
 ! Runs multiple harmonic caesar calculations with different qpoint grids
 ! ======================================================================
-module converge_qpoint_grid_module
-  use common_module
+module caesar_converge_qpoint_grid_module
+  use caesar_common_module
 
   implicit none
   

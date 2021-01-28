@@ -1,11 +1,11 @@
 ! ======================================================================
 ! A minimal representation of the SymmetryOperator class.
 ! ======================================================================
-module basic_symmetry_module
-  use utils_module
+module caesar_basic_symmetry_module
+  use caesar_utils_module
   
-  use atom_module
-  use spglib_module
+  use caesar_atom_module
+  use caesar_spglib_module
   implicit none
   
   private

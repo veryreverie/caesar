@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Plots the VSCF potential along each mode.
 ! ======================================================================
-module plot_vscf_modes_module
-  use common_module
+module caesar_plot_vscf_modes_module
+  use caesar_common_module
   implicit none
   
   private

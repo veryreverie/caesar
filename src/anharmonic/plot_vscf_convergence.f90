@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Plots the convergence of the VSCF scheme.
 ! ======================================================================
-module plot_vscf_convergence_module
-  use common_module
+module caesar_plot_vscf_convergence_module
+  use caesar_common_module
   implicit none
   
   private

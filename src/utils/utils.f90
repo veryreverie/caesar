@@ -8,13 +8,13 @@
 !    - Algebraic routines, including linear algebra.
 ! ======================================================================
 ! This module is simply an interface to various subsidiary modules.
-module utils_module
-  use precision_module
-  use io_module
-  use abstract_module
-  use arguments_module
-  use algebra_module
-  use random_module
+module caesar_utils_module
+  use caesar_precision_module
+  use caesar_io_module
+  use caesar_abstract_module
+  use caesar_arguments_module
+  use caesar_algebra_module
+  use caesar_random_module
   implicit none
 contains
 subroutine startup_utils()

@@ -12,10 +12,10 @@
 !                   * product_{k/=j} [ relative(u1k,u2k,atom) ] ]
 ! N.B. the product overlap must be averaged over permutations of {u1} against
 !    {u2}.
-module polynomial_interpolator_module
-  use common_module
-  use anharmonic_common_module
-  use permutation_module
+module caesar_polynomial_interpolator_module
+  use caesar_common_module
+  use caesar_anharmonic_common_module
+  use caesar_permutation_module
   implicit none
   
   private

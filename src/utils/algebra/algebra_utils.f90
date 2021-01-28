@@ -1,12 +1,12 @@
 ! ======================================================================
 ! various utilities
 ! ======================================================================
-module algebra_utils_module
-  use precision_module
-  use io_module
+module caesar_algebra_utils_module
+  use caesar_precision_module
+  use caesar_io_module
   
-  use mathematical_constants_module
-  use linear_algebra_module
+  use caesar_mathematical_constants_module
+  use caesar_linear_algebra_module
   implicit none
   
   private

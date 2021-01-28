@@ -1,10 +1,10 @@
 ! ======================================================================
 ! A map of the potential along a given mode.
 ! ======================================================================
-module mode_map_module
-  use common_module
+module caesar_mode_map_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   implicit none
   
   private

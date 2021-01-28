@@ -1,11 +1,11 @@
 ! ======================================================================
 ! Complex numbers with fractional real and imaginary parts.
 ! ======================================================================
-module fraction_complex_module
-  use io_module
+module caesar_fraction_complex_module
+  use caesar_io_module
   
-  use fraction_module
-  use integer_complex_module
+  use caesar_fraction_module
+  use caesar_integer_complex_module
   implicit none
   
   private

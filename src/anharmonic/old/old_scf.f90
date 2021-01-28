@@ -1,12 +1,12 @@
 ! ======================================================================
 ! The SCF cycle of VSCF.
 ! ======================================================================
-module scf_module
-  use common_module
+module caesar_scf_module
+  use caesar_common_module
   
-  use potential_module
-  use harmonic_states_module
-  use vscf_states_module
+  use caesar_potential_module
+  use caesar_harmonic_states_module
+  use caesar_vscf_states_module
   implicit none
   
   private

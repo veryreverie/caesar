@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A dummy module for when spglib is not being linked.
 ! ======================================================================
-module spglib_wrapper_module
-  use utils_module
+module caesar_spglib_wrapper_module
+  use caesar_utils_module
   
-  use atom_module
+  use caesar_atom_module
   
-  use spglib_symmetries_module
+  use caesar_spglib_symmetries_module
   implicit none
   
   private

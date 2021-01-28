@@ -1,14 +1,14 @@
 ! ======================================================================
 ! Basis functions for generating the stress tensor mapping.
 ! ======================================================================
-module stress_basis_function_module
-  use common_module
+module caesar_stress_basis_function_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use polynomial_interpolator_module
-  use polynomial_dynamical_matrices_module
-  use polynomial_symmetry_module
+  use caesar_polynomial_interpolator_module
+  use caesar_polynomial_dynamical_matrices_module
+  use caesar_polynomial_symmetry_module
   implicit none
   
   private

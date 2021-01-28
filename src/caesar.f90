@@ -5,12 +5,12 @@
 ! Call Caesar -h for details.
 ! ======================================================================
 program caesar
-  use common_module
-  use harmonic_module
-  use anharmonic_module
-  use dft_module
-  use testing_module
-  use version_module
+  use caesar_common_module
+  use caesar_harmonic_module
+  use caesar_anharmonic_module
+  use caesar_dft_module
+  use caesar_testing_module
+  use caesar_version_module
   implicit none
   
   ! Command line arguments.

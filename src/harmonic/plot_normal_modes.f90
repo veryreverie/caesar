@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Plots the results of calculate_normal_modes.
 ! ======================================================================
-module plot_normal_modes_module
-  use common_module
+module caesar_plot_normal_modes_module
+  use caesar_common_module
   implicit none
   
   private

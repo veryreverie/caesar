@@ -1,16 +1,16 @@
 ! ======================================================================
 ! A basis of states which spans a full subspace.
 ! ======================================================================
-module full_subspace_basis_module
-  use common_module
+module caesar_full_subspace_basis_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use wavevector_state_module
-  use wavevector_states_module
-  use wavevector_basis_module
-  use full_subspace_wavefunctions_module
-  use core_shell_thermodynamics_module
+  use caesar_wavevector_state_module
+  use caesar_wavevector_states_module
+  use caesar_wavevector_basis_module
+  use caesar_full_subspace_wavefunctions_module
+  use caesar_core_shell_thermodynamics_module
   implicit none
   
   private

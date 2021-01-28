@@ -1,8 +1,8 @@
 ! ======================================================================
 ! A basis state, defined in terms of a SubspaceBasis.
 ! ======================================================================
-module basis_state_module
-  use common_module
+module caesar_basis_state_module
+  use caesar_common_module
   implicit none
   
   private

@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Basis states, {|i>}, and integrals, {<i|u^p|j>}.
 ! ======================================================================
-module harmonic_states_module
-  use common_module
+module caesar_harmonic_states_module
+  use caesar_common_module
   
-  use single_mode_states_module
+  use caesar_single_mode_states_module
   implicit none
   
   private

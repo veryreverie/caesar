@@ -2,13 +2,13 @@
 ! A set of states in a wavevector basis.
 ! See wavevector_basis.f90 for more details.
 ! ======================================================================
-module wavevector_states_module
-  use common_module
+module caesar_wavevector_states_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use wavevector_state_module
-  use density_matrix_module
+  use caesar_wavevector_state_module
+  use caesar_density_matrix_module
   implicit none
   
   private
@@ -165,7 +165,7 @@ function write_WavevectorStates(this) result(output)
                 &               'Energy : '//this%energies(i) ]), &
                 & i=1,                                            &
                 & size(this%states)                               )]
-    output = [ str('Subspace: '//this%subspace_id),          &
+    output = [ 'Subspace: '//this%subspace_id,               &
              & str(sections, separating_line=repeat('=',50)) ]
   class default
     call err()

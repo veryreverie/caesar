@@ -3,8 +3,8 @@
 !    the maximum energy of displacement,
 !    or vice versa.
 ! ======================================================================
-module max_displacement_module
-  use common_module
+module caesar_max_displacement_module
+  use caesar_common_module
   implicit none
   
   private

@@ -10,13 +10,13 @@
 !    - subspace_id
 ! In general, a the modes in a given subspace will be returned as a linear
 !    combination of one another.
-module process_modes_module
-  use utils_module
+module caesar_process_modes_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   
-  use complex_mode_module
-  use complex_mode_symmetry_module
+  use caesar_complex_mode_module
+  use caesar_complex_mode_symmetry_module
   implicit none
   
   private

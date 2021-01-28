@@ -14,8 +14,8 @@
 
 ! This is repeated no_gvectors*no_modes times
 
-module displacement_patterns_module
-  use common_module
+module caesar_displacement_patterns_module
+  use caesar_common_module
   implicit none
   
   type DispPatterns

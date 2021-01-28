@@ -2,8 +2,8 @@
 ! Plots the phonon density of states and dispersion calculated by
 !    calculate_harmonic_observables or calculate_anharmonic_observables.
 ! ======================================================================
-module plot_harmonic_convergence_module
-  use common_module
+module caesar_plot_harmonic_convergence_module
+  use caesar_common_module
   implicit none
   
   private

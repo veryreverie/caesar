@@ -2,14 +2,14 @@
 ! Routines for finding the eigenvalues and eigenvectors of Hermitian,
 !    symmetric and general matrices.
 ! ======================================================================
-module hermitian_eigenstuff_module
-  use precision_module
-  use io_module
+module caesar_hermitian_eigenstuff_module
+  use caesar_precision_module
+  use caesar_io_module
   
-  use lapack_wrapper_module
-  use linear_algebra_module
-  use phase_module
-  use qr_decomposition_module
+  use caesar_lapack_wrapper_module
+  use caesar_linear_algebra_module
+  use caesar_phase_module
+  use caesar_qr_decomposition_module
   implicit none
   
   private

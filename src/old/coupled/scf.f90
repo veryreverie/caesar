@@ -1,8 +1,8 @@
 ! ======================================================================
 ! The scf loop for vscfCoupled
 ! ======================================================================
-module scf_old_module
-  use common_module
+module caesar_scf_old_module
+  use caesar_common_module
   implicit none
   
   type ScfOutput

@@ -1,8 +1,8 @@
 ! ======================================================================
 ! A dummy module for when QUIP is not being linked.
 ! ======================================================================
-module quip_wrapper_module
-  use utils_module
+module caesar_quip_wrapper_module
+  use caesar_utils_module
   implicit none
   
   private

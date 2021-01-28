@@ -31,3 +31,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/arguments arguments/)
 target_link_libraries(utils arguments)
 
 target_include_directories(utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Enable testing.
+include(${CMAKE_SOURCE_DIR}/utils/link_pfunit.cmake)

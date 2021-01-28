@@ -1,5 +1,5 @@
-module coupled_atomic_units_module
-  use common_module
+module caesar_coupled_atomic_units_module
+  use caesar_common_module
   implicit none
 contains
 

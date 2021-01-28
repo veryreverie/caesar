@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Global mathematical constants.
 ! ======================================================================
-module mathematical_constants_module
-  use precision_module
+module caesar_mathematical_constants_module
+  use caesar_precision_module
   implicit none
   
   private

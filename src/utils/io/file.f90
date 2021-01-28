@@ -2,9 +2,9 @@
 ! File handling common to both input and output files.
 ! Should not be imported by any modules other than ifile and ofile.
 ! ======================================================================
-module file_module
-  use precision_module
-  use io_basic_module
+module caesar_file_module
+  use caesar_precision_module
+  use caesar_io_basic_module
   implicit none
   
   private

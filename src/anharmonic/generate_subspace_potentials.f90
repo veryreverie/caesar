@@ -2,10 +2,10 @@
 ! Takes a potential or stress, and a list of subspaces,
 !    and generates the single-subspace potentials or stresses.
 ! ======================================================================
-module generate_subspace_potentials_module
-  use common_module
+module caesar_generate_subspace_potentials_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   implicit none
   
   private

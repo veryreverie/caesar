@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Provides helper functions for testing StructureData.
 ! ======================================================================
-module structure_test_module
-  use common_module
+module caesar_structure_test_module
+  use caesar_common_module
   implicit none
 contains
 

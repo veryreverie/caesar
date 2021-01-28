@@ -1,13 +1,13 @@
 ! ======================================================================
 ! A class for holding calculated energy and forces.
 ! ======================================================================
-module electronic_structure_data_module
-  use utils_module
+module caesar_electronic_structure_data_module
+  use caesar_utils_module
   
-  use structure_module
-  use normal_mode_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
   
-  use linear_response_module
+  use caesar_linear_response_module
   implicit none
   
   private

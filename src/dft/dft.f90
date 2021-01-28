@@ -2,9 +2,9 @@
 ! Provides routines specific to DFT.
 ! ======================================================================
 ! This module is simply an interface for the various DFT modules.
-module dft_module
-  use converge_harmonic_frequencies_module
-  use plot_harmonic_convergence_module
+module caesar_dft_module
+  use caesar_converge_harmonic_frequencies_module
+  use caesar_plot_harmonic_convergence_module
   implicit none
 contains
 subroutine startup_dft()

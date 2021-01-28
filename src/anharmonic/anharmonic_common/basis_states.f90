@@ -1,9 +1,9 @@
 ! ======================================================================
 ! A set of basis states, defined in terms of a SubspaceBasis.
 ! ======================================================================
-module basis_states_module
-  use common_module
-  use expectation_cache_module
+module caesar_basis_states_module
+  use caesar_common_module
+  use caesar_expectation_cache_module
   implicit none
   
   private

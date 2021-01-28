@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Runs tests on linear_algebra.
 ! ======================================================================
-module linear_algebra_test_module
-  use common_module
+module caesar_linear_algebra_test_module
+  use caesar_common_module
   implicit none
 contains
 

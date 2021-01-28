@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Calculates k-point grids for supercells.
 ! ======================================================================
-module kpoint_grid_module
-  use utils_module
+module caesar_kpoint_grid_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   implicit none
   
   private

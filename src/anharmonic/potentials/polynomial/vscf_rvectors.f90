@@ -1,12 +1,12 @@
 ! ======================================================================
-! As vscf_rvector_module, but produces a list of R-vector combinations
+! As caesar_vscf_rvector_module, but produces a list of R-vector combinations
 !    rather than the R-vectors for each subspace individually.
 ! ======================================================================
-module vscf_rvectors_module
-  use common_module
+module caesar_vscf_rvectors_module
+  use caesar_common_module
   
-  use sampling_points_module
-  use vscf_rvector_module
+  use caesar_sampling_points_module
+  use caesar_vscf_rvector_module
   implicit none
   
   private

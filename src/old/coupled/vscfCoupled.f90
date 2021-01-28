@@ -2,10 +2,10 @@
 ! Calculates the vibrational self-consistent field (VSCF) approximation
 !    to the phonon Hamiltonian
 ! ======================================================================
-module vscf_module
-  use common_module
+module caesar_vscf_module
+  use caesar_common_module
   
-  use scf_old_module
+  use caesar_scf_old_module
   implicit none
 contains
 

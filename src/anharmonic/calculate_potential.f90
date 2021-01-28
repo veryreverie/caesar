@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Calculates the anharmonic potential, using the results of run_anharmonic.
 ! ======================================================================
-module calculate_potential_module
-  use common_module
+module caesar_calculate_potential_module
+  use caesar_common_module
   
-  use anharmonic_common_module
-  use potentials_module
-  use interpolation_module
+  use caesar_anharmonic_common_module
+  use caesar_potentials_module
+  use caesar_interpolation_module
   implicit none
   
   private

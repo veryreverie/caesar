@@ -30,14 +30,14 @@
 ! N.B. if i=j, then the mode is real (2q=G, so e^{+iq.r}=e^{-iq.r}=cos(q.r)).
 ! In this case, u+ = c, and the mode has no pair (u- = s = 0).
 
-module real_complex_conversion_module
-  use utils_module
+module caesar_real_complex_conversion_module
+  use caesar_utils_module
   
-  use complex_mode_module
-  use real_mode_module
-  use complex_polynomial_module
-  use real_polynomial_module
-  use paired_polynomial_module
+  use caesar_complex_mode_module
+  use caesar_real_mode_module
+  use caesar_complex_polynomial_module
+  use caesar_real_polynomial_module
+  use caesar_paired_polynomial_module
   implicit none
   
   private

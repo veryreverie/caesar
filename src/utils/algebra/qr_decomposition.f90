@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Routines for finding the QR decomposition of various matrices.
 ! ======================================================================
-module qr_decomposition_module
-  use precision_module
-  use abstract_module
-  use io_module
+module caesar_qr_decomposition_module
+  use caesar_precision_module
+  use caesar_abstract_module
+  use caesar_io_module
   
-  use lapack_wrapper_module
-  use linear_algebra_module
+  use caesar_lapack_wrapper_module
+  use caesar_linear_algebra_module
   implicit none
   
   private

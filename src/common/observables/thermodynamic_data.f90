@@ -3,8 +3,8 @@
 !    uncoupled harmonic oscillators.
 ! ======================================================================
 ! N.B. Stress is stored with the same extensivity as U, F, S, H and G.
-module thermodynamic_data_module
-  use utils_module
+module caesar_thermodynamic_data_module
+  use caesar_utils_module
   implicit none
   
   private

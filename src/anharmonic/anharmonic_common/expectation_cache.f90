@@ -3,10 +3,10 @@
 !    to allow for faster repeat calculations.
 ! Uses C++ std::Vector-like storage of results.
 ! ======================================================================
-module expectation_cache_module
-  use common_module
+module caesar_expectation_cache_module
+  use caesar_common_module
   
-  use sparse_monomial_module
+  use caesar_sparse_monomial_module
   implicit none
   
   private

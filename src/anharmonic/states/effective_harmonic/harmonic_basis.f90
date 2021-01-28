@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A basis of harmonic states.
 ! ======================================================================
-module harmonic_basis_module
-  use common_module
+module caesar_harmonic_basis_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use harmonic_states_module
+  use caesar_harmonic_states_module
   implicit none
   
   private

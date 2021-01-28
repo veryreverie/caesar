@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Generates the supercells needed to simulate harmonic phonons at all q-points.
 ! ======================================================================
-module generate_supercells_module
-  use common_module
+module caesar_generate_supercells_module
+  use caesar_common_module
   implicit none
   
   private

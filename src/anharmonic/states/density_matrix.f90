@@ -7,13 +7,13 @@
 !    trace[DO], where D is the density matrix and O is the operator.
 ! As such, the density matrices are calculated and stored in the same sparse
 !    representation as the Hamiltonian.
-module density_matrix_module
-  use common_module
+module caesar_density_matrix_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use wavevector_state_module
-  use coupled_states_module
+  use caesar_wavevector_state_module
+  use caesar_coupled_states_module
   implicit none
   
   private

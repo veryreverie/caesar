@@ -1,6 +1,6 @@
 ! A Hartree to eV calculator
-module hartree_to_ev_module
-  use common_module
+module caesar_hartree_to_ev_module
+  use caesar_common_module
   implicit none
   
   private

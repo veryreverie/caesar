@@ -1,10 +1,8 @@
-! ======================================================================
-! Provides the err() subroutine, which aborts with a stacktrace.
-! Also provides coloured "Error" and "Warning" strings for messages.
-! ======================================================================
-module error_module
-  use terminal_module
-  use compiler_specific_module
+!> Provides the [[err]] subroutine, which aborts with a stacktrace.
+!> Also provides coloured `Error` and `Warning` strings for messages.
+module caesar_error_module
+  use caesar_terminal_module
+  use caesar_compiler_specific_module
   implicit none
   
   private
@@ -17,76 +15,44 @@ module error_module
   public :: set_error_strings_coloured
   public :: set_error_strings_uncoloured
   
-  ! Coloured error strings.
+  !> The string `ERROR`, in red if colour enabled.
   character(:), allocatable, protected :: ERROR
+  !> The string `CODE ERROR`, in red if colour enabled.
   character(:), allocatable, protected :: CODE_ERROR
+  !> The string `WARNING`, in magenta if colour enabled.
   character(:), allocatable, protected :: WARNING
   
   interface err
     module procedure err_none
     module procedure err_allocate_flag
   end interface
-contains
+  
+  interface
+    !> Aborts without a stacktrace.
+    module subroutine quit()
+      implicit none
+    end subroutine
+    
+    !> Aborts with a stacktrace.
+    module subroutine err_none()
+      implicit none
+    end subroutine
 
-! ----------------------------------------------------------------------
-! Aborts without a stacktrace.
-! ----------------------------------------------------------------------
-subroutine quit()
-  implicit none
-  
-  call quit_implementation()
-end subroutine
+    !> Aborts with a stacktrace if `input` $\neq 0$.
+    !> Designed for use with `allocate(foo, stat=ialloc)` flags.
+    module subroutine err_allocate_flag(this)
+      implicit none
+      integer, intent(in) :: this
+    end subroutine
 
-! ----------------------------------------------------------------------
-! Aborts with a stacktrace.
-! ----------------------------------------------------------------------
-! Always aborts.
-subroutine err_none()
-  implicit none
-  
-  write(*,'(a)') ''
-  write(*,'(a)') LIGHT_MAGENTA_ESC//'Intentionally aborting with &
-                 &stacktrace.'//RESET_ESC
-  write(*,'(a)') ''
-  write(*,'(a)') LIGHT_MAGENTA_ESC//'compiler_specific.f90 and error.f90 &
-                 &can be ignored in stacktrace.'//RESET_ESC
-  write(*,'(a)') ''
-  
-  call err_implementation()
-end subroutine
+    !> Sets `ERROR`, `CODE_ERROR` and `WARNING` to be coloured.
+    module subroutine set_error_strings_coloured()
+      implicit none
+    end subroutine
 
-! Aborts if integer input /= 0.
-! Designed for use with allocate 'stat=ierr' flags.
-subroutine err_allocate_flag(this)
-  implicit none
-  
-  integer, intent(in) :: this
-  
-  if (this/=0) then
-    write(*,'(a)') ''
-    write(*,'(a)') ERROR//': Allocation error.'
-    call err()
-  endif
-end subroutine
-
-! ----------------------------------------------------------------------
-! Set whether or not the error strings are enclosed by
-!    terminal colour escape characters.
-! ----------------------------------------------------------------------
-subroutine set_error_strings_coloured()
-  implicit none
-  
-  ERROR = RED_ESC//'Error'//RESET_ESC
-  CODE_ERROR = RED_ESC//'Code Error'//RESET_ESC
-  WARNING = LIGHT_MAGENTA_ESC//'Warning'//RESET_ESC
-end subroutine
-
-subroutine set_error_strings_uncoloured()
-  implicit none
-  
-  ERROR = 'Error'
-  CODE_ERROR = 'Code Error'
-  WARNING = 'Warning'
-end subroutine
+    !> Sets `ERROR`, `CODE_ERROR` and `WARNING` to be uncoloured.
+    module subroutine set_error_strings_uncoloured()
+      implicit none
+    end subroutine
+  end interface
 end module
-

@@ -1,13 +1,13 @@
 ! ======================================================================
 ! A symmetry operator, in various representations.
 ! ======================================================================
-module symmetry_module
-  use utils_module
+module caesar_symmetry_module
+  use caesar_utils_module
   
-  use atom_module
+  use caesar_atom_module
   
-  use basic_symmetry_module
-  use qpoint_module
+  use caesar_basic_symmetry_module
+  use caesar_qpoint_module
   implicit none
   
   private

@@ -9,25 +9,25 @@
 !    - Groups.
 ! ======================================================================
 ! This module is simply an interface for the various algebra modules.
-module algebra_module
-  use mathematical_constants_module
-  use linear_algebra_module
-  use sparse_algebra_module
+module caesar_algebra_module
+  use caesar_mathematical_constants_module
+  use caesar_linear_algebra_module
+  use caesar_sparse_algebra_module
   
-  use algebra_utils_module
-  use fraction_module
-  use phase_module
-  use fraction_algebra_module
-  use qr_decomposition_module
-  use hermitian_eigenstuff_module
-  use orthonormal_module
-  use unitary_eigenstuff_module
-  use integer_arrays_module
-  use operator_group_module
-  use integer_complex_module
-  use fraction_complex_module
-  use lanczos_module
-  use newton_raphson_module
-  use tests_module
+  use caesar_algebra_utils_module
+  use caesar_fraction_module
+  use caesar_phase_module
+  use caesar_fraction_algebra_module
+  use caesar_qr_decomposition_module
+  use caesar_hermitian_eigenstuff_module
+  use caesar_orthonormal_module
+  use caesar_unitary_eigenstuff_module
+  use caesar_integer_arrays_module
+  use caesar_operator_group_module
+  use caesar_integer_complex_module
+  use caesar_fraction_complex_module
+  use caesar_lanczos_module
+  use caesar_newton_raphson_module
+  use caesar_tests_module
   implicit none
 end module

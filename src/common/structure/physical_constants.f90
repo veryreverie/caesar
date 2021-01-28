@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Global physical constants.
 ! ======================================================================
-module physical_constants_module
-  use utils_module
+module caesar_physical_constants_module
+  use caesar_utils_module
   implicit none
   
   private

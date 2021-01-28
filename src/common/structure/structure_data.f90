@@ -1,14 +1,14 @@
 ! ======================================================================
 ! All data relating to a given atomic configuration.
 ! ======================================================================
-module structure_data_module
-  use utils_module
+module caesar_structure_data_module
+  use caesar_utils_module
   
-  use atom_module
-  use spglib_module
+  use caesar_atom_module
+  use caesar_spglib_module
   
-  use basic_symmetry_module
-  use symmetry_module
+  use caesar_basic_symmetry_module
+  use caesar_symmetry_module
   implicit none
   
   private
@@ -753,11 +753,11 @@ function write_StructureData(this) result(output)
     
     if (size(this%symmetries)/=0) then
       symmetries = BasicSymmetry(this%symmetries)
-      output = [ output,                                      &
-               & str('Symmetry'),                             &
-               & str('Precision: '//this%symmetry_precision), &
-               & str('Space Group: '//this%space_group),      &
-               & str(symmetries, separating_line='')          ]
+      output = [ output,                                 &
+               & str('Symmetry'),                        &
+               & 'Precision: '//this%symmetry_precision, &
+               & 'Space Group: '//this%space_group,      &
+               & str(symmetries, separating_line='')     ]
     endif
     
     output = [ output,                      &

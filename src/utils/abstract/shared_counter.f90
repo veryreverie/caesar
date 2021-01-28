@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Provides a shared-pointer like counter.
 ! ======================================================================
-module shared_counter_module
-  use io_basic_module
+module caesar_shared_counter_module
+  use caesar_io_basic_module
   
-  use shared_counter_bugfix_module
+  use caesar_shared_counter_bugfix_module
   implicit none
   
   private

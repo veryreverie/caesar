@@ -1,9 +1,9 @@
 ! ======================================================================
 ! A heterogeneous multi-dimensional integer array.
 ! ======================================================================
-module integer_arrays_module
-  use precision_module
-  use io_module
+module caesar_integer_arrays_module
+  use caesar_precision_module
+  use caesar_io_module
   implicit none
   
   private

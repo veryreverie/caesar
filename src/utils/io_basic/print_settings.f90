@@ -1,9 +1,6 @@
-! ======================================================================
-! Provides settings for changing how print_line and related functions work.
-! ======================================================================
-module print_settings_module
-  use string_base_module
-  use string_module
+!> Provides settings for changing how string conversion and printing behave.
+module caesar_print_settings_module
+  use caesar_string_module
   implicit none
   
   private
@@ -12,147 +9,98 @@ module print_settings_module
   public :: set_print_settings
   public :: unset_print_settings
   
+  !> A list of settings for string conversion and printing.
   type :: PrintSettings
-    ! The number of spaces before a line starts.
+    !> The number of spaces prepended before each printed line.
     integer :: indent
-    ! The additional number of spaces before the continuation of a line which
-    !    is too long to fit on the terminal.
+    !> When a line is too long to fit in the terminal,
+    !>    it is broken onto multiple lines.
+    !> `overhang` defines the number of spaces (in addition to indent) which
+    !>    are prepended before the lines beyond the first.
     integer :: overhang
-    ! The number of decimal places printed of a floating point number.
+    !> The number of decimal places stored when converting
+    !>    a floating point number to a string.
     integer :: decimal_places
-    ! 'es' for scientific formatting, e.g. '-1.234E+002'.
-    ! 'f' for fixed point formatting, e.g. '-123.4'.
+    !> The format used for converting floating point numbers to string.
+    !> 'es' for scientific formatting, e.g. '-1.234E+002'.
+    !> 'f' for fixed point formatting, e.g. '-123.4'.
     type(String) :: floating_point_format
-    ! The number of characters before the decimal point
-    !    in fixed-format printing.
+    !> The number of characters before the decimal point
+    !>    which are stored when converting floating point numbers to string.
     integer :: integer_digits
   end type
   
   interface PrintSettings
-    module procedure new_PrintSettings_character
-    module procedure new_PrintSettings_String
+    !> Constructor for [[PrintSettings(type)]], taking string arguments as
+    !>    `character(*)`.
+    !> All arguments are optional. Those which are not given will default to
+    !>    the those from the [[PrintSettings(type)]] currently in use.
+    module function new_PrintSettings_character(indent,overhang, &
+       & decimal_places,floating_point_format,integer_digits) result(this)
+      implicit none
+      
+      integer,      intent(in), optional :: indent
+      integer,      intent(in), optional :: overhang
+      integer,      intent(in), optional :: decimal_places
+      character(*), intent(in), optional :: floating_point_format
+      integer,      intent(in), optional :: integer_digits
+      type(PrintSettings)                :: this
+    end function
+
+    !> Constructor for [[PrintSettings(type)]], taking string arguments as
+    !>    `[[String(type)]]`.
+    !> All arguments are optional. Those which are not given will default to
+    !>    the those from the [[PrintSettings(type)]] currently in use.
+    module function new_PrintSettings_String(indent,overhang,decimal_places, &
+       & floating_point_format,integer_digits) result(this)
+      implicit none
+      
+      integer,      intent(in), optional :: indent
+      integer,      intent(in), optional :: overhang
+      integer,      intent(in), optional :: decimal_places
+      type(String), intent(in)           :: floating_point_format
+      integer,      intent(in), optional :: integer_digits
+      type(PrintSettings)                :: this
+    end function
   end interface
-  
-  logical             :: USE_CURRENT_PRINT_SETTINGS = .false.
-  type(PrintSettings) :: CURRENT_PRINT_SETTINGS
   
   interface set_print_settings
-    module procedure set_print_settings_PrintSettings
-    module procedure set_print_settings_arguments_character
-    module procedure set_print_settings_arguments_String
+    !> Sets a [[PrintSettings(type)]] for use.
+    module subroutine set_print_settings_PrintSettings(settings)
+      implicit none
+      
+      type(PrintSettings), intent(in) :: settings
+    end subroutine
+    
+    !> Constructs a [[PrintSettings(type)]], and sets it for use.
+    module subroutine set_print_settings_arguments_character(indent,overhang, &
+       & decimal_places,floating_point_format,integer_digits)
+      implicit none
+      
+      integer,      intent(in), optional :: indent
+      integer,      intent(in), optional :: overhang
+      integer,      intent(in), optional :: decimal_places
+      character(*), intent(in), optional :: floating_point_format
+      integer,      intent(in), optional :: integer_digits
+    end subroutine
+    
+    !> Constructs a [[PrintSettings(type)]], and sets it for use.
+    module subroutine set_print_settings_arguments_String(indent,overhang, &
+       & decimal_places,floating_point_format,integer_digits)
+      implicit none
+      
+      integer,      intent(in), optional :: indent
+      integer,      intent(in), optional :: overhang
+      integer,      intent(in), optional :: decimal_places
+      type(String), intent(in)           :: floating_point_format
+      integer,      intent(in), optional :: integer_digits
+    end subroutine
   end interface
-contains
-
-! Constructor.
-function new_PrintSettings_character(indent,overhang,decimal_places, &
-   & floating_point_format,integer_digits) result(this)
-  implicit none
   
-  integer,      intent(in), optional :: indent
-  integer,      intent(in), optional :: overhang
-  integer,      intent(in), optional :: decimal_places
-  character(*), intent(in), optional :: floating_point_format
-  integer,      intent(in), optional :: integer_digits
-  type(PrintSettings)                :: this
-  
-  if (.not. USE_CURRENT_PRINT_SETTINGS) then
-    ! Default arguments.
-    this%indent = 0
-    this%overhang = 3
-    this%decimal_places = 17
-    this%floating_point_format = 'es'
-    this%integer_digits = 1
-  else
-    ! Currently set settings.
-    this = CURRENT_PRINT_SETTINGS
-  endif
-  
-  ! Settings specific to this call.
-  if (present(indent)) then
-    this%indent = indent
-  endif
-  
-  if (present(overhang)) then
-    this%overhang = overhang
-  endif
-  
-  if (present(decimal_places)) then
-    this%decimal_places = decimal_places
-  endif
-  
-  if (present(floating_point_format)) then
-    this%floating_point_format = floating_point_format
-  endif
-  
-  if (present(integer_digits)) then
-    this%integer_digits = integer_digits
-  endif
-end function
-
-function new_PrintSettings_String(indent,overhang,decimal_places, &
-   & floating_point_format,integer_digits) result(this)
-  implicit none
-  
-  integer,      intent(in), optional :: indent
-  integer,      intent(in), optional :: overhang
-  integer,      intent(in), optional :: decimal_places
-  type(String), intent(in)           :: floating_point_format
-  integer,      intent(in), optional :: integer_digits
-  type(PrintSettings)                :: this
-  
-  this = PrintSettings( indent,                      &
-                      & overhang,                    &
-                      & decimal_places,              &
-                      & char(floating_point_format), &
-                      & integer_digits               )
-end function
-
-subroutine set_print_settings_PrintSettings(settings)
-  implicit none
-  
-  type(PrintSettings), intent(in) :: settings
-  
-  CURRENT_PRINT_SETTINGS = settings
-  USE_CURRENT_PRINT_SETTINGS = .true.
-end subroutine
-
-subroutine set_print_settings_arguments_character(indent,overhang, &
-   & decimal_places,floating_point_format,integer_digits)
-  implicit none
-  
-  integer,      intent(in), optional :: indent
-  integer,      intent(in), optional :: overhang
-  integer,      intent(in), optional :: decimal_places
-  character(*), intent(in), optional :: floating_point_format
-  integer,      intent(in), optional :: integer_digits
-  
-  call set_print_settings(PrintSettings( indent,                &
-                                       & overhang,              &
-                                       & decimal_places,        &
-                                       & floating_point_format, &
-                                       & integer_digits         ))
-end subroutine
-
-subroutine set_print_settings_arguments_String(indent,overhang, &
-   & decimal_places,floating_point_format,integer_digits)
-  implicit none
-  
-  integer,      intent(in), optional :: indent
-  integer,      intent(in), optional :: overhang
-  integer,      intent(in), optional :: decimal_places
-  type(String), intent(in)           :: floating_point_format
-  integer,      intent(in), optional :: integer_digits
-  
-  call set_print_settings(PrintSettings( indent,                &
-                                       & overhang,              &
-                                       & decimal_places,        &
-                                       & floating_point_format, &
-                                       & integer_digits         ))
-end subroutine
-
-subroutine unset_print_settings()
-  implicit none
-  
-  USE_CURRENT_PRINT_SETTINGS = .false.
-end subroutine
+  interface unset_print_settings
+    !> Sets there to be no [[PrintSettings(type)]] in use.
+    module subroutine unset_print_settings()
+      implicit none
+    end subroutine
+  end interface
 end module

@@ -1,8 +1,8 @@
 ! ======================================================================
 ! A path through reciprocal space, for the generation of dispersion curves.
 ! ======================================================================
-module qpoint_path_module
-  use utils_module
+module caesar_qpoint_path_module
+  use caesar_utils_module
   implicit none
   
   private

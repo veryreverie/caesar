@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Checks SharedCounter to see whether a gfortran bug is present or not.
 ! ======================================================================
-module check_counter_module
-  use common_module
+module caesar_check_counter_module
+  use caesar_common_module
   implicit none
   
   private

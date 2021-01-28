@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Calculates corrections due to perturbation theory.
 ! ======================================================================
-module perturbation_module
-  use common_module
+module caesar_perturbation_module
+  use caesar_common_module
   implicit none
   
   private

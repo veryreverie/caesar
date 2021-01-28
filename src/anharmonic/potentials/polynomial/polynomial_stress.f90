@@ -1,15 +1,15 @@
 ! ======================================================================
 ! A polynomial representation of the stress.
 ! ======================================================================
-module polynomial_stress_module
-  use common_module
+module caesar_polynomial_stress_module
+  use caesar_common_module
   
-  use states_module
-  use anharmonic_common_module
+  use caesar_states_module
+  use caesar_anharmonic_common_module
   
-  use polynomial_interpolator_module
-  use stress_basis_function_module
-  use coupling_stress_basis_functions_module
+  use caesar_polynomial_interpolator_module
+  use caesar_stress_basis_function_module
+  use caesar_coupling_stress_basis_functions_module
   implicit none
   
   private

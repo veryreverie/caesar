@@ -2,10 +2,10 @@
 ! A "subspace" is a set of degenerate modes.
 ! A subspace monomial is a product of subspaces.
 ! ======================================================================
-module subspace_monomial_module
-  use common_module
+module caesar_subspace_monomial_module
+  use caesar_common_module
   
-  use subspace_coupling_module
+  use caesar_subspace_coupling_module
   implicit none
   
   private

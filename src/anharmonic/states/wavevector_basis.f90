@@ -7,22 +7,22 @@
 ! N.B. The WavevectorBasis has a polymorphic allocatable component,
 !   harmonic_states_. Since compiler support for such things is not fantastic,
 !   care should be taken when modifying the code referring to this component.
-module wavevector_basis_module
-  use common_module
+module caesar_wavevector_basis_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use harmonic_state_1d_module
-  use harmonic_state_2d_module
-  use harmonic_state_real_module
-  use harmonic_state_complex_module
-  use harmonic_braket_real_module
-  use harmonic_braket_complex_module
-  use coupled_states_module
-  use density_matrix_module
-  use wavevector_state_module
-  use wavevector_states_module
-  use calculate_weights_module
+  use caesar_harmonic_state_1d_module
+  use caesar_harmonic_state_2d_module
+  use caesar_harmonic_state_real_module
+  use caesar_harmonic_state_complex_module
+  use caesar_harmonic_braket_real_module
+  use caesar_harmonic_braket_complex_module
+  use caesar_coupled_states_module
+  use caesar_density_matrix_module
+  use caesar_wavevector_state_module
+  use caesar_wavevector_states_module
+  use caesar_calculate_weights_module
   implicit none
   
   private

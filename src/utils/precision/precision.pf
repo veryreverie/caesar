@@ -1,0 +1,12 @@
+@test
+subroutine test_dp()
+  use funit
+  use caesar_precision_module
+  implicit none
+  
+  real(dp) :: foo
+  
+  foo = 0.123456789012345_dp
+  @assertTrue(abs(foo-0.123456789012345_dp)<1e-15_dp)
+  @assertTrue(abs(foo-0.12345678901234_dp )>1e-15_dp)
+end subroutine

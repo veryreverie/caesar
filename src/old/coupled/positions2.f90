@@ -7,8 +7,8 @@
 ! 30/11/2011 - Included estimation of normal mode amplitude at temperature T
 ! 09/10/2015 - Modified by JCAP to work with QUIP+GAP. equilibrium.dat is now in angstroms, not bohr, and in extended xyz format
 ! ======================================================================
-module positions_module
-  use common_module
+module caesar_positions_module
+  use caesar_common_module
   implicit none
   
   type :: PositionData

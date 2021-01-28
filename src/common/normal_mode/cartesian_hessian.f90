@@ -1,10 +1,10 @@
 ! ======================================================================
 ! The second derivatives of the potential, in cartesian co-ordinates.
 ! ======================================================================
-module cartesian_hessian_module
-  use utils_module
+module caesar_cartesian_hessian_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   implicit none
   
   private

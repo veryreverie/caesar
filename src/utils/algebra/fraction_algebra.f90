@@ -1,13 +1,13 @@
 ! ======================================================================
 ! Vectors and Matrices of type IntFraction.
 ! ======================================================================
-module fraction_algebra_module
-  use precision_module
-  use io_module
+module caesar_fraction_algebra_module
+  use caesar_precision_module
+  use caesar_io_module
   
-  use fraction_module
-  use linear_algebra_module
-  use algebra_utils_module
+  use caesar_fraction_module
+  use caesar_linear_algebra_module
+  use caesar_algebra_utils_module
   implicit none
   
   private

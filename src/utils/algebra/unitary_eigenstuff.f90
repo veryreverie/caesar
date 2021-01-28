@@ -5,18 +5,18 @@
 ! N.B. This module is untested, and is likely unstable.
 ! Instead of diagonalising the unitary matrix U, it is numerically superior to
 !    construct and diagonalise the Hermitian matrices (U+U*) and (U-U*)/i.
-module unitary_eigenstuff_module
-  use precision_module
-  use abstract_module
-  use io_module
+module caesar_unitary_eigenstuff_module
+  use caesar_precision_module
+  use caesar_abstract_module
+  use caesar_io_module
   
-  use mathematical_constants_module
-  use linear_algebra_module
-  use fraction_module
-  use phase_module
-  use qr_decomposition_module
-  use hermitian_eigenstuff_module
-  use orthonormal_module
+  use caesar_mathematical_constants_module
+  use caesar_linear_algebra_module
+  use caesar_fraction_module
+  use caesar_phase_module
+  use caesar_qr_decomposition_module
+  use caesar_hermitian_eigenstuff_module
+  use caesar_orthonormal_module
   implicit none
   
   private

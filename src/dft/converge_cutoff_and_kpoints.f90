@@ -2,10 +2,10 @@
 ! Converges the cutoff energy.
 ! ======================================================================
 ! Runs multiple single-point calculations with different cutoff energies.
-module converge_cutoff_and_kpoints_module
-  use common_module
+module caesar_converge_cutoff_and_kpoints_module
+  use caesar_common_module
   
-  use castep_output_file_module
+  use caesar_castep_output_file_module
   implicit none
   
   private

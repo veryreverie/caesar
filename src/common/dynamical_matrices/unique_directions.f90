@@ -5,11 +5,11 @@
 ! ======================================================================
 ! The symmetry operations to consider are outlined here:
 ! http://www.homepages.ucl.ac.uk/~ucfbdxa/phon/node4.html
-module unique_directions_module
-  use utils_module
+module caesar_unique_directions_module
+  use caesar_utils_module
   
-  use structure_module
-  use normal_mode_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
   implicit none
   
   private

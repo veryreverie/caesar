@@ -5,13 +5,13 @@
 ! The energy is normalised to be per anharmonic supercell,
 !    and the force is transformed into real mode co-ordinates.
 ! N.B. normal-mode forces are extensive.
-module sample_result_module
-  use common_module
+module caesar_sample_result_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use vscf_rvectors_module
-  use sampling_points_module
+  use caesar_vscf_rvectors_module
+  use caesar_sampling_points_module
   implicit none
   
   private

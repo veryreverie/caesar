@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A pair of HarmonicStateReal.
 ! ======================================================================
-module harmonic_braket_real_module
-  use common_module
+module caesar_harmonic_braket_real_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use harmonic_state_real_module
+  use caesar_harmonic_state_real_module
   implicit none
   
   private

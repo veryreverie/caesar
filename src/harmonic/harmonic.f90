@@ -2,19 +2,19 @@
 ! The operations of Caesar within the harmonic approximation.
 ! ======================================================================
 ! This module is simply an interface for the various harmonic modules.
-module harmonic_module
-  use hartree_to_ev_module
-  use snap_to_symmetry_module
-  use setup_harmonic_module
-  use run_harmonic_module
-  use calculate_normal_modes_module
-  use read_normal_modes_module
-  use plot_normal_modes_module
-  use calculate_harmonic_observables_module
-  use plot_dos_and_dispersion_module
-  use plot_thermodynamic_variables_module
-  use converge_harmonic_qpoints_module
-  use plot_harmonic_qpoint_convergence_module
+module caesar_harmonic_module
+  use caesar_hartree_to_ev_module
+  use caesar_snap_to_symmetry_module
+  use caesar_setup_harmonic_module
+  use caesar_run_harmonic_module
+  use caesar_calculate_normal_modes_module
+  use caesar_read_normal_modes_module
+  use caesar_plot_normal_modes_module
+  use caesar_calculate_harmonic_observables_module
+  use caesar_plot_dos_and_dispersion_module
+  use caesar_plot_thermodynamic_variables_module
+  use caesar_converge_harmonic_qpoints_module
+  use caesar_plot_harmonic_qpoint_convergence_module
   implicit none
 contains
 subroutine startup_harmonic()

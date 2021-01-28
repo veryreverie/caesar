@@ -1,12 +1,12 @@
 ! ======================================================================
 ! A test space, for temporary checking of misc. parts of the code.
 ! ======================================================================
-module test_module
-  use common_module
+module caesar_test_module
+  use caesar_common_module
   
-  use anharmonic_common_module
-  use potential_data_module
-  use anharmonic_module
+  use caesar_anharmonic_common_module
+  use caesar_potential_data_module
+  use caesar_anharmonic_module
   implicit none
   
   private

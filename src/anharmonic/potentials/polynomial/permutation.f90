@@ -5,8 +5,8 @@
 !    duplicate elements.
 ! Generates all unique permutations of a against b.
 ! See permutation_example for an example of how to use this class.
-module permutation_module
-  use common_module
+module caesar_permutation_module
+  use caesar_common_module
   implicit none
   
   private

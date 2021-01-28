@@ -2,16 +2,16 @@
 ! Routines to calculate a number of harmonic properties of the crystal from
 !    the Hessian matrix.
 ! ======================================================================
-module harmonic_properties_module
-  use utils_module
+module caesar_harmonic_properties_module
+  use caesar_utils_module
   
-  use structure_module
-  use normal_mode_module
-  use dynamical_matrices_module
-  use harmonic_stress_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
+  use caesar_dynamical_matrices_module
+  use caesar_harmonic_stress_module
   
-  use thermodynamic_data_module
-  use qpoint_path_module
+  use caesar_thermodynamic_data_module
+  use caesar_qpoint_path_module
   implicit none
   
   private

@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Reads and writes structure.dat files from StructureData.
 ! ======================================================================
-module structure_file_module
-  use utils_module
+module caesar_structure_file_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   implicit none
   
   private

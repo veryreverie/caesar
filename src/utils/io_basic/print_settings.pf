@@ -1,0 +1,55 @@
+@test
+subroutine test_print_settings()
+  use funit
+  
+  use caesar_print_settings_module
+  implicit none
+  
+  type(PrintSettings) :: foo
+  
+  ! Test the default constructor without a global PrintSettings set.
+  call unset_print_settings()
+  foo = PrintSettings()
+  @assertTrue(foo%indent==0)
+  @assertTrue(foo%overhang==3)
+  @assertTrue(foo%decimal_places==17)
+  @assertTrue(foo%floating_point_format=='es')
+  @assertTrue(foo%integer_digits==1)
+  
+  ! Test set_print_settings.
+  call set_print_settings( indent=2,                  &
+                         & overhang=4,                &
+                         & decimal_places=12,         &
+                         & floating_point_format='f', &
+                         & integer_digits=2           )
+  foo = PrintSettings()
+  @assertTrue(foo%indent==2)
+  @assertTrue(foo%overhang==4)
+  @assertTrue(foo%decimal_places==12)
+  @assertTrue(foo%floating_point_format=='f')
+  @assertTrue(foo%integer_digits==2)
+  
+  ! Test unset_print_settings.
+  call unset_print_settings()
+  foo = PrintSettings()
+  @assertTrue(foo%indent==0)
+  @assertTrue(foo%overhang==3)
+  @assertTrue(foo%decimal_places==17)
+  @assertTrue(foo%floating_point_format=='es')
+  @assertTrue(foo%integer_digits==1)
+  
+  ! Test the PrintSettings constructor.
+  foo = PrintSettings( indent=2,                  &
+                     & overhang=4,                &
+                     & decimal_places=12,         &
+                     & floating_point_format='f', &
+                     & integer_digits=2           )
+  @assertTrue(foo%indent==2)
+  @assertTrue(foo%overhang==4)
+  @assertTrue(foo%decimal_places==12)
+  @assertTrue(foo%floating_point_format=='f')
+  @assertTrue(foo%integer_digits==2)
+  
+  ! Unset print settings for subsequent tests.
+  call unset_print_settings()
+end subroutine

@@ -1,11 +1,11 @@
 ! ======================================================================
 ! Vectors and matrices in sparse representation.
 ! ======================================================================
-module sparse_algebra_module
-  use precision_module
-  use io_module
+module caesar_sparse_algebra_module
+  use caesar_precision_module
+  use caesar_io_module
   
-  use linear_algebra_module
+  use caesar_linear_algebra_module
   implicit none
   
   public :: IntElement

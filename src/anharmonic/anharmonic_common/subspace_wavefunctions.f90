@@ -2,8 +2,8 @@
 ! An abstract class to hold a printable representation of the wavefunctions
 !    spanning a subspace.
 ! ======================================================================
-module subspace_wavefunctions_module
-  use common_module
+module caesar_subspace_wavefunctions_module
+  use caesar_common_module
   implicit none
   
   private

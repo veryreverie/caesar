@@ -1,8 +1,8 @@
 ! ======================================================================
 ! q-points of the primitive cell.
 ! ======================================================================
-module qpoint_module
-  use utils_module
+module caesar_qpoint_module
+  use caesar_utils_module
   implicit none
   
   private

@@ -7,15 +7,15 @@
 !    - Types for handling normal mode co-ordinates.
 ! ======================================================================
 ! This module is simply an interface to various subsidiary modules.
-module common_module
-  use utils_module
+module caesar_common_module
+  use caesar_utils_module
   
-  use structure_module
-  use normal_mode_module
-  use dynamical_matrices_module
-  use harmonic_stress_module
-  use electronic_structure_module
-  use observables_module
-  use bands_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
+  use caesar_dynamical_matrices_module
+  use caesar_harmonic_stress_module
+  use caesar_electronic_structure_module
+  use caesar_observables_module
+  use caesar_bands_module
   implicit none
 end module

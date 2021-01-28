@@ -2,14 +2,14 @@
 ! Conversions between cartesian and normal-mode representations of
 !    harmonic stress.
 ! ======================================================================
-module harmonic_stress_conversion_module
-  use utils_module
-  use structure_module
-  use normal_mode_module
-  use dynamical_matrices_module
+module caesar_harmonic_stress_conversion_module
+  use caesar_utils_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
+  use caesar_dynamical_matrices_module
   
-  use stress_hessian_module
-  use stress_dynamical_matrix_module
+  use caesar_stress_hessian_module
+  use caesar_stress_dynamical_matrix_module
   implicit none
   
   private

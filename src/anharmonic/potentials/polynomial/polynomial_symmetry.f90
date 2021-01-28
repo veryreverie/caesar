@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Procedures for working with symmetry in polynomial co-ordinates.
 ! ======================================================================
-module polynomial_symmetry_module
-  use common_module
+module caesar_polynomial_symmetry_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   implicit none
   
   private

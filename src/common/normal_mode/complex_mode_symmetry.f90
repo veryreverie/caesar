@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Methods for converting symmetries into complex normal mode co-ordinates.
 ! ======================================================================
-module complex_mode_symmetry_module
-  use utils_module
+module caesar_complex_mode_symmetry_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   
-  use complex_mode_module
+  use caesar_complex_mode_module
   implicit none
   
   private

@@ -1,9 +1,9 @@
 ! ======================================================================
 ! A dummy module for when BLAS/LAPACK is not being linked.
 ! ======================================================================
-module lapack_wrapper_module
-  use precision_module
-  use io_module
+module caesar_lapack_wrapper_module
+  use caesar_precision_module
+  use caesar_io_module
   implicit none
   
   private

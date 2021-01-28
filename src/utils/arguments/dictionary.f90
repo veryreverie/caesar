@@ -1,13 +1,13 @@
 ! ======================================================================
 ! A dictionary of keys and values, both of type String.
 ! ======================================================================
-module argument_dictionary_module
-  use precision_module
-  use abstract_module
-  use io_module
+module caesar_argument_dictionary_module
+  use caesar_precision_module
+  use caesar_abstract_module
+  use caesar_io_module
   
-  use keyword_module
-  use common_keywords_module
+  use caesar_keyword_module
+  use caesar_common_keywords_module
   implicit none
   
   private

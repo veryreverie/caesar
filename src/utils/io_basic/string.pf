@@ -1,0 +1,78 @@
+@test
+subroutine test_String()
+  use funit
+  
+  use caesar_string_module
+  implicit none
+  
+  type(String)              :: foo
+  type(String), allocatable :: line(:)
+  
+  ! Test assignment and equality (inherited from StringBase)
+  foo = 'Hello, World!'
+  @assertTrue(foo=='Hello, World!')
+  
+  ! Test str.
+  @assertTrue(str('Hello, World!')=='Hello, World!')
+  
+  ! Test concatenation (//).
+  @assertTrue(''//''=='')
+  @assertTrue('Hello, '//'World!'=='Hello, World!')
+  @assertTrue('Hello, '//str('World!')=='Hello, World!')
+  @assertTrue(str('Hello, ')//'World!'=='Hello, World!')
+  @assertTrue(str('Hello, ')//str('World!')=='Hello, World!')
+  
+  ! Test len.
+  @assertTrue(len(str(''))==0)
+  @assertTrue(len(foo)==13)
+  
+  ! Test join.
+  @assertTrue(join([String::])=='')
+  @assertTrue(join([str('Hello,'),str('World!')])=='Hello, World!')
+  @assertTrue(join([str('Hello'),str(' World!')],',')=='Hello, World!')
+  
+  ! Test lower_case.
+  @assertTrue(lower_case('')=='')
+  @assertTrue(lower_case('Hello, World!')=='hello, world!')
+  @assertTrue(lower_case(foo)=='hello, world!')
+  
+  ! Test spaces.
+  @assertTrue(spaces(0)=='')
+  @assertTrue(spaces(3)=='   ')
+  
+  ! Test split_line.
+  line = split_line('')
+  @assertTrue(size(line)==0)
+  
+  line = split_line('Hello, World!')
+  @assertTrue(size(line)==2)
+  @assertTrue(all(line==[str('Hello,'),str('World!')]))
+  
+  line = split_line(foo)
+  @assertTrue(size(line)==2)
+  @assertTrue(all(line==[str('Hello,'),str('World!')]))
+  
+  line = split_line(foo, delimiter=',')
+  @assertTrue(size(line)==2)
+  @assertTrue(all(line==[str('Hello'),str(' World!')]))
+  
+  line = split_line(foo, delimiters=[',',' '])
+  @assertTrue(size(line)==2)
+  @assertTrue(all(line==[str('Hello'),str('World!')]))
+  
+  line = split_line(foo, delimiters=[' ',','])
+  @assertTrue(size(line)==2)
+  @assertTrue(all(line==[str('Hello'),str('World!')]))
+  
+  ! Test slice.
+  @assertTrue(slice('Hello, World!',4,9)=='lo, Wo')
+  @assertTrue(slice(foo,4,9)=='lo, Wo')
+  
+  ! Test trim.
+  @assertTrue(trim(str(''))=='')
+  @assertTrue(trim('Hello, ')=='Hello,')
+  
+  ! Test replace.
+  @assertTrue(replace('Hello, World!','o','e')=='Helle, Werld!')
+  @assertTrue(replace(foo,'o','e')=='Helle, Werld!')
+end subroutine

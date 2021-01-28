@@ -1,5 +1,5 @@
-module vscf_1d_module
-  use common_module
+module caesar_vscf_1d_module
+  use caesar_common_module
   implicit none
   
   ! Holds anharmonic potential data

@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Conversions between bases. Will eventually become a sparse matrix class.
 ! ======================================================================
-module state_conversion_module
-  use common_module
+module caesar_state_conversion_module
+  use caesar_common_module
   
-  use monomial_state_module
+  use caesar_monomial_state_module
   implicit none
   
   private

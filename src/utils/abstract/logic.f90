@@ -2,9 +2,9 @@
 ! A number of algorithms to do with logic and sorting.
 ! ======================================================================
 ! See the example module for some use cases.
-module logic_module
-  use precision_module
-  use io_basic_module
+module caesar_logic_module
+  use caesar_precision_module
+  use caesar_io_basic_module
   implicit none
   
   private
@@ -1396,12 +1396,12 @@ end function
 end module
 
 ! ======================================================================
-! Example use cases of procedures in logic_module.
+! Example use cases of procedures in caesar_logic_module.
 ! ======================================================================
-module logic_example_module
-  use io_basic_module
+module caesar_logic_example_module
+  use caesar_io_basic_module
   
-  use logic_module
+  use caesar_logic_module
   implicit none
 contains
 

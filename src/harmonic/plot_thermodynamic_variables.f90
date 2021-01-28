@@ -2,8 +2,8 @@
 ! Plots the thermodynamic variables calculated by
 !    calculate_harmonic_observables or calculate_anharmonic_observables.
 ! ======================================================================
-module plot_thermodynamic_variables_module
-  use common_module
+module caesar_plot_thermodynamic_variables_module
+  use caesar_common_module
   implicit none
   
   private

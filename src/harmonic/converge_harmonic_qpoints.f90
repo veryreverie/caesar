@@ -2,8 +2,8 @@
 ! Converges harmonic free energies w/r/t q-point spacing.
 ! Runs multiple harmonic caesar calculations with different q-point grids.
 ! ======================================================================
-module converge_harmonic_qpoints_module
-  use common_module
+module caesar_converge_harmonic_qpoints_module
+  use caesar_common_module
   
   implicit none
   

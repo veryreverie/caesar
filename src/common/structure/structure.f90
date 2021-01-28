@@ -9,14 +9,14 @@
 !    - Supercell data.
 ! ======================================================================
 ! This module is simply an interface for the various structure modules.
-module structure_module
-  use atom_module
+module caesar_structure_module
+  use caesar_atom_module
   
-  use physical_constants_module
-  use qpoint_module
-  use generate_qpoints_module
-  use symmetry_module
-  use structure_data_module
-  use supercell_module
+  use caesar_physical_constants_module
+  use caesar_qpoint_module
+  use caesar_generate_qpoints_module
+  use caesar_symmetry_module
+  use caesar_structure_data_module
+  use caesar_supercell_module
   implicit none
 end module

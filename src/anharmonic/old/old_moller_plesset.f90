@@ -23,7 +23,7 @@
 !
 ! For convenience, the powers of x are dropped from here on.
 module perturbation_theory
-  use common_module
+  use caesar_common_module
   implicit none
   
   ! Moller-Plesset corrections

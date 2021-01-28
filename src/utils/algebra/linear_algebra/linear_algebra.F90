@@ -6,11 +6,11 @@
 !    this file is mostly built by the preprocessor.
 ! See unary_algebra.fpp and binary_algebra.fpp for
 !    interfaces and function definitions.
-module linear_algebra_module
-  use precision_module
-  use io_module
+module caesar_linear_algebra_module
+  use caesar_precision_module
+  use caesar_io_module
   
-  use lapack_wrapper_module
+  use caesar_lapack_wrapper_module
   implicit none
   
   private

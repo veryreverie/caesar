@@ -1,5 +1,5 @@
-module atom_mapping_module
-  use common_module
+module caesar_atom_mapping_module
+  use caesar_common_module
   implicit none
 contains
 

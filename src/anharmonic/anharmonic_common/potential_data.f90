@@ -3,17 +3,17 @@
 ! This type extends PotentialBase with methods for constructing
 !    and interpolating the potential.
 ! ======================================================================
-module potential_data_module
-  use common_module
+module caesar_potential_data_module
+  use caesar_common_module
   
-  use subspace_coupling_module
-  use anharmonic_data_module
-  use subspace_state_module
-  use subspace_braket_module
-  use basis_state_module
-  use basis_states_module
-  use abstract_classes_module
-  use stress_data_module
+  use caesar_subspace_coupling_module
+  use caesar_anharmonic_data_module
+  use caesar_subspace_state_module
+  use caesar_subspace_braket_module
+  use caesar_basis_state_module
+  use caesar_basis_states_module
+  use caesar_abstract_classes_module
+  use caesar_stress_data_module
   implicit none
   
   public :: PotentialData

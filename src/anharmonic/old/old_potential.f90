@@ -1,16 +1,16 @@
 ! ======================================================================
 ! The basis functions from which the Born-Oppenheimer potential is made.
 ! ======================================================================
-module potential_module
-  use common_module
+module caesar_potential_module
+  use caesar_common_module
   
-  use monomial_module
-  use sampling_points_module
-  use coupled_modes_module
-  use grid_types_module
-  use harmonic_states_module
-  use vscf_states_module
-  use product_states_module
+  use caesar_monomial_module
+  use caesar_sampling_points_module
+  use caesar_coupled_modes_module
+  use caesar_grid_types_module
+  use caesar_harmonic_states_module
+  use caesar_vscf_states_module
+  use caesar_product_states_module
   implicit none
   
   private

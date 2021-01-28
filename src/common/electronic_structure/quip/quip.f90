@@ -2,19 +2,19 @@
 ! The wrapper for Quip.
 ! ======================================================================
 ! N.B. Quip and Caesar have clashing modules, so the two-layer separation
-!    of quip_module and quip_wrapper module is necessary.
-! quip_wrapper_module should depend on no Caesar modules, and the only
-!    exposure quip_module should have to Quip should be through
-!    quip_wrapper_module.
-module quip_module
-  use utils_module
+!    of caesar_quip_module and quip_wrapper module is necessary.
+! caesar_quip_wrapper_module should depend on no Caesar modules, and the only
+!    exposure caesar_quip_module should have to Quip should be through
+!    caesar_quip_wrapper_module.
+module caesar_quip_module
+  use caesar_utils_module
   
-  use physical_constants_module
-  use basic_structure_module
-  use electronic_structure_data_module
-  use normal_mode_module
+  use caesar_physical_constants_module
+  use caesar_basic_structure_module
+  use caesar_electronic_structure_data_module
+  use caesar_normal_mode_module
   
-  use quip_wrapper_module
+  use caesar_quip_wrapper_module
   implicit none
   
   private

@@ -4,10 +4,10 @@
 ! Takes a bra and ket (and optionally a subspace and monomial),
 !    and converts to a representation where all modes are represented,
 !    where previously implicit modes are now explicit with power zero.
-module state_helper_module
-  use common_module
+module caesar_state_helper_module
+  use caesar_common_module
   
-  use anharmonic_data_module
+  use caesar_anharmonic_data_module
   implicit none
   
   type, extends(NoDefaultConstructor) :: StateHelper

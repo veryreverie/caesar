@@ -2,8 +2,8 @@
 ! Plots the anharmonic potential along multiple modes, along with the harmonic
 !    and effective harmonic potentials along those modes mode..
 ! ======================================================================
-module plot_potential_map_module
-  use common_module
+module caesar_plot_potential_map_module
+  use caesar_common_module
   implicit none
   
   private

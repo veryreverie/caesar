@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Information about an atom.
 ! ======================================================================
-module atom_data_module
-  use utils_module
+module caesar_atom_data_module
+  use caesar_utils_module
   
-  use basic_atoms_module
+  use caesar_basic_atoms_module
   implicit none
   
   private

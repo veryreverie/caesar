@@ -1,15 +1,15 @@
 ! ======================================================================
 ! A class which runs electronic structure calculations.
 ! ======================================================================
-module calculation_runner_module
-  use utils_module
+module caesar_calculation_runner_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   
-  use electronic_structure_data_module
-  use electronic_structure_common_module
+  use caesar_electronic_structure_data_module
+  use caesar_electronic_structure_common_module
   
-  use electronic_structure_file_module
+  use caesar_electronic_structure_file_module
   implicit none
   
   private

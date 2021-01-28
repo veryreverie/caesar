@@ -21,10 +21,10 @@
 !    of co-ordinates. This cancels in integrals, and so is not stored.
 !
 ! N is the number of primitive cells in the anharmonic supercell.
-module harmonic_state_1d_module
-  use common_module
+module caesar_harmonic_state_1d_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   implicit none
   
   private

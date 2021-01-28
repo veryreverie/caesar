@@ -2,10 +2,10 @@
 ! Calculates the contribution to a set of dynamical matrices from
 !    a given monomial or polynomial.
 ! ======================================================================
-module polynomial_dynamical_matrices_module
-  use common_module
+module caesar_polynomial_dynamical_matrices_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   implicit none
   
   private

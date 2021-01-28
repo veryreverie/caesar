@@ -2,14 +2,14 @@
 ! Provides the Lanczos algorithm, which calculates
 !    the lowest n eigenvalues and eigenvectors of a real symmetric matrix.
 ! ======================================================================
-module lanczos_module
-  use precision_module
-  use io_module
+module caesar_lanczos_module
+  use caesar_precision_module
+  use caesar_io_module
   
-  use arpack_wrapper_module
+  use caesar_arpack_wrapper_module
   
-  use linear_algebra_module
-  use hermitian_eigenstuff_module
+  use caesar_linear_algebra_module
+  use caesar_hermitian_eigenstuff_module
   implicit none
   
   private

@@ -2,14 +2,14 @@
 ! A class which writes and keeps track of electronic structure calculation
 !    input directories.
 ! ======================================================================
-module calculation_writer_module
-  use utils_module
+module caesar_calculation_writer_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   
-  use electronic_structure_common_module
+  use caesar_electronic_structure_common_module
   
-  use electronic_structure_file_module
+  use caesar_electronic_structure_file_module
   implicit none
   
   private

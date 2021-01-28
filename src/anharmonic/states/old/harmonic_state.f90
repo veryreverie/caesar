@@ -6,12 +6,12 @@
 ! N.B. compare with MonomialState:
 !    - harmonic states are orthonormal.
 !    - harmonic states are harder to evaluate than monomial states.
-module harmonic_state_module
-  use common_module
+module caesar_harmonic_state_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use state_helper_module
+  use caesar_state_helper_module
   implicit none
   
   private

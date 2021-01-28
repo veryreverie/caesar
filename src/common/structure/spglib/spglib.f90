@@ -2,8 +2,8 @@
 ! The interface to spglib.
 ! ======================================================================
 ! This module is simply an interface for the various spglib modules.
-module spglib_module
-  use spglib_symmetries_module
-  use spglib_wrapper_module
+module caesar_spglib_module
+  use caesar_spglib_symmetries_module
+  use caesar_spglib_wrapper_module
   implicit none
 end module

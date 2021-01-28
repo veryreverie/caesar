@@ -6,11 +6,11 @@
 !    - read as an array from an array String(:), using this(:)=string(:).
 ! Any type which extends StringReadable must overload %read(string).
 ! See example module below for how to extend this type.
-module string_readable_module
-  use io_basic_module
-  use abstract_module
+module caesar_string_readable_module
+  use caesar_io_basic_module
+  use caesar_abstract_module
   
-  use string_array_module
+  use caesar_string_array_module
   implicit none
   
   private
@@ -38,10 +38,10 @@ end module
 ! ======================================================================
 ! An example module showing how to extend StringReadable.
 ! ======================================================================
-module string_readable_example_module
-  use io_basic_module
+module caesar_string_readable_example_module
+  use caesar_io_basic_module
   
-  use string_readable_module
+  use caesar_string_readable_module
   implicit none
   
   private

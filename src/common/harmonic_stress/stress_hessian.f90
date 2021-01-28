@@ -1,11 +1,11 @@
 ! ======================================================================
 ! The harmonic approximation to the stress, in cartesian co-ordinates.
 ! ======================================================================
-module stress_hessian_module
-  use utils_module
+module caesar_stress_hessian_module
+  use caesar_utils_module
   
-  use structure_module
-  use normal_mode_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
   implicit none
   
   private

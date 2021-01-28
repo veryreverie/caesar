@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Complex numbers with integer real and imaginary parts.
 ! ======================================================================
-module integer_complex_module
-  use io_module
+module caesar_integer_complex_module
+  use caesar_io_module
   implicit none
   
   private

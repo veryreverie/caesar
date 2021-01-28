@@ -1,10 +1,10 @@
 ! ======================================================================
 ! Subroutines for the calculation of minimum-image distances.
 ! ======================================================================
-module min_images_module
-  use utils_module
+module caesar_min_images_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   implicit none
   
   private

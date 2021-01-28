@@ -1,5 +1,5 @@
-module spline2_module
-  use common_module
+module caesar_spline2_module
+  use caesar_common_module
   implicit none
   
   interface spline

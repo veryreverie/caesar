@@ -1,11 +1,11 @@
 ! ======================================================================
 ! The harmonic approximation to the stress, in normal-mode co-ordinates.
 ! ======================================================================
-module stress_dynamical_matrix_module
-  use utils_module
+module caesar_stress_dynamical_matrix_module
+  use caesar_utils_module
   
-  use structure_module
-  use dynamical_matrices_module
+  use caesar_structure_module
+  use caesar_dynamical_matrices_module
   implicit none
   
   private

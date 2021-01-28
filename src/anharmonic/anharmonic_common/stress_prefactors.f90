@@ -3,8 +3,8 @@
 ! ======================================================================
 ! The stress prefactor between mode ui at q-point q and uj at q-point -q is
 ! I_{q,i,j} = sum_k ui_k ^ uj_k*, where ui_k is the mode at atom k.
-module stress_prefactors_module
-  use common_module
+module caesar_stress_prefactors_module
+  use caesar_common_module
   implicit none
   
   private

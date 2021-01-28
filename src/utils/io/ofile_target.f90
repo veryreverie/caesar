@@ -3,13 +3,13 @@
 ! ======================================================================
 ! OFileTarget keeps track of a single file.
 ! Multiple OFiles may point to a single OFileTarget.
-module ofile_target_module
-  use precision_module
-  use io_basic_module
+module caesar_ofile_target_module
+  use caesar_precision_module
+  use caesar_io_basic_module
   
-  use string_writeable_module
-  use strings_writeable_module
-  use file_module
+  use caesar_string_writeable_module
+  use caesar_strings_writeable_module
+  use caesar_file_module
   implicit none
   
   private

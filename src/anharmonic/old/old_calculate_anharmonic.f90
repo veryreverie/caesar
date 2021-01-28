@@ -1,21 +1,21 @@
 ! ======================================================================
 ! Uses DFT results to calculate anharmonic properties.
 ! ======================================================================
-module calculate_anharmonic_module
-  use common_module
+module caesar_calculate_anharmonic_module
+  use caesar_common_module
   
-  use setup_harmonic_module
+  use caesar_setup_harmonic_module
   
-  use setup_anharmonic_module
-  use coupled_modes_module
-  use sampling_points_module
-  use single_mode_states_module
-  use harmonic_states_module
-  use vscf_states_module
-  use product_states_module
-  use potential_module
-  use scf_module
-  use perturbation_module
+  use caesar_setup_anharmonic_module
+  use caesar_coupled_modes_module
+  use caesar_sampling_points_module
+  use caesar_single_mode_states_module
+  use caesar_harmonic_states_module
+  use caesar_vscf_states_module
+  use caesar_product_states_module
+  use caesar_potential_module
+  use caesar_scf_module
+  use caesar_perturbation_module
   implicit none
 contains
 

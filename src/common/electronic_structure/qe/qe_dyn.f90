@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Reads and writes QE dyn files.
 ! ======================================================================
-module qe_dyn_module
-  use utils_module
-  use structure_module
-  use normal_mode_module
+module caesar_qe_dyn_module
+  use caesar_utils_module
+  use caesar_structure_module
+  use caesar_normal_mode_module
   
-  use dynamical_matrix_module
+  use caesar_dynamical_matrix_module
   implicit none
   
   private

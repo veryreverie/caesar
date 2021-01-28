@@ -6,12 +6,12 @@
 ! N.B. compare with HarmonicState:
 !    - monomial states are normalised but not orthogonal.
 !    - monomial states are easier to evaluate than harmonic states.
-module monomial_state_module
-  use common_module
+module caesar_monomial_state_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use state_helper_module
+  use caesar_state_helper_module
   implicit none
   
   private

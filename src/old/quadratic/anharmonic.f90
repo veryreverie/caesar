@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Program to calculate anharmonic 1-dimensional correction.
 ! ======================================================================
-module anharmonic_module
-  use common_module
+module caesar_anharmonic_module
+  use caesar_common_module
   
-  use calculate_anharmonic_correction_module
-  use quadratic_spline_module
-  use vscf_1d_module
+  use caesar_calculate_anharmonic_correction_module
+  use caesar_quadratic_spline_module
+  use caesar_vscf_1d_module
   implicit none
 contains
 

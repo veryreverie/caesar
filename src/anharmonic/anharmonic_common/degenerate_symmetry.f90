@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Symmetries in normal mode co-ordinates.
 ! ======================================================================
-module degenerate_symmetry_module
-  use common_module
+module caesar_degenerate_symmetry_module
+  use caesar_common_module
   implicit none
   
   private

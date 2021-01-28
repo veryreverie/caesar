@@ -1,19 +1,13 @@
-! ======================================================================
-! Basic I/O functionality, including:
-!    - Variable-length strings.
-!    - Formatted and error-checked writing to the terminal.
-!    - System calls.
-! ======================================================================
-! This module is simply an interface for the various I/O modules.
-module io_basic_module
-  use error_module
-  use string_base_module
-  use string_module
-  use print_settings_module
-  use print_module
-  use intrinsics_module
-  use io_utils_module
-  use token_module
+!> This module is an interface for the various I/O modules.
+module caesar_io_basic_module
+  use caesar_error_module
+  use caesar_string_base_module
+  use caesar_string_module
+  use caesar_print_settings_module
+  use caesar_print_module
+  use caesar_intrinsics_module
+  use caesar_io_utils_module
+  use caesar_token_module
   implicit none
 contains
 subroutine startup_io_basic()

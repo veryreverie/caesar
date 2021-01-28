@@ -2,12 +2,12 @@
 ! A state along each complex mode in a degenerate subspace,
 !    at a set of q-points for which 2q=G.
 ! ======================================================================
-module harmonic_state_real_module
-  use common_module
+module caesar_harmonic_state_real_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use harmonic_state_1d_module
+  use caesar_harmonic_state_1d_module
   implicit none
   
   private

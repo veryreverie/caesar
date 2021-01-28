@@ -1,0 +1,24 @@
+@test
+subroutine test_StringBase()
+  use funit
+  
+  use caesar_string_base_module
+  implicit none
+  
+  character(13)    :: foo
+  type(StringBase) :: bar
+  character(13)    :: baz
+  
+  foo = 'Hello, World!'
+  bar = foo
+  baz = char(bar)
+  
+  @assertTrue(foo==baz)
+  @assertTrue(foo==bar)
+  @assertTrue(bar==foo)
+  @assertTrue(bar==bar)
+  @assertFalse(foo/=baz)
+  @assertFalse(foo/=bar)
+  @assertFalse(bar/=foo)
+  @assertFalse(bar/=bar)
+end subroutine

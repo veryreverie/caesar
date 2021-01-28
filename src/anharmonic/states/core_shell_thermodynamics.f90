@@ -26,12 +26,12 @@
 !    to remove core_effective from full_effective to leave shell_effective.
 !
 ! Finally, core_vci and shell_effective are equilibrated, to give the output.
-module core_shell_thermodynamics_module
-  use common_module
+module caesar_core_shell_thermodynamics_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
-  use wavevector_basis_module
+  use caesar_wavevector_basis_module
   implicit none
   
   private

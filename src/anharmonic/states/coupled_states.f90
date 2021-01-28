@@ -3,8 +3,8 @@
 ! ======================================================================
 ! This class gets appended to millions of times, so it handles its storage
 !    like a C++ vector for speed reasons.
-module coupled_states_module
-  use common_module
+module caesar_coupled_states_module
+  use caesar_common_module
   implicit none
   
   private

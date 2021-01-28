@@ -8,12 +8,12 @@
 !
 ! N.B.: Stringable extends StringWriteable, but duplicates the functionality 
 !    of StringReadable since Fortran does not support multiple inheritance.
-module stringable_module
-  use io_basic_module
+module caesar_stringable_module
+  use caesar_io_basic_module
   
-  use string_array_module
-  use string_readable_module
-  use string_writeable_module
+  use caesar_string_array_module
+  use caesar_string_readable_module
+  use caesar_string_writeable_module
   implicit none
   
   private
@@ -41,10 +41,10 @@ end module
 ! ======================================================================
 ! An example module showing how to extend Stringable.
 ! ======================================================================
-module stringable_example_module
-  use io_basic_module
+module caesar_stringable_example_module
+  use caesar_io_basic_module
   
-  use stringable_module
+  use caesar_stringable_module
   implicit none
   
   private

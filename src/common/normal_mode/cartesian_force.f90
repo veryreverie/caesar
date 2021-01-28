@@ -1,10 +1,10 @@
 ! ======================================================================
 ! A force in cartesian co-ordinates.
 ! ======================================================================
-module cartesian_force_module
-  use utils_module
+module caesar_cartesian_force_module
+  use caesar_utils_module
   
-  use structure_module
+  use caesar_structure_module
   implicit none
   
   private

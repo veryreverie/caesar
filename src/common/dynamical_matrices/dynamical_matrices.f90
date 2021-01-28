@@ -6,10 +6,10 @@
 !    modules.
 ! N.B. force constants in cartesian co-ordinates are Hessians,
 !    and force constants in q-point co-ordinates are dynamical matrices.
-module dynamical_matrices_module
-  use unique_directions_module
-  use min_images_module
-  use dynamical_matrix_module
-  use calculate_dynamical_matrices_module
+module caesar_dynamical_matrices_module
+  use caesar_unique_directions_module
+  use caesar_min_images_module
+  use caesar_dynamical_matrix_module
+  use caesar_calculate_dynamical_matrices_module
   implicit none
 end module

@@ -5,10 +5,10 @@
 ! Calculates the set of phonon normal modes at each supercell G-vector.
 ! Calculates the real part of the non-mass-reduced polarisation vector, which
 !    is the pattern of displacement corresponding to the normal mode.
-module calculate_normal_modes_module
-  use common_module
+module caesar_calculate_normal_modes_module
+  use caesar_common_module
   
-  use construct_supercell_hessian_module
+  use caesar_construct_supercell_hessian_module
   implicit none
   
   private

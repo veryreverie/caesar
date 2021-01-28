@@ -1,5 +1,5 @@
-module calculate_anharmonic_correction_module
-  use common_module
+module caesar_calculate_anharmonic_correction_module
+  use caesar_common_module
   implicit none
 contains
 

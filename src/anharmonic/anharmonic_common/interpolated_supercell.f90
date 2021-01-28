@@ -2,8 +2,8 @@
 ! Generates a supercell with a given q-point grid,
 !    along with the corresponding q-points and normal modes.
 ! ======================================================================
-module interpolated_supercell_module
-  use common_module
+module caesar_interpolated_supercell_module
+  use caesar_common_module
   implicit none
   
   private

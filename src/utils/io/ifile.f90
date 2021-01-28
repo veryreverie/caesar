@@ -1,12 +1,12 @@
 ! ======================================================================
 ! Input file.
 ! ======================================================================
-module ifile_module
-  use precision_module
-  use io_basic_module
+module caesar_ifile_module
+  use caesar_precision_module
+  use caesar_io_basic_module
   
-  use file_module
-  use string_array_module
+  use caesar_file_module
+  use caesar_string_array_module
   implicit none
   
   private

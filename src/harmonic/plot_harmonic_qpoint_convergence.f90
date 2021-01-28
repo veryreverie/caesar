@@ -2,8 +2,8 @@
 ! Plots the convergence of the harmonic free energy calculation
 !    w/r/t the q-point grid, as calculated by converge_harmonic_qpoints.
 ! ======================================================================
-module plot_harmonic_qpoint_convergence_module
-  use common_module
+module caesar_plot_harmonic_qpoint_convergence_module
+  use caesar_common_module
   implicit none
   
   private

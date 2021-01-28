@@ -2,10 +2,10 @@
 ! Interpolate an anharmonic dynamical matrix to the same q-point density
 !    as a given harmonic dynamical matrix.
 ! ======================================================================
-module interpolation_module
-  use common_module
+module caesar_interpolation_module
+  use caesar_common_module
   
-  use anharmonic_common_module
+  use caesar_anharmonic_common_module
   
   private
   

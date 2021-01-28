@@ -1,8 +1,8 @@
 ! ======================================================================
 ! Data common to all harmonic calculations.
 ! ======================================================================
-module harmonic_data_module
-  use common_module
+module caesar_harmonic_data_module
+  use caesar_common_module
   implicit none
   
   private
