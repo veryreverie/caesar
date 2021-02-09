@@ -12,15 +12,11 @@ contains
 
 ! Aborts without a stacktrace.
 subroutine quit_implementation()
-  implicit none
-  
   call exit(1)
 end subroutine
 
 ! Aborts with a stacktrace.
 subroutine err_implementation()
-  implicit none
-  
   call backtrace
   
   call exit(1)

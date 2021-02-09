@@ -41,11 +41,11 @@ subroutine check_counter_subroutine(arguments)
   call print_line('Initialising counter A.')
   a = SharedCounter()
   call print_line('Does counter A believe itself to be unique? '// &
-                & colour_check(a%is_only_pointer(),.true.))
+                & colour_check(a%is_only_copy(),.true.))
   call print_line('Passing counter A into subroutine.')
   call check_counter_subroutine_2(a)
   call print_line('Does counter A believe itself to be unique? '// &
-                & colour_check(a%is_only_pointer(),.true.))
+                & colour_check(a%is_only_copy(),.true.))
 end subroutine
 
 subroutine check_counter_subroutine_2(a)
@@ -56,13 +56,13 @@ subroutine check_counter_subroutine_2(a)
   type(SharedCounter) :: b
   
   call print_line('Does counter A believe itself to be unique? '// &
-                & colour_check(a%is_only_pointer(),.true.))
+                & colour_check(a%is_only_copy(),.true.))
   call print_line('Initialising counter B to counter A.')
   b = a
   call print_line('Does counter A believe itself to be unique? '// &
-                & colour_check(a%is_only_pointer(),.false.))
+                & colour_check(a%is_only_copy(),.false.))
   call print_line('Does counter B believe itself to be unique? '// &
-                & colour_check(b%is_only_pointer(),.false.))
+                & colour_check(b%is_only_copy(),.false.))
   call print_line('Exiting subroutine.')
 end subroutine
 

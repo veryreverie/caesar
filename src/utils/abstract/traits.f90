@@ -1,6 +1,4 @@
-! ======================================================================
-! Provides base classes which can be extended to give useful traits.
-! ======================================================================
+!> Provides base classes which can be extended to give useful traits.
 module caesar_traits_module
   implicit none
   
@@ -8,8 +6,8 @@ module caesar_traits_module
   
   public :: NoDefaultConstructor
   
-  ! Provides a zero-sized private variable, which prevents any types which
-  !    extend NoDefaultConstructor from having default constructors.
+  !> Any type which extends [[NoDefaultConstructor(type)]] will not have the
+  !>    default constructor.
   type :: NoDefaultConstructor
     logical, private :: no_default_constructor_(0)
   end type

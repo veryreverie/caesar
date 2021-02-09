@@ -24,8 +24,6 @@ module caesar_print_module
     !>    redirected to a file. Provides error checking and formatting
     !>   dependent on whether the output is the terminal or a file.
     module subroutine print_line_character(line,settings)
-      implicit none
-      
       character(*),        intent(in)           :: line
       !> Settings determining how the print behaves.
       !> Defaults to the global [[PrintSettings(type)]]
@@ -39,8 +37,6 @@ module caesar_print_module
     !>    redirected to a file. Provides error checking and formatting
     !>   dependent on whether the output is the terminal or a file.
     module subroutine print_line_String(line,settings)
-      implicit none
-      
       type(String),        intent(in)           :: line
       !> Settings determining how the print behaves.
       !> Defaults to the global [[PrintSettings(type)]]
@@ -53,8 +49,6 @@ module caesar_print_module
     !> As print_line, but for printing over multiple lines.
     module subroutine print_lines_Strings_character(lines,separating_line, &
        & settings)
-      implicit none
-      
       type(String),        intent(in)           :: lines(:)
       !> If present, `separating_line` will be printed between each line.
       character(*),        intent(in), optional :: separating_line
@@ -67,8 +61,6 @@ module caesar_print_module
     !> As print_line, but for printing over multiple lines.
     module subroutine print_lines_Strings_String(lines,separating_line, &
        & settings)
-      implicit none
-      
       type(String),        intent(in)           :: lines(:)
       !> If present, `separating_line` will be printed between each line.
       type(String),        intent(in)           :: separating_line
@@ -85,8 +77,6 @@ module caesar_print_module
     !> Does nothing if OUTPUT_FILE is set.
     module function colour_character_character(input,colour_name) &
        & result(output)
-      implicit none
-      
       character(*), intent(in) :: input
       character(*), intent(in) :: colour_name
       type(String)             :: output
@@ -96,8 +86,6 @@ module caesar_print_module
     !>    printed to the terminal.
     !> Does nothing if OUTPUT_FILE is set.
     module function colour_String_character(input,colour_name) result(output)
-      implicit none
-      
       character(*), intent(in) :: input
       type(String), intent(in) :: colour_name
       type(String)             :: output
@@ -107,8 +95,6 @@ module caesar_print_module
     !>    printed to the terminal.
     !> Does nothing if OUTPUT_FILE is set.
     module function colour_character_String(input,colour_name) result(output)
-      implicit none
-      
       type(String), intent(in) :: input
       character(*), intent(in) :: colour_name
       type(String)             :: output
@@ -119,8 +105,6 @@ module caesar_print_module
     !> Does nothing if OUTPUT_FILE is set.
     impure elemental module function colour_String_String(input,colour_name) &
        & result(output)
-      implicit none
-      
       type(String), intent(in) :: input
       type(String), intent(in) :: colour_name
       type(String)             :: output
@@ -131,8 +115,6 @@ module caesar_print_module
     !> C tput cols interface.
     function get_terminal_width_c(width) bind(c) result(success)
       use, intrinsic :: iso_c_binding
-      implicit none
-      
       integer(kind=c_int), intent(out) :: width
       logical(kind=c_bool)             :: success
     end function
@@ -141,8 +123,6 @@ module caesar_print_module
   interface set_output_unit
     !> Set OUTPUT_FILE_UNIT to a file unit.
     module subroutine set_output_unit(file_unit)
-      implicit none
-      
       integer, intent(in) :: file_unit
     end subroutine
   end interface
@@ -150,14 +130,12 @@ module caesar_print_module
   interface unset_output_unit
     !> Unset OUTPUT_FILE_UNIT.
     module subroutine unset_output_unit()
-      implicit none
     end subroutine
   end interface
 
   interface set_terminal_width
     !> Set the terminal width.
     module subroutine set_terminal_width()
-      implicit none
     end subroutine
   end interface
 end module

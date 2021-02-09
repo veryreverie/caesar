@@ -11,8 +11,6 @@ module caesar_io_basic_module
   implicit none
 contains
 subroutine startup_io_basic()
-  implicit none
-  
   call startup_io_utils()
 end subroutine
 end module

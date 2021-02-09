@@ -1,5 +1,4 @@
-@test
-subroutine test_intrinsics()
+module intrinsics_test
   use funit
   
   use caesar_precision_module
@@ -7,10 +6,11 @@ subroutine test_intrinsics()
   use caesar_print_settings_module
   use caesar_intrinsics_module
   implicit none
-  
+contains
+
+@test
+subroutine test_str()
   call unset_print_settings()
-  
-  ! Test str.
   @assertTrue(str(.false.)=='F')
   @assertTrue(str(.true.)=='T')
   @assertTrue(str(3)=='3')
@@ -38,14 +38,18 @@ subroutine test_intrinsics()
   @assertTrue(str((-1.23_dp,1.23_dp))=='  -1.23+001.23i')
   @assertTrue(str((-1.23_dp,-1.23_dp))=='  -1.23-001.23i')
   call unset_print_settings()
-  
-  ! Test left_pad.
+end subroutine
+
+@test
+subroutine test_left_pad()
   @assertTrue(left_pad(1,'1234')=='0001')
   @assertTrue(left_pad(1,'1234',' ')=='   1')
   @assertTrue(left_pad(1,str('1234'))=='0001')
   @assertTrue(left_pad(1,str('1234'),' ')=='   1')
-  
-  ! Test join.
+end subroutine
+
+@test
+subroutine test_join()
   @assertTrue(join([logical::])=='')
   @assertTrue(join([integer::])=='')
   @assertTrue(join([real(dp)::])=='')
@@ -54,8 +58,10 @@ subroutine test_intrinsics()
   @assertTrue(join([.true.,.false.],',')=='T,F')
   @assertTrue(join([1,2,3],',')==' 1, 2, 3')
   @assertTrue(join([1,2,3],pad_sign=.false.)=='1 2 3')
-  
-  ! Test lgcl.
+end subroutine
+
+@test
+subroutine test_lgcl()
   @assertTrue(lgcl('T'))
   @assertTrue(lgcl('t'))
   @assertTrue(lgcl('True'))
@@ -68,14 +74,19 @@ subroutine test_intrinsics()
   @assertFalse(lgcl('false'))
   @assertFalse(lgcl(str(.false.)))
   @assertFalse(lgcl(' F '))
-  
-  ! Test int.
+end subroutine
+
+@test
+subroutine test_int()
   @assertTrue(int('12')==12)
   @assertTrue(int(str(12))==12)
   @assertTrue(int('-12')==-12)
   @assertTrue(int(' 12 ')==12)
-  
-  ! Test dble.
+end subroutine
+
+@test
+subroutine test_dble()
+  call unset_print_settings()
   @assertTrue(abs(dble('12')-12._dp)<1e-10_dp)
   @assertTrue(abs(dble('12E0')-12._dp)<1e-10_dp)
   @assertTrue(abs(dble('12e0')-12._dp)<1e-10_dp)
@@ -94,8 +105,11 @@ subroutine test_intrinsics()
   @assertTrue(abs(dble('-1.2e-300')+1.2e-300_dp)<1e-310_dp)
   @assertTrue(abs(dble('4/5')-0.8_dp)<1e-10_dp)
   @assertTrue(abs(dble('1.2e1/-2.4e-1')+50._dp)<1e-10_dp)
-  
-  ! Test cmplx.
+  call unset_print_settings()
+end subroutine
+
+@test
+subroutine test_cmplx()
   @assertTrue(abs(cmplx('1.2+1.2i')-(1.2_dp,1.2_dp))<1e-10_dp)
   @assertTrue(abs(cmplx('1.2-1.2i')-(1.2_dp,-1.2_dp))<1e-10_dp)
   @assertTrue(abs(cmplx('-1.2+1.2i')-(-1.2_dp,1.2_dp))<1e-10_dp)
@@ -116,8 +130,10 @@ subroutine test_intrinsics()
   @assertTrue(abs(cmplx('1.2e3i')-(0.0_dp,1.2e3_dp))<1e-10_dp)
   @assertTrue(abs(cmplx('-1.2e3i')-(0.0_dp,-1.2e3_dp))<1e-10_dp)
   @assertTrue(abs(cmplx(str((1.2e3_dp,1.2e3_dp)))-(1.2e3_dp,1.2e3_dp))<1e-10_dp)
-  
-  ! Test concatenation (//).
+end subroutine
+
+@test
+subroutine test_concatenation()
   @assertTrue('Hello '//.true.=='Hello T')
   @assertTrue(.true.//' Hello'=='T Hello')
   @assertTrue(str('Hello ')//.true.=='Hello T')
@@ -137,3 +153,4 @@ subroutine test_intrinsics()
   @asserttrue((1.2_dp,1.2_dp)//str(' Hello')==' 1.200E+000+1.200E+000i Hello')
   call unset_print_settings()
 end subroutine
+end module

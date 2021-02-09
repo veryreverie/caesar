@@ -30,29 +30,24 @@ module caesar_error_module
   interface
     !> Aborts without a stacktrace.
     module subroutine quit()
-      implicit none
     end subroutine
     
     !> Aborts with a stacktrace.
     module subroutine err_none()
-      implicit none
     end subroutine
 
     !> Aborts with a stacktrace if `input` $\neq 0$.
     !> Designed for use with `allocate(foo, stat=ialloc)` flags.
     module subroutine err_allocate_flag(this)
-      implicit none
       integer, intent(in) :: this
     end subroutine
 
     !> Sets `ERROR`, `CODE_ERROR` and `WARNING` to be coloured.
     module subroutine set_error_strings_coloured()
-      implicit none
     end subroutine
 
     !> Sets `ERROR`, `CODE_ERROR` and `WARNING` to be uncoloured.
     module subroutine set_error_strings_uncoloured()
-      implicit none
     end subroutine
   end interface
 end module

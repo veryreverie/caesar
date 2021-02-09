@@ -17,11 +17,13 @@ if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   # Disabled warnings:
   #    maybe-uninitialized: erroneously triggers.
   #    unused-dummy-argument: triggers for inherited functions.
-  set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -Wno-unused-dummy-argument -fcheck-array-temporaries -fno-omit-frame-pointer")
-  if (NOT CMAKE_Fortran_COMPILER_VERSION LESS 10)
-    # Disabled warnings:
+  set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1  -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -Wno-unused-dummy-argument -fbacktrace -fno-omit-frame-pointer -ffree-line-length-none")
+  if (CMAKE_Fortran_COMPILER_VERSION LESS 10)
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fcheck=all -fcheck-array-temporaries")
+  else()
+    # Additional disabled warnings:
     #    function-elimination: this is desirable behaviour.
-    set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1 -fcheck=all,no-array-temps -fbacktrace -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -Wno-unused-dummy-argument -fno-omit-frame-pointer -Wno-function-elimination")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fcheck=all,no-array-temps -Wno-function-elimination")
   endif()
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
   set(CMAKE_Fortran_FLAGS "-f2008 -I ${CMAKE_BINARY_DIR}/mod/ -C=all -u -mtrace -nan -info -g -gline -colour")
@@ -29,7 +31,7 @@ elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # Disabled warnings:
   #    5462: Global name too long: unnecessarily limits module names.
   #    7712: as unused-dummy-argument above.
-  set(CMAKE_Fortran_FLAGS "-stand f08 -O2 -xHost -g -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1 -heap-arrays 0 -diag-disable=5462,7712")
+  set(CMAKE_Fortran_FLAGS "-stand f08 -O2 -xHost -g -standard-realloc-lhs -standard-semantics -stand -traceback -warn all -diag-error-limit 1 -heap-arrays 0 -diag-disable=5462,7712 -implicitnone")
 elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "PGI")
   set(CMAKE_Fortran_FLAGS "-C -c -g -traceback -O0")
 else()

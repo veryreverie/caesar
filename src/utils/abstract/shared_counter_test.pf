@@ -1,0 +1,30 @@
+module shared_counter_test
+  use funit
+  
+  use caesar_io_basic_module
+  
+  use caesar_shared_counter_module
+  implicit none
+contains
+
+@test
+subroutine test_shared_counter()
+  type(SharedCounter) :: foo
+  
+  type(String) :: message
+  
+  message = 'This test may fail if CORRECT_COUNTER_BUG &
+     & has not been set correctly. See the Caesar readme for details.'
+  
+  foo = SharedCounter()
+  @assertTrue(foo%is_only_copy(), char(message))
+  block
+    type(SharedCounter) :: bar
+    
+    bar = foo
+    @assertFalse(foo%is_only_copy(), char(message))
+    @assertFalse(bar%is_only_copy(), char(message))
+  end block
+  @assertTrue(foo%is_only_copy(), char(message))
+end subroutine
+end module

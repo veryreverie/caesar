@@ -1,0 +1,2914 @@
+module logic_test
+  use funit
+  
+  use caesar_precision_module
+  use caesar_io_basic_module
+  
+  use caesar_logic_module
+  implicit none
+  
+  type, extends(ParameterizedTestCase) :: foo
+    integer :: i
+  end type
+contains
+
+@test
+subroutine test_lazy_and()
+  logical, allocatable :: unallocated_logical
+  
+  @assertTrue(lazy_and(.true.,.true.))
+  @assertFalse(lazy_and(.true.,.false.))
+  @assertFalse(lazy_and(.false.,.true.))
+  @assertFalse(lazy_and(.false.,.false.))
+  @assertFalse(lazy_and(.false.,unallocated_logical))
+end subroutine
+
+@test
+subroutine test_lazy_or()
+  logical, allocatable :: unallocated_logical
+  
+  @assertTrue(lazy_or(.true.,.true.))
+  @assertTrue(lazy_or(.true.,.false.))
+  @assertTrue(lazy_or(.false.,.true.))
+  @assertFalse(lazy_or(.false.,.false.))
+  @assertTrue(lazy_or(.true.,unallocated_logical))
+end subroutine
+
+@test
+subroutine test_first_logicals_unsorted()
+  type :: TestCase
+    logical, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  logical, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                                  &
+     & TestCase( input = [logical::]),                            &
+     & TestCase( input = [.false.]),                              &
+     & TestCase( input = [.true.]),                               &
+     & TestCase( input = [.false., .false., .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.false., .false., .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.false., .true. , .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .true. , .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .true. , .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [ (.false., i=1, 78),                    &
+     &                     .true.,                                &
+     &                     (.false., i=1, 35)],                   &
+     &           mask  = [([.true., .false.], i=1, 57)] ),        &
+     & TestCase( input = [(.false., i=1, 79), (.true., i=1, 35)], &
+     &           mask  = [([.true., .false.], i=1, 57)] )         ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first`.
+      output = first(input, mask=mask, default=0)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input.and.mask), char(message))
+        else
+          @assertFalse(any(input), char(message))
+        endif
+      else
+        @assertTrue(input(output), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(:output-1).and.mask(:output-1)), char(message))
+        else
+          @assertFalse(any(input(:output-1)), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_first_logicals_sorted()
+  type :: TestCase
+    logical, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  logical, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                                  &
+     & TestCase( input = [logical::]),                            &
+     & TestCase( input = [.false.]),                              &
+     & TestCase( input = [.true.]),                               &
+     & TestCase( input = [.false., .false., .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.false., .false., .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.false., .true. , .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .true. , .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [(.false., i=1, 79), (.true., i=1, 35)], &
+     &           mask  = [([.true., .false.], i=1, 57)] )         ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first`.
+      output = first(input, mask=mask, default=0, sorted=.true.)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input.and.mask), char(message))
+        else
+          @assertFalse(any(input), char(message))
+        endif
+      else
+        @assertTrue(input(output), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(:output-1).and.mask(:output-1)), char(message))
+        else
+          @assertFalse(any(input(:output-1)), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_first_LogicalLambda_unsorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                           &
+     & TestCase( input = [integer::]),                     &
+     & TestCase( input = [1]),                             &
+     & TestCase( input = [2]),                             &
+     & TestCase( input = [1, 3, 5],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [5, 7, 6],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [9, 2, 3],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [4, 6, 9],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [8, 0, 2],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [ (7, i=1, 78),                   &
+     &                     2,                              &
+     &                     (9, i=1, 35)],                  &
+     &           mask  = [([.true., .false.], i=1, 57)] ), &
+     & TestCase( input = [(3, i=1, 79), (6, i=1, 35)],     &
+     &           mask  = [([.true., .false.], i=1, 57)] )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first`.
+      output = first(input, is_even, mask=mask, default=0)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any([(is_even(input(k)),k=1,size(input))].and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=1,size(input))])
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(is_even(input(output)), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any([(is_even(input(k)),k=1,output-1)].and.mask(:output-1)))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=1,output-1)])
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function is_even(input) result(output)
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(integer)
+      output = modulo(input,2)==0
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_first_LogicalLambda_sorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                           &
+     & TestCase( input = [integer::]),                     &
+     & TestCase( input = [1]),                             &
+     & TestCase( input = [2]),                             &
+     & TestCase( input = [1, 3, 5],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [5, 7, 6],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [9, 2, 4],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [4, 6, 0],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [(3, i=1, 79), (6, i=1, 35)],     &
+     &           mask  = [([.true., .false.], i=1, 57)] )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first`.
+      output = first(input, is_even, mask=mask, default=0, sorted=.true.)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any([(is_even(input(k)),k=1,size(input))].and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=1,size(input))])
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(is_even(input(output)), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any([(is_even(input(k)),k=1,output-1)].and.mask(:output-1)))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=1,output-1)])
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function is_even(input) result(output)
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(integer)
+      output = modulo(input,2)==0
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_last_logicals_unsorted()
+  type :: TestCase
+    logical, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  logical, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                                  &
+     & TestCase( input = [logical::]),                            &
+     & TestCase( input = [.false.]),                              &
+     & TestCase( input = [.true.]),                               &
+     & TestCase( input = [.false., .false., .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.false., .false., .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.false., .true. , .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .true. , .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .true. , .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [ (.false., i=1, 78),                    &
+     &                     .true.,                                &
+     &                     (.false., i=1, 35)],                   &
+     &           mask  = [([.true., .false.], i=1, 57)] ),        &
+     & TestCase( input = [(.false., i=1, 79), (.true., i=1, 35)], &
+     &           mask  = [([.true., .false.], i=1, 57)] )         ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last`.
+      output = last(input, mask=mask, default=0)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input.and.mask), char(message))
+        else
+          @assertFalse(any(input), char(message))
+        endif
+      else
+        @assertTrue(input(output), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(output+1:).and.mask(output+1:)), char(message))
+        else
+          @assertFalse(any(input(output+1:)), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_last_logicals_sorted()
+  type :: TestCase
+    logical, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  logical, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                                  &
+     & TestCase( input = [logical::]),                            &
+     & TestCase( input = [.false.]),                              &
+     & TestCase( input = [.true.]),                               &
+     & TestCase( input = [.false., .false., .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .false., .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .true. , .false.],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [.true. , .true. , .true. ],             &
+     &           mask  = [.false., .true. , .false.]  ),          &
+     & TestCase( input = [(.true., i=1, 79), (.false., i=1, 35)], &
+     &           mask  = [([.false., .true.], i=1, 57)] )         ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last`.
+      output = last(input, mask=mask, default=0, sorted=.true.)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input.and.mask), char(message))
+        else
+          @assertFalse(any(input), char(message))
+        endif
+      else
+        @assertTrue(input(output), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(output+1:).and.mask(output+1:)), char(message))
+        else
+          @assertFalse(any(input(output+1:)), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_last_LogicalLambda_unsorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                           &
+     & TestCase( input = [integer::]),                     &
+     & TestCase( input = [1]),                             &
+     & TestCase( input = [2]),                             &
+     & TestCase( input = [1, 3, 5],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [5, 7, 6],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [9, 2, 3],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [4, 6, 9],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [8, 0, 2],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [ (7, i=1, 78),                   &
+     &                     2,                              &
+     &                     (9, i=1, 35)],                  &
+     &           mask  = [([.true., .false.], i=1, 57)] ), &
+     & TestCase( input = [(3, i=1, 79), (6, i=1, 35)],     &
+     &           mask  = [([.true., .false.], i=1, 57)] )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last`.
+      output = last(input, is_even, mask=mask, default=0)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any([(is_even(input(k)),k=1,size(input))].and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=1,size(input))])
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(is_even(input(output)), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any( [(is_even(input(k)),k=output+1,size(input))] &
+                      & .and. mask(output+1:)                              ))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=output+1,size(input))])
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function is_even(input) result(output)
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(integer)
+      output = modulo(input,2)==0
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_last_LogicalLambda_sorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                          &
+     & TestCase( input = [integer::]),                    &
+     & TestCase( input = [1]),                            &
+     & TestCase( input = [2]),                            &
+     & TestCase( input = [1, 3, 5],                       &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [4, 7, 3],                       &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [4, 2, 9],                       &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [4, 6, 0],                       &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [(6, i=1, 79), (1, i=1, 35)],    &
+     &           mask  = [([.false., .true.], i=1, 57)] ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last`.
+      output = last(input, is_even, mask=mask, default=0, sorted=.true.)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any([(is_even(input(k)),k=1,size(input))].and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=1,size(input))])
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(is_even(input(output)), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any( [(is_even(input(k)),k=output+1,size(input))] &
+                      & .and. mask(output+1:)                              ))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any([(is_even(input(k)),k=output+1,size(input))])
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function is_even(input) result(output)
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(integer)
+      output = modulo(input,2)==0
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_first_equivalent_integers_unsorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                           &
+     & TestCase( input = [integer::]),                     &
+     & TestCase( input = [7]),                             &
+     & TestCase( input = [4]),                             &
+     & TestCase( input = [4, 4, 4],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [4, 4, 7],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [4, 7, 4],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [7, 7, 4],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [7, 7, 7],                        &
+     &           mask  = [.false., .true. , .false.]  ),   &
+     & TestCase( input = [ (4, i=1, 78),                   &
+     &                     7,                              &
+     &                     (4, i=1, 35)],                  &
+     &           mask  = [([.true., .false.], i=1, 57)] ), &
+     & TestCase( input = [(4, i=1, 79), (7, i=1, 35)],     &
+     &           mask  = [([.true., .false.], i=1, 57)] )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first_equivalent`.
+      output = first_equivalent(input, 7, mask=mask, default=0)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input==7.and.mask), char(message))
+        else
+          @assertFalse(any(input==7), char(message))
+        endif
+      else
+        @assertTrue(input(output)==7, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(:output-1)==7.and.mask(:output-1)), char(message))
+        else
+          @assertFalse(any(input(:output-1)==7), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_first_equivalent_integers_sorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                          &
+     & TestCase( input = [integer::]),                    &
+     & TestCase( input = [4]),                            &
+     & TestCase( input = [7]),                            &
+     & TestCase( input = [4, 4, 4],                       &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [4, 4, 7 ],                      &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [4, 7 , 7 ],                     &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [7 , 7 , 7 ],                    &
+     &           mask  = [.false., .true. , .false.]  ),  &
+     & TestCase( input = [(4, i=1, 79), (7, i=1, 35)],    &
+     &           mask  = [([.true., .false.], i=1, 57)] ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first_equivalent`.
+      output = first_equivalent(input, 7, mask=mask, default=0, sorted=.true.)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input==7.and.mask), char(message))
+        else
+          @assertFalse(any(input==7), char(message))
+        endif
+      else
+        @assertTrue(input(output)==7, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(:output-1)==7.and.mask(:output-1)), char(message))
+        else
+          @assertFalse(any(input(:output-1)==7), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_first_equivalent_ComparisonLambda_unsorted()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+    logical,      allocatable :: mask(:)
+  end type
+  
+  type(String)                :: a
+  type(String)                :: b
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical,      allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  a = 'a'
+  b = 'b'
+  
+  test_cases = [                                           &
+     & TestCase( input = [String::]),                      &
+     & TestCase( input = [a]),                             &
+     & TestCase( input = [b]),                             &
+     & TestCase( input = [a, a, a],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [a, a, b],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [a, b, a],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [b, b, a],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [b, b, b],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [ (a, i=1, 78),                   &
+     &                     b,                              &
+     &                     (a, i=1, 35)],                  &
+     &           mask  = [([.true., .false.], i=1, 57)] ), &
+     & TestCase( input = [(a, i=1, 79), (b, i=1, 35)],     &
+     &           mask  = [([.true., .false.], i=1, 57)] )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first_equivalent`.
+      output = first_equivalent( input,                         &
+                               & b,                             &
+                               & compare_strings,               &
+                               & greater_than_or_equal_strings, &
+                               & mask    = mask,                &
+                               & default = 0                    )
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//join(input)
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any(input==b.and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input==b)
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(input(output)==b, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any(input(:output-1)==b.and.mask(:output-1)))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input(:output-1)==b)
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+  
+  function greater_than_or_equal_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)>=char(that)
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_first_equivalent_ComparisonLambda_sorted()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+    logical,      allocatable :: mask(:)
+  end type
+  
+  type(String)                :: a
+  type(String)                :: b
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical,      allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  a = 'a'
+  b = 'b'
+  
+  test_cases = [                                          &
+     & TestCase( input = [String::]),                     &
+     & TestCase( input = [a]),                            &
+     & TestCase( input = [b]),                            &
+     & TestCase( input = [a, a, a],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [a, a, b],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [a, b, b],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [b, b, b],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [(a, i=1, 79), (b, i=1, 35)],    &
+     &           mask  = [([.true., .false.], i=1, 57)] ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `first_equivalent`.
+      output = first_equivalent( input,                         &
+                           & b,                             &
+                           & compare_strings,               &
+                           & greater_than_or_equal_strings, &
+                           & mask    = mask,                &
+                           & default = 0,                   &
+                           & sorted  = .true.               )
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//join(input)
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any(input==b.and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input==b)
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(input(output)==b, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any(input(:output-1)==b.and.mask(:output-1)))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input(:output-1)==b)
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+  
+  function greater_than_or_equal_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)>=char(that)
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_last_equivalent_integers_unsorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                           &
+     & TestCase( input = [integer::]),                     &
+     & TestCase( input = [4]),                             &
+     & TestCase( input = [7]),                             &
+     & TestCase( input = [4, 4, 4],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [4, 4, 7 ],                       &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [4, 7 , 4],                       &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [7 , 7 , 4],                      &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [7 , 7 , 7 ],                     &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [ (4, i=1, 78),                   &
+     &                     7,                              &
+     &                     (4, i=1, 35)],                  &
+     &           mask  = [([.true., .false.], i=1, 57)] ), &
+     & TestCase( input = [(4, i=1, 79), (7, i=1, 35)],     &
+     &           mask  = [([.true., .false.], i=1, 57)] )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last_equivalent`.
+      output = last_equivalent(input, 7, mask=mask, default=0)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input==7.and.mask), char(message))
+        else
+          @assertFalse(any(input==7), char(message))
+        endif
+      else
+        @assertTrue(input(output)==7, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(output+1:)==7.and.mask(output+1:)), char(message))
+        else
+          @assertFalse(any(input(output+1:)==7), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_last_equivalent_integers_sorted()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                          &
+     & TestCase( input = [integer::]),                    &
+     & TestCase( input = [4]),                            &
+     & TestCase( input = [7]),                            &
+     & TestCase( input = [4, 4, 4],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [7 , 4, 4],                      &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [7 , 7 , 4],                     &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [7 , 7 , 7 ],                    &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [(7, i=1, 79), (4, i=1, 35)],    &
+     &           mask  = [([.false., .true.], i=1, 57)] ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last_equivalent`.
+      output = last_equivalent(input, 7, mask=mask, default=0, sorted=.true.)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          @assertFalse(any(input==7.and.mask), char(message))
+        else
+          @assertFalse(any(input==7), char(message))
+        endif
+      else
+        @assertTrue(input(output)==7, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          @assertFalse(any(input(output+1:)==7.and.mask(output+1:)), char(message))
+        else
+          @assertFalse(any(input(output+1:)==7), char(message))
+        endif
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_last_equivalent_ComparisonLambda_unsorted()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+    logical,      allocatable :: mask(:)
+  end type
+  
+  type(String)                :: a
+  type(String)                :: b
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical,      allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  a = 'a'
+  b = 'b'
+  
+  test_cases = [                                           &
+     & TestCase( input = [String::]),                      &
+     & TestCase( input = [a]),                             &
+     & TestCase( input = [b]),                             &
+     & TestCase( input = [a, a, a],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [a, a, b],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [a, b, a],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [b, b, a],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [b, b, b],                        &
+     &           mask  = [.false., .true. , .false.] ),    &
+     & TestCase( input = [ (a, i=1, 78),                   &
+     &                     b,                              &
+     &                     (a, i=1, 35)],                  &
+     &           mask  = [([.true., .false.], i=1, 57)] ), &
+     & TestCase( input = [(a, i=1, 79), (b, i=1, 35)],     &
+     &           mask  = [([.true., .false.], i=1, 57)] )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last_equivalent`.
+      output = last_equivalent( input,                         &
+                          & b,                             &
+                          & compare_strings,               &
+                          & greater_than_or_equal_strings, &
+                          & mask = mask,                   &
+                          & default = 0                    )
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//join(input)
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any(input==b.and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input==b)
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(input(output)==b, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any(input(output+1:)==b.and.mask(output+1:)))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input(output+1:)==b)
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+  
+  function greater_than_or_equal_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)>=char(that)
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_last_equivalent_ComparisonLambda_sorted()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+    logical,      allocatable :: mask(:)
+  end type
+  
+  type(String)                :: a
+  type(String)                :: b
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical,      allocatable :: mask(:)
+  
+  integer :: output
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  a = 'a'
+  b = 'b'
+  
+  test_cases = [                                          &
+     & TestCase( input = [String::]),                     &
+     & TestCase( input = [a]),                            &
+     & TestCase( input = [b]),                            &
+     & TestCase( input = [a, a, a],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [b, a, a],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [b, b, a],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [b, b, b],                       &
+     &           mask  = [.false., .true. , .false.] ),   &
+     & TestCase( input = [(b, i=1, 79), (a, i=1, 35)],    &
+     &           mask  = [([.false., .true.], i=1, 57)] ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call `last_equivalent`.
+      output = last_equivalent( input,                         &
+                          & b,                             &
+                          & compare_strings,               &
+                          & greater_than_or_equal_strings, &
+                          & mask    = mask,                &
+                          & default = 0,                   &
+                          & sorted  = .true.               )
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//join(input)
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check the output is correct.
+      if (output==0) then
+        if (allocated(mask)) then
+          check = .not. (any(input==b.and.mask))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input==b)
+          @assertTrue(check, char(message))
+        endif
+      else
+        @assertTrue(input(output)==b, char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output), char(message))
+          check = .not. (any(input(output+1:)==b.and.mask(output+1:)))
+          @assertTrue(check, char(message))
+        else
+          check = .not. any(input(output+1:)==b)
+          @assertTrue(check, char(message))
+        endif
+      endif
+    enddo
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+  
+  function greater_than_or_equal_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)>=char(that)
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_operate()
+  type :: TestCase
+    integer, allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  integer, allocatable :: output(:)
+  
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  test_cases = [                       &
+     & TestCase([integer::]),          &
+     & TestCase([1]),                  &
+     & TestCase([3,5,7,9]),            &
+     & TestCase([([5,3,7,1],i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = input
+    call operate(output, add_one)
+    
+    message(1) = 'Input  : '//input
+    message(2) = 'Output : '//output
+    
+    @assertTrue(size(output)==size(input))
+    @assertTrue(all(output==input+1), char(message))
+  enddo
+contains
+  subroutine add_one(this)
+    class(*), intent(inout) :: this
+    
+    select type(this); type is(integer)
+      this = this+1
+    end select
+  end subroutine
+end subroutine
+
+@test
+subroutine test_map_LogicalLambda()
+  type :: TestCase
+    integer, allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: output(:)
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  test_cases = [                       &
+     & TestCase([integer::]),          &
+     & TestCase([1]),                  &
+     & TestCase([2]),                  &
+     & TestCase([3,5,6,9]),            &
+     & TestCase([([2,3,4,1],i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = map(input, is_even)
+    
+    message(1) = 'Input  : '//input
+    message(2) = 'Output : '//output
+    
+    @assertTrue(size(output)==size(input), char(message))
+    check = all( output .eqv.                          &
+               & [(is_even(input(j)),j=1,size(input))] )
+    @assertTrue(check, char(message))
+  enddo
+contains
+  function is_even(input) result(output)
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(integer)
+      output = modulo(input,2)==0
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_map_ComparisonLambda()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+  end type
+  
+  type(String) :: a
+  type(String) :: b
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical,      allocatable :: output(:)
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i
+  
+  a = 'a'
+  b = 'b'
+  
+  test_cases = [                       &
+     & TestCase([String::]),           &
+     & TestCase([a]),                  &
+     & TestCase([b]),                  &
+     & TestCase([a,b,a,b]),            &
+     & TestCase([([a,b,a,b],i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = map(input, compare_strings, b)
+    
+    message(1) = 'Input  : '//join(input)
+    message(2) = 'Output : '//output
+    
+    @assertTrue(size(output)==size(input), char(message))
+    check = all(output.eqv.input==b)
+    @assertTrue(check, char(message))
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_count_LogicalLambda()
+  type :: TestCase
+    integer, allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  integer              :: output
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  test_cases = [                       &
+     & TestCase([integer::]),          &
+     & TestCase([1]),                  &
+     & TestCase([2]),                  &
+     & TestCase([3,5,6,9]),            &
+     & TestCase([([2,3,4,1],i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = count(input, is_even)
+    
+    message(1) = 'Input  : '//input
+    message(2) = 'Output : '//output
+    
+    check = output == count([(is_even(input(j)),j=1,size(input))])
+    @assertTrue(check, char(message))
+  enddo
+contains
+  function is_even(input) result(output)
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(integer)
+      output = modulo(input,2)==0
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_count_ComparisonLambda()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+  end type
+  
+  type(String) :: a
+  type(String) :: b
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  integer                   :: output
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i
+  
+  a = 'a'
+  b = 'b'
+  
+  test_cases = [                       &
+     & TestCase([String::]),           &
+     & TestCase([a]),                  &
+     & TestCase([b]),                  &
+     & TestCase([a,b,a,b]),            &
+     & TestCase([([a,b,a,b],i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = count(input, compare_strings, b)
+    
+    message(1) = 'Input  : '//join(input)
+    message(2) = 'Output : '//output
+    
+    check = output==count(input==b)
+    @assertTrue(check, char(message))
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_filter_logicals()
+  type :: TestCase
+    logical, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  logical, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  integer, allocatable :: output(:)
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                                     &
+     & TestCase( input = [logical::] ),                              &
+     & TestCase( input = [.false.] ),                                &
+     & TestCase( input = [.true.] ),                                 &
+     & TestCase( input = [.false., .false., .false.],                &
+     &           mask  = [.false., .true. , .true. ]  ),             &
+     & TestCase( input = [.false., .true. , .false.],                &
+     &           mask  = [.false., .true. , .true. ]  ),             &
+     & TestCase( input = [.true. , .false., .true. ],                &
+     &           mask  = [.false., .true. , .true. ]  ),             &
+     & TestCase( input = [.true. , .true. , .true. ],                &
+     &           mask  = [.false., .true. , .true. ]  ),             &
+     & TestCase( input = [([.false., .true., .false.], i=1, 100)],   &
+     &           mask  = [([.false., .true.], i=1, 150)]           ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call filter.
+      output = filter(input, mask=mask)
+      
+      ! Construct output message.
+      message(1) = 'Input  : '//input
+      if (allocated(mask)) then
+        message(2) = 'Mask   : '//mask
+      else
+        message(2) = 'Mask   : not allocated.'
+      endif
+      message(3) = 'Output : '//output
+      
+      ! Check output.
+      @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+      @assertTrue(all(input(output)), char(message))
+      @assertTrue(size(set(output))==size(output), char(message))
+      if (allocated(mask)) then
+        @assertTrue(all(mask(output)), char(message))
+        @assertTrue(size(output)==count(input.and.mask), char(message))
+      else
+        @assertTrue(size(output)==count(input), char(message))
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_filter_LogicalLambda()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  integer, allocatable :: output(:)
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                          &
+     & TestCase( input = [integer::] ),                   &
+     & TestCase( input = [3] ),                           &
+     & TestCase( input = [2] ),                           &
+     & TestCase( input = [3, 3, 3],                       &
+     &           mask  = [.false.,.true. ,.true. ]  ),    &
+     & TestCase( input = [3, 2, 3],                       &
+     &           mask  = [.false.,.true. ,.true. ]  ),    &
+     & TestCase( input = [2, 3, 2],                       &
+     &           mask  = [.false.,.true. ,.true. ]  ),    &
+     & TestCase( input = [2, 2, 2],                       &
+     &           mask  = [.false.,.true. ,.true. ]  ),    &
+     & TestCase( input = [([3, 2, 3], i=1, 100)],         &
+     &           mask  = [([.false.,.true.], i=1, 150)] ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call filter.
+      output = filter(input, is_even, mask=mask)
+      
+      ! Construct output message.
+      message(1) = 'Input  : '//input
+      if (allocated(mask)) then
+        message(2) = 'Mask   : '//mask
+      else
+        message(2) = 'Mask   : not allocated.'
+      endif
+      message(3) = 'Output : '//output
+      
+      ! Check output.
+      @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+      check = all([(is_even(input(output(k))), k=1, size(output))])
+      @assertTrue(check, char(message))
+      @assertTrue(size(set(output))==size(output), char(message))
+      if (allocated(mask)) then
+        @assertTrue(all(mask(output)), char(message))
+        check = size(output)==count( [(is_even(input(k)),k=1,size(input))] &
+                             & .and. mask                                  )
+        @assertTrue(check, char(message))
+      else
+        check = size(output)==count([(is_even(input(k)),k=1,size(input))])
+        @assertTrue(check, char(message))
+      endif
+    enddo
+  enddo
+contains
+  function is_even(input) result(output)
+    class(*), intent(in) :: input
+    logical              :: output
+    
+    select type(input); type is(integer)
+      output = modulo(input,2)==0
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_filter_ComparisonLambda()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+    logical,      allocatable :: mask(:)
+  end type
+  
+  type(String) :: a
+  type(String) :: b
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical,      allocatable :: mask(:)
+  integer,      allocatable :: output(:)
+  
+  type(String) :: message(3)
+  
+  integer :: i,j,k,ialloc
+  
+  a = 'a'
+  b = 'b'
+  
+  test_cases = [                                          &
+     & TestCase( input = [String::] ),                    &
+     & TestCase( input = [a] ),                           &
+     & TestCase( input = [b] ),                           &
+     & TestCase( input = [a, a, a],                       &
+     &           mask  = [.false.,.true. ,.true. ] ),     &
+     & TestCase( input = [a, b, a],                       &
+     &           mask  = [.false.,.true. ,.true. ] ),     &
+     & TestCase( input = [b, a, b],                       &
+     &           mask  = [.false.,.true. ,.true. ] ),     &
+     & TestCase( input = [b, b, b],                       &
+     &           mask  = [.false.,.true. ,.true. ] ),     &
+     & TestCase( input = [([a, b, a], i=1, 100)],         &
+     &           mask  = [([.false.,.true.], i=1, 150)] ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.false., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call filter.
+      output = filter(input, compare_strings, b, mask=mask)
+      
+      ! Construct output message.
+      message(1) = 'Input  : '//join(input)
+      if (allocated(mask)) then
+        message(2) = 'Mask   : '//mask
+      else
+        message(2) = 'Mask   : not allocated.'
+      endif
+      message(3) = 'Output : '//output
+      
+      ! Check output.
+      @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+      @assertTrue(all(input(output)==b), char(message))
+      @assertTrue(size(set(output))==size(output), char(message))
+      if (allocated(mask)) then
+        @assertTrue(all(mask(output)), char(message))
+        @assertTrue(size(output)==count(input==b.and.mask), char(message))
+      else
+        @assertTrue(size(output)==count(input==b), char(message))
+      endif
+    enddo
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_locate()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  integer              :: output
+  
+  type(String) :: message(4)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases =[                                                         &
+     & TestCase( input = [0] ),                                         &
+     & TestCase( input = [1000] ),                                      &
+     & TestCase( input = [1, 2, 3, 4, 5],                               &
+     &           mask  = [.false., .true., .false., .true., .false.] ), &
+     & TestCase( input = [5, 4, 3, 2, 1],                               &
+     &           mask  = [.false., .true., .false., .true., .false.] ), &
+     & TestCase( input = [2, 3, 2, 3, 2],                               &
+     &           mask  = [.false., .false., .true., .true., .true.] ),  &
+     & TestCase( input = [3, 3, 3, 3, 3],                               &
+     &           mask  = [.false., .true., .false., .true., .false.] ), &
+     & TestCase( input = [([2,3,4],i=1,30),([2,5,4],i=1,30)],           &
+     &           mask  = [([.true.,.false.],i=1,90)]          )         ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,3
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.true., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      do k=1,2
+        ! Call locate.
+        if (k==1) then
+          output = locate(input,greater_than,mask)
+        else
+          output = locate(input,greater_than_or_equal,mask)
+        endif
+        
+        ! Construct test failure error message.
+        message(1) = 'input  = '//input
+        if (k==1) then
+          message(2) = 'lambda = >'
+        else
+          message(2) = 'lambda = >='
+        endif
+        if (allocated(mask)) then
+          message(3) = 'mask   = '//mask
+        else
+          message(3) = 'mask   = deallocated'
+        endif
+        message(4) = 'result = '//output
+        
+        ! Check output.
+        @assertTrue(output>=0 .and. output<=size(input), char(message))
+        if (allocated(mask)) then
+          @assertTrue(mask(output))
+          check = all(input(output)>input(filter(mask(:output-1))))
+          @assertTrue(check, char(message))
+          check = all(input(output)>=input(filter(mask(output+1:))))
+          @assertTrue(check, char(message))
+        else
+          check = all(input(output)>input(:output-1))
+          @assertTrue(check, char(message))
+          check = all(input(output)>=input(output+1:))
+          @assertTrue(check, char(message))
+        endif
+      enddo
+    enddo
+  enddo
+contains
+  function greater_than(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(integer)
+      select type(that); type is(integer)
+        output = this>that
+      end select
+    end select
+  end function
+  
+  function greater_than_or_equal(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(integer)
+      select type(that); type is(integer)
+        output = this>=that
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_is_sorted_integers()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical              :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical              :: output
+  
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  test_cases = [                                &
+     & TestCase( input  = [integer::],          &
+     &           output = .true.       ),       &
+     & TestCase( input  = [0],                  &
+     &           output = .true. ),             &
+     & TestCase( input  = [1, 2, 3],            &
+     &           output = .true.     ),         &
+     & TestCase( input  = [2, 2, 2],            &
+     &           output = .true.     ),         &
+     & TestCase( input  = [3, 2, 1],            &
+     &           output = .false.    ),         &
+     & TestCase( input  = [2, 1, 2],            &
+     &           output = .false.    ),         &
+     & TestCase( input  = [(i,i=1,100)],        &
+     &           output = .true.         ),     &
+     & TestCase( input  = [(0,i=1,100)],        &
+     &           output = .true.         ),     &
+     & TestCase( input  = [(100-i,i=1,100)],    &
+     &           output = .false.            )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    
+    output = is_sorted(input)
+    
+    message(1) = 'Input  : '//input
+    message(2) = 'Output : '//output
+    
+    @assertTrue(output.eqv.test_cases(i)%output, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_is_sorted_reals()
+  type :: TestCase
+    real(dp), allocatable :: input(:)
+    logical               :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  real(dp), allocatable :: input(:)
+  logical               :: output
+  
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  test_cases = [                                    &
+     & TestCase( input  = [real(dp)::],             &
+     &           output = .true.        ),          &
+     & TestCase( input  = [0._dp],                  &
+     &           output = .true.   ),               &
+     & TestCase( input  = [1._dp, 2._dp, 3._dp],    &
+     &           output = .true.                 ), &
+     & TestCase( input  = [2._dp, 2._dp, 2._dp],    &
+     &           output = .true.                 ), &
+     & TestCase( input  = [3._dp, 2._dp, 1._dp],    &
+     &           output = .false.                ), &
+     & TestCase( input  = [2._dp, 1._dp, 2._dp],    &
+     &           output = .false.                ), &
+     & TestCase( input  = [(0._dp+i,i=1,100)],      &
+     &           output = .true.               ),   &
+     & TestCase( input  = [(0._dp,i=1,100)],        &
+     &           output = .true.             ),     &
+     & TestCase( input  = [(100._dp-i,i=1,100)],    &
+     &           output = .false.                )  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    
+    output = is_sorted(input)
+    
+    message(1) = 'Input  : '//input
+    message(2) = 'Output : '//output
+    
+    @assertTrue(output.eqv.test_cases(i)%output, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_is_sorted_ComparisonLambda()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+    logical                   :: output
+  end type
+  
+  character(26) :: alphabet = 'abcdefghijklmnopqrstuvwxyz'
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical                   :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i,j
+  
+  test_cases = [                                                 &
+     & TestCase( input  = [String::],                            &
+     &           output = .true.      ),                         &
+     & TestCase( input  = str(['a']),                            &
+     &           output = .true.      ),                         &
+     & TestCase( input  = str(['a','b','c']),                    &
+     &           output = .true.              ),                 &
+     & TestCase( input  = str(['b','b','b']),                    &
+     &           output = .true.              ),                 &
+     & TestCase( input  = str(['c','b','a']),                    &
+     &           output = .false.             ),                 &
+     & TestCase( input  = str(['b','a','b']),                    &
+     &           output = .false.             ),                 &
+     & TestCase( input  = str([(alphabet(i:i),i=1,26)]),         &
+     &           output = .true.                         ),      &
+     & TestCase( input  = str([('a',i=1,26)]),                   &
+     &           output = .true.               ),                &
+     & TestCase( input  = str([(alphabet(27-i:27-i),i=1,26)]),   &
+     &           output = .false.                              ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    
+    do j=1,2
+      if (j==1) then
+        output = is_sorted(input,less_than_strings)
+      else
+        output = is_sorted(input,less_than_or_equal_strings)
+      endif
+      
+      message(1) = 'Input  : '//join(input)
+      if (j==1) then
+        message(2) = 'Lambda : '//'<'
+      else
+        message(2) = 'Lambda : '//'<='
+      endif
+      message(3) = 'Output : '//output
+      
+      @assertTrue(output.eqv.test_cases(i)%output, char(message))
+    enddo
+  enddo
+contains
+  function less_than_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)<char(that)
+      end select
+    end select
+  end function
+  
+  function less_than_or_equal_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)<=char(that)
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_sort_integers()
+  type :: TestCase
+    integer, allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  integer, allocatable :: output(:)
+  
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  test_cases = [                            &
+     & TestCase(input  = [integer::]),      &
+     & TestCase(input  = [0]),              &
+     & TestCase(input  = [1, 2, 3]),        &
+     & TestCase(input  = [2, 2, 2]),        &
+     & TestCase(input  = [3, 2, 1]),        &
+     & TestCase(input  = [2, 1, 2]),        &
+     & TestCase(input  = [(i,i=1,100)]),    &
+     & TestCase(input  = [(0,i=1,100)]),    &
+     & TestCase(input  = [(100-i,i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    
+    output = sort(input)
+    
+    message(1) = 'Input  : '//input
+    message(2) = 'Output : '//output
+    
+    @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+    @assertTrue(is_sorted(input(output)), char(message))
+    @assertTrue(size(set(output))==size(output), char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_sort_reals()
+  type :: TestCase
+    real(dp), allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  real(dp), allocatable :: input(:)
+  integer,  allocatable :: output(:)
+  
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  test_cases = [                                 &
+     & TestCase(input  = [real(dp)::]),          &
+     & TestCase(input  = [0._dp]),               &
+     & TestCase(input  = [1._dp, 2._dp, 3._dp]), &
+     & TestCase(input  = [2._dp, 2._dp, 2._dp]), &
+     & TestCase(input  = [3._dp, 2._dp, 1._dp]), &
+     & TestCase(input  = [2._dp, 1._dp, 2._dp]), &
+     & TestCase(input  = [(0._dp+i,i=1,100)]),   &
+     & TestCase(input  = [(0._dp,i=1,100)]),     &
+     & TestCase(input  = [(100._dp-i,i=1,100)])  ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    
+    output = sort(input)
+    
+    message(1) = 'Input  : '//input
+    message(2) = 'Output : '//output
+    
+    @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+    @assertTrue(is_sorted(input(output)), char(message))
+    @assertTrue(size(set(output))==size(output), char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_sort_ComparisonLambda()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+  end type
+  
+  character(26) :: alphabet = 'abcdefghijklmnopqrstuvwxyz'
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  integer,      allocatable :: output(:)
+  
+  type(String) :: message(3)
+  
+  integer :: i,j
+  
+  test_cases = [                                              &
+     & TestCase(input  = [String::]),                         &
+     & TestCase(input  = str(['a'])),                         &
+     & TestCase(input  = str(['a','b','c'])),                 &
+     & TestCase(input  = str(['b','b','b'])),                 &
+     & TestCase(input  = str(['c','b','a'])),                 &
+     & TestCase(input  = str(['b','a','b'])),                 &
+     & TestCase(input  = str([(alphabet(i:i),i=1,26)])),      &
+     & TestCase(input  = str([('a',i=1,26)])),                &
+     & TestCase(input  = str([(alphabet(27-i:27-i),i=1,26)])) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    
+    do j=1,2
+      if (j==1) then
+        output = sort(input,less_than_strings)
+      else
+        output = sort(input,less_than_or_equal_strings)
+      endif
+      
+      message(1) = 'Input  : '//join(input)
+      if (j==1) then
+        message(2) = 'Lambda : '//'<'
+      else
+        message(2) = 'Lambda : '//'<='
+      endif
+      message(3) = 'Output : '//output
+      
+      @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+      @assertTrue(is_sorted(input(output), less_than_strings), char(message))
+      @assertTrue(size(set(output))==size(output), char(message))
+    enddo
+  enddo
+contains
+  function less_than_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)<char(that)
+      end select
+    end select
+  end function
+  
+  function less_than_or_equal_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = char(this)<=char(that)
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_set_integers()
+  type :: TestCase
+    integer, allocatable :: input(:)
+    logical, allocatable :: mask(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: input(:)
+  logical, allocatable :: mask(:)
+  integer, allocatable :: output(:)
+  
+  integer, allocatable :: masked_input(:)
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                                        &
+    & TestCase( input = [integer::] ),                                  &
+    & TestCase( input = [0] ),                                          &
+    & TestCase( input = [1, 2, 3, 4, 5],                                &
+    &           mask  = [.true., .false., .false., .true., .true.] ),   &
+    & TestCase( input = [1, 2, 2, 2, 5],                                &
+    &           mask  = [.true., .false., .false., .true., .true.] ),   &
+    & TestCase( input = [1, 2, 1, 2, 1],                                &
+    &           mask  = [.true., .false., .false., .true., .true.] ),   &
+    & TestCase( input = [1, 1, 1, 1, 1],                                &
+    &           mask  = [.true., .false., .false., .true., .true.] ),   &
+    & TestCase( input = [([1,2,3],i=1,30),3,1,1,5,([4,5,6],i=1,30)],    &
+    &           mask  = [([.true.,.false.],i=1,92)]                  ), &
+    & TestCase( input = [(i,i=1,100)],                                  &
+    &           mask  = [([.true.,.false.],i=1,50)] )                   ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.true., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.false., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call set.
+      output = set(input, mask)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//input
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check output.
+      @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+      if (allocated(mask)) then
+        @assertTrue(all(mask(output)), char(message))
+      endif
+      if (allocated(mask)) then
+        masked_input = input(filter(mask))
+      else
+        masked_input = input
+      endif
+      check = all([( count(masked_input(k)==input(output))==1, &
+                   & k=1,                                      &
+                   & size(masked_input)                        )])
+      @assertTrue(check, char(message))
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_set_ComparisonLambda()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+    logical,      allocatable :: mask(:)
+  end type
+  
+  character(26) :: alphabet = 'abcdefghijklmnopqrstuvwxyz'
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  logical,      allocatable :: mask(:)
+  integer,      allocatable :: output(:)
+  
+  type(String), allocatable :: masked_input(:)
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k,ialloc
+  
+  test_cases = [                                                      &
+    & TestCase( input = [String::] ),                                 &
+    & TestCase( input = str(['a']) ),                                 &
+    & TestCase( input = str(['a', 'b', 'c', 'd', 'e']),               &
+    &           mask  = [.true., .false., .false., .true., .true.] ), &
+    & TestCase( input = str(['a', 'b', 'b', 'b', 'e']),               &
+    &           mask  = [.true., .false., .false., .true., .true.] ), &
+    & TestCase( input = str(['a', 'b', 'a', 'b', 'a']),               &
+    &           mask  = [.true., .false., .false., .true., .true.] ), &
+    & TestCase( input = str(['a', 'a', 'a', 'a', 'a']),               &
+    &           mask  = [.true., .false., .false., .true., .true.] ), &
+    & TestCase( input = str([ (['a','b','c'],i=1,30),                 &
+    &                         'c','a','a','e',                        &
+    &                         (['d','e','f'],i=1,30)  ]),             &
+    &           mask  = [([.true.,.false.],i=1,92)]       ),          &
+    & TestCase( input = str([(alphabet(i:i),i=1,26)]),                &
+    &           mask  = [([.true.,.false.],i=1,13)]    )              ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,4
+      ! Initialise mask.
+      if (j==1) then
+        if (allocated(mask)) then
+          deallocate(mask, stat=ialloc); call err(ialloc)
+        endif
+      elseif (j==2) then
+        mask = [(.true., k=1, size(input))]
+      elseif (j==3) then
+        mask = [(.false., k=1, size(input))]
+      else
+        if (allocated(test_cases(i)%mask)) then
+          mask = test_cases(i)%mask
+        else
+          cycle
+        endif
+      endif
+      
+      ! Call set.
+      output = set(input, compare_strings, mask)
+      
+      ! Construct test failure error message.
+      message(1) = 'input  = '//join(input)
+      if (allocated(mask)) then
+        message(2) = 'mask   = '//mask
+      else
+        message(2) = 'mask   = deallocated'
+      endif
+      message(3) = 'result = '//output
+      
+      ! Check output.
+      @assertTrue(all(output>=1 .and. output<=size(input)), char(message))
+      if (allocated(mask)) then
+        @assertTrue(all(mask(output)), char(message))
+      endif
+      if (allocated(mask)) then
+        masked_input = input(filter(mask))
+      else
+        masked_input = input
+      endif
+      check = all([( count(masked_input(k)==input(output))==1, &
+                   & k=1,                                      &
+                   & size(masked_input)                        )])
+      @assertTrue(check, char(message))
+    enddo
+  enddo
+contains
+  function compare_strings(this,that) result(output)
+    class(*), intent(in) :: this
+    class(*), intent(in) :: that
+    logical              :: output
+    
+    select type(this); type is(String)
+      select type(that); type is(String)
+        output = this==that
+      end select
+    end select
+  end function
+end subroutine
+
+@test
+subroutine test_set_default()
+  logical, allocatable :: unallocated_logical
+  
+  @assertTrue(set_default(.true.,.true.))
+  @assertTrue(set_default(.true.,.false.))
+  @assertFalse(set_default(.false.,.true.))
+  @assertFalse(set_default(.false.,.false.))
+  @assertTrue(set_default(unallocated_logical,.true.))
+  @assertFalse(set_default(unallocated_logical,.false.))
+end subroutine
+
+@test
+subroutine test_element_in_list()
+  integer :: i
+  
+  @assertFalse(0.in.[integer::])
+  @assertFalse(0.in.[1])
+  @assertTrue(0.in.[0])
+  @assertFalse(0.in.[1,1,1])
+  @assertTrue(0.in.[1,1,0])
+  @assertTrue(0.in.[1,0,1])
+  @assertTrue(0.in.[0,1,1])
+  @assertTrue(0.in.[0,0,0])
+  @assertFalse(0.in.[(i,i=1,100)])
+  @assertTrue(0.in.[(i,i=1,74),0,(i,i=1,37)])
+end subroutine
+
+@test
+subroutine test_elements_in_list()
+  type :: TestCase
+    integer, allocatable :: lhs(:)
+    integer, allocatable :: rhs(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer, allocatable :: lhs(:)
+  integer, allocatable :: rhs(:)
+  logical, allocatable :: output(:)
+  
+  type(String) :: message(3)
+  
+  integer :: i
+  
+  test_cases = [                          &
+     & TestCase( lhs=[integer::],         &
+     &           rhs=[integer::]  ),      &
+     & TestCase( lhs=[integer::],         &
+     &           rhs=[0]          ),      &
+     & TestCase( lhs=[0],                 &
+     &           rhs=[integer::] ),       &
+     & TestCase( lhs=[0,1,2],             &
+     &           rhs=[3,3,3] ),           &
+     & TestCase( lhs=[0,0,0],             &
+     &           rhs=[1,2,3] ),           &
+     & TestCase( lhs=[1,2,3],             &
+     &           rhs=[4,1,3,5,1,2,6,2] ), &
+     & TestCase( lhs=[1,2,3],             &
+     &           rhs=[0,0,3,0,0,3,0,0] )  ]
+  
+  do i=1,size(test_cases)
+    lhs = test_cases(i)%lhs
+    rhs = test_cases(i)%rhs
+    
+    output = lhs.in.rhs
+    
+    message(1) = 'lhs    : '//lhs
+    message(2) = 'rhs    : '//rhs
+    message(3) = 'output : '//output
+    
+    @assertTrue(size(output)==size(lhs), char(message))
+    @assertTrue(all(output.eqv.[(lhs(i).in.rhs,i=1,size(lhs))]), char(message))
+  enddo
+end subroutine
+end module

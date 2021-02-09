@@ -148,7 +148,7 @@ subroutine final_OFile(this)
   integer :: ialloc
   
   if (allocated(this%counter)) then
-    if (this%counter%is_only_pointer()) then
+    if (this%counter%is_only_copy()) then
       call this%ofile_target%close()
       deallocate(this%ofile_target, stat=ialloc); call err(ialloc)
     endif

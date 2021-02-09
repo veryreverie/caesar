@@ -1,10 +1,12 @@
-@test
-subroutine test_print_settings()
+module print_settings_test
   use funit
   
   use caesar_print_settings_module
   implicit none
+contains
   
+@test
+subroutine test_print_settings()
   type(PrintSettings) :: foo
   
   ! Test the default constructor without a global PrintSettings set.
@@ -53,3 +55,4 @@ subroutine test_print_settings()
   ! Unset print settings for subsequent tests.
   call unset_print_settings()
 end subroutine
+end module

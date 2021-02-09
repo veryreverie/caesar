@@ -37,16 +37,12 @@ module caesar_io_utils_module
   interface file_exists
     !> Checks if a file exists, given its filename.
     module function file_exists_character(filename) result(output) 
-      implicit none
-      
       character(*), intent(in) :: filename
       logical                  :: output
     end function
 
     !> Checks if a file exists, given its filename.
     module function file_exists_string(filename) result(output) 
-      implicit none
-      
       type(String), intent(in) :: filename
       logical                  :: output
     end function
@@ -60,8 +56,6 @@ module caesar_io_utils_module
     !>    relative to Caesar's current working directory.
     module function format_path_character(path,working_directory) &
        & result(output) 
-      implicit none
-      
       character(*), intent(in)           :: path
       type(String), intent(in), optional :: working_directory
       type(String)                       :: output
@@ -73,8 +67,6 @@ module caesar_io_utils_module
     !>    relative to `working_directory`. Otherwise, they are taken to be
     !>    relative to Caesar's current working directory.
     module function format_path_String(path,working_directory) result(output) 
-      implicit none
-      
       type(String), intent(in)           :: path
       type(String), intent(in), optional :: working_directory
       type(String)                       :: output
@@ -84,15 +76,11 @@ module caesar_io_utils_module
   interface set_working_directory
     !> Sets the current working directory to `working_directory`.
     module subroutine set_working_directory_character(working_directory) 
-      implicit none
-      
       character(*), intent(in) :: working_directory
     end subroutine
 
     !> Sets the current working directory to `working_directory`.
     module subroutine set_working_directory_String(working_directory) 
-      implicit none
-      
       type(String), intent(in) :: working_directory
     end subroutine
   end interface
@@ -100,15 +88,11 @@ module caesar_io_utils_module
   interface call_caesar
     !> Calls `caesar` on the command line, with the given `arguments`.
     module subroutine call_caesar_character(arguments) 
-      implicit none
-      
       character(*), intent(in), optional :: arguments
     end subroutine
 
     !> Calls `caesar` on the command line, with the given `arguments`.
     module subroutine call_caesar_String(arguments) 
-      implicit none
-      
       type(String), intent(in) :: arguments
     end subroutine
   end interface
@@ -116,8 +100,6 @@ module caesar_io_utils_module
   interface command_line_args
     !> Returns an array containing the command line arguments.
     module function command_line_args() result(args) 
-      implicit none
-
       type(String), allocatable :: args(:)
     end function
   end interface
@@ -125,8 +107,6 @@ module caesar_io_utils_module
   interface mkdir
     !> Make a directory, if it doesn't already exist.
     module subroutine mkdir(dirname) 
-      implicit none
-      
       type(String), intent(in) :: dirname
     end subroutine
   end interface
@@ -134,8 +114,6 @@ module caesar_io_utils_module
   interface system_call
     !> Makes a system call using `system.c`.
     module function system_call(this) result(result_code) 
-      implicit none
-      
       type(String), intent(in) :: this
       integer                  :: result_code
     end function
@@ -151,8 +129,6 @@ module caesar_io_utils_module
     !> Aborts if an unexpected flag is passed.
     module function get_flag(args,flags_without_arguments, &
        & flags_with_arguments) result(output) 
-      implicit none
-      
       type(String), intent(in) :: args(:)
       type(String), intent(in) :: flags_without_arguments
       type(String), intent(in) :: flags_with_arguments
@@ -163,8 +139,6 @@ module caesar_io_utils_module
   interface read_line_from_user
     !> Reads a line from `stdin`.
     module function read_line_from_user() result(line) 
-      implicit none
-      
       type(String) :: line
     end function
   end interface
@@ -172,8 +146,6 @@ module caesar_io_utils_module
   interface get_home_directory
     !> Sets `HOME` to the path to the directory '~'.
     module function get_home_directory() result(output) 
-      implicit none
-      
       type(String) :: output
     end function
   end interface
@@ -181,8 +153,6 @@ module caesar_io_utils_module
   interface get_current_directory
     !> Sets `CWD` to the path to the current working directory.
     module function get_current_directory() result(output) 
-      implicit none
-      
       type(String) :: output
     end function
   end interface
@@ -190,8 +160,6 @@ module caesar_io_utils_module
   interface get_exe_location
     !> Sets `EXE_LOCATION` to the path to the `caesar` executable.
     module function get_exe_location() result(output) 
-      implicit none
-      
       type(String) :: output
     end function
   end interface
@@ -200,7 +168,6 @@ module caesar_io_utils_module
     !> Initialises this module's global variables.
     !> Must be called before any other procedures in this module.
     module subroutine startup_io_utils() 
-      implicit none
     end subroutine
   end interface
   
@@ -210,8 +177,6 @@ module caesar_io_utils_module
     !> Moves to the working directory.
     !> Runs the given file.
     module subroutine execute_old_code(filename) 
-      implicit none
-      
       type(String), intent(in) :: filename
     end subroutine
   end interface
@@ -219,8 +184,6 @@ module caesar_io_utils_module
   interface execute_python
     !> Executes one of the Python scripts.
     module subroutine execute_python(filename,python_path,python_arguments) 
-      implicit none
-      
       type(String), intent(in)           :: filename
       type(String), intent(in)           :: python_path
       type(String), intent(in), optional :: python_arguments(:)
@@ -230,8 +193,6 @@ module caesar_io_utils_module
   interface parse_c_string
     !> Converts a `NUL`-terminated C string to a Fortran [[String(type)]].
     module function parse_c_string(input) result(output) 
-      implicit none
-      
       character(*), intent(in) :: input
       type(String)             :: output
     end function
@@ -241,8 +202,6 @@ module caesar_io_utils_module
     !> Adds escape characters to a string so that it can be used on the
     !>    command line.
     recursive module function escape_bash_characters(input) result(output) 
-      implicit none
-      
       character(*), intent(in) :: input
       type(String)             :: output
     end function
@@ -253,8 +212,6 @@ module caesar_io_utils_module
     !> `getcwd` interface.
     function get_cwd_c(result_size, cwd) bind(c) result(success)
       use, intrinsic :: iso_c_binding
-      implicit none
-      
       integer(kind=c_int),    intent(in)  :: result_size
       character(kind=c_char), intent(out) :: cwd(*)
       logical(kind=c_bool)                :: success
@@ -263,8 +220,6 @@ module caesar_io_utils_module
     !> `getenv('HOME')` interface.
     function get_home_c(home) bind(c) result(success)
       use, intrinsic :: iso_c_binding
-      implicit none
-      
       character(kind=c_char), intent(out) :: home(*)
       logical(kind=c_bool)                :: success
     end function
@@ -273,8 +228,6 @@ module caesar_io_utils_module
     function get_exe_location_c(result_size,exe_location) bind(c) &
        & result(success)
       use, intrinsic :: iso_c_binding
-      implicit none
-      
       integer(kind=c_int),    intent(in)  :: result_size
       character(kind=c_char), intent(out) :: exe_location
       logical(kind=c_bool)                :: success
@@ -283,8 +236,6 @@ module caesar_io_utils_module
     !> Flag parsing interface.
     function get_flag_c(argc,argvs,options,flag,output) bind(c) result(success)
       use, intrinsic :: iso_c_binding
-      implicit none
-      
       integer(kind=c_int),    intent(in)    :: argc
       character(kind=c_char), intent(inout) :: argvs(*)
       character(kind=c_char), intent(in)    :: options(*)
@@ -296,8 +247,6 @@ module caesar_io_utils_module
     !> System call interface.
     function system_c(input) bind(c) result(return_code)
       use, intrinsic :: iso_c_binding
-      implicit none
-      
       character(kind=c_char), intent(in) :: input(*)
       integer(kind=c_int)                :: return_code
     end function
@@ -305,8 +254,6 @@ module caesar_io_utils_module
     !> `mkdir` interface.
     function mkdir_c(input) bind(c) result(return_code)
       use, intrinsic :: iso_c_binding
-      implicit none
-      
       character(kind=c_char), intent(in) :: input(*)
       integer(kind=c_int)                :: return_code
     end function

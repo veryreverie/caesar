@@ -37,8 +37,6 @@ module caesar_print_settings_module
     !>    the those from the [[PrintSettings(type)]] currently in use.
     module function new_PrintSettings_character(indent,overhang, &
        & decimal_places,floating_point_format,integer_digits) result(this)
-      implicit none
-      
       integer,      intent(in), optional :: indent
       integer,      intent(in), optional :: overhang
       integer,      intent(in), optional :: decimal_places
@@ -53,8 +51,6 @@ module caesar_print_settings_module
     !>    the those from the [[PrintSettings(type)]] currently in use.
     module function new_PrintSettings_String(indent,overhang,decimal_places, &
        & floating_point_format,integer_digits) result(this)
-      implicit none
-      
       integer,      intent(in), optional :: indent
       integer,      intent(in), optional :: overhang
       integer,      intent(in), optional :: decimal_places
@@ -67,16 +63,12 @@ module caesar_print_settings_module
   interface set_print_settings
     !> Sets a [[PrintSettings(type)]] for use.
     module subroutine set_print_settings_PrintSettings(settings)
-      implicit none
-      
       type(PrintSettings), intent(in) :: settings
     end subroutine
     
     !> Constructs a [[PrintSettings(type)]], and sets it for use.
     module subroutine set_print_settings_arguments_character(indent,overhang, &
        & decimal_places,floating_point_format,integer_digits)
-      implicit none
-      
       integer,      intent(in), optional :: indent
       integer,      intent(in), optional :: overhang
       integer,      intent(in), optional :: decimal_places
@@ -87,8 +79,6 @@ module caesar_print_settings_module
     !> Constructs a [[PrintSettings(type)]], and sets it for use.
     module subroutine set_print_settings_arguments_String(indent,overhang, &
        & decimal_places,floating_point_format,integer_digits)
-      implicit none
-      
       integer,      intent(in), optional :: indent
       integer,      intent(in), optional :: overhang
       integer,      intent(in), optional :: decimal_places
@@ -100,7 +90,6 @@ module caesar_print_settings_module
   interface unset_print_settings
     !> Sets there to be no [[PrintSettings(type)]] in use.
     module subroutine unset_print_settings()
-      implicit none
     end subroutine
   end interface
 end module

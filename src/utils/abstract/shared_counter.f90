@@ -1,6 +1,4 @@
-! ======================================================================
-! Provides a shared-pointer like counter.
-! ======================================================================
+!> Provides a shared-pointer like counter.
 module caesar_shared_counter_module
   use caesar_io_basic_module
   
@@ -12,81 +10,48 @@ module caesar_shared_counter_module
   public :: SharedCounter
   public :: assignment(=)
   
+  !> A shared counter, which counts how many copies exist at once.
   type :: SharedCounter
-    integer, pointer, private :: no_pointers_ => null()
+    !> The number of copies of a given counter.
+    integer, pointer, private :: no_copies_ => null()
   contains
+    generic,   public  :: assignment(=) => &
+                        & assign_SharedCounter_SharedCounter
+    procedure, private :: assign_SharedCounter_SharedCounter
+    
     final :: final_SharedCounter
     
-    procedure :: is_only_pointer
-    procedure :: print => print_SharedCounter
+    procedure, public :: is_only_copy => is_only_copy_SharedCounter
+    !procedure, public :: print => print_SharedCounter
   end type
   
-  interface assignment(=)
-    module procedure assign_SharedCounter_SharedCounter
-  end interface
-  
   interface SharedCounter
-    module procedure new_SharedCounter
+    !> Initialise a [[SharedCounter(type)]], and set `no_copies_` to one.
+    module function new_SharedCounter() result(this) 
+      type(SharedCounter) :: this
+    end function
   end interface
-contains
-
-function new_SharedCounter() result(this)
-  implicit none
   
-  type(SharedCounter) :: this
-  
-  integer :: ialloc
-  
-  allocate(this%no_pointers_, stat=ialloc); call err(ialloc)
-  if (SHARED_COUNTER_BUG) then
-    this%no_pointers_ = 0
-  else
-    this%no_pointers_ = 1
-  endif
-end function
-
-subroutine assign_SharedCounter_SharedCounter(output,input)
-  implicit none
-  
-  type(SharedCounter), intent(out) :: output
-  type(SharedCounter), intent(in)  :: input
-  
-  output%no_pointers_ => input%no_pointers_
-  output%no_pointers_ =  output%no_pointers_ + 1
-end subroutine
-
-impure elemental subroutine final_SharedCounter(this)
-  implicit none
-  
-  type(SharedCounter), intent(inout) :: this
-  
-  if (associated(this%no_pointers_)) then
-    this%no_pointers_ = this%no_pointers_ - 1
-  endif
-end subroutine
-
-function is_only_pointer(this) result(output)
-  implicit none
-  
-  class(SharedCounter), intent(in) :: this
-  logical                          :: output
-  
-  if (.not. associated(this%no_pointers_)) then
-    output = .false.
-  else
-    output = this%no_pointers_==1
-  endif
-end function
-
-subroutine print_SharedCounter(this)
-  implicit none
-  
-  class(SharedCounter), intent(in) :: this
-  
-  if (associated(this%no_pointers_)) then
-    call print_line(this%no_pointers_)
-  else
-    call print_line('NULL')
-  endif
-end subroutine
+  interface
+    !> Copy a [[SharedCounter(type)]] from another [[SharedCounter(type)]].
+    !> The copy shares a counter with the original, and this counter is
+    !>    incremented when the copy happens.
+    module subroutine assign_SharedCounter_SharedCounter(output,input) 
+      class(SharedCounter), intent(out) :: output
+      class(SharedCounter), intent(in)  :: input
+    end subroutine
+    
+    !> Destruct a [[SharedCounter(type)]]. The counter is decremented, and if
+    !>    this is the only copy the memory is freed up.
+    impure elemental module subroutine final_SharedCounter(this) 
+      type(SharedCounter), intent(inout) :: this
+    end subroutine
+    
+    !> Returns `true` if this [[SharedCounter(type)]] has no other copies which
+    !>    have not been destructed.
+    module function is_only_copy_SharedCounter(this) result(output) 
+      class(SharedCounter), intent(in) :: this
+      logical                          :: output
+    end function
+  end interface
 end module

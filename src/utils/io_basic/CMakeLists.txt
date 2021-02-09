@@ -18,7 +18,7 @@ target_link_libraries(io_basic precision)
 # Enable testing.
 include(${CMAKE_SOURCE_DIR}/utils/link_pfunit.cmake)
 if(BUILD_TESTS)
-  set(test_srcs string_base.pf string.pf print_settings.pf intrinsics.pf token.pf)
+  set(test_srcs string_base_test.pf string_test.pf print_settings_test.pf intrinsics_test.pf token_test.pf)
   add_pfunit_ctest(io_basic_tests TEST_SOURCES ${test_srcs} LINK_LIBRARIES funit ${PFUNIT_LIBRARIES})
   target_link_libraries(io_basic_tests io_basic)
 endif()

@@ -1,10 +1,12 @@
-@test
-subroutine test_StringBase()
+module string_base_test
   use funit
   
   use caesar_string_base_module
   implicit none
-  
+contains
+
+@test
+subroutine test_StringBase()
   character(13)    :: foo
   type(StringBase) :: bar
   character(13)    :: baz
@@ -22,3 +24,19 @@ subroutine test_StringBase()
   @assertFalse(bar/=foo)
   @assertFalse(bar/=bar)
 end subroutine
+
+@test
+subroutine test_char_StringBases()
+  type(StringBase) :: foo
+  type(StringBase) :: bar
+  
+  type(StringBase) :: empty_array(0)
+  
+  foo = 'Hello,'
+  bar = 'World!'
+  
+  @assertTrue(char(empty_array)=='')
+  @assertTrue(char([foo])=='Hello,')
+  @assertTrue(char([foo,bar])=='Hello,'//new_line(' ')//'World!')
+end subroutine
+end module

@@ -17,8 +17,6 @@ module caesar_token_module
     !>    and return the token at the given index.
     module function token_String(input,index,delimiter,delimiters) &
        & result(output) 
-      implicit none
-      
       type(String), intent(in)           :: input
       integer,      intent(in)           :: index
       character(1), intent(in), optional :: delimiter
@@ -30,8 +28,6 @@ module caesar_token_module
     !>    and return the token at the given index.
     module function token_character(input,index,delimiter,delimiters) &
        & result(output) 
-      implicit none
-      
       character(*), intent(in)           :: input
       integer,      intent(in)           :: index
       character(1), intent(in), optional :: delimiter
@@ -47,8 +43,6 @@ module caesar_token_module
     !> `first` defaults to 1, `last` defaults to `len(tokens)`.
     module function tokens_String(input,first,last,delimiter,delimiters) &
        & result(output) 
-      implicit none
-      
       type(String), intent(in)           :: input
       integer,      intent(in), optional :: first
       integer,      intent(in), optional :: last
@@ -63,8 +57,6 @@ module caesar_token_module
     !> `first` defaults to 1, `last` defaults to `len(tokens)`.
     module function tokens_character(input,first,last,delimiter,delimiters) &
        & result(output) 
-      implicit none
-      
       character(*), intent(in)           :: input
       integer,      intent(in), optional :: first
       integer,      intent(in), optional :: last

@@ -1,6 +1,4 @@
-! ======================================================================
-! Defines the variable SHARED_COUNTER_BUG to .true.
-! ======================================================================
+!> Defines the variable SHARED_COUNTER_BUG to .true.
 module caesar_shared_counter_bugfix_module
   implicit none
   
