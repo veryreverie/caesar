@@ -6,10 +6,6 @@ module logic_test
   
   use caesar_logic_module
   implicit none
-  
-  type, extends(ParameterizedTestCase) :: foo
-    integer :: i
-  end type
 contains
 
 @test

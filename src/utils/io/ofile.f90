@@ -1,10 +1,4 @@
-! ======================================================================
-! Output file handling. (Second of two such modules.)
-! ======================================================================
-! Multiple OFiles can point to a single OFileTarget, and will all write to
-!    the same file.
-! Uses a SharedCounter to keep track of how many OFiles point to each
-!    OFileTarget, and calls close() when the last is deallocated.
+!> Provides the [[OFile(type)]] class, which handles output file writing.
 module caesar_ofile_module
   use caesar_precision_module
   use caesar_io_basic_module
@@ -20,8 +14,19 @@ module caesar_ofile_module
   public :: OFile
   public :: assignment(=)
   
+  !> Handles output file writing.
+  !> Constructing this class constructs an [[OFileTarget(type)]],
+  !>    which opens a file for writing.
+  !> An [[OFile(type)]] can be copied, creating multiple [[OFile(type)]]
+  !>    instances which all share a single [[OFileTarget(type)]] and thus a
+  !>    single file.
+  !> When the last [[OFile(type)]] which shares a given [[OFileTarget(type)]]
+  !>    is finalised, the [[OFileTarget(type)]] is also finalised and the file
+  !>    is closed.
   type :: OFile
+    !> Handles opening and closing the file, and writing to the file.
     type(OFileTarget),   pointer     :: ofile_target
+    !> Counts how many extant [[OFile(type)]] instances share `ofile_target`.
     type(SharedCounter), allocatable :: counter
   contains
     final :: final_OFile
@@ -88,395 +93,312 @@ module caesar_ofile_module
   end type
   
   interface OFile
-    module procedure new_OFile_character
-    module procedure new_OFile_String
+    !> Constructor. Opens the file specified by `filename` for writing.
+    module function new_OFile_character(filename) result(this) 
+      character(*), intent(in) :: filename
+      type(OFile)              :: this
+    end function
+
+    !> Constructor. Opens the file specified by `filename` for writing.
+    module function new_OFile_String(filename) result(this) 
+      type(String), intent(in) :: filename
+      type(OFile)              :: this
+    end function
   end interface
   
   interface assignment(=)
-    module procedure assign_OFile_OFile
+    !> Copies one instance of [[OFile(type)]] to another, sharing a single
+    !>    [[OFileTarget(type)]] between the two.
+    module subroutine assign_OFile_OFile(output,input) 
+      type(OFile), intent(out) :: output
+      type(OFile), intent(in)  :: input
+    end subroutine
   end interface
-contains
+  
+  interface
+    !> Finalisation. Decrements `this%counter`, and finalises
+    !>    `this%ofile_target` if there are no extant [[OFile(type)]] instances
+    !>    which share `this%ofile_target`.
+    module subroutine final_OFile(this) 
+      type(OFile), intent(inout) :: this
+    end subroutine
 
-! Constructor, assignment and finalization.
-function new_OFile_character(filename) result(this)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  type(OFile)              :: this
-  
-  integer :: ialloc
-  
-  type(OFileTarget) :: ofile_target
-  
-  ofile_target = OFileTarget(filename)
-  
-  allocate(this%ofile_target, stat=ialloc); call err(ialloc)
-  this%ofile_target = ofile_target
-  
-  allocate(this%counter, stat=ialloc); call err(ialloc)
-  this%counter = SharedCounter()
-end function
+    !> Checks that this instance has been associated with a file.
+    module subroutine check_associated(this) 
+      class(OFile), intent(in) :: this
+    end subroutine
 
-function new_OFile_String(filename) result(this)
-  implicit none
-  
-  type(String), intent(in) :: filename
-  type(OFile)              :: this
-  
-  this = OFile(char(filename))
-end function
+    !> Makes the file the target of
+    !>    [[caesar_print_module:print_line(interface)]] and
+    !>    [[caesar_print_module:print_lines(interface)]] statements.
+    module subroutine make_stdout(this) 
+      class(OFile), intent(inout) :: this
+    end subroutine
 
-subroutine assign_OFile_OFile(output,input)
-  implicit none
-  
-  type(OFile), intent(out) :: output
-  type(OFile), intent(in)  :: input
-  
-  integer :: ialloc
-  
-  output%ofile_target => input%ofile_target
-  
-  allocate(output%counter, stat=ialloc); call err(ialloc)
-  output%counter = input%counter
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_character(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      character(*),        intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine final_OFile(this)
-  implicit none
-  
-  type(OFile), intent(inout) :: this
-  
-  integer :: ialloc
-  
-  if (allocated(this%counter)) then
-    if (this%counter%is_only_copy()) then
-      call this%ofile_target%close()
-      deallocate(this%ofile_target, stat=ialloc); call err(ialloc)
-    endif
-    deallocate(this%counter, stat=ialloc); call err(ialloc)
-  endif
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_String(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      type(String),        intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-! Checks that this OFile has been associated with a file.
-subroutine check_associated(this)
-  implicit none
-  
-  class(OFile), intent(in) :: this
-  
-  if (.not. associated(this%ofile_target)) then
-    call print_line(CODE_ERROR//': Attempting to call output file operations &
-       &on OFile which has not been associated.')
-    call err()
-  endif
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_StringWriteable(this,input,settings) 
+      class(OFile),           intent(inout)        :: this
+      class(StringWriteable), intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings),    intent(in), optional :: settings
+    end subroutine
 
-! Makes the file the standard output.
-subroutine make_stdout(this)
-  implicit none
-  
-  class(OFile), intent(inout) :: this
-  
-  call this%check_associated()
-  call this%ofile_target%make_stdout()
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_logical(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      logical,             intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-! Prints to the file.
-subroutine print_line_character(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  character(*),        intent(in)           :: input
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%check_associated()
-  call this%ofile_target%print_line(input,settings)
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_integer(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      integer,             intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_String(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  type(String),        intent(in)           :: input
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(char(input),settings)
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_real(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      real(dp),            intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_StringWriteable(this,input,settings)
-  implicit none
-  
-  class(OFile),           intent(inout)        :: this
-  class(StringWriteable), intent(in)           :: input
-  type(PrintSettings),    intent(in), optional :: settings
-  
-  call this%print_line(str(input,settings))
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_complex(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      complex(dp),         intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_logical(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  logical,             intent(in)           :: input
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(str(input,settings))
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_logicals(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      logical,             intent(in)           :: input(:)
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_integer(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  integer,             intent(in)           :: input
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(str(input,settings))
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_integers(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      integer,             intent(in)           :: input(:)
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_real(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  real(dp),            intent(in)           :: input
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(str(input,settings))
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_reals(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      real(dp),            intent(in)           :: input(:)
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_complex(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  complex(dp),         intent(in)           :: input
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(str(input, settings=settings))
-end subroutine
+    !> Prints `input` to the file as a single line followed by a line break.
+    module subroutine print_line_complexes(this,input,settings) 
+      class(OFile),        intent(inout)        :: this
+      complex(dp),         intent(in)           :: input(:)
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_logicals(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  logical,             intent(in)           :: input(:)
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(join(input, settings=settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_Strings_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      type(String),        intent(in)           :: input(:)
+      character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_integers(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  integer,             intent(in)           :: input(:)
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(join(input, settings=settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_Strings_String(this,input,separating_line, &
+       & settings) 
+      class(OFile),        intent(inout)        :: this
+      type(String),        intent(in)           :: input(:)
+      type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_reals(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  real(dp),            intent(in)           :: input(:)
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(join(input, settings=settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_StringWriteables_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),           intent(inout)        :: this
+      class(StringWriteable), intent(in)           :: input(:)
+      character(*),           intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings),    intent(in), optional :: settings
+    end subroutine
 
-subroutine print_line_complexes(this,input,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  complex(dp),         intent(in)           :: input(:)
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_line(join(input, settings=settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_StringWriteables_String(this,input, &
+       & separating_line,settings) 
+      class(OFile),           intent(inout)        :: this
+      class(StringWriteable), intent(in)           :: input(:)
+      type(String),           intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings),    intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_Strings_character(this,input,separating_line,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  type(String),        intent(in)           :: input(:)
-  character(*),        intent(in), optional :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  integer :: i
-  
-  do i=1,size(input)
-    call this%print_line(input(i),settings)
-    if (present(separating_line) .and. i<size(input)) then
-      call print_line(separating_line,settings)
-    endif
-  enddo
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_StringsWriteable(this,input,settings) 
+      class(OFile),            intent(inout)        :: this
+      class(StringsWriteable), intent(in)           :: input
+      !> Controls formatting.
+      type(PrintSettings),     intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_Strings_String(this,input,separating_line,settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  type(String),        intent(in)           :: input(:)
-  type(String),        intent(in)           :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(input,char(separating_line),settings)
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_StringsWriteables_String(this,input, &
+       & separating_line,settings) 
+      class(OFile),            intent(inout)        :: this
+      class(StringsWriteable), intent(in)           :: input(:)
+      type(String),            intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings),     intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_StringWriteables_character(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),           intent(inout)        :: this
-  class(StringWriteable), intent(in)           :: input(:)
-  character(*),           intent(in), optional :: separating_line
-  type(PrintSettings),    intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_StringsWriteables_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),            intent(inout)        :: this
+      class(StringsWriteable), intent(in)           :: input(:)
+      character(*),            intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings),     intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_StringWriteables_String(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),           intent(inout)        :: this
-  class(StringWriteable), intent(in)           :: input(:)
-  type(String),           intent(in)           :: separating_line
-  type(PrintSettings),    intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_logicals_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      logical,             intent(in)           :: input(:)
+      character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_StringsWriteable(this,input,settings)
-  implicit none
-  
-  class(OFile),            intent(inout)        :: this
-  class(StringsWriteable), intent(in)           :: input
-  type(PrintSettings),     intent(in), optional :: settings
-  
-  call this%print_lines(str(input,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_logicals_String(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      logical,             intent(in)           :: input(:)
+      type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_StringsWriteables_String(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),            intent(inout)        :: this
-  class(StringsWriteable), intent(in)           :: input(:)
-  type(String),            intent(in), optional :: separating_line
-  type(PrintSettings),     intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_integers_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      integer,             intent(in)           :: input(:)
+      character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_StringsWriteables_character(this,input, &
-   & separating_line,settings)
-  implicit none
-  
-  class(OFile),            intent(inout)        :: this
-  class(StringsWriteable), intent(in)           :: input(:)
-  character(*),            intent(in)           :: separating_line
-  type(PrintSettings),     intent(in), optional :: settings
-  
-  if (lbound(input,1)/=1) then
-    call print_line(CODE_ERROR//': The lower bound of an array is not 1. This &
-       &is probably a compiler bug.')
-    call err()
-  endif
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_integers_String(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      integer,             intent(in)           :: input(:)
+      type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_logicals_character(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  logical,             intent(in)           :: input(:)
-  character(*),        intent(in), optional :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_reals_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      real(dp),            intent(in)           :: input(:)
+      character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_logicals_String(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  logical,             intent(in)           :: input(:)
-  type(String),        intent(in)           :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_reals_String(this,input,separating_line, &
+       & settings) 
+      class(OFile),        intent(inout)        :: this
+      real(dp),            intent(in)           :: input(:)
+      type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_integers_character(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  integer,             intent(in)           :: input(:)
-  character(*),        intent(in), optional :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_complexes_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      complex(dp),         intent(in)           :: input(:)
+      character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
 
-subroutine print_lines_integers_String(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  integer,             intent(in)           :: input(:)
-  type(String),        intent(in)           :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
-
-subroutine print_lines_reals_character(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  real(dp),            intent(in)           :: input(:)
-  character(*),        intent(in), optional :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
-
-subroutine print_lines_reals_String(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  real(dp),            intent(in)           :: input(:)
-  type(String),        intent(in)           :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
-
-subroutine print_lines_complexes_character(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  complex(dp),         intent(in)           :: input(:)
-  character(*),        intent(in), optional :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
-
-subroutine print_lines_complexes_String(this,input,separating_line, &
-   & settings)
-  implicit none
-  
-  class(OFile),        intent(inout)        :: this
-  complex(dp),         intent(in)           :: input(:)
-  type(String),        intent(in)           :: separating_line
-  type(PrintSettings), intent(in), optional :: settings
-  
-  call this%print_lines(str(input,separating_line,settings))
-end subroutine
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_complexes_String(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      complex(dp),         intent(in)           :: input(:)
+      type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
+  end interface
 end module

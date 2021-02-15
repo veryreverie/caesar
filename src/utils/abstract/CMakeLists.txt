@@ -2,12 +2,20 @@ cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
 include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
 cmake_include_guard(abstract)
 
-# Compile the correct version of shared_counter_bugfix.f90
+# Compile the correct shared_counter file.
 if (NOT DEFINED CORRECT_COUNTER_BUG OR NOT CORRECT_COUNTER_BUG)
-  add_library(abstract traits.f90 logic.f90 logic_submodule.f90 shared_counter_no_bug.f90 shared_counter.f90 shared_counter_submodule.f90 abstract.f90)
+  add_library(shared_counter shared_counter_no_bug.f90)
 else()
-  add_library(abstract traits.f90 logic.f90 logic_submodule.f90 shared_counter_bug.f90 shared_counter.f90 shared_counter_submodule.f90 abstract.f90)
+  add_library(shared_counter shared_counter_bug.f90)
 endif()
+
+# Compile module files.
+add_library(abstract_modules traits.f90 logic.f90 shared_counter.f90 abstract.f90)
+target_link_libraries(abstract_modules shared_counter)
+
+# Compile submodule files.
+add_library(abstract logic_submodule.f90 shared_counter_submodule.f90)
+target_link_libraries(abstract abstract_modules)
 
 # Link against required modules.
 target_link_libraries(abstract io_basic)

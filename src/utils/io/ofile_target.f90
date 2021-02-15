@@ -1,8 +1,4 @@
-! ======================================================================
-! Output file handling. (First of two such modules.)
-! ======================================================================
-! OFileTarget keeps track of a single file.
-! Multiple OFiles may point to a single OFileTarget.
+!> Provides the [[OFileTarget(type)]] class, which is used by [[OFile(type)]].
 module caesar_ofile_target_module
   use caesar_precision_module
   use caesar_io_basic_module
@@ -16,10 +12,19 @@ module caesar_ofile_target_module
   
   public :: OFileTarget
   
+  !> Keeps track of an output file.
+  !> The file is opened when the [[OFileTarget(type)]] is constructed,
+  !>    and closed when the [[OFileTarget(type)]] is finalised.
   type :: OFileTarget
+    !> Whether or not the file is open.
     logical,      private :: open_ = .false.
+    !> The file name.
     type(String), private :: filename_
+    !> The file unit associated with the file.
     integer,      private :: file_unit_
+    !> Tracks whether or not this file has been set as the write location
+    !>    for [[caesar_print_module:print_line(interface)]] and
+    !>    [[caesar_print_module:print_lines(interface)]] calls.
     logical,      private :: is_stdout_
   contains
     procedure, public :: close => close_OFileTarget
@@ -34,105 +39,39 @@ module caesar_ofile_target_module
   end type
   
   interface OFileTarget
-    module procedure new_OFileTarget
+    !> Constructor. Opens the file specified by `filename` for writing.
+    module function new_OFileTarget(filename) result(this) 
+      character(*), intent(in) :: filename
+      type(OFileTarget)        :: this
+    end function
   end interface
-contains
+  
+  interface
+    !> Finalisation. Closes the file, and redirects the write location of
+    !>    [[caesar_print_module:print_line(interface)]] and
+    !>    [[caesar_print_module:print_lines(interface)]] if relevant.
+    module subroutine close_OFileTarget(this) 
+      class(OFileTarget), intent(inout) :: this
+    end subroutine
 
-! Constructor and finalizer. Opens a file on construction, closes the file
-!    (and redirects stdout, if relevant) when finalised.
-function new_OFileTarget(filename) result(this)
-  implicit none
-  
-  character(*), intent(in) :: filename
-  type(OFileTarget)        :: this
-  
-  this%open_      = .true.
-  this%filename_  = filename
-  this%file_unit_ = open_write_file(filename)
-  this%is_stdout_ = .false.
-end function
+    !> Returns whether or not this file is open.
+    module function is_open(this) result(output) 
+      class(OFileTarget), intent(in) :: this
+      logical                        :: output
+    end function
 
-subroutine close_OFileTarget(this)
-  implicit none
-  
-  class(OFileTarget), intent(inout) :: this
-  
-  integer :: ierr
-  
-  ! Check file is open.
-  if (.not. this%is_open()) then
-    call print_line(ERROR//': Trying to close file which is not open.')
-    call err()
-  endif
-  
-  ! Close file
-  close(this%file_unit_,iostat=ierr)
-  if (ierr/=0) then
-    call print_line(ERROR//': could not close file. Error code '//ierr)
-    call err()
-  endif
-  
-  ! Reset stdout if necessary.
-  if (this%is_stdout_) then
-    call unset_output_unit()
-    this%is_stdout_ = .false.
-  endif
-end subroutine
+    !> Makes this file the write location for
+    !>    [[caesar_print_module:print_line(interface)]] and
+    !>    [[caesar_print_module:print_lines(interface)]].
+    module subroutine make_stdout(this) 
+      class(OFileTarget), intent(inout) :: this
+    end subroutine
 
-! Returns whether or not this file is pointed to by any OFiles.
-function is_open(this) result(output)
-  implicit none
-  
-  class(OFileTarget), intent(in) :: this
-  logical                        :: output
-  
-  output = this%open_
-end function
-
-! Makes this file be stdout.
-subroutine make_stdout(this)
-  implicit none
-  
-  class(OFileTarget), intent(inout) :: this
-  
-  if (.not. this%is_open()) then
-    call print_line(CODE_ERROR//': attempted to point stdout to a file which &
-       &has either not been opened or has already been closed.')
-    call err()
-  endif
-  
-  call set_output_unit(this%file_unit_)
-  this%is_stdout_ = .true.
-end subroutine
-
-! Writes a line to the file.
-subroutine print_line_character(this,input,settings)
-  implicit none
-  
-  class(OFileTarget),  intent(inout)        :: this
-  type(PrintSettings), intent(in), optional :: settings
-  character(*),        intent(in)           :: input
-  
-  integer :: ierr
-  
-  if (.not. this%is_open()) then
-    call print_line(CODE_ERROR//': attempted to write to a file which has &
-       &either not been opened or has already been closed.')
-    call err()
-  endif
-  
-  write(this%file_unit_,'(a)',iostat=ierr) input
-  
-  if (ierr/=0) then
-    call print_line(ERROR//': writing to file failed. Error code '//ierr)
-    call err()
-  endif
-  
-  flush(this%file_unit_,iostat=ierr)
-  
-  if (ierr/=0) then
-    call print_line(ERROR//': flushing file failed. Error code '//ierr)
-    call err()
-  endif
-end subroutine
+    !> Writes a line to the file.
+    module subroutine print_line_character(this,input,settings) 
+      class(OFileTarget),  intent(inout)        :: this
+      type(PrintSettings), intent(in), optional :: settings
+      character(*),        intent(in)           :: input
+    end subroutine
+  end interface
 end module

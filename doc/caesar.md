@@ -14,11 +14,12 @@ email: mj464@cam.ac.uk
 docmark: !
 predocmark: >
 display: public
-         private
          protected
+         private
 source: true
 graph: true
 coloured_edges: true
-search: false
+graph_maxdepth: 2
+search: true
 warn: false
 parallel: 0

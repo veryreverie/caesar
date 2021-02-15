@@ -1,0 +1,79 @@
+module strings_readable_test
+  use caesar_precision_module
+  use caesar_io_basic_module
+  
+  use caesar_string_array_module
+  use caesar_strings_readable_module
+  
+  use funit
+  implicit none
+  
+  type, extends(StringsReadable) :: TestType
+    real(dp), allocatable :: contents(:)
+  contains
+    procedure, public :: read => read_TestType
+  end type
+  
+  interface TestType
+    module procedure new_TestType
+    module procedure new_TestType_Strings
+    module procedure new_TestType_StringArray
+  end interface
+contains
+
+function new_TestType(contents) result(this)
+  real(dp), intent(in) :: contents(:)
+  type(TestType)       :: this
+  
+  this%contents = contents
+end function
+
+subroutine read_TestType(this,input)
+  class(TestType), intent(out) :: this
+  type(String),    intent(in)  :: input(:)
+  
+  ! Select type needed to call non-polymorphic procedures,
+  !    such as the TestType(input) constructor.
+  select type(this); type is(TestType)
+    this = TestType(dble(input))
+  class default
+    call print_line(CODE_ERROR//': Called the TestType implementation &
+       &of read() from a type other than TestType.')
+    call err()
+  end select
+end subroutine
+
+function new_TestType_Strings(input) result(this)
+  type(String), intent(in) :: input(:)
+  type(TestType)           :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_TestType_StringArray(input) result(this)
+  type(StringArray), intent(in) :: input
+  type(TestType)                :: this
+  
+  this = TestType(str(input))
+end function
+
+@test
+subroutine test_StringsReadable()
+  type(TestType) :: foo
+  
+  foo = TestType([3.0_dp,5.0_dp])
+  @assertTrue(size(foo%contents)==2)
+  @assertTrue(all(abs(foo%contents-[3.0_dp,5.0_dp])<1e-10_dp))
+  
+  call foo%read([String::])
+  @assertTrue(size(foo%contents)==0)
+  
+  call foo%read([str('5.0'), str('6.0'), str('7.0')])
+  @assertTrue(size(foo%contents)==3)
+  @assertTrue(all(abs(foo%contents-[5.0_dp,6.0_dp,7.0_dp])<1e-10_dp))
+  
+  foo = TestType([str('6.0'), str('7.0')])
+  @assertTrue(size(foo%contents)==2)
+  @assertTrue(all(abs(foo%contents-[6.0_dp,7.0_dp])<1e-10_dp))
+end subroutine
+end module

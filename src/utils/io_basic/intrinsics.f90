@@ -28,6 +28,7 @@ module caesar_intrinsics_module
     impure elemental module function str_logical(input,settings) &
        & result(output) 
       logical, intent(in)                       :: input
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -36,6 +37,7 @@ module caesar_intrinsics_module
     impure elemental module function str_integer(input,settings) &
        & result(output) 
       integer, intent(in)                       :: input
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -43,6 +45,7 @@ module caesar_intrinsics_module
     !> Converts `real` to [[String(type)]].
     impure elemental module function str_real(input,settings) result(output) 
       real(dp), intent(in)                      :: input
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -51,6 +54,7 @@ module caesar_intrinsics_module
     impure elemental module function str_complex(input,settings) &
        & result(output) 
       complex(dp), intent(in)                   :: input
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -62,6 +66,7 @@ module caesar_intrinsics_module
        & result(output) 
       logical,             intent(in)           :: input(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -73,6 +78,7 @@ module caesar_intrinsics_module
        & result(output) 
       logical,             intent(in)           :: input(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -84,6 +90,7 @@ module caesar_intrinsics_module
        & result(output) 
       integer,             intent(in)           :: input(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -95,6 +102,7 @@ module caesar_intrinsics_module
        & result(output) 
       integer,             intent(in)           :: input(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -106,6 +114,7 @@ module caesar_intrinsics_module
        & result(output) 
       real(dp),            intent(in)           :: input(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -117,6 +126,7 @@ module caesar_intrinsics_module
        & result(output) 
       real(dp),            intent(in)           :: input(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -128,6 +138,7 @@ module caesar_intrinsics_module
        & result(output) 
       complex(dp),         intent(in)           :: input(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -139,6 +150,7 @@ module caesar_intrinsics_module
        & result(output) 
       complex(dp),         intent(in)           :: input(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
@@ -176,6 +188,7 @@ module caesar_intrinsics_module
     module function join_logicals(this,delimiter,settings) result(output) 
       logical,             intent(in)           :: this(:)
       character(*),        intent(in), optional :: delimiter
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -192,6 +205,7 @@ module caesar_intrinsics_module
       !>    a single space, to align with negative integers.
       !> Defaults to true.
       logical,             intent(in), optional :: pad_sign
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -203,6 +217,7 @@ module caesar_intrinsics_module
     module function join_reals(this,delimiter,settings) result(output) 
       real(dp),            intent(in)           :: this(:)
       character(*),        intent(in), optional :: delimiter
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -214,6 +229,7 @@ module caesar_intrinsics_module
     module function join_complexes(this,delimiter,settings) result(output) 
       complex(dp),         intent(in)           :: this(:)
       character(*),        intent(in), optional :: delimiter
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function
@@ -508,48 +524,56 @@ module caesar_intrinsics_module
     !> Prints a `logical` to the terminal.
     module subroutine print_line_logical(this,settings) 
       logical,             intent(in)           :: this
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints an `integer` to the terminal.
     module subroutine print_line_integer(this,settings) 
       integer,             intent(in)           :: this
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `real` to the terminal.
     module subroutine print_line_real(this,settings) 
       real(dp),            intent(in)           :: this
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `complex` to the terminal.
     module subroutine print_line_complex(this,settings) 
       complex(dp),         intent(in)           :: this
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `logical` array to the terminal, on one line.
     module subroutine print_line_logicals(this,settings) 
       logical,             intent(in)           :: this(:)
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints an `integer` array to the terminal, on one line.
     module subroutine print_line_integers(this,settings) 
       integer,             intent(in)           :: this(:)
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `real` array to the terminal, on one line.
     module subroutine print_line_reals(this,settings) 
       real(dp),            intent(in)           :: this(:)
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `complex` array to the terminal, on one line.
     module subroutine print_line_complexes(this,settings) 
       complex(dp),         intent(in)           :: this(:)
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
   end interface
@@ -557,72 +581,96 @@ module caesar_intrinsics_module
   interface print_lines
     !> Prints a `logical` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_logicals_character(this,separating_line, &
        & settings) 
       logical,             intent(in)           :: this(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `logical` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_logicals_String(this,separating_line, &
        & settings) 
       logical,             intent(in)           :: this(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints an `integer` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_integers_character(this,separating_line, &
        & settings) 
       integer,             intent(in)           :: this(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints an `integer` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_integers_String(this,separating_line, &
        & settings) 
       integer,             intent(in)           :: this(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `real` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_reals_character(this,separating_line, &
        & settings) 
       real(dp),            intent(in)           :: this(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `real` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_reals_String(this,separating_line,settings) 
       real(dp),            intent(in)           :: this(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `complex` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_complexes_character(this,separating_line, &
        & settings) 
       complex(dp),         intent(in)           :: this(:)
       character(*),        intent(in), optional :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
 
     !> Prints a `complex` array to the terminal,
     !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
     module subroutine print_lines_complexes_String(this,separating_line, &
        & settings) 
       complex(dp),         intent(in)           :: this(:)
       type(String),        intent(in)           :: separating_line
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
   end interface
@@ -633,6 +681,7 @@ module caesar_intrinsics_module
     impure elemental module function pad_int_to_str(this,settings) &
        & result(output) 
       integer,             intent(in)           :: this
+      !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String)                              :: output
     end function

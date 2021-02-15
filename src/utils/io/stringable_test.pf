@@ -1,0 +1,262 @@
+module stringable_test
+  use caesar_precision_module
+  use caesar_io_basic_module
+  
+  use caesar_string_writeable_module
+  use caesar_stringable_module
+  
+  use funit
+  implicit none
+  
+  type, extends(Stringable) :: TestType
+    real(dp) :: contents
+  contains
+    procedure, public :: read  => read_TestType
+    procedure, public :: write => write_TestType
+  end type
+  
+  interface TestType
+    module procedure new_TestType
+    module procedure new_TestType_String
+  end interface
+contains
+
+function new_TestType(contents) result(this)
+  real(dp), intent(in) :: contents
+  type(TestType)       :: this
+  
+  this%contents = contents
+end function
+
+subroutine read_TestType(this,input)
+  class(TestType), intent(out) :: this
+  type(String),    intent(in)  :: input
+  
+  ! Select type needed to call non-polymorphic procedures,
+  !    such as the TestType(input) constructor.
+  select type(this); type is(TestType)
+    this = TestType(dble(input))
+  class default
+    call print_line(CODE_ERROR//': Called the TestType implementation &
+       &of read() from a type other than TestType.')
+    call err()
+  end select
+end subroutine
+
+recursive function write_TestType(this) result(output)
+  class(TestType), intent(in) :: this
+  type(String)                :: output
+  
+  ! Select type needed to call non-polymorphic procedures, and to ensure that
+  !    write() is overloaded by any type which extends TestType.
+  select type(this); type is(TestType)
+    output = str(this%contents)
+  class default
+    call print_line(CODE_ERROR//': Called the TestType implementation &
+       &of write() from a type other than TestType.')
+    call err()
+  end select
+end function
+
+impure elemental function new_TestType_String(input) result(this)
+  type(String), intent(in) :: input
+  type(TestType)           :: this
+  
+  call this%read(input)
+end function
+
+@test
+subroutine test_Stringable()
+  type(TestType) :: foo
+  
+  foo = TestType(3.0_dp)
+  @assertTrue(abs(foo%contents-3.0_dp)<1e-10_dp)
+  
+  call foo%read(str('5.0'))
+  @assertTrue(abs(foo%contents-5.0_dp)<1e-10_dp)
+  
+  foo = TestType(str('7.0'))
+  @assertTrue(abs(foo%contents-7.0_dp)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_write()
+  type(TestType) :: input
+  type(String)   :: output
+  type(String)   :: message
+  
+  call unset_print_settings()
+  call set_print_settings(decimal_places=3)
+  
+  input = TestType(3.0_dp)
+  output = input%write()
+  message = 'Output : '//output
+  @assertTrue(output==' 3.000E+000', char(message))
+  
+  call unset_print_settings()
+end subroutine
+
+@test
+subroutine test_str_Stringable()
+  type(TestType) :: input
+  type(String)   :: output
+  type(String)   :: message
+  
+  call unset_print_settings()
+  call set_print_settings(decimal_places=3)
+  
+  input = TestType(3.0_dp)
+  output = str(input)
+  message = 'Output : '//output
+  @assertTrue(output==' 3.000E+000', char(message))
+  output = str(input, settings=PrintSettings(decimal_places=5))
+  message = 'Output : '//output
+  @assertTrue(output==' 3.00000E+000', char(message))
+  
+  call unset_print_settings()
+end subroutine
+
+@test
+subroutine test_str_Stringables()
+  type :: TestCase
+    type(TestType), allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  type(String),   allocatable :: separating_lines(:)
+  
+  type(TestType), allocatable :: input(:)
+  type(String),   allocatable :: separating_line
+  type(String),   allocatable :: output(:)
+  type(String),   allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l,m,ialloc
+  
+  call unset_print_settings()
+  
+  test_cases = [                               &
+     & TestCase([TestType::]),                 &
+     & TestCase([TestType(3.0_dp)]),           &
+     & TestCase([(TestType(i*1.0_dp),i=1,26)]) ]
+  
+  separating_lines = [     &
+     & str(''),            &
+     & str(repeat(' ',5)), &
+     & str(repeat('-',50)) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=0,size(separating_lines)
+      if (j==0) then
+        if (allocated(separating_line)) then
+          deallocate(separating_line, stat=ialloc); call err(ialloc)
+        endif
+      else
+        separating_line = separating_lines(j)
+      endif
+      
+      do k=1,2
+        if (k==1) then
+          output = str(input, separating_line)
+        elseif (allocated(separating_line)) then
+          output = str(input, char(separating_line))
+        else
+          cycle
+        endif
+        
+        message = [ 'Input                : case '//i, &
+                  & 'Separating line      : case '//j, &
+                  & 'Separating line type : case '//k, &
+                  & str('Output :'),                   &
+                  & output                             ]
+        
+        if (allocated(separating_line)) then
+          check = size(output) == size(input) + max(size(input)-1, 0)
+        else
+          check = size(output) == size(input)
+        endif
+        @assertTrue(check, char(message))
+        
+        m = 0
+        do l=1,size(input)
+          m = m+1
+          @assertTrue(output(m)==str(input(l)), char(message))
+          if (allocated(separating_line) .and. l<size(input)) then
+            m = m+1
+            @assertTrue(output(m)==separating_line, char(message))
+          endif
+        enddo
+      enddo
+    enddo
+  enddo
+  call unset_print_settings()
+end subroutine
+
+@test
+subroutine test_concatenate
+  type(TestType) :: foo
+  type(String)   :: foo_string
+  type(String)   :: output
+  
+  foo = TestType(3.0_dp)
+  foo_string = str(foo)
+  
+  output = foo//' Hello!'
+  @assertTrue(output==foo_string//' Hello!', char(output))
+  
+  output = 'Hello! '//foo
+  @assertTrue(output=='Hello! '//foo_string, char(output))
+  
+  output = foo//str(' Hello!')
+  @assertTrue(output==foo_string//' Hello!', char(output))
+  
+  output = str('Hello! ')//foo
+  @assertTrue(output=='Hello! '//foo_string, char(output))
+end subroutine
+
+@test
+subroutine test_join
+  type(String) :: output
+  type(String) :: expected
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  output = join([TestType::])
+  expected = join([String::])
+  message(1) = 'Output   : '//output
+  message(2) = 'Expected : '//expected
+  @assertTrue(output==expected, char(message))
+  
+  output = join([TestType(3.0_dp)])
+  expected = join([str(TestType(3.0_dp))])
+  message(1) = 'Output   : '//output
+  message(2) = 'Expected : '//expected
+  @assertTrue(output==expected, char(message))
+  
+  output = join([(TestType(1.0_dp*i), i=1, 10)])
+  expected = join([(str(TestType(1.0_dp*i)), i=1, 10)])
+  message(1) = 'Output   : '//output
+  message(2) = 'Expected : '//expected
+  @assertTrue(output==expected, char(message))
+  
+  output = join([(TestType(1.0_dp*i), i=1, 10)], delimiter=',')
+  expected = join([(str(TestType(1.0_dp*i)), i=1, 10)], delimiter=',')
+  message(1) = 'Output   : '//output
+  message(2) = 'Expected : '//expected
+  @assertTrue(output==expected, char(message))
+  
+  output = join( [(TestType(1.0_dp*i), i=1, 10)],         &
+               & settings=PrintSettings(decimal_places=5) )
+  expected = join( [( str( TestType(1.0_dp*i),                  &
+                 &         PrintSettings(decimal_places=5)),    &
+                 &    i=1,                                      &
+                 &    10                                     )] &
+                 &                                              )
+  message(1) = 'Output   : '//output
+  message(2) = 'Expected : '//expected
+  @assertTrue(output==expected, char(message))
+end subroutine
+end module

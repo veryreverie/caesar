@@ -1,0 +1,437 @@
+module string_array_test
+  use funit
+  
+  use caesar_io_basic_module
+  
+  use caesar_string_array_module
+  implicit none
+contains
+
+@test
+subroutine test_StringArray()
+  type :: TestCase
+    type(String), allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: input(:)
+  type(StringArray)         :: output
+  type(String)              :: message(2)
+  
+  integer :: i,j
+  
+  test_cases = [ TestCase([String::]),              &
+               & TestCase(str([''])),               &
+               & TestCase(str(['Hello,','World!'])) ]
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = StringArray(input)
+    message(1) = 'Input  : '//join([('"'//input(j)//'"', j=1, size(input))])
+    message(2) = 'Output : '//join([( '"'//output%strings(j)//'"', &
+                                    & j=1,                         &
+                                    & size(output%strings)         )])
+    @assertTrue(size(output%strings)==size(input), char(message))
+    @assertTrue(all(output%strings==input), char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_size()
+  type(StringArray), allocatable :: test_cases(:)
+  
+  type(StringArray) :: input
+  integer           :: output
+  type(String)      :: message(2)
+  
+  integer :: i,j
+  
+  test_cases = [ StringArray([String::]),              &
+               & StringArray(str([''])),               &
+               & StringArray(str(['Hello,','World!'])) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)
+    output = size(input)
+    message(1) = 'Input  : '//join([( '"'//input%strings(j)//'"', &
+                                    & j=1,                        &
+                                    & size(input%strings)         )])
+    message(2) = 'Output : '//output
+    @assertTrue(output==size(input%strings), char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_str_StringArray()
+  type(StringArray), allocatable :: test_cases(:)
+  
+  type(StringArray)         :: input
+  type(String), allocatable :: output(:)
+  type(String)              :: message(2)
+  
+  integer :: i,j
+  
+  test_cases = [ StringArray([String::]),              &
+               & StringArray(str([''])),               &
+               & StringArray(str(['Hello,','World!'])) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)
+    output = str(input)
+    message(1) = 'Input  : '//join([( '"'//input%strings(j)//'"', &
+                                    & j=1,                        &
+                                    & size(input%strings)         )])
+    message(2) = 'Output : '//join([('"'//output(j)//'"', j=1, size(output))])
+    @assertTrue(size(output)==size(input), char(message))
+    @assertTrue(all(output==input%strings), char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_str_StringArrays()
+  type :: TestCase
+    type(StringArray), allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: separating_lines(:)
+  
+  type(StringArray), allocatable :: input(:)
+  type(String),      allocatable :: separating_line
+  type(String),      allocatable :: output(:)
+  type(String),      allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l,m,ialloc
+  
+  test_cases = [                                                          &
+     & TestCase([StringArray::]),                                         &
+     & TestCase([StringArray([String::])]),                               &
+     & TestCase([StringArray(str(['']))]),                                &
+     & TestCase([StringArray(str(['Hello,','World!']))]),                 &
+     & TestCase([(StringArray([String::]), i=1, 10)]),                    &
+     & TestCase([( StringArray([str('Hello,'),str('World!'),str(i)]),     &
+     &             i=1,                                                   &
+     &             10                                                 )]) ]
+  
+  separating_lines = [str(''), str(repeat('-',20))]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    
+    do j=0,size(separating_lines)
+      if (j==0) then
+        if (allocated(separating_line)) then
+          deallocate(separating_line, stat=ialloc); call err(ialloc)
+        endif
+      else
+        separating_line = separating_lines(j)
+      endif
+      
+      ! Call str.
+      do k=1,2
+        if (k==1) then
+          output = str(input, separating_line)
+        else
+          if (j==0) then
+            cycle
+          else
+            output = str(input, char(separating_line))
+          endif
+        endif
+        
+        ! Construct message for if test fails.
+        message = [ str('Input  :'),                                  &
+                  & [( join([( '"'//input(m)%strings(l)//'"',         &
+                  &     l=1,                                          &
+                  &     size(input(m)%strings)                )]),    &
+                  & m=1,                                              &
+                  & size(input)                                    )] ]
+        if (j==0) then
+          message = [ message,                  &
+                    & str('Separating line :'), &
+                    & str('Not allocated.')     ]
+        else
+          if (k==1) then
+            message = [ message,                           &
+                      & str('Separating line (String) :'), &
+                      & separating_line                    ]
+          else
+            message = [ message,                                 &
+                      & str('Separating line (character(*)) :'), &
+                      & separating_line                          ]
+          endif
+        endif
+        message = [ message,         &
+                  & str('Output :'), &
+                  & output           ]
+        
+        ! Check output.
+        if (allocated(separating_line)) then
+          check = size(output) == sum([(size(input(l)),l=1,size(input))]) &
+                              & + max(size(input)-1, 0)
+        else
+          check = size(output) == sum([(size(input(l)),l=1,size(input))])
+        endif
+        @assertTrue(check, char(message))
+        m = 0
+        do l=1,size(input)
+          check = all(output(m+1:m+size(input(l)))==input(l)%strings)
+          @assertTrue(check, char(message))
+          m = m+size(input(l))
+          if (allocated(separating_line) .and. l<size(input)) then
+            check = output(m+1)==separating_line
+            @assertTrue(check, char(message))
+            m = m+1
+          endif
+        enddo
+      enddo
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_split_into_sections
+  type :: TestCase
+    type(StringArray)              :: input
+    type(String),      allocatable :: separating_line
+    type(StringArray), allocatable :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(StringArray), allocatable :: output(:)
+  
+  type(String) :: message(3)
+  
+  logical :: check
+  
+  integer :: i,j,k
+  
+  ! WORKAROUND: gfortran-10 takes separating_line to be allocated even when
+  !    no value is passed to the constructor. Thus an empty string '' is used
+  !    to represent no separating line.
+  test_cases = [                                                            &
+     & TestCase( input           = StringArray([String::]),                 &
+     &           separating_line = str(''),                                 &
+     &           output          = [StringArray::]          ),              &
+     & TestCase( input           = StringArray([String::]),                 &
+     &           separating_line = str('-----'),                            &
+     &           output          = [StringArray::]          ),              &
+     & TestCase( input           = StringArray([ str('Hello,'),             &
+     &                                           str('World!')  ]),         &
+     &           separating_line = str(''),                                 &
+     &           output          = [StringArray([ str('Hello,'),            &
+     &                                            str('World!')  ])] ),     &
+     & TestCase( input           = StringArray([ str('Hello,'),             &
+     &                                           str('World!')  ]),         &
+     &           separating_line = str('-----'),                            &
+     &           output          = [StringArray([ str('Hello,'),            &
+     &                                            str('World!')  ])] ),     &
+     & TestCase( input           = StringArray([ str('Hello,'),             &
+     &                                           str('World!'),             &
+     &                                           str(''),                   &
+     &                                           str('Goodbye,'),           &
+     &                                           str('World!')    ]),       &
+     &           separating_line = str(''),                                 &
+     &           output          = [ StringArray([ str('Hello,'),           &
+     &                                             str('World!')  ]),       &
+     &                               StringArray([ str('Goodbye,'),         &
+     &                                             str('World!')    ]) ] ), &
+     & TestCase( input           = StringArray([ str('Hello,'),             &
+     &                                           str('World!'),             &
+     &                                           str('-----'),              &
+     &                                           str('Goodbye,'),           &
+     &                                           str('World!')    ]),       &
+     &           separating_line = str('-----'),                            &
+     &           output          = [ StringArray([ str('Hello,'),           &
+     &                                             str('World!')  ]),       &
+     &                               StringArray([ str('Goodbye,'),         &
+     &                                             str('World!')    ]) ] )  ]
+  
+  do i=1,size(test_cases)
+    do j=0,4
+      if (j==0 .and. test_cases(i)%separating_line=='') then
+        output = split_into_sections(test_cases(i)%input)
+      elseif (j==1) then
+        output = split_into_sections( test_cases(i)%input,          &
+                                    & test_cases(i)%separating_line )
+      elseif (j==2) then
+        output = split_into_sections( test_cases(i)%input,                &
+                                    & char(test_cases(i)%separating_line) )
+      elseif (j==3) then
+        output = split_into_sections( str(test_cases(i)%input),    &
+                                    & test_cases(i)%separating_line )
+      elseif (j==4) then
+        output = split_into_sections( str(test_cases(i)%input),           &
+                                    & char(test_cases(i)%separating_line) )
+      else
+        cycle
+      endif
+      
+      message(1) = 'Case : '//i
+      if (j==0) then
+        message(2) = 'Input as StringArray, separating_line not present.'
+      elseif (j==1) then
+        message(2) = 'Input as StringArray, separating_line as String.'
+      elseif (j==2 .and. allocated(test_cases(i)%separating_line)) then
+        message(2) = 'Input as StringArray, separating_line as character(*).'
+      elseif (j==3) then
+        message(2) = 'Input as String(:), separating_line as String.'
+      elseif (j==4 .and. allocated(test_cases(i)%separating_line)) then
+        message(2) = 'Input as String(:), separating_line as character(*).'
+      endif
+      message(3) = 'Separating line : '//test_cases(i)%separating_line
+      
+      check = size(output)==size(test_cases(i)%output)
+      @assertTrue(check, char(message))
+      do k=1,size(output)
+        check = size(output(k)%strings)==size(test_cases(i)%output(k)%strings)
+        @assertTrue(check, char(message))
+        check = all(output(k)%strings==test_cases(i)%output(k)%strings)
+        @assertTrue(check, char(message))
+      enddo
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_concatenate()
+  type(StringArray), allocatable :: test_cases(:)
+  
+  type(StringArray) :: this
+  type(StringArray) :: that
+  type(StringArray) :: output
+  
+  logical :: check
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i,j,k
+  
+  test_cases = [ StringArray([String::]),                    &
+               & StringArray([str('')]),                     &
+               & StringArray([str('Hello,')]),               &
+               & StringArray([str('Hello,'),str('World!')]), &
+               & StringArray([(str(i),i=1,26)])              ]
+  
+  do i=1,size(test_cases)
+    this = test_cases(i)
+    do j=1,size(test_cases)
+      that = test_cases(j)
+      do k=1,5
+        if (k==1) then
+          output = this//that
+        elseif (k==2 .and. size(that)==1) then
+          output = this//that%strings(1)
+        elseif (k==3 .and. size(that)==1) then
+          output = this//char(that%strings(1))
+        elseif (k==4) then
+          output = this//str(that)
+        elseif (k==5 .and. size(this)==1) then
+          output = this%strings(1)//that
+        elseif (k==6 .and. size(this)==1) then
+          output = char(this%strings(1))//that
+        elseif (k==7) then
+          output = str(this)//that
+        else
+          cycle
+        endif
+        
+        message = [ str('This   :'), &
+                  & str(this),       &
+                  & str('That   :'), &
+                  & str(that),       &
+                  & str('j      :'), &
+                  & str(j),          &
+                  & str('Output :'), &
+                  & str(output)      ]
+        
+        check = size(output)==size(this)+size(that)
+        @assertTrue(check, char(message))
+        check = all(output%strings==[this%strings, that%strings])
+        @assertTrue(check, char(message))
+      enddo
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_join()
+  type :: TestCase
+    type(StringArray), allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(StringArray), allocatable :: input(:)
+  type(String),      allocatable :: separating_line
+  type(StringArray)              :: output
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i,j,k,l,ialloc
+  
+  test_cases = [                                                     &
+     & TestCase([StringArray::]),                                    &
+     & TestCase([StringArray([String::])]),                          &
+     & TestCase([StringArray([str('Hello,'),str('World!')])]),       &
+     & TestCase([StringArray([(str(i),i=1,26)])]),                   &
+     & TestCase([(StringArray([String::]),i=1,26)]),                 &
+     & TestCase([(StringArray(['Hello, '//i]),i=1,26)]),             &
+     & TestCase([(StringArray([( 'Hello, '//i//' '//j,               &
+     &                           j=1,                                &
+     &                           26                    )]),i=1,26)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=1,5
+      if (j==1) then
+        if (allocated(separating_line)) then
+          deallocate(separating_line, stat=ialloc); call err(ialloc)
+        endif
+        output = join(input)
+      elseif (j==2) then
+        separating_line = str('')
+        output = join(input, separating_line)
+      elseif (j==3) then
+        separating_line = str('')
+        output = join(input, char(separating_line))
+      elseif (j==4) then
+        separating_line = str(repeat('-',50))
+        output = join(input, separating_line)
+      else
+        separating_line = str(repeat('-',50))
+        output = join(input, char(separating_line))
+      endif
+      
+      message(1) = 'Input           : case '//i
+      message(2) = 'Separating line : case '//j
+      
+      if (allocated(separating_line)) then
+        check = size(output)==sum([(size(input(k)),k=1,size(input))]) &
+            & + max(size(input)-1, 0)
+      else
+        check = size(output)==sum([(size(input(k)),k=1,size(input))])
+      endif
+      @assertTrue(check, char(message))
+      
+      l = 0
+      do k=1,size(input)
+        check = all(output%strings(l+1:l+size(input(k)))==input(k)%strings)
+        @assertTrue(check, char(message))
+        l = l+size(input(k))
+        if (allocated(separating_line) .and. k<size(input)) then
+          check = output%strings(l+1) == separating_line
+          @assertTrue(check, char(message))
+          l = l+1
+        endif
+      enddo
+    enddo
+  enddo
+end subroutine
+end module

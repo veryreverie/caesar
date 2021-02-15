@@ -1,0 +1,261 @@
+module stringsable_test
+  use caesar_precision_module
+  use caesar_io_basic_module
+  
+  use caesar_string_array_module
+  use caesar_strings_writeable_module
+  use caesar_stringsable_module
+  
+  use funit
+  implicit none
+  
+  type, extends(Stringsable) :: TestType
+    real(dp), allocatable :: contents(:)
+  contains
+    procedure, public :: read  => read_TestType
+    procedure, public :: write => write_TestType
+  end type
+  
+  interface TestType
+    module procedure new_TestType
+    module procedure new_TestType_Strings
+    module procedure new_TestType_StringArray
+  end interface
+contains
+
+function new_TestType(contents) result(this)
+  real(dp), intent(in) :: contents(:)
+  type(TestType)       :: this
+  
+  this%contents = contents
+end function
+
+subroutine read_TestType(this,input)
+  class(TestType), intent(out) :: this
+  type(String),    intent(in)  :: input(:)
+  
+  ! Select type needed to call non-polymorphic procedures,
+  !    such as the TestType(input) constructor.
+  select type(this); type is(TestType)
+    this = TestType(dble(input))
+  class default
+    call print_line(CODE_ERROR//': Called the TestType implementation &
+       &of read() from a type other than TestType.')
+    call err()
+  end select
+end subroutine
+
+function write_TestType(this) result(output)
+  implicit none
+  
+  class(TestType), intent(in) :: this
+  type(String), allocatable   :: output(:)
+  
+  ! Select type needed to call non-polymorphic procedures, and to ensure that
+  !    write() is overloaded by any type which extends StringsWriteableExample.
+  select type(this); type is(TestType)
+    output = str(this%contents)
+  class default
+    call print_line(CODE_ERROR//': Called the TestType implementation &
+       &of write() from a type other than TestType.')
+    call err()
+  end select
+end function
+
+function new_TestType_Strings(input) result(this)
+  type(String), intent(in) :: input(:)
+  type(TestType)           :: this
+  
+  call this%read(input)
+end function
+
+impure elemental function new_TestType_StringArray(input) result(this)
+  type(StringArray), intent(in) :: input
+  type(TestType)                :: this
+  
+  this = TestType(str(input))
+end function
+
+@test
+subroutine test_Stringsable()
+  type(TestType) :: foo
+  
+  foo = TestType([3.0_dp,5.0_dp])
+  @assertTrue(size(foo%contents)==2)
+  @assertTrue(all(abs(foo%contents-[3.0_dp,5.0_dp])<1e-10_dp))
+  
+  call foo%read([String::])
+  @assertTrue(size(foo%contents)==0)
+  
+  call foo%read([str('5.0'), str('6.0'), str('7.0')])
+  @assertTrue(size(foo%contents)==3)
+  @assertTrue(all(abs(foo%contents-[5.0_dp,6.0_dp,7.0_dp])<1e-10_dp))
+  
+  foo = TestType([str('6.0'), str('7.0')])
+  @assertTrue(size(foo%contents)==2)
+  @assertTrue(all(abs(foo%contents-[6.0_dp,7.0_dp])<1e-10_dp))
+end subroutine
+
+@test
+subroutine test_write()
+  type(TestType), allocatable :: test_cases(:)
+  
+  type(TestType)            :: input
+  type(String), allocatable :: output(:)
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  call unset_print_settings()
+  call set_print_settings(decimal_places=3)
+  
+  test_cases = [ TestType([real(dp)::]),        &
+               & TestType([3.0_dp]),            &
+               & TestType([(1.0_dp*i,i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)
+    output = input%write()
+    message = [ str('Input  :'),     &
+              & str(input%contents), &
+              & str('Output :'),     &
+              & output               ]
+    @assertTrue(size(output)==size(input%contents), char(message))
+    @assertTrue(all(output==str(input%contents)), char(message))
+  enddo
+  
+  call unset_print_settings()
+end subroutine
+
+@test
+subroutine test_str_Stringsable()
+  type(TestType), allocatable :: test_cases(:)
+  
+  type(TestType)            :: input
+  type(String), allocatable :: output(:)
+  type(String), allocatable :: expected(:)
+  type(String), allocatable :: message(:)
+  
+  integer :: i,j
+  
+  call unset_print_settings()
+  call set_print_settings(decimal_places=3)
+  
+  test_cases = [ TestType([real(dp)::]),        &
+               & TestType([3.0_dp]),            &
+               & TestType([(1.0_dp*i,i=1,100)]) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)
+    
+    output = str(input)
+    expected  = str(input%contents)
+    message = [ str('Output   :'), &
+              & output,            &
+              & str('Expected :'), &
+              & expected           ]
+    @assertTrue(size(output)==size(expected), char(message))
+    @assertTrue(all(output==expected), char(message))
+    
+    output = str(input, PrintSettings(decimal_places=5))
+    expected  = [( str(input%contents(j), PrintSettings(decimal_places=5)), &
+                 & j=1,                                                     &
+                 & size(input%contents)                                     )]
+    message = [ str('Output   :'), &
+              & output,            &
+              & str('Expected :'), &
+              & expected           ]
+    @assertTrue(size(output)==size(expected), char(message))
+    @assertTrue(all(output==expected), char(message))
+  enddo
+  
+  call unset_print_settings()
+end subroutine
+
+@test
+subroutine test_str_Stringsables
+  type :: TestCase
+    type(TestType), allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  type(String),   allocatable :: separating_lines(:)
+  
+  type(TestType), allocatable :: input(:)
+  type(String),   allocatable :: separating_line
+  type(String),   allocatable :: output(:)
+  type(String),   allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l,m,ialloc
+  
+  call unset_print_settings()
+  
+  test_cases = [                                             &
+     & TestCase([TestType::]),                               &
+     & TestCase([TestType([real(dp)::])]),                   &
+     & TestCase([TestType([(1.0_dp*i,i=1,10)])]),            &
+     & TestCase([(TestType([1.0_dp*i]),i=1,10)]),            &
+     & TestCase([(TestType([(10.0_dp*i+j,j=1,10)]),i=1,10)]) ]
+  
+  separating_lines = [     &
+     & str(''),            &
+     & str(repeat(' ',5)), &
+     & str(repeat('-',50)) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    do j=0,size(separating_lines)
+      if (j==0) then
+        if (allocated(separating_line)) then
+          deallocate(separating_line, stat=ialloc); call err(ialloc)
+        endif
+      else
+        separating_line = separating_lines(j)
+      endif
+      
+      do k=1,2
+        if (k==1) then
+          output = str(input, separating_line)
+        elseif (allocated(separating_line)) then
+          output = str(input, char(separating_line))
+        else
+          cycle
+        endif
+        
+        message = [ 'Input                : case '//i, &
+                  & 'Separating line      : case '//j, &
+                  & 'Separating line type : case '//k, &
+                  & str('Output :'),                   &
+                  & output                             ]
+        
+        if (allocated(separating_line)) then
+          check = size(output)                                     &
+             & == sum([(size(input(l)%contents),l=1,size(input))]) &
+             &  + max(size(input)-1,0)
+        else
+          check = size(output) &
+             & == sum([(size(input(l)%contents),l=1,size(input))])
+        endif
+        @assertTrue(check, char(message))
+        
+        m = 0
+        do l=1,size(input)
+          check = all( output(m+1:m+size(input(l)%contents)) &
+                  & == str(input(l)%contents)                )
+          @assertTrue(check, char(message))
+          m = m+size(input(l)%contents)
+          if (allocated(separating_line) .and. l<size(input)) then
+            check = output(m+1)==separating_line
+            @assertTrue(check, char(message))
+            m = m+1
+          endif
+        enddo
+      enddo
+    enddo
+  enddo
+  
+  call unset_print_settings()
+end subroutine
+end module
