@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(abstract)
 
 # Compile the correct shared_counter file.
@@ -9,21 +9,20 @@ else()
   add_library(shared_counter shared_counter_bug.f90)
 endif()
 
-# Compile module files.
-add_library(abstract_modules traits.f90 logic.f90 shared_counter.f90 abstract.f90)
+add_library(abstract_modules logic.f90 shared_counter.f90 abstract.f90)
+add_library(abstract_submodules logic_submodule.f90 shared_counter_submodule.f90)
 target_link_libraries(abstract_modules shared_counter)
-
-# Compile submodule files.
-add_library(abstract logic_submodule.f90 shared_counter_submodule.f90)
-target_link_libraries(abstract abstract_modules)
+target_link_libraries(abstract_submodules abstract_modules)
 
 # Link against required modules.
-target_link_libraries(abstract io_basic)
+target_link_libraries(abstract_modules foundations_modules)
+target_link_libraries(abstract_submodules foundations_submodules)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../io io/)
+target_link_libraries(abstract_submodules io_submodules)
 
 # Enable testing.
-include(${CMAKE_SOURCE_DIR}/utils/link_pfunit.cmake)
 if(BUILD_TESTS)
   set(test_srcs logic_test.pf shared_counter_test.pf)
   add_pfunit_ctest(abstract_tests TEST_SOURCES ${test_srcs} LINK_LIBRARIES funit ${PFUNIT_LIBRARIES})
-  target_link_libraries(abstract_tests abstract)
+  target_link_libraries(abstract_tests abstract_submodules)
 endif()

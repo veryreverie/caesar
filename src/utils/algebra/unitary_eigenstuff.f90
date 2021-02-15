@@ -6,7 +6,7 @@
 ! Instead of diagonalising the unitary matrix U, it is numerically superior to
 !    construct and diagonalise the Hermitian matrices (U+U*) and (U-U*)/i.
 module caesar_unitary_eigenstuff_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_abstract_module
   use caesar_io_module
   

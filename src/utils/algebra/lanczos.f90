@@ -3,7 +3,7 @@
 !    the lowest n eigenvalues and eigenvectors of a real symmetric matrix.
 ! ======================================================================
 module caesar_lanczos_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   
   use caesar_arpack_wrapper_module

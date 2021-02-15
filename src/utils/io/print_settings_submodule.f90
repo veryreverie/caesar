@@ -1,5 +1,5 @@
 submodule (caesar_print_settings_module) caesar_print_settings_submodule
-  use caesar_string_base_module
+  use caesar_io_module
   
   !> Defines whether or not a [[PrintSettings(type)]] should be used.
   logical             :: USE_CURRENT_PRINT_SETTINGS = .false.

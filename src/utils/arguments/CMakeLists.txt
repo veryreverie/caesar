@@ -1,11 +1,17 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(arguments)
 
-add_library(arguments keyword.f90 common_keywords.f90 help.f90 dictionary.f90 caesar_modes.f90 arguments.f90)
+add_library(arguments_modules keyword.f90 common_keywords.f90 help.f90 dictionary.f90 caesar_modes.f90 arguments.f90)
+add_library(arguments_submodules ${DUMMY_FILE})
+target_link_libraries(arguments_submodules arguments_modules)
 
 # Link against required modules.
-target_link_libraries(arguments precision)
-target_link_libraries(arguments abstract)
-target_link_libraries(arguments io)
-target_link_libraries(arguments random)
+target_link_libraries(arguments_modules foundations_modules)
+target_link_libraries(arguments_submodules foundations_submodules)
+target_link_libraries(arguments_modules abstract_modules)
+target_link_libraries(arguments_submodules abstract_submodules)
+target_link_libraries(arguments_modules io_modules)
+target_link_libraries(arguments_submodules io_submodules)
+target_link_libraries(arguments_modules random_modules)
+target_link_libraries(arguments_submodules random_submodules)

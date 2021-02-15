@@ -2,7 +2,7 @@
 ! Routines for finding orthonormal bases for vector subspaces.
 ! ======================================================================
 module caesar_orthonormal_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_abstract_module
   use caesar_io_module
   

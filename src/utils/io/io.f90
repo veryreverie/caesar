@@ -1,12 +1,13 @@
-! ======================================================================
-! More advanced I/O functionality, including:
-!    - File handling.
-!    - Base types from which extended types can be written and read.
-! ======================================================================
-! This module is simply an interface for the various I/O modules.
+!> This module is an interface for the various I/O modules.
 module caesar_io_module
-  use caesar_io_basic_module
-  
+  use caesar_error_module
+  use caesar_string_base_module
+  use caesar_string_module
+  use caesar_print_settings_module
+  use caesar_print_module
+  use caesar_intrinsics_module
+  use caesar_io_utils_module
+  use caesar_token_module
   use caesar_string_writeable_module
   use caesar_strings_writeable_module
   use caesar_string_array_module
@@ -21,6 +22,6 @@ contains
 subroutine startup_io()
   implicit none
   
-  call startup_io_basic()
+  call startup_io_utils()
 end subroutine
 end module

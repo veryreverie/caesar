@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(effective_harmonic)
 
 add_library(effective_harmonic harmonic_states.f90 harmonic_basis.f90 effective_harmonic.f90)

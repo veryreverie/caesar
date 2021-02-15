@@ -2,7 +2,7 @@
 ! A dummy module for when ARPACK is not being linked.
 ! ======================================================================
 module caesar_arpack_wrapper_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   implicit none
   

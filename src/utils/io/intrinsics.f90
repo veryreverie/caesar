@@ -1,6 +1,6 @@
 !> Provides I/O functionality for intrinsic types.
 module caesar_intrinsics_module
-  use caesar_precision_module
+  use caesar_foundations_module
   
   use caesar_string_base_module
   use caesar_string_module

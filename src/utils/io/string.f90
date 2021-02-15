@@ -1,6 +1,6 @@
 !> Provides the [[String(type)]] class.
 module caesar_string_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_string_base_module
   use caesar_error_module
   implicit none

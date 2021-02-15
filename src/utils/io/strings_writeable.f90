@@ -1,8 +1,9 @@
 !> Provides the [[StringsWriteable(type)]] abstract type.
 module caesar_strings_writeable_module
-  use caesar_io_basic_module
-  use caesar_abstract_module
+  use caesar_foundations_module
   
+  use caesar_string_module
+  use caesar_print_settings_module
   use caesar_string_array_module
   implicit none
   

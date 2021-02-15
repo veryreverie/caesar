@@ -2,8 +2,7 @@
 !>    [[OFile(type)]] classes.
 !> Should not be imported by any modules other than ifile and ofile.
 module caesar_file_module
-  use caesar_precision_module
-  use caesar_io_basic_module
+  use caesar_foundations_module
   implicit none
   
   private

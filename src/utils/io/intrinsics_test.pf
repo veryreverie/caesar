@@ -1,10 +1,8 @@
 module intrinsics_test
   use funit
   
-  use caesar_precision_module
-  use caesar_string_module
-  use caesar_print_settings_module
-  use caesar_intrinsics_module
+  use caesar_foundations_module
+  use caesar_io_module
   implicit none
 contains
 

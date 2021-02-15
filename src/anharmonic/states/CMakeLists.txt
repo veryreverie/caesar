@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(states)
 
 add_library(states monomial_state_1d.f90 monomial_state_2d.f90 harmonic_state_1d.f90 harmonic_state_2d.f90 monomial_state_real.f90 monomial_state_complex.f90 harmonic_state_real.f90 harmonic_state_complex.f90 harmonic_braket_real.f90 harmonic_braket_complex.f90 coupled_states.f90 density_matrix.f90 wavevector_state.f90 wavevector_states.f90 wavevector_basis.f90 full_subspace_wavefunctions.f90 split_qpoints_wavefunctions.f90 core_shell_thermodynamics.f90 calculate_weights.f90 full_subspace_basis.f90 split_qpoints_basis.f90 states.f90)

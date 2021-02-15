@@ -1,4 +1,5 @@
 submodule (caesar_ifile_module) caesar_ifile_submodule
+  use caesar_io_module
 contains
 module procedure new_IFile_character
   integer          :: file_length

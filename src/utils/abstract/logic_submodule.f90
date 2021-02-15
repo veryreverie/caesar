@@ -1,4 +1,5 @@
 submodule (caesar_logic_module) caesar_logic_submodule
+  use caesar_io_module
 contains
 module procedure lazy_and
   if (.not. this) then

@@ -13,7 +13,7 @@
 ! Also:
 !    (group*group)*1 = group*(group*1) = group*2 = 3
 module caesar_operator_group_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   implicit none
   

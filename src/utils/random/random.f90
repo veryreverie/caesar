@@ -4,7 +4,7 @@
 !    - Generates real numbers between 0 and 1.
 !    - Can be given a consistent seed.
 module caesar_random_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_abstract_module
   use caesar_io_module
   implicit none

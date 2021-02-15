@@ -1,12 +1,8 @@
 module stringsable_test
-  use caesar_precision_module
-  use caesar_io_basic_module
-  
-  use caesar_string_array_module
-  use caesar_strings_writeable_module
-  use caesar_stringsable_module
-  
   use funit
+  
+  use caesar_foundations_module
+  use caesar_io_module
   implicit none
   
   type, extends(Stringsable) :: TestType

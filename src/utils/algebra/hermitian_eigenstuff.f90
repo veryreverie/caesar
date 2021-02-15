@@ -3,7 +3,7 @@
 !    symmetric and general matrices.
 ! ======================================================================
 module caesar_hermitian_eigenstuff_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   
   use caesar_lapack_wrapper_module

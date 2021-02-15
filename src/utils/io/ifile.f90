@@ -1,8 +1,8 @@
 !> Provides the [[IFile(type)]] class, which handles input file reading.
 module caesar_ifile_module
-  use caesar_precision_module
-  use caesar_io_basic_module
+  use caesar_foundations_module
   
+  use caesar_string_module
   use caesar_file_module
   use caesar_string_array_module
   implicit none

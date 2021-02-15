@@ -1,4 +1,5 @@
 submodule (caesar_strings_writeable_module) caesar_strings_writeable_submodule
+  use caesar_io_module
 contains
 module procedure str_StringsWriteable
   if (present(settings)) then

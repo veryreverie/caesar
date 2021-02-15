@@ -1,5 +1,5 @@
 submodule (caesar_shared_counter_module) caesar_shared_counter_submodule
-  implicit none
+  use caesar_io_module
 contains
 module procedure new_SharedCounter
   integer :: ialloc

@@ -2,7 +2,7 @@
 ! various utilities
 ! ======================================================================
 module caesar_algebra_utils_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   
   use caesar_mathematical_constants_module

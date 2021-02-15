@@ -1,7 +1,5 @@
 !> Provides a shared-pointer like counter.
 module caesar_shared_counter_module
-  use caesar_io_basic_module
-  
   use caesar_shared_counter_bugfix_module
   implicit none
   
@@ -22,7 +20,6 @@ module caesar_shared_counter_module
     final :: final_SharedCounter
     
     procedure, public :: is_only_copy => is_only_copy_SharedCounter
-    !procedure, public :: print => print_SharedCounter
   end type
   
   interface SharedCounter

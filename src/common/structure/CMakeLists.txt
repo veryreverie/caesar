@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(structure)
 
 add_library(structure physical_constants.f90 basic_symmetry.f90 qpoint.f90 generate_qpoints.f90 symmetry.f90 structure_data.f90 supercell.f90 structure.f90)

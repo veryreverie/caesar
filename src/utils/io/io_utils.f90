@@ -1,7 +1,7 @@
 !> Various miscellaneous I/O operations.
 module caesar_io_utils_module
   use iso_fortran_env, only : INPUT_UNIT
-  use caesar_precision_module
+  use caesar_foundations_module
   
   use caesar_terminal_module
   use caesar_error_module

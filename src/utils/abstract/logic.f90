@@ -1,7 +1,6 @@
 !> A number of algorithms to do with logic and sorting.
 module caesar_logic_module
-  use caesar_precision_module
-  use caesar_io_basic_module
+  use caesar_foundations_module
   implicit none
   
   private

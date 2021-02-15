@@ -1,7 +1,6 @@
 !> Provides the [[Stringsable(type)]] abstract type.
 module caesar_stringsable_module
-  use caesar_io_basic_module
-  
+  use caesar_string_module
   use caesar_string_array_module
   use caesar_strings_readable_module
   use caesar_strings_writeable_module

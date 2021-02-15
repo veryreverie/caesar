@@ -1,7 +1,7 @@
 # Compiles the old caesar code, for testing purposes.
 # Nothing in this directory links into the main caesar executable.
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(old)
 
 find_package( LAPACK REQUIRED )

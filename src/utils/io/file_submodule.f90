@@ -1,4 +1,5 @@
 submodule (caesar_file_module) caesar_file_submodule
+  use caesar_io_module
 contains
 module procedure open_file
   type(String) :: formatted_filename

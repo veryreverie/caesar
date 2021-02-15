@@ -2,7 +2,7 @@
 ! A heterogeneous multi-dimensional integer array.
 ! ======================================================================
 module caesar_integer_arrays_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   implicit none
   

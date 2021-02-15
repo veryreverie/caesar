@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(dft)
 
 add_library(dft castep_output_file.f90 converge_cutoff_and_kpoints.f90 plot_cutoff_and_kpoints.f90 converge_harmonic_frequencies.f90 plot_harmonic_convergence.f90 dft.f90)

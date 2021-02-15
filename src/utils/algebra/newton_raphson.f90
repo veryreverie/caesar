@@ -3,7 +3,7 @@
 ! ======================================================================
 ! See the example function at the bottom of this file for how to use.
 module caesar_newton_raphson_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_abstract_module
   use caesar_io_module
   implicit none

@@ -1,9 +1,7 @@
 module string_array_test
   use funit
   
-  use caesar_io_basic_module
-  
-  use caesar_string_array_module
+  use caesar_io_module
   implicit none
 contains
 

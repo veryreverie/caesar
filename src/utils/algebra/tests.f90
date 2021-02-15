@@ -2,7 +2,7 @@
 ! Various matrix tests.
 ! ======================================================================
 module caesar_tests_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   
   use caesar_linear_algebra_module

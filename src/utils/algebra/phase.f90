@@ -3,7 +3,7 @@
 !    fraction.
 ! ======================================================================
 module caesar_phase_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   
   use caesar_fraction_module

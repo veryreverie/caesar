@@ -1,7 +1,7 @@
 # Copies python scripts to the binary directory.
 # Nothing in this directory links into the main caesar executable.
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(python)
 
 # Copy python scripts.

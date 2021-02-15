@@ -7,7 +7,7 @@
 !    - once after the 'contains' line. MACRO_BODY must be defined.
 ! N.B. This file can be included for multiple types,
 !    with a different MACRO_TYPE_NAME each time.
-! N.B. this file may only be included in files which use caesar_io_basic_module.
+! N.B. this file may only be included in files which use caesar_io_module.
 
 ! ----------------------------------------------------------------------
 ! Functionality defined in this file:

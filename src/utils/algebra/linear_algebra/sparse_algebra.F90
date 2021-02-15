@@ -2,7 +2,7 @@
 ! Vectors and matrices in sparse representation.
 ! ======================================================================
 module caesar_sparse_algebra_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   
   use caesar_linear_algebra_module

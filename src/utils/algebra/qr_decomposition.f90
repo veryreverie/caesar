@@ -2,7 +2,7 @@
 ! Routines for finding the QR decomposition of various matrices.
 ! ======================================================================
 module caesar_qr_decomposition_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_abstract_module
   use caesar_io_module
   

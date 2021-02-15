@@ -1,4 +1,5 @@
 submodule (caesar_string_array_module) caesar_string_array_submodule
+  use caesar_io_module
   implicit none
 contains
 module procedure new_StringArray_Strings

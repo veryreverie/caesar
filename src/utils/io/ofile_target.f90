@@ -1,8 +1,9 @@
 !> Provides the [[OFileTarget(type)]] class, which is used by [[OFile(type)]].
 module caesar_ofile_target_module
-  use caesar_precision_module
-  use caesar_io_basic_module
+  use caesar_foundations_module
   
+  use caesar_string_module
+  use caesar_print_settings_module
   use caesar_string_writeable_module
   use caesar_strings_writeable_module
   use caesar_file_module

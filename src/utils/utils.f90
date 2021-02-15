@@ -9,7 +9,7 @@
 ! ======================================================================
 ! This module is simply an interface to various subsidiary modules.
 module caesar_utils_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   use caesar_abstract_module
   use caesar_arguments_module

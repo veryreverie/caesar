@@ -2,7 +2,7 @@
 ! A dictionary of keys and values, both of type String.
 ! ======================================================================
 module caesar_argument_dictionary_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_abstract_module
   use caesar_io_module
   

@@ -2,7 +2,7 @@
 ! Global mathematical constants.
 ! ======================================================================
 module caesar_mathematical_constants_module
-  use caesar_precision_module
+  use caesar_foundations_module
   implicit none
   
   private

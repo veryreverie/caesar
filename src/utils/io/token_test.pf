@@ -1,9 +1,7 @@
 module token_test
   use funit
   
-  use caesar_string_module
-  use caesar_print_module
-  use caesar_token_module
+  use caesar_io_module
   implicit none
 contains
 

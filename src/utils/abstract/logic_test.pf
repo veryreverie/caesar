@@ -1,8 +1,8 @@
 module logic_test
   use funit
   
-  use caesar_precision_module
-  use caesar_io_basic_module
+  use caesar_foundations_module
+  use caesar_io_module
   
   use caesar_logic_module
   implicit none

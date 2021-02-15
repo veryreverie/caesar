@@ -1,7 +1,8 @@
 module print_settings_test
   use funit
   
-  use caesar_print_settings_module
+  use caesar_foundations_module
+  use caesar_io_module
   implicit none
 contains
   

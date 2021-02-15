@@ -2,7 +2,7 @@
 ! Keywords for input arguments.
 ! ======================================================================
 module caesar_keyword_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_abstract_module
   use caesar_io_module
   implicit none

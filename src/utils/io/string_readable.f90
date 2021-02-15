@@ -1,8 +1,8 @@
 !> Provides the [[StringReadable(type)]] abstract type.
 module caesar_string_readable_module
-  use caesar_io_basic_module
-  use caesar_abstract_module
+  use caesar_foundations_module
   
+  use caesar_string_module
   use caesar_string_array_module
   implicit none
   

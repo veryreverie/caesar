@@ -1,10 +1,8 @@
 module string_readable_test
-  use caesar_precision_module
-  use caesar_io_basic_module
-  
-  use caesar_string_readable_module
-  
   use funit
+  
+  use caesar_foundations_module
+  use caesar_io_module
   implicit none
   
   type, extends(StringReadable) :: TestType

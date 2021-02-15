@@ -1,4 +1,5 @@
 submodule (caesar_ofile_module) caesar_ofile_submodule
+  use caesar_io_module
 contains
 module procedure new_OFile_character
   integer :: ialloc

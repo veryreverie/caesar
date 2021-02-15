@@ -1,9 +1,10 @@
 !> Provides the [[OFile(type)]] class, which handles output file writing.
 module caesar_ofile_module
-  use caesar_precision_module
-  use caesar_io_basic_module
+  use caesar_foundations_module
   use caesar_abstract_module
   
+  use caesar_string_module
+  use caesar_print_settings_module
   use caesar_ofile_target_module
   use caesar_string_writeable_module
   use caesar_strings_writeable_module

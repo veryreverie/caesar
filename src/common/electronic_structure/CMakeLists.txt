@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(electronic_structure)
 
 add_library(electronic_structure electronic_structure_file.f90 calculation_writer.f90 calculation_runner.f90 calculation_reader.f90 electronic_structure.f90)

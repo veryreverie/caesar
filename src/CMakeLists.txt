@@ -1,6 +1,6 @@
 # CAESAR CmakeLists.txt
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(caesar)
 
 enable_language(Fortran)
@@ -75,6 +75,3 @@ target_link_libraries(caesar testing)
 
 # Copy the python scripts to bin/python/.
 add_subdirectory(${CMAKE_SOURCE_DIR}/python ${CMAKE_BINARY_DIR}/python/)
-
-# Enable testing.
-include(${CMAKE_SOURCE_DIR}/utils/link_pfunit.cmake)

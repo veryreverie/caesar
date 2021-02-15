@@ -7,7 +7,7 @@
 ! See unary_algebra.fpp and binary_algebra.fpp for
 !    interfaces and function definitions.
 module caesar_linear_algebra_module
-  use caesar_precision_module
+  use caesar_foundations_module
   use caesar_io_module
   
   use caesar_lapack_wrapper_module

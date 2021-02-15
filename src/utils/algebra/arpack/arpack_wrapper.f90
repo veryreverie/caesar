@@ -2,8 +2,7 @@
 ! An interface to various ARPACK routines.
 ! ======================================================================
 module caesar_arpack_wrapper_module
-  use caesar_precision_module
-  use caesar_io_module
+  use caesar_foundations_module
   implicit none
   
   private

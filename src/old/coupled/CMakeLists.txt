@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-include(${CMAKE_SOURCE_DIR}/utils/cmake_include_guard.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(coupled)
 
 add_library(coupled spline2.f90 positions2.f90 coupled_atomic_units.f90 scf.f90 vscfCoupled.f90)

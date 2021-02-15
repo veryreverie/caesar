@@ -1,6 +1,6 @@
 !> Provides the [[StringArray(type)]] type.
 module caesar_string_array_module
-  use caesar_io_basic_module
+  use caesar_string_module
   implicit none
   
   private
