@@ -159,3 +159,16 @@ Visualisation
 Caesar uses python and the matplotlib plotting library. This can be located using the python_path keyword when running plot functionality.
 
 The harmonic calculation produces a castep .phonon file, which can be viewed using JMol or similar.
+
+----------------------------------------
+Unit tests
+----------------------------------------
+Unit tests are compiled by default. This requires the pFUnit library, whose /bin directory must be on PATH. To suppress compilation of tests (and remove the dependency on pFUnit), set ENABLE_TESTS to false when running CMake, e.g. using
+
+  -DENABLE_TESTS:LOGICAL=false
+
+Unit tests can be run by calling
+
+  ctest
+
+from the build directory where CMake was run.
