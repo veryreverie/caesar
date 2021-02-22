@@ -26,124 +26,72 @@ module caesar_phase_module
   end type
   
   interface PhaseData
-    module procedure new_PhaseData
-    module procedure new_PhaseData_String
+    ! Constructor.
+    module function new_PhaseData(input) result(this) 
+      type(IntFraction), intent(in) :: input
+      type(PhaseData)               :: this
+    end function
   end interface
   
   interface cmplx
-    module procedure cmplx_PhaseData
+    ! Conversion to complex(dp).
+    module function cmplx_PhaseData(this) result(output) 
+      type(PhaseData) :: this
+      complex(dp)     :: output
+    end function
+  end interface
+  
+  interface
+    ! Finds the exact phase of a complex number.
+    module function calculate_phase(input,denom) result(output) 
+      complex(dp), intent(in) :: input
+      integer,     intent(in) :: denom
+      type(PhaseData)         :: output
+    end function
   end interface
   
   interface operator(==)
-    module procedure equality_PhaseData_PhaseData
+    ! ----------------------------------------------------------------------
+    ! Comparison.
+    ! ----------------------------------------------------------------------
+    impure elemental module function equality_PhaseData_PhaseData(this,that) &
+       & result(output) 
+      type(PhaseData), intent(in) :: this
+      type(PhaseData), intent(in) :: that
+      logical                     :: output
+    end function
   end interface
   
   interface operator(/=)
-    module procedure non_equality_PhaseData_PhaseData
+    impure elemental module function non_equality_PhaseData_PhaseData(this, &
+       & that) result(output) 
+      type(PhaseData), intent(in) :: this
+      type(PhaseData), intent(in) :: that
+      logical                     :: output
+    end function
   end interface
-contains
-
-! Constructor.
-function new_PhaseData(input) result(this)
-  implicit none
   
-  type(IntFraction), intent(in) :: input
-  type(PhaseData)               :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_PhaseData(this,input) 
+      class(PhaseData), intent(out) :: this
+      type(String),     intent(in)  :: input
+    end subroutine
+  end interface
   
-  this%fraction = input
-end function
-
-! Conversion to complex(dp).
-function cmplx_PhaseData(this) result(output)
-  implicit none
+  interface
+    module function write_PhaseData(this) result(output) 
+      class(PhaseData), intent(in) :: this
+      type(String)                 :: output
+    end function
+  end interface
   
-  type(PhaseData) :: this
-  complex(dp)     :: output
-  
-  real(dp) :: exponent
-  
-  exponent = 2*PI*dble(this%fraction)
-  output = cmplx(cos(exponent),sin(exponent),dp)
-end function
-
-! Finds the exact phase of a complex number.
-function calculate_phase(input,denom) result(output)
-  implicit none
-  
-  complex(dp), intent(in) :: input
-  integer,     intent(in) :: denom
-  type(PhaseData)         :: output
-  
-  real(dp)          :: phase_real
-  type(IntFraction) :: phase_frac
-  
-  phase_real = atan2(aimag(input), real(input)) / (2*PI)
-  phase_frac = IntFraction(nint(phase_real*denom),denom)
-  if (abs(dble(phase_frac)-phase_real)>0.01_dp) then
-    call print_line(ERROR//': Phase incompatible with given denominator.')
-    call print_line('Phase: '//phase_real)
-    call print_line('Denominator: '//denom)
-    call err()
-  endif
-  output = PhaseData(phase_frac)
-end function
-
-! ----------------------------------------------------------------------
-! Comparison.
-! ----------------------------------------------------------------------
-impure elemental function equality_PhaseData_PhaseData(this,that) &
-   & result(output)
-  implicit none
-  
-  type(PhaseData), intent(in) :: this
-  type(PhaseData), intent(in) :: that
-  logical                     :: output
-  
-  output = this%fraction==that%fraction
-end function
-
-impure elemental function non_equality_PhaseData_PhaseData(this,that) &
-   & result(output)
-  implicit none
-  
-  type(PhaseData), intent(in) :: this
-  type(PhaseData), intent(in) :: that
-  logical                     :: output
-  
-  output = .not. this==that
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_PhaseData(this,input)
-  implicit none
-  
-  class(PhaseData), intent(out) :: this
-  type(String),     intent(in)  :: input
-  
-  select type(this); type is(PhaseData)
-    this = PhaseData(frac(slice(input,10,len(input)-1)))
-  end select
-end subroutine
-
-function write_PhaseData(this) result(output)
-  implicit none
-  
-  class(PhaseData), intent(in) :: this
-  type(String)                 :: output
-  
-  select type(this); type is(PhaseData)
-    output = 'exp(2pii*'//this%fraction//')'
-  end select
-end function
-
-impure elemental function new_PhaseData_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(PhaseData)          :: this
-  
-  call this%read(input)
-end function
+  interface PhaseData
+    impure elemental module function new_PhaseData_String(input) result(this) 
+      type(String), intent(in) :: input
+      type(PhaseData)          :: this
+    end function
+  end interface
 end module

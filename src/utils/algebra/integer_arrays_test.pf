@@ -1,0 +1,7 @@
+module integer_arrays_test
+  use funit
+
+  use caesar_algebra_module
+  implicit none
+contains
+end module

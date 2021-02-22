@@ -1,0 +1,7 @@
+module algebra_utils_test
+  use funit
+
+  use caesar_algebra_module
+  implicit none
+contains
+end module

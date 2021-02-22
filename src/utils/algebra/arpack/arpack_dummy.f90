@@ -1,6 +1,4 @@
-! ======================================================================
-! A dummy module for when ARPACK is not being linked.
-! ======================================================================
+!> A dummy module for when ARPACK is not being linked.
 module caesar_arpack_wrapper_module
   use caesar_foundations_module
   use caesar_io_module
@@ -13,12 +11,11 @@ module caesar_arpack_wrapper_module
   
   public :: ARPACK_LINKED
   
+  !> True if ARPACK is linked, false otherwise.
   logical, parameter :: ARPACK_LINKED = .false.
 contains
 subroutine dsaupd(ido,bmat,n,which,nev,tol,resid,ncv,v,ldv,iparam,ipntr, &
    & workd,workl,lworkl,info)
-  implicit none
-  
   integer,      intent(inout) :: ido
   character(1), intent(in)    :: bmat
   integer,      intent(in)    :: n
@@ -44,8 +41,6 @@ end subroutine
 
 subroutine dseupd(rvec,howmny,select,d,z,ldz,sigma,bmat,n,which,nev,tol, &
    & resid,ncv,v,ldv,iparam,ipntr,workd,workl,lworkl,info)
-  implicit none
-  
   logical,      intent(in)    :: rvec
   character(1), intent(in)    :: howmny
   logical,      intent(inout) :: select(*)

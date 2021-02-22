@@ -1,6 +1,4 @@
-! ======================================================================
-! An interface to various ARPACK routines.
-! ======================================================================
+!> An interface to various ARPACK routines.
 module caesar_arpack_wrapper_module
   use caesar_foundations_module
   implicit none
@@ -12,14 +10,13 @@ module caesar_arpack_wrapper_module
   
   public :: ARPACK_LINKED
   
+  !> True if ARPACK is linked, false otherwise.
   logical, parameter :: ARPACK_LINKED = .true.
   
   interface
     subroutine dsaupd(ido,bmat,n,which,nev,tol,resid,ncv,v,ldv,iparam,ipntr, &
        & workd,workl,lworkl,info)
       import :: dp
-      implicit none
-      
       integer,      intent(inout) :: ido
       character(1), intent(in)    :: bmat
       integer,      intent(in)    :: n
@@ -41,8 +38,6 @@ module caesar_arpack_wrapper_module
     subroutine dseupd(rvec,howmny,select,d,z,ldz,sigma,bmat,n,which,nev,tol, &
        & resid,ncv,v,ldv,iparam,ipntr,workd,workl,lworkl,info)
       import :: dp
-      implicit none
-      
       logical,      intent(in)    :: rvec
       character(1), intent(in)    :: howmny
       logical,      intent(inout) :: select(*)

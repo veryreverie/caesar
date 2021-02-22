@@ -12,7 +12,7 @@
 !    group*3 = 1
 ! Also:
 !    (group*group)*1 = group*(group*1) = group*2 = 3
-module caesar_operator_group_module
+module caesar_group_module
   use caesar_foundations_module
   use caesar_io_module
   implicit none
@@ -37,169 +37,106 @@ module caesar_operator_group_module
   end type
   
   interface Group
-    module procedure new_Group
-    module procedure new_Group_String
+    ! ----------------------------------------------------------------------
+    ! Constructor and size() module function.
+    ! ----------------------------------------------------------------------
+    module function new_Group(operation) result(this) 
+      integer, intent(in) :: operation(:)
+      type(Group)         :: this
+    end function
   end interface
   
   interface size
-    module procedure size_Group
+    module function size_Group(this) result(output) 
+      type(Group), intent(in) :: this
+      integer                 :: output
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Get the inverse group, i.e. the group g'(g) such that g*g' is the identity.
+    ! ----------------------------------------------------------------------
+    impure elemental module function inverse_Group(this) result(output) 
+      class(Group), intent(in) :: this
+      type(Group)              :: output
+    end function
   end interface
   
   interface operator(*)
-    module procedure operate_Group_integer
-    module procedure operate_Group_Group
+    ! ----------------------------------------------------------------------
+    ! Group operations.
+    ! ----------------------------------------------------------------------
+    impure elemental module function operate_Group_integer(this,operand) &
+       & result(output) 
+      type(Group), intent(in) :: this
+      integer,     intent(in) :: operand
+      integer                 :: output
+    end function
+  
+    ! Defined s.t. (Group*Group)*i == Group*(Group*i) for all i.
+    impure elemental module function operate_Group_Group(this,operand) &
+       & result(output) 
+      type(Group), intent(in) :: this
+      type(Group), intent(in) :: operand
+      type(Group)             :: output
+    end function
   end interface
   
   interface operator(==)
-    module procedure equality_Group_Group
+    ! ----------------------------------------------------------------------
+    ! Comparisons with other groups.
+    ! ----------------------------------------------------------------------
+    ! Equality with another group.
+    impure elemental module function equality_Group_Group(this,that) &
+       & result(output) 
+      Class(Group), intent(in) :: this
+      type(Group),  intent(in) :: that
+      logical                  :: output
+    end function
   end interface
   
   interface operator(/=)
-    module procedure non_equality_Group_Group
+    ! Non-equality with another group.
+    impure elemental module function non_equality_Group_Group(this,that) &
+       & result(output) 
+      class(Group), intent(in) :: this
+      type(Group),  intent(in) :: that
+      logical                  :: output
+    end function
   end interface
-contains
   
-! ----------------------------------------------------------------------
-! Constructor and size() function.
-! ----------------------------------------------------------------------
-function new_Group(operation) result(this)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! Generates the identity group.
+    ! ----------------------------------------------------------------------
+    module function make_identity_group(group_size) result(output) 
+      integer, intent(in) :: group_size
+      type(Group)         :: output
+    end function
+  end interface
   
-  integer, intent(in) :: operation(:)
-  type(Group)         :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_Group(this,input) 
+      class(Group), intent(out) :: this
+      type(String), intent(in)  :: input
+    end subroutine
+  end interface
   
-  this%operation = operation
-end function
-
-function size_Group(this) result(output)
-  implicit none
+  interface
+    module function write_Group(this) result(output) 
+      class(Group), intent(in) :: this
+      type(String)             :: output
+    end function
+  end interface
   
-  type(Group), intent(in) :: this
-  integer                 :: output
-  
-  output = size(this%operation)
-end function
-
-! ----------------------------------------------------------------------
-! Get the inverse group, i.e. the group g'(g) such that g*g' is the identity.
-! ----------------------------------------------------------------------
-impure elemental function inverse_Group(this) result(output)
-  implicit none
-  
-  class(Group), intent(in) :: this
-  type(Group)              :: output
-  
-  integer, allocatable :: operation(:)
-  
-  integer :: i,ialloc
-  
-  allocate(operation(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    operation(this%operation(i)) = i
-  enddo
-  output = Group(operation)
-end function
-
-! ----------------------------------------------------------------------
-! Group operations.
-! ----------------------------------------------------------------------
-impure elemental function operate_Group_integer(this,operand) result(output)
-  implicit none
-  
-  type(Group), intent(in) :: this
-  integer,     intent(in) :: operand
-  integer                 :: output
-  
-  output = this%operation(operand)
-end function
-
-! Defined s.t. (Group*Group)*i == Group*(Group*i) for all i.
-impure elemental function operate_Group_Group(this,operand) result(output)
-  implicit none
-  
-  type(Group), intent(in) :: this
-  type(Group), intent(in) :: operand
-  type(Group)             :: output
-  
-  if (size(this)/=size(operand)) then
-    call print_line('Error: groups can only operate on other groups of the &
-       & same size.')
-    call err()
-  endif
-  
-  output = Group(this*operand%operation)
-end function
-
-! ----------------------------------------------------------------------
-! Comparisons with other groups.
-! ----------------------------------------------------------------------
-! Equality with another group.
-impure elemental function equality_Group_Group(this,that) result(output)
-  implicit none
-  
-  Class(Group), intent(in) :: this
-  type(Group),  intent(in) :: that
-  logical                  :: output
-  
-  output = all(this%operation==that%operation)
-end function
-
-! Non-equality with another group.
-impure elemental function non_equality_Group_Group(this,that) result(output)
-  implicit none
-  
-  class(Group), intent(in) :: this
-  type(Group),  intent(in) :: that
-  logical                  :: output
-  
-  output = .not. this==that
-end function
-
-! ----------------------------------------------------------------------
-! Generates the identity group.
-! ----------------------------------------------------------------------
-function make_identity_group(group_size) result(output)
-  implicit none
-  
-  integer, intent(in) :: group_size
-  type(Group)         :: output
-  
-  integer :: i
-  
-  output = Group([(i,i=1,group_size)])
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_Group(this,input)
-  implicit none
-  
-  class(Group), intent(out) :: this
-  type(String), intent(in)  :: input
-  
-  select type(this); type is(Group)
-    this = Group(int(split_line(input)))
-  end select
-end subroutine
-
-function write_Group(this) result(output)
-  implicit none
-  
-  class(Group), intent(in) :: this
-  type(String)             :: output
-  
-  select type(this); type is(Group)
-    output = join(this%operation)
-  end select
-end function
-
-impure elemental function new_Group_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(Group)              :: this
-  
-  call this%read(input)
-end function
+  interface Group
+    impure elemental module function new_Group_String(input) result(this) 
+      type(String), intent(in) :: input
+      type(Group)              :: this
+    end function
+  end interface
 end module

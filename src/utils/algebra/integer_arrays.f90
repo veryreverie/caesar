@@ -24,11 +24,6 @@ module caesar_integer_arrays_module
     procedure, public :: write => write_IntArray1D
   end type
   
-  interface IntArray1D
-    module procedure new_IntArray1D
-    module procedure new_IntArray1D_String
-  end interface
-  
   ! A array of IntArrays.
   type, extends(Stringsable) :: IntArray2D
     type(IntArray1D), allocatable :: i(:)
@@ -37,351 +32,216 @@ module caesar_integer_arrays_module
     procedure, public :: write => write_IntArray2D
   end type
   
+  interface IntArray1D
+    ! ----------------------------------------------------------------------
+    ! Constructors.
+    ! ----------------------------------------------------------------------
+    module function new_IntArray1D(i) result(this) 
+      integer, intent(in) :: i(:)
+      type(IntArray1D)    :: this
+    end function
+  end interface
+  
   interface IntArray2D
-    module procedure new_IntArray2D
-    module procedure new_IntArray2D_Strings
-    module procedure new_IntArray2D_StringArray
+    module function new_IntArray2D(i) result(this) 
+      type(IntArray1D), intent(in) :: i(:)
+      type(IntArray2D)             :: this
+    end function
   end interface
   
-  ! Size.
-  interface size
-    module procedure size_IntArray1D
-    module procedure size_IntArray2D
-  end interface
-  
-  ! Type conversion to array.
   interface array
-    module procedure array_IntArray1D_integers
-    module procedure array_IntArray2D_IntArray1Ds
+    ! ----------------------------------------------------------------------
+    ! Conversions from integer(:) to IntArray1D and IntArray1D(:) to IntArray2D
+    ! ----------------------------------------------------------------------
+    module function array_IntArray1D_integers(input) result(output) 
+      integer, intent(in) :: input(:)
+      type(IntArray1D)    :: output
+    end function
+  
+    module function array_IntArray2D_IntArray1Ds(input) result(output) 
+      type(IntArray1D), intent(in) :: input(:)
+      type(IntArray2D)             :: output
+    end function
   end interface
   
-  ! Concatenation.
+  interface size
+    ! ----------------------------------------------------------------------
+    ! Size module function.
+    ! ----------------------------------------------------------------------
+    module function size_IntArray1D(input) result(output) 
+      type(IntArray1D), intent(in) :: input
+      integer                      :: output
+    end function
+  
+    module function size_IntArray2D(input) result(output) 
+      type(IntArray2D), intent(in) :: input
+      integer                      :: output
+    end function
+  end interface
+  
   interface operator(//)
-    module procedure concatenate_IntArray1D_integer
-    module procedure concatenate_integer_IntArray1D
-    module procedure concatenate_IntArray1D_integers
-    module procedure concatenate_integers_IntArray1D
-    module procedure concatenate_IntArray1D_IntArray1D
+    ! ----------------------------------------------------------------------
+    ! Concatenation operations
+    ! ----------------------------------------------------------------------
     
-    module procedure concatenate_IntArray2D_IntArray1D
-    module procedure concatenate_IntArray1D_IntArray2D
-    module procedure concatenate_IntArray2D_IntArray1Ds
-    module procedure concatenate_IntArray1Ds_IntArray2D
-    module procedure concatenate_IntArray2D_IntArray2D
+    ! IntArray1D = IntArray1D // integer
+    module function concatenate_IntArray1D_integer(this,that) result(output) 
+      type(IntArray1D), intent(in) :: this
+      integer,          intent(in) :: that
+      type(IntArray1D)             :: output
+    end function
+  
+    ! IntArray1D = integer // IntArray1D
+    module function concatenate_integer_IntArray1D(this,that) result(output) 
+      integer,          intent(in) :: this
+      type(IntArray1D), intent(in) :: that
+      type(IntArray1D)             :: output
+    end function
+  
+    ! IntArray1D = IntArray1D // integer(:)
+    module function concatenate_IntArray1D_integers(this,that) result(output) 
+      type(IntArray1D), intent(in) :: this
+      integer,          intent(in) :: that(:)
+      type(IntArray1D)             :: output
+    end function
+  
+    ! IntArray1D = integer(:) // IntArray1D
+    module function concatenate_integers_IntArray1D(this,that) result(output) 
+      integer,          intent(in) :: this(:)
+      type(IntArray1D), intent(in) :: that
+      type(IntArray1D)             :: output
+    end function
+  
+    ! IntArray1D = IntArray1D // IntArray1D
+    module function concatenate_IntArray1D_IntArray1D(this,that) &
+       & result(output) 
+      type(IntArray1D), intent(in) :: this
+      type(IntArray1D), intent(in) :: that
+      type(IntArray1D)             :: output
+    end function
+  
+    ! IntArray2D = IntArray2D // IntArray1D
+    module function concatenate_IntArray2D_IntArray1D(this,that) &
+       & result(output) 
+      type(IntArray2D), intent(in) :: this
+      type(IntArray1D), intent(in) :: that
+      type(IntArray2D)             :: output
+    end function
+  
+    ! IntArray2D = IntArray1D // IntArray2D
+    module function concatenate_IntArray1D_IntArray2D(this,that) &
+       & result(output) 
+      type(IntArray1D), intent(in) :: this
+      type(IntArray2D), intent(in) :: that
+      type(IntArray2D)             :: output
+    end function
+  
+    ! IntArray2D = IntArray2D // IntArray1D(:)
+    module function concatenate_IntArray2D_IntArray1Ds(this,that) &
+       & result(output) 
+      type(IntArray2D), intent(in) :: this
+      type(IntArray1D), intent(in) :: that(:)
+      type(IntArray2D)             :: output
+    end function
+  
+    ! IntArray2D = IntArray1D(:) // IntArray2D
+    module function concatenate_IntArray1Ds_IntArray2D(this,that) &
+       & result(output) 
+      type(IntArray1D), intent(in) :: this(:)
+      type(IntArray2D), intent(in) :: that
+      type(IntArray2D)             :: output
+    end function
+  
+    ! IntArray2D = IntArray2D // IntArray2D
+    module function concatenate_IntArray2D_IntArray2D(this,that) &
+       & result(output) 
+      type(IntArray2D), intent(in) :: this
+      type(IntArray2D), intent(in) :: that
+      type(IntArray2D)             :: output
+    end function
   end interface
   
-  ! Equality and non-equality.
   interface operator(==)
-    module procedure equality_IntArray1D_IntArray1D
-    module procedure equality_IntArray2D_IntArray2D
+    ! ----------------------------------------------------------------------
+    ! Equality and non-equality.
+    ! ----------------------------------------------------------------------
+    impure elemental module function equality_IntArray1D_IntArray1D(this, &
+       & that) result(output) 
+      type(IntArray1D), intent(in) :: this
+      type(IntArray1D), intent(in) :: that
+      logical                      :: output
+    end function
+  
+    impure elemental module function equality_IntArray2D_IntArray2D(this, &
+       & that) result(output) 
+      type(IntArray2D), intent(in) :: this
+      type(IntArray2D), intent(in) :: that
+      logical                      :: output
+    end function
   end interface
   
   interface operator(/=)
-    module procedure non_equality_IntArray1D_IntArray1D
-    module procedure non_equality_IntArray2D_IntArray2D
+    impure elemental module function non_equality_IntArray1D_IntArray1D(this,that) result(output) 
+      type(IntArray1D), intent(in) :: this
+      type(IntArray1D), intent(in) :: that
+      logical                      :: output
+    end function
+  
+    impure elemental module function non_equality_IntArray2D_IntArray2D(this,that) result(output) 
+      type(IntArray2D), intent(in) :: this
+      type(IntArray2D), intent(in) :: that
+      logical                      :: output
+    end function
   end interface
   
-contains
-
-! ----------------------------------------------------------------------
-! Constructors.
-! ----------------------------------------------------------------------
-function new_IntArray1D(i) result(this)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_IntArray1D(this,input) 
+      class(IntArray1D), intent(out) :: this
+      type(String),      intent(in)  :: input
+    end subroutine
+  end interface
   
-  integer, intent(in) :: i(:)
-  type(IntArray1D)    :: this
+  interface
+    module function write_IntArray1D(this) result(output) 
+      class(IntArray1D), intent(in) :: this
+      type(String)                  :: output
+    end function
+  end interface
   
-  this%i = i
-end function
-
-function new_IntArray2D(i) result(this)
-  implicit none
+  interface IntArray1D
+    impure elemental module function new_IntArray1D_String(input) result(this) 
+      type(String), intent(in) :: input
+      type(IntArray1D)         :: this
+    end function
+  end interface
   
-  type(IntArray1D), intent(in) :: i(:)
-  type(IntArray2D)             :: this
+  interface
+    module subroutine read_IntArray2D(this,input) 
+      class(IntArray2D), intent(out) :: this
+      type(String),      intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  this%i = i
-end function
-
-! ----------------------------------------------------------------------
-! Conversions from integer(:) to IntArray1D and IntArray1D(:) to IntArray2D
-! ----------------------------------------------------------------------
-function array_IntArray1D_integers(input) result(output)
-  implicit none
+  interface
+    module function write_IntArray2D(this) result(output) 
+      class(IntArray2D), intent(in) :: this
+      type(String), allocatable     :: output(:)
+    end function
+  end interface
   
-  integer, intent(in) :: input(:)
-  type(IntArray1D)    :: output
+  interface IntArray2D
+    module function new_IntArray2D_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(IntArray2D)         :: this
+    end function
   
-  output = IntArray1D(input)
-end function
-
-function array_IntArray2D_IntArray1Ds(input) result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: input(:)
-  type(IntArray2D)             :: output
-  
-  output = IntArray2D(input)
-end function
-
-! ----------------------------------------------------------------------
-! Size function.
-! ----------------------------------------------------------------------
-function size_IntArray1D(input) result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: input
-  integer                      :: output
-  
-  output = size(input%i)
-end function
-
-function size_IntArray2D(input) result(output)
-  implicit none
-  
-  type(IntArray2D), intent(in) :: input
-  integer                      :: output
-  
-  output = size(input%i)
-end function
-
-! ----------------------------------------------------------------------
-! Concatenation operations
-! ----------------------------------------------------------------------
-
-! IntArray1D = IntArray1D // integer
-function concatenate_IntArray1D_integer(this,that) result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: this
-  integer,          intent(in) :: that
-  type(IntArray1D)             :: output
-  
-  output = array([this%i, that])
-end function
-
-! IntArray1D = integer // IntArray1D
-function concatenate_integer_IntArray1D(this,that) result(output)
-  implicit none
-  
-  integer,          intent(in) :: this
-  type(IntArray1D), intent(in) :: that
-  type(IntArray1D)             :: output
-  
-  output = array([this, that%i])
-end function
-
-! IntArray1D = IntArray1D // integer(:)
-function concatenate_IntArray1D_integers(this,that) result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: this
-  integer,          intent(in) :: that(:)
-  type(IntArray1D)             :: output
-  
-  output = array([this%i, that])
-end function
-
-! IntArray1D = integer(:) // IntArray1D
-function concatenate_integers_IntArray1D(this,that) result(output)
-  implicit none
-  
-  integer,          intent(in) :: this(:)
-  type(IntArray1D), intent(in) :: that
-  type(IntArray1D)             :: output
-  
-  output = array([this, that%i])
-end function
-
-! IntArray1D = IntArray1D // IntArray1D
-function concatenate_IntArray1D_IntArray1D(this,that) result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: this
-  type(IntArray1D), intent(in) :: that
-  type(IntArray1D)             :: output
-  
-  output = array([this%i, that%i])
-end function
-
-! IntArray2D = IntArray2D // IntArray1D
-function concatenate_IntArray2D_IntArray1D(this,that) result(output)
-  implicit none
-  
-  type(IntArray2D), intent(in) :: this
-  type(IntArray1D), intent(in) :: that
-  type(IntArray2D)             :: output
-  
-  output = array([this%i, that])
-end function
-
-! IntArray2D = IntArray1D // IntArray2D
-function concatenate_IntArray1D_IntArray2D(this,that) result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: this
-  type(IntArray2D), intent(in) :: that
-  type(IntArray2D)             :: output
-  
-  output = array([this, that%i])
-end function
-
-! IntArray2D = IntArray2D // IntArray1D(:)
-function concatenate_IntArray2D_IntArray1Ds(this,that) result(output)
-  implicit none
-  
-  type(IntArray2D), intent(in) :: this
-  type(IntArray1D), intent(in) :: that(:)
-  type(IntArray2D)             :: output
-  
-  output = array([this%i, that])
-end function
-
-! IntArray2D = IntArray1D(:) // IntArray2D
-function concatenate_IntArray1Ds_IntArray2D(this,that) result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: this(:)
-  type(IntArray2D), intent(in) :: that
-  type(IntArray2D)             :: output
-  
-  output = array([this, that%i])
-end function
-
-! IntArray2D = IntArray2D // IntArray2D
-function concatenate_IntArray2D_IntArray2D(this,that) result(output)
-  implicit none
-  
-  type(IntArray2D), intent(in) :: this
-  type(IntArray2D), intent(in) :: that
-  type(IntArray2D)             :: output
-  
-  output = array([this%i, that%i])
-end function
-
-! ----------------------------------------------------------------------
-! Equality and non-equality.
-! ----------------------------------------------------------------------
-impure elemental function equality_IntArray1D_IntArray1D(this,that) &
-   & result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: this
-  type(IntArray1D), intent(in) :: that
-  logical                      :: output
-  
-  output = all(this%i==that%i)
-end function
-
-impure elemental function equality_IntArray2D_IntArray2D(this,that) &
-   & result(output)
-  implicit none
-  
-  type(IntArray2D), intent(in) :: this
-  type(IntArray2D), intent(in) :: that
-  logical                      :: output
-  
-  output = all(this%i==that%i)
-end function
-
-impure elemental function non_equality_IntArray1D_IntArray1D(this,that) &
-   & result(output)
-  implicit none
-  
-  type(IntArray1D), intent(in) :: this
-  type(IntArray1D), intent(in) :: that
-  logical                      :: output
-  
-  output = .not. this==that
-end function
-
-impure elemental function non_equality_IntArray2D_IntArray2D(this,that) &
-   & result(output)
-  implicit none
-  
-  type(IntArray2D), intent(in) :: this
-  type(IntArray2D), intent(in) :: that
-  logical                      :: output
-  
-  output = .not. this==that
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_IntArray1D(this,input)
-  implicit none
-  
-  class(IntArray1D), intent(out) :: this
-  type(String),      intent(in)  :: input
-  
-  select type(this); type is(IntArray1D)
-    this = IntArray1D(int(split_line(input)))
-  end select
-end subroutine
-
-function write_IntArray1D(this) result(output)
-  implicit none
-  
-  class(IntArray1D), intent(in) :: this
-  type(String)                  :: output
-  
-  select type(this); type is(IntArray1D)
-    output = join(this%i)
-  end select
-end function
-
-impure elemental function new_IntArray1D_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(IntArray1D)         :: this
-  
-  call this%read(input)
-end function
-
-subroutine read_IntArray2D(this,input)
-  implicit none
-  
-  class(IntArray2D), intent(out) :: this
-  type(String),      intent(in)  :: input(:)
-  
-  select type(this); type is(IntArray2D)
-    this = IntArray2D(IntArray1D(input))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_IntArray2D(this) result(output)
-  implicit none
-  
-  class(IntArray2D), intent(in) :: this
-  type(String), allocatable     :: output(:)
-  
-  select type(this); type is(IntArray2D)
-    output = str(this%i)
-  class default
-    call err()
-  end select
-end function
-
-function new_IntArray2D_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(IntArray2D)         :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_IntArray2D_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(IntArray2D)              :: this
-  
-  this = IntArray2D(str(input))
-end function
+    impure elemental module function new_IntArray2D_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(IntArray2D)              :: this
+    end function
+  end interface
 end module

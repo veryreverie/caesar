@@ -23,7 +23,7 @@ module caesar_algebra_module
   use caesar_orthonormal_module
   use caesar_unitary_eigenstuff_module
   use caesar_integer_arrays_module
-  use caesar_operator_group_module
+  use caesar_group_module
   use caesar_integer_complex_module
   use caesar_fraction_complex_module
   use caesar_lanczos_module

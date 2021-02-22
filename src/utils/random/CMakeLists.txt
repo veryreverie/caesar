@@ -3,7 +3,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(random)
 
 add_library(random_modules random.f90)
-add_library(random_submodules ${DUMMY_FILE})
+add_library(random_submodules random_submodule.f90)
 target_link_libraries(random_submodules random_modules)
 
 # Link against required modules.
