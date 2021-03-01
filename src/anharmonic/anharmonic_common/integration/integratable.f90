@@ -11,5 +11,4 @@ module caesar_integratable_module
   
   type, abstract, extends(NoDefaultConstructor) :: Integratable
   end type
-contains
 end module

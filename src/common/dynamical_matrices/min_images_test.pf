@@ -1,0 +1,7 @@
+module min_images_test
+  use funit
+
+  use caesar_dynamical_matrices_module
+  implicit none
+contains
+end module

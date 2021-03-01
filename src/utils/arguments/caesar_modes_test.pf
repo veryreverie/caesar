@@ -1,0 +1,7 @@
+module caesar_modes_test
+  use funit
+
+  use caesar_arguments_module
+  implicit none
+contains
+end module

@@ -103,1193 +103,424 @@ module caesar_polynomial_potential_module
     procedure, public :: write => write_PolynomialPotential
   end type
   
-  interface PolynomialPotential
-    module procedure new_PolynomialPotential
-    module procedure new_PolynomialPotential_PotentialData
-    module procedure new_PolynomialPotential_BasisFunctions
-    module procedure new_PolynomialPotential_Strings
-    module procedure new_PolynomialPotential_StringArray
+  interface
+    ! Startup procedure.
+    module subroutine startup_polynomial_potential() 
+    end subroutine
   end interface
-contains
-
-! Startup procedure.
-subroutine startup_polynomial_potential()
-  implicit none
   
-  type(PolynomialPotential) :: potential
+  interface PolynomialPotential
+    ! Constructors.
+    module function new_PolynomialPotential(anharmonic_data) result(this) 
+      type(AnharmonicData), intent(in) :: anharmonic_data
+      type(PolynomialPotential)        :: this
+    end function
   
-  call potential%startup()
-end subroutine
-
-! Constructors.
-function new_PolynomialPotential(anharmonic_data) result(this)
-  implicit none
+    recursive module function new_PolynomialPotential_PotentialData(input) &
+       & result(this) 
+      class(PotentialData), intent(in) :: input
+      type(PolynomialPotential)        :: this
+    end function
   
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  type(PolynomialPotential)        :: this
+    module function new_PolynomialPotential_BasisFunctions(potential_expansion_order,reference_energy,basis_functions) result(this) 
+      integer,                      intent(in) :: potential_expansion_order
+      real(dp),                     intent(in) :: reference_energy
+      type(CouplingBasisFunctions) ,intent(in) :: basis_functions(:) 
+      type(PolynomialPotential)                :: this
+    end function
+  end interface
   
-  this%potential_expansion_order_ = anharmonic_data%potential_expansion_order
-end function
-
-recursive function new_PolynomialPotential_PotentialData(input) result(this)
-  implicit none
+  interface
+    ! Type representation.
+    impure elemental module function representation_PolynomialPotential() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
   
-  class(PotentialData), intent(in) :: input
-  type(PolynomialPotential)        :: this
+  interface
+    ! Generate sampling points.
+    ! N.B. does not look at use_forces, use_hessians or calculate stress.
+    module subroutine generate_sampling_points_PolynomialPotential(this, &
+       & anharmonic_data,use_forces,energy_to_force_ratio,use_hessians,  &
+       & calculate_stress,sampling_points_dir,calculation_writer,logfile) 
+      class(PolynomialPotential), intent(inout) :: this
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+      logical,                    intent(in)    :: use_forces
+      real(dp),                   intent(in)    :: energy_to_force_ratio
+      logical,                    intent(in)    :: use_hessians
+      logical,                    intent(in)    :: calculate_stress
+      type(String),               intent(in)    :: sampling_points_dir
+      type(CalculationWriter),    intent(inout) :: calculation_writer
+      type(OFile),                intent(inout) :: logfile
+    end subroutine
+  end interface
   
-  select type(input); type is(PolynomialPotential)
-    this = input
-  type is(PotentialPointer)
-    this = new_PolynomialPotential_PotentialData(input%potential())
-  class default
-    call err()
-  end select
-end function
-
-function new_PolynomialPotential_BasisFunctions(potential_expansion_order, &
-   & reference_energy,basis_functions) result(this)
-  implicit none
+  interface
+    ! Generate potential.
+    module subroutine generate_potential_PolynomialPotential(this,        &
+       & anharmonic_data,weighted_energy_force_ratio,sampling_points_dir, &
+       & calculation_reader,logfile) 
+      class(PolynomialPotential), intent(inout) :: this
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+      real(dp),                   intent(in)    :: weighted_energy_force_ratio
+      type(String),               intent(in)    :: sampling_points_dir
+      type(CalculationReader),    intent(inout) :: calculation_reader
+      type(OFile),                intent(inout) :: logfile
+    end subroutine
+  end interface
   
-  integer,                      intent(in) :: potential_expansion_order
-  real(dp),                     intent(in) :: reference_energy
-  type(CouplingBasisFunctions), intent(in) :: basis_functions(:)
-  type(PolynomialPotential)                :: this
+  interface
+    ! Generate stress.
+    module function generate_stress_PolynomialPotential(this,        &
+       & anharmonic_data,sampling_points_dir,stress_expansion_order, &
+        stress_subspace_coupling,vscf_basis_functions_only, &
+          & calculation_reader,logfile) result(output) 
+      class(PolynomialPotential), intent(in)    :: this
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+      type(String),               intent(in)    :: sampling_points_dir
+      integer,                    intent(in)    :: stress_expansion_order
+      type(SubspaceCoupling),     intent(in)    :: stress_subspace_coupling(:)
+      logical,intent(in) :: vscf_basis_functions_only
+      type(CalculationReader),    intent(inout) :: calculation_reader
+      type(OFile),                intent(inout) :: logfile
+      type(StressPointer)                       :: output
+    end function
+  end interface
   
-  this%potential_expansion_order_ = potential_expansion_order
-  this%reference_energy_          = reference_energy
-  this%basis_functions_           = basis_functions
-end function
-
-! Type representation.
-impure elemental function representation_PolynomialPotential() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'polynomial'
-end function
-
-! Generate sampling points.
-! N.B. does not look at use_forces, use_hessians or calculate stress.
-subroutine generate_sampling_points_PolynomialPotential(this,       &
-   & anharmonic_data,use_forces,energy_to_force_ratio,use_hessians, &
-   & calculate_stress,sampling_points_dir,calculation_writer,logfile)
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  logical,                    intent(in)    :: use_forces
-  real(dp),                   intent(in)    :: energy_to_force_ratio
-  logical,                    intent(in)    :: use_hessians
-  logical,                    intent(in)    :: calculate_stress
-  type(String),               intent(in)    :: sampling_points_dir
-  type(CalculationWriter),    intent(inout) :: calculation_writer
-  type(OFile),                intent(inout) :: logfile
-  
-  ! Variables used when generating sampling points.
-  type(CouplingBasisFunctions), allocatable :: basis_functions(:)
-  type(SamplingPoints),         allocatable :: sampling_points(:)
-  
-  ! Supercell variables.
-  type(RealMode),   allocatable :: sampling_point_modes(:)
-  type(QpointData), allocatable :: sampling_point_qpoints(:)
-  type(IntMatrix)               :: supercell_matrix
-  type(StructureData)           :: supercell
-  
-  ! Displacement data.
-  type(RealModeDisplacement)      :: sampling_point
-  type(RealModeDisplacement)      :: transformed_sampling_point
-  type(VscfRvectors), allocatable :: vscf_rvectors(:)
-  type(CartesianDisplacement)     :: displacement
-  type(StructureData)             :: displaced_structure
-  
-  ! Directories and files.
-  type(String) :: equilibrium_dir
-  type(String) :: coupling_dir
-  type(OFile)  :: basis_functions_file
-  type(OFile)  :: sampling_points_file
-  type(String) :: sampling_dir
-  type(OFile)  :: supercell_file
-  type(OFile)  :: vscf_rvectors_file
-  type(String) :: vscf_rvectors_dir
-  
-  ! Temporary variables.
-  integer :: i,j,k,ialloc
-  
-  if (.not. use_forces) then
-    call print_line(ERROR//': The polynomial potential cannot currently not &
-       &use forces.')
-    call err()
-  elseif (use_hessians) then
-    call print_line(ERROR//': The polynomial potential cannot currently &
-       &use hessians.')
-    call err()
-  endif
-  
-  ! --------------------------------------------------
-  ! Generate basis functions and sampling points.
-  ! --------------------------------------------------
-  
-  ! Loop over subspace couplings, generating basis functions and sampling
-  !    points for each.
-  allocate( basis_functions(size(anharmonic_data%subspace_couplings)), &
-          & sampling_points(size(anharmonic_data%subspace_couplings)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(anharmonic_data%subspace_couplings)
-    ! Generate basis functions at each coupling,
-    !    and the sampling points from which the basis function coefficients
-    !    can be constructed.
-    call print_line('Generating sampling points in subspace coupling '// &
-       & i//' of '//size(anharmonic_data%subspace_couplings)//'.')
-    basis_functions(i) = generate_basis_functions(  &
-       & anharmonic_data%subspace_couplings(i),     &
-       & this%potential_expansion_order_,           &
-       & anharmonic_data%structure,                 &
-       & anharmonic_data%complex_modes,             &
-       & anharmonic_data%real_modes,                &
-       & anharmonic_data%qpoints,                   &
-       & anharmonic_data%degenerate_subspaces,      &
-       & anharmonic_data%degenerate_symmetries,     &
-       & anharmonic_data%vscf_basis_functions_only, &
-       & logfile                                    )
-    call print_line( 'Coupling contains '//size(basis_functions(i))// &
-                   & ' basis functions.' )
+  interface
+    ! Helper functions for generate_potential and generate_stress.
     
-    sampling_points(i) = generate_sampling_points(      &
-       & basis_functions(i)%basis_functions(),          &
-       & this%potential_expansion_order_,               &
-       & anharmonic_data%maximum_weighted_displacement, &
-       & anharmonic_data%frequency_of_max_displacement, &
-       & anharmonic_data%real_modes,                    &
-       & energy_to_force_ratio                          )
-  enddo
-  
-  ! --------------------------------------------------
-  ! Write out basis functions and sampling points.
-  ! --------------------------------------------------
-  
-  ! Write out sampling point at equilibrium.
-  equilibrium_dir = sampling_points_dir//'/equilibrium'
-  call calculation_writer%write_calculation( anharmonic_data%structure, &
-                                           & equilibrium_dir            )
-  
-  ! Write out all other sampling points.
-  do i=1,size(sampling_points)
-    if (modulo(i,max(size(anharmonic_data%subspace_couplings)/100,1))==0) then
-      call print_line('Generating calculations in subspace coupling '// &
-         & i//' of '//size(anharmonic_data%subspace_couplings)//'.')
-    endif
-    ! Make a directory for each coupling.
-    coupling_dir = sampling_points_dir// &
-       & '/coupling_'//left_pad(i,str(size(sampling_points)))
-    call mkdir(coupling_dir)
-    
-    ! Write basis functions to file.
-    basis_functions_file = OFile(coupling_dir//'/basis_functions.dat')
-    call basis_functions_file%print_lines(basis_functions(i))
-    
-    ! Write sampling points to file.
-    sampling_points_file = OFile(coupling_dir//'/sampling_points.dat')
-    call sampling_points_file%print_lines(sampling_points(i))
-    
-    do j=1,size(sampling_points(i))
-      ! Select the sampling point for clarity.
-      sampling_point = sampling_points(i)%points(j)
-      
-      ! Make a directory for each sampling point.
-      sampling_dir = coupling_dir// &
-         & '/sampling_point_'//left_pad(j,str(size(sampling_points(i))))
-      call mkdir(sampling_dir)
-      
-      ! Construct a supercell for each sampling point.
-      sampling_point_modes = select_modes( sampling_point%vectors,    &
-                                         & anharmonic_data%real_modes )
-      sampling_point_qpoints = select_qpoints( sampling_point_modes,   &
-                                             & anharmonic_data%qpoints )
-      supercell_matrix = construct_supercell_matrix( &
-                         & sampling_point_qpoints,   &
-                         & anharmonic_data%structure )
-      supercell = construct_supercell( anharmonic_data%structure, &
-                                     & supercell_matrix           )
-      
-      ! Write out the supercell.
-      supercell_file = OFile(sampling_dir//'/structure.dat')
-      call supercell_file%print_lines(supercell)
-      
-      ! Construct VSCF R-vectors.
-      vscf_rvectors = construct_vscf_rvectors( sampling_point,             &
-                                             & supercell,                  &
-                                             & anharmonic_data%real_modes, &
-                                             & anharmonic_data%qpoints     )
-      vscf_rvectors_file = OFile(sampling_dir//'/vscf_rvectors.dat')
-      call vscf_rvectors_file%print_lines(vscf_rvectors,separating_line='')
-      
-      do k=1,size(vscf_rvectors)
-        ! Transform the sampling point by the VSCF R-vector.
-        transformed_sampling_point = vscf_rvectors(k)%transform( &
-                                   & sampling_point,             &
-                                   & anharmonic_data%real_modes, &
-                                   & anharmonic_data%qpoints     )
-        
-        ! Construct displaced structure.
-        displacement = CartesianDisplacement( transformed_sampling_point, &
-                                            & supercell,                  &
-                                            & anharmonic_data%real_modes, &
-                                            & anharmonic_data%qpoints     )
-        displaced_structure = displace_structure(supercell,displacement)
-        
-        ! Create directory and structure files for displaced structure.
-        vscf_rvectors_dir = sampling_dir// &
-           & '/vscf_rvectors_'//left_pad(k,str(size(vscf_rvectors)))
-        call calculation_writer%write_calculation( displaced_structure, &
-                                                 & vscf_rvectors_dir    )
-      enddo
-    enddo
-  enddo
-end subroutine
-
-! Generate potential.
-subroutine generate_potential_PolynomialPotential(this,anharmonic_data,  &
-   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
-   & logfile)
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  real(dp),                   intent(in)    :: weighted_energy_force_ratio
-  type(String),               intent(in)    :: sampling_points_dir
-  type(CalculationReader),    intent(inout) :: calculation_reader
-  type(OFile),                intent(inout) :: logfile
-  
-  ! Basis functions and sampling points corresponding to the un-displaced
-  !    structure and the constant basis function.
-  type(BasisFunction)         :: constant_basis_function
-  type(RealModeDisplacement)  :: equilibrium_sampling_point
-  type(SampleResult)          :: equilibrium_sample_result
-  
-  ! Basis functions and sampling points at each coupling.
-  type(SubspaceCoupling)       :: coupling
-  type(String)                 :: coupling_directory
-  type(CouplingBasisFunctions) :: basis_functions
-  type(SamplingPoints)         :: sampling_points
-  type(SampleResults)          :: sample_results
-  
-  ! Temporary variables.
-  integer :: i
-  
-  ! Generate the potential at zero displacement.
-  call print_line('Generating potential at zero displacement.')
-  constant_basis_function = generate_constant_basis_function()
-  equilibrium_sampling_point = generate_equilibrium_sampling_point()
-  equilibrium_sample_result = read_equilibrium_sample_result( &
-                                & equilibrium_sampling_point, &
-                                & sampling_points_dir,        &
-                                & anharmonic_data,            &
-                                & calculation_reader          )
-  this%reference_energy_ = equilibrium_sample_result%energy
-  
-  this%basis_functions_ = CouplingBasisFunctions( &
-             & anharmonic_data%subspace_couplings )
-  
-  do i=1,size(anharmonic_data%subspace_couplings)
-    call print_line('Fitting potential in subspace coupling '//i//' of ' // &
-       &size(anharmonic_data%subspace_couplings)//', containing &
-       &subspaces '//anharmonic_data%subspace_couplings(i)%ids//'.')
-    
-    coupling = anharmonic_data%subspace_couplings(i)
-    
-    ! Generate directory names.
-    coupling_directory = sampling_points_dir//'/coupling_'//left_pad( &
-                      & i,                                            &
-                      & str(size(anharmonic_data%subspace_couplings)) )
-    
-    ! Read in basis functions.
-    basis_functions = read_basis_functions(coupling_directory)
-    
-    ! Read in sampling points.
-    sampling_points = read_sampling_points(coupling_directory)
-    
-    ! Read in electronic structure data.
-    sample_results = read_sample_results( sampling_points,    &
-                                        & coupling_directory, &
-                                        & anharmonic_data,    &
-                                        & calculation_reader  )
-    
-    ! Fit basis function coefficients.
-    call basis_functions%fit_coefficients( sampling_points%points,      &
-                                         & sample_results%results,      &
-                                         & anharmonic_data%real_modes,  &
-                                         & weighted_energy_force_ratio, &
-                                         & this                         )
-    
-    ! Add fitted basis functions to potential.
-    this%basis_functions_(i) = basis_functions
-  enddo
-end subroutine
-
-! Generate stress.
-function generate_stress_PolynomialPotential(this,anharmonic_data,        &
-   & sampling_points_dir,stress_expansion_order,stress_subspace_coupling, &
-   & vscf_basis_functions_only,calculation_reader,logfile) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in)    :: this
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  type(String),               intent(in)    :: sampling_points_dir
-  integer,                    intent(in)    :: stress_expansion_order
-  type(SubspaceCoupling),     intent(in)    :: stress_subspace_coupling(:)
-  logical,                    intent(in)    :: vscf_basis_functions_only
-  type(CalculationReader),    intent(inout) :: calculation_reader
-  type(OFile),                intent(inout) :: logfile
-  type(StressPointer)                       :: output
-  
-  ! Electronic structure results corresponding to the un-displaced structure.
-  type(CouplingStressBasisFunctions) :: zero_basis_functions(0)
-  type(RealModeDisplacement)         :: equilibrium_sampling_point
-  type(SampleResult)                 :: equilibrium_sample_result
-  
-  ! Stress basis functions.
-  type(CouplingStressBasisFunctions), allocatable :: basis_functions(:)
-  
-  ! Electronic structure results.
-  type(String)         :: coupling_directory
-  type(SamplingPoints) :: sampling_points
-  type(SampleResults)  :: sample_results
-  
-  ! The stress.
-  type(PolynomialStress) :: stress
-  
-  ! Temporary variables.
-  integer :: i,j,ialloc
-  
-  ! Generate the stress tensor at zero displacement.
-  call print_line('Generating stress at zero displacement.')
-  equilibrium_sampling_point = generate_equilibrium_sampling_point()
-  equilibrium_sample_result = read_equilibrium_sample_result( &
-                                & equilibrium_sampling_point, &
-                                & sampling_points_dir,        &
-                                & anharmonic_data,            &
-                                & calculation_reader          )
-  stress = PolynomialStress( stress_expansion_order,             &
-                           & equilibrium_sample_result%stress(), &
-                           & zero_basis_functions                )
-  
-  ! Generate basis functions.
-  allocate( basis_functions(size(stress_subspace_coupling)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(basis_functions)
-    call print_line('Fitting stress in subspace coupling '//i//' of ' // &
-       &size(stress_subspace_coupling)//', containing &
-       &subspaces '//stress_subspace_coupling(i)%ids//'.')
-    basis_functions(i) = generate_stress_basis_functions( &
-                 & stress_subspace_coupling(i),           &
-                 & stress_expansion_order,                &
-                 & anharmonic_data%structure,             &
-                 & anharmonic_data%complex_modes,         &
-                 & anharmonic_data%qpoints,               &
-                 & anharmonic_data%degenerate_subspaces,  &
-                 & anharmonic_data%degenerate_symmetries, &
-                 & vscf_basis_functions_only,             &
-                 & logfile                                )
-    
-    j = first(anharmonic_data%subspace_couplings==stress_subspace_coupling(i))
-    coupling_directory = sampling_points_dir//'/coupling_'//left_pad( &
-                      & j,                                            &
-                      & str(size(anharmonic_data%subspace_couplings)) )
-    
-    ! Read in all sampling points and sample results.
-    sampling_points = read_sampling_points(coupling_directory)
-    
-    sample_results = read_sample_results( sampling_points,    &
-                                        & coupling_directory, &
-                                        & anharmonic_data,    &
-                                        & calculation_reader  )
-    
-    ! Fit basis functions.
-    j = first(stress_subspace_coupling==basis_functions(i)%coupling)
-    
-    call basis_functions(i)%fit_coefficients( &
-                    & sampling_points%points, &
-                    & sample_results%results, &
-                    & stress                  )
-  enddo
-  
-  ! Assemble output.
-  stress = PolynomialStress( stress_expansion_order,             &
-                           & equilibrium_sample_result%stress(), &
-                           & basis_functions                     )
-  output = StressPointer(stress)
-end function
-
-! Helper functions for generate_potential and generate_stress.
-
-! Reads sampling points.
-impure elemental function read_sampling_points(coupling_directory) &
-   & result(output)
-  implicit none
-  
-  type(String), intent(in) :: coupling_directory
-  type(SamplingPoints)     :: output
-  
-  type(IFile) :: sampling_points_file
-  
-  sampling_points_file = IFile(coupling_directory//'/sampling_points.dat')
-  output = SamplingPoints(sampling_points_file%lines())
-end function
-
-! Generates the sampling point for the equilibrium structure.
-function generate_equilibrium_sampling_point() result(output)
-  implicit none
-  
-  type(RealModeDisplacement) :: output
-  
-  type(RealSingleDisplacement) :: zero_displacement(0)
-  
-  output = RealModeDisplacement(zero_displacement)
-end function
-
-! Reads basis functions.
-impure elemental function read_basis_functions(coupling_directory) &
-   & result(output)
-  implicit none
-  
-  type(String), intent(in)     :: coupling_directory
-  type(CouplingBasisFunctions) :: output
-  
-  type(IFile) :: basis_functions_file
-  
-  basis_functions_file = IFile(coupling_directory//'/basis_functions.dat')
-  output = CouplingBasisFunctions(basis_functions_file%lines())
-end function
-
-! Generates the basis function which is just a constant.
-function generate_constant_basis_function() result(output)
-  implicit none
-  
-  type(BasisFunction) :: output
-  
-  type(ComplexMonomial) :: constant_complex_monomial
-  
-  type(ComplexUnivariate) :: zero_complex(0)
-  
-  constant_complex_monomial = ComplexMonomial( &
-         & coefficient = (1.0_dp,0.0_dp),      &
-         & modes       = zero_complex          )
-  output = BasisFunction(                                                     &
-     & complex_representation = ComplexPolynomial([constant_complex_monomial]))
-end function
-
-! Reads sample results.
-impure elemental function read_sample_results(sampling_points, &
-   & coupling_directory,anharmonic_data,calculation_reader) result(output)
-  implicit none
-  
-  type(SamplingPoints),    intent(in)    :: sampling_points
-  type(String),            intent(in)    :: coupling_directory
-  type(AnharmonicData),    intent(in)    :: anharmonic_data
-  type(CalculationReader), intent(inout) :: calculation_reader
-  type(SampleResults)                    :: output
-  
-  type(StructureData)                    :: supercell
-  type(CartesianDisplacement)            :: displacement
-  type(VscfRvectors),        allocatable :: vscf_rvectors(:)
-  type(ElectronicStructure), allocatable :: calculations(:)
-  
-  ! Files and directories.
-  type(String) :: sampling_directory
-  type(IFile)  :: supercell_file
-  type(IFile)  :: vscf_rvectors_file
-  type(String) :: vscf_rvectors_directory
-  
-  ! Temporary variables.
-  integer :: i,j,ialloc
-  
-  allocate( output%results(size(sampling_points)), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(sampling_points)
-    sampling_directory = coupling_directory// &
-       & '/sampling_point_'//left_pad(i,str(size(sampling_points)))
-    
-    ! Read in supercell and VSCF R-vectors.
-    supercell_file = IFile(sampling_directory//'/structure.dat')
-    supercell = StructureData(supercell_file%lines())
-    
-    displacement = CartesianDisplacement( sampling_points%points(i),  &
-                                        & supercell,                  &
-                                        & anharmonic_data%real_modes, &
-                                        & anharmonic_data%qpoints     )
-    
-    vscf_rvectors_file = IFile(sampling_directory//'/vscf_rvectors.dat')
-    vscf_rvectors = VscfRvectors(vscf_rvectors_file%sections())
-    
-    ! Read in electronic structure calculations.
-    allocate( calculations(size(vscf_rvectors)), &
-            & stat=ialloc); call err(ialloc)
-    do j=1,size(vscf_rvectors)
-      vscf_rvectors_directory = sampling_directory// &
-         & '/vscf_rvectors_'//left_pad(j,str(size(vscf_rvectors)))
-      calculations(j) = calculation_reader%read_calculation( &
-                                  & vscf_rvectors_directory, &
-                                  & displacement             )
-    enddo
-    
-    ! Average electronic structure across VSCF R-vectors, and convert
-    !    to correct normalisation and real mode co-ordinates.
-    output%results(i) = SampleResult( vscf_rvectors,              &
-                                    & calculations,               &
-                                    & supercell,                  &
-                                    & anharmonic_data%real_modes, &
-                                    & anharmonic_data%qpoints,    &
-                                    & anharmonic_data             )
-    
-    deallocate(calculations, stat=ialloc); call err(ialloc)
-  enddo
-end function
-
-! Reads the sample result corresponding to equilibrium.
-function read_equilibrium_sample_result(equilibrium_sampling_point, &
-   & sampling_points_directory,anharmonic_data,calculation_reader)  &
-   & result(output)
-  implicit none
-  
-  type(RealModeDisplacement), intent(in)    :: equilibrium_sampling_point
-  type(String),               intent(in)    :: sampling_points_directory
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  type(CalculationReader),    intent(inout) :: calculation_reader
-  type(SampleResult)                        :: output
-  
-  type(CartesianDisplacement) :: displacement
-  type(ElectronicStructure)   :: electronic_structure
-  
-  ! The vector of length 0 as a CartesianDisplacement.
-  displacement = CartesianDisplacement( &
-          & equilibrium_sampling_point, &
-          & anharmonic_data%structure,  &
-          & anharmonic_data%real_modes, &
-          & anharmonic_data%qpoints     )
-  
-  electronic_structure = calculation_reader%read_calculation( &
-                 & sampling_points_directory//'/equilibrium', &
-                 & displacement                               )
-  
-  output = SampleResult( electronic_structure,       &
-                       & anharmonic_data%structure,  &
-                       & anharmonic_data%real_modes, &
-                       & anharmonic_data%qpoints,    &
-                       & anharmonic_data             )
-end function
-
-! Set the undisplaced energy to zero.
-impure elemental subroutine zero_energy_PolynomialPotential(this)
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  
-  this%reference_energy_ = this%reference_energy_ - this%undisplaced_energy()
-end subroutine
-
-! Add a constant to the energy.
-impure elemental subroutine add_constant_PolynomialPotential(this,input)
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  real(dp),                   intent(in)    :: input
-  
-  this%reference_energy_ = this%reference_energy_ + input
-end subroutine
-
-! Finalise a subspace potential.
-! Re-arranges basis functions to remove duplicates and separate all monomials.
-subroutine optimise_subspace_potential_PolynomialPotential(this,subspace, &
-   & subspace_basis,old_subspace_potential,anharmonic_data) 
-  implicit none
-  
-  class(PolynomialPotential), intent(inout)        :: this
-  type(DegenerateSubspace),   intent(in)           :: subspace
-  class(SubspaceBasis),       intent(in)           :: subspace_basis
-  class(PotentialData),       intent(in), optional :: old_subspace_potential
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
-  
-  if (size(this%basis_functions_)/=1) then
-    call print_line(CODE_ERROR//': Calling optimise_subspace_potential &
-       &on a potential with more than one coupling.')
-    call err()
-  endif
-  
-  this%reference_energy_ = this%reference_energy_ &
-                       & + this%basis_functions_(1)%undisplaced_energy()
-  
-  call this%basis_functions_(1)%optimise( subspace,               &
-                                        & subspace_basis,         &
-                                        & old_subspace_potential, &
-                                        & anharmonic_data         )
-end subroutine
-
-! Calculate the energy at a given displacement.
-impure elemental function energy_RealModeDisplacement_PolynomialPotential( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  real(dp)                               :: output
-  
-  output = this%reference_energy_ &
-       & + sum(this%basis_functions_%energy(displacement))
-end function
-
-impure elemental function energy_ComplexModeDisplacement_PolynomialPotential( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PolynomialPotential),    intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                               :: output
-  
-  output = this%reference_energy_ &
-       & + sum(this%basis_functions_%energy(displacement))
-end function
-
-! Calculate the force at a given displacement.
-impure elemental function force_RealModeDisplacement_PolynomialPotential( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  type(RealModeForce)                    :: output
-  
-  if (size(this%basis_functions_)>0) then
-    output = sum(this%basis_functions_%force(displacement))
-  else
-    output = RealModeForce(RealSingleForce(displacement%vectors%id,0.0_dp))
-  endif
-end function
-
-impure elemental function force_ComplexModeDisplacement_PolynomialPotential( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PolynomialPotential),    intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexModeForce)                    :: output
-  
-  if (size(this%basis_functions_)>0) then
-    output = sum(this%basis_functions_%force(displacement))
-  else
-    output = ComplexModeForce(ComplexSingleForce( displacement%vectors%id, &
-                                                & (0.0_dp,0.0_dp)          ))
-  endif
-end function
-
-! Integrate the potential between two states.
-impure elemental subroutine braket_SubspaceBraKet_PolynomialPotential(this, &
-   & braket,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PolynomialPotential), intent(inout)        :: this
-  class(SubspaceBraKet),      intent(in)           :: braket
-  logical,                    intent(in), optional :: whole_subspace
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
-  
-  integer :: i
-  
-  ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-  this%reference_energy_ = this%reference_energy_ &
-                       & * braket%inner_product(anharmonic_data)
-  
-  ! Integrate each basis function between the bra and the ket.
-  do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket( braket,         &
-                                        & whole_subspace, &
-                                        & anharmonic_data )
-  enddo
-  
-  ! Simplify the potential.
-  if (set_default(whole_subspace,.true.)) then
-    call this%simplify()
-  endif
-end subroutine
-
-! Integrate the potential between two states.
-impure elemental subroutine braket_BasisState_PolynomialPotential(this,bra, &
-   & ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PolynomialPotential), intent(inout)        :: this
-  class(BasisState),          intent(in)           :: bra
-  class(BasisState),          intent(in), optional :: ket
-  type(DegenerateSubspace),   intent(in)           :: subspace
-  class(SubspaceBasis),       intent(in)           :: subspace_basis
-  logical,                    intent(in), optional :: whole_subspace
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
-  
-  integer :: i
-  
-  ! Integrate the reference energy (N.B. <i|e|j> = e<i|j> if e is a scalar.).
-  this%reference_energy_ = this%reference_energy_                         &
-                       & * subspace_basis%inner_product( bra,            &
-                       &                                 ket,            &
-                       &                                 subspace,       &
-                       &                                 anharmonic_data )
-  
-  ! Integrate each basis function between the bra and the ket.
-  do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket( bra,            &
-                                        & ket,            &
-                                        & subspace,       &
-                                        & subspace_basis, &
-                                        & whole_subspace, &
-                                        & anharmonic_data )
-  enddo
-  
-  ! Simplify the potential.
-  if (set_default(whole_subspace,.true.)) then
-    call this%simplify()
-  endif
-end subroutine
-
-impure elemental subroutine braket_BasisStates_PolynomialPotential(this, &
-   & states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PolynomialPotential), intent(inout)        :: this
-  class(BasisStates),         intent(inout)        :: states
-  type(DegenerateSubspace),   intent(in)           :: subspace
-  class(SubspaceBasis),       intent(in)           :: subspace_basis
-  logical,                    intent(in), optional :: whole_subspace
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
-  
-  integer :: i
-  
-  ! Integrate each basis function between the bra and the ket.
-  do i=1,size(this%basis_functions_)
-    call this%basis_functions_(i)%braket( states,         &
-                                        & subspace,       &
-                                        & subspace_basis, &
-                                        & whole_subspace, &
-                                        & anharmonic_data )
-  enddo
-  
-  ! Simplify the potential.
-  if (set_default(whole_subspace,.true.)) then
-    call this%simplify()
-  endif
-end subroutine
-
-! Identify basis functions which are constant,
-!    add the constant energy to the potential's reference energy,
-!    and remove the term.
-! Then identify basis functions with the same coupling as a previous coupling,
-!    combine the two and remove the duplicate term.
-subroutine simplify_PolynomialPotential(this)
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  
-  logical, allocatable :: to_remove(:)
-  
-  integer :: i,j
-  
-  to_remove = [(.false., i=1, size(this%basis_functions_))]
-  
-  do i=1,size(this%basis_functions_)
-    if (size(this%basis_functions_(i)%coupling)==0) then
-      this%reference_energy_ =      &
-         &   this%reference_energy_ &
-         & + this%basis_functions_(i)%undisplaced_energy()
-      to_remove(i) = .true.
-    else
-      do j=1,i-1
-        if (    this%basis_functions_(i)%coupling &
-           & == this%basis_functions_(j)%coupling ) then
-          if (to_remove(j)) then
-            call err()
-          endif
-          call this%basis_functions_(j)%append( &
-                     & this%basis_functions_(i) )
-          to_remove(i) = .true.
-          exit
-        endif
-      enddo
-    endif
-  enddo
-  
-  ! Remove constant and duplicate terms.
-  this%basis_functions_ = this%basis_functions_(filter(.not.to_remove))
-end subroutine
-
-! Calculate the thermal expectation of the potential, <V>, for a set of
-!    harmonic states.
-impure elemental function harmonic_expectation_PolynomialPotential(this, &
-   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  real(dp),                   intent(in) :: frequency
-  real(dp),                   intent(in) :: thermal_energy
-  integer,                    intent(in) :: supercell_size
-  type(AnharmonicData),       intent(in) :: anharmonic_data
-  real(dp)                               :: output
-  
-  output = this%reference_energy_                                          &
-       & + sum(this%basis_functions_%harmonic_expectation( frequency,      &
-       &                                                   thermal_energy, &
-       &                                                   supercell_size, &
-       &                                                   anharmonic_data ))
-end function
-
-recursive function potential_energy_SubspaceBraKet_PolynomialPotential(this, &
-   & braket,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  class(SubspaceBraKet),      intent(in) :: braket
-  type(AnharmonicData),       intent(in) :: anharmonic_data
-  real(dp)                               :: output
-  
-  integer :: i
-  
-  output = this%reference_energy_                               &
-       & * braket%inner_product(anharmonic_data)                &
-       & + sum([( this%basis_functions_(i)%potential_energy(    &
-       &                                     braket,            &
-       &                                     anharmonic_data ), &
-       &          i=1,                                          &
-       &          size(this%basis_functions_)                   )])
-end function
-
-recursive function potential_energy_BasisState_PolynomialPotential(this,bra, &
-   & ket,subspace,subspace_basis,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PolynomialPotential), intent(in)           :: this
-  class(BasisState),          intent(in)           :: bra
-  class(BasisState),          intent(in), optional :: ket
-  type(DegenerateSubspace),   intent(in)           :: subspace
-  class(SubspaceBasis),       intent(in)           :: subspace_basis
-  type(AnharmonicData),       intent(in)           :: anharmonic_data
-  real(dp)                                         :: output
-  
-  integer :: i
-  
-  output = this%reference_energy_                                      &
-       & * subspace_basis%inner_product( bra,                          &
-       &                                 ket,                          &
-       &                                 subspace,                     &
-       &                                 anharmonic_data )             &
-       & + sum([( this%basis_functions_(i)%potential_energy(           &
-       &                                     bra,                      &
-       &                                     ket,                      &
-       &                                     subspace,                 &
-       &                                     subspace_basis,           &
-       &                                     anharmonic_data ),        &
-       &          i=1,                                                 &
-       &          size(this%basis_functions_)                   )])
-end function
-
-function coefficients_PolynomialPotential(this,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  type(AnharmonicData),       intent(in) :: anharmonic_data
-  real(dp), allocatable                  :: output(:)
-  
-  integer :: i
-  
-  output = [( this%basis_functions_(i)%coefficients(            &
-            &    anharmonic_data%potential_expansion_order-1 ), &
-            & i=1,                                              &
-            & size(this%basis_functions_)                       )]
-end function
-
-subroutine set_coefficients_PolynomialPotential(this,coefficients, &
-   & anharmonic_data)
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  real(dp),                   intent(in)    :: coefficients(:)
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  
-  integer :: no_coefficients
-  
-  integer :: i,j
-  
-  j = 0
-  do i=1,size(this%basis_functions_)
-    no_coefficients = this%basis_functions_(i)%no_coefficients( &
-                  & anharmonic_data%potential_expansion_order-1 )
-    call this%basis_functions_(i)%set_coefficients(  &
-       & coefficients(j+1:j+no_coefficients),        &
-       & anharmonic_data%potential_expansion_order-1 )
-    j = j+no_coefficients
-  enddo
-end subroutine
-
-function all_basis_functions_PolynomialPotential(this,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in)  :: this
-  type(AnharmonicData),       intent(in)  :: anharmonic_data
-  type(PotentialBasePointer), allocatable :: output(:)
-  
-  integer :: i
-  
-  output = [( this%basis_functions_(i)%all_basis_functions(), &
-            & i=1,                                            &
-            & size(this%basis_functions_)                     )]
-end function
-
-function variable_basis_functions_PolynomialPotential(this,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in)  :: this
-  type(AnharmonicData),       intent(in)  :: anharmonic_data
-  type(PotentialBasePointer), allocatable :: output(:)
-  
-  integer :: i
-  
-  output = [( this%basis_functions_(i)%variable_basis_functions(    &
-            &        anharmonic_data%potential_expansion_order-1 ), &
-            & i=1,                                                  &
-            & size(this%basis_functions_)                           )]
-end function
-
-! Interpolate the potential.
-function can_be_interpolated_PolynomialPotential(this) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  logical                                :: output
-  
-  output = .true.
-end function
-
-subroutine interpolate_potential_PolynomialPotential(this, &
-   & anharmonic_min_images,potential,anharmonic_data,      &
-   & interpolated_anharmonic_data,difference_dynamical_matrices,logfile) 
-  implicit none
-  
-  class(PolynomialPotential), intent(inout) :: this
-  type(MinImages),            intent(in)    :: anharmonic_min_images(:,:)
-  class(PotentialData),       intent(in)    :: potential
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  type(AnharmonicData),       intent(in)    :: interpolated_anharmonic_data
-  type(DynamicalMatrix),      intent(in)    :: difference_dynamical_matrices(:)
-  type(OFile),                intent(inout) :: logfile
-  
-  type(PolynomialPotential) :: potential_
-  
-  type(PolynomialInterpolator) :: interpolator
-  
-  integer :: i,j,ialloc
-  
-  potential_ = PolynomialPotential(potential)
-  
-  this%reference_energy_ =                                           &
-     & ( potential_%reference_energy_                                &
-     & * interpolated_anharmonic_data%anharmonic_supercell%sc_size ) &
-     & / anharmonic_data%anharmonic_supercell%sc_size
-  
-  allocate( this%basis_functions_(                                      &
-          &    size(interpolated_anharmonic_data%subspace_couplings) ), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(this%basis_functions_)
-    call print_line('Generating basis functions for interpolated potential &
-       &in subspace coupling '//i//' of '//size(this%basis_functions_)//'.' )
-    ! Generate basis functions at each coupling,
-    !    and the sampling points from which the basis function coefficients
-    !    can be constructed.
-    this%basis_functions_(i) = generate_basis_functions(         &
-       & interpolated_anharmonic_data%subspace_couplings(i),     &
-       & this%potential_expansion_order_,                        &
-       & interpolated_anharmonic_data%structure,                 &
-       & interpolated_anharmonic_data%complex_modes,             &
-       & interpolated_anharmonic_data%real_modes,                &
-       & interpolated_anharmonic_data%qpoints,                   &
-       & interpolated_anharmonic_data%degenerate_subspaces,      &
-       & interpolated_anharmonic_data%degenerate_symmetries,     &
-       & interpolated_anharmonic_data%vscf_basis_functions_only, &
-       & logfile                                                 )
-    call this%basis_functions_(i)%zero_coefficients()
-  enddo
-  
-  ! Construct the polynomial interpolator.
-  interpolator = new_PolynomialInterpolator(                       &
-     & min_images                   = anharmonic_min_images,       &
-     & anharmonic_data              = anharmonic_data,             &
-     & interpolated_anharmonic_data = interpolated_anharmonic_data )
-  
-  do i=1,size(this%basis_functions_)
-    call print_line( 'Interpolating coefficients in subspace coupling '//i// &
-                   & ' of '//size(this%basis_functions_)//'.'                )
-    do j=1,size(potential_%basis_functions_)
-      call this%basis_functions_(i)%add_interpolated_contribution( &
-                                 & potential_%basis_functions_(j), &
-                                 & interpolator                    )
-    enddo
-    
-    call this%basis_functions_(i)%add_harmonic_contribution( &
-                            & difference_dynamical_matrices, &
-                            & interpolated_anharmonic_data   )
-  enddo
-end subroutine
-
-! Calculate the contribution to a given monomial from the interpolation of
-!    this potential.
-impure elemental function interpolate_coefficient_PolynomialPotential(this, &
-   & monomial,interpolator) result(output)
-  implicit none
-  
-  class(PolynomialPotential),   intent(in) :: this
-  type(ComplexMonomial),        intent(in) :: monomial
-  type(PolynomialInterpolator), intent(in) :: interpolator
-  complex(dp)                              :: output
-  
-  output = sum(this%basis_functions_%interpolate_coefficient( monomial,    &
-                                                            & interpolator ))
-end function
-
-! Calculate the effective dynamical matrices from which the potential can be
-!    interpolated in the large-supercell limit.
-function calculate_dynamical_matrices_PolynomialPotential(this,qpoints,       &
-   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
-   & result(output) 
-  implicit none
-  
-  class(PolynomialPotential), intent(in)    :: this
-  type(QpointData),           intent(in)    :: qpoints(:)
-  real(dp),                   intent(in)    :: thermal_energy
-  type(DegenerateSubspace),   intent(in)    :: subspaces(:)
-  class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
-  class(BasisStates),         intent(inout) :: subspace_states(:)
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  type(DynamicalMatrix), allocatable        :: output(:)
-  
-  integer :: i
-  
-  output = [( DynamicalMatrix(anharmonic_data%structure%no_atoms), &
-            & i=1,                                                 &
-            & size(qpoints)                                        )]
-  
-  do i=1,size(this%basis_functions_)
-    output = output                                                 &
-         & + this%basis_functions_(i)%calculate_dynamical_matrices( &
-         &                                         qpoints,         &
-         &                                         thermal_energy,  &
-         &                                         subspaces,       &
-         &                                         subspace_bases,  &
-         &                                         subspace_states, &
-         &                                         anharmonic_data  )
-  enddo
-end function
-
-! Calculate the correction due to double counting
-!    for the interpolated potential.
-function energy_correction_PolynomialPotential(this,subspaces,subspace_bases, &
-   & subspace_states,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PolynomialPotential), intent(in)    :: this
-  type(DegenerateSubspace),   intent(in)    :: subspaces(:)
-  class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
-  class(BasisStates),         intent(inout) :: subspace_states(:)
-  type(AnharmonicData),       intent(in)    :: anharmonic_data
-  real(dp)                                  :: output
-  
-  integer :: i
-  
-  output = 0
-  do i=1,size(this%basis_functions_)
-    output = output + this%basis_functions_(i)%energy_correction( &
-                                               & subspaces,       &
-                                               & subspace_bases,  &
-                                               & subspace_states, &
-                                               & anharmonic_data  )
-  enddo
-end function
-
-! Expansion order.
-impure elemental function expansion_order_PolynomialPotential(this) &
-   & result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  integer                                :: output
-  
-  output = this%potential_expansion_order_
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_PolynomialPotential(this,input)
-  implicit none
-  
-  class(PolynomialPotential), intent(out) :: this
-  type(String),               intent(in)  :: input(:)
-  
-  integer                                   :: potential_expansion_order
-  real(dp)                                  :: reference_energy
-  type(CouplingBasisFunctions), allocatable :: basis_functions(:)
-  
-  type(String), allocatable :: line(:)
-  
-  select type(this); type is(PolynomialPotential)
-    line = split_line(input(1))
-    potential_expansion_order = int(line(3))
-    
-    line = split_line(input(2))
-    reference_energy = dble(line(3))
-    
-    basis_functions = CouplingBasisFunctions(split_into_sections( &
-                                 & input(5:),                     &
-                                 & separating_line=repeat('=',50) ))
-    
-    this = PolynomialPotential( potential_expansion_order, &
-                              & reference_energy,          &
-                              & basis_functions            )
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_PolynomialPotential(this) result(output)
-  implicit none
-  
-  class(PolynomialPotential), intent(in) :: this
-  type(String), allocatable              :: output(:)
-  
-  select type(this); type is(PolynomialPotential)
-    output = [ 'Expansion order: '//this%potential_expansion_order_,      &
-             & 'Reference energy: '//this%reference_energy_,              &
-             & str('Basis functions:'),                                   &
-             & str(''),                                                   &
-             & str(this%basis_functions_, separating_line=repeat('=',50)) ]
-  class default
-    call err()
-  end select
-end function
-
-function new_PolynomialPotential_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in)  :: input(:)
-  type(PolynomialPotential) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_PolynomialPotential_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(PolynomialPotential)     :: this
-  
-  this = PolynomialPotential(str(input))
-end function
+    ! Reads sampling points.
+    impure elemental module function read_sampling_points(coupling_directory) &
+       & result(output) 
+      type(String), intent(in) :: coupling_directory
+      type(SamplingPoints)     :: output
+    end function
+  end interface
+  
+  interface
+    ! Generates the sampling point for the equilibrium structure.
+    module function generate_equilibrium_sampling_point() result(output) 
+      type(RealModeDisplacement) :: output
+    end function
+  end interface
+  
+  interface
+    ! Reads basis functions.
+    impure elemental module function read_basis_functions(coupling_directory) &
+       & result(output) 
+      type(String), intent(in)     :: coupling_directory
+      type(CouplingBasisFunctions) :: output
+    end function
+  end interface
+  
+  interface
+    ! Generates the basis function which is just a constant.
+    module function generate_constant_basis_function() result(output) 
+      type(BasisFunction) :: output
+    end function
+  end interface
+  
+  interface
+    ! Reads sample results.
+    impure elemental module function read_sample_results(sampling_points, &
+       & coupling_directory,anharmonic_data,calculation_reader) result(output) 
+      type(SamplingPoints),    intent(in)    :: sampling_points
+      type(String),            intent(in)    :: coupling_directory
+      type(AnharmonicData),    intent(in)    :: anharmonic_data
+      type(CalculationReader), intent(inout) :: calculation_reader
+      type(SampleResults)                    :: output
+    end function
+  end interface
+  
+  interface
+    ! Reads the sample result corresponding to equilibrium.
+    module function read_equilibrium_sample_result(equilibrium_sampling_point,sampling_points_directory,anharmonic_data,calculation_reader) result(output) 
+      type(RealModeDisplacement), intent(in)    :: equilibrium_sampling_point
+      type(String),               intent(in)    :: sampling_points_directory
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+      type(CalculationReader),    intent(inout) :: calculation_reader
+      type(SampleResult)                        :: output
+    end function
+  end interface
+  
+  interface
+    ! Set the undisplaced energy to zero.
+    impure elemental module subroutine zero_energy_PolynomialPotential(this) 
+      class(PolynomialPotential), intent(inout) :: this
+    end subroutine
+  end interface
+  
+  interface
+    ! Add a constant to the energy.
+    impure elemental module subroutine add_constant_PolynomialPotential(this,input) 
+      class(PolynomialPotential), intent(inout) :: this
+      real(dp),                   intent(in)    :: input
+    end subroutine
+  end interface
+  
+  interface
+    ! Finalise a subspace potential.
+    ! Re-arranges basis functions to remove duplicates and separate all monomials.
+    module subroutine optimise_subspace_potential_PolynomialPotential(this, &
+       & subspace,subspace_basis,old_subspace_potential,anharmonic_data) 
+      class(PolynomialPotential), intent(inout)        :: this
+      type(DegenerateSubspace),   intent(in)           :: subspace
+      class(SubspaceBasis),       intent(in)           :: subspace_basis
+      class(PotentialData),       intent(in), optional :: old_subspace_potential
+      type(AnharmonicData),       intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    ! Calculate the energy at a given displacement.
+    impure elemental module function energy_RealModeDisplacement_PolynomialPotential(   this,displacement) result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      real(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function energy_ComplexModeDisplacement_PolynomialPotential(   this,displacement) result(output) 
+      class(PolynomialPotential),    intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      complex(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    ! Calculate the force at a given displacement.
+    impure elemental module function force_RealModeDisplacement_PolynomialPotential(   this,displacement) result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      type(RealModeForce)                    :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function force_ComplexModeDisplacement_PolynomialPotential(   this,displacement) result(output) 
+      class(PolynomialPotential),    intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      type(ComplexModeForce)                    :: output
+    end function
+  end interface
+  
+  interface
+    ! Integrate the potential between two states.
+    impure elemental module subroutine braket_SubspaceBraKet_PolynomialPotential(this,braket,whole_subspace,anharmonic_data) 
+      class(PolynomialPotential), intent(inout)        :: this
+      class(SubspaceBraKet),      intent(in)           :: braket
+      logical,                    intent(in), optional :: whole_subspace
+      type(AnharmonicData),       intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    ! Integrate the potential between two states.
+    impure elemental module subroutine braket_BasisState_PolynomialPotential(this,bra,ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(PolynomialPotential), intent(inout)        :: this
+      class(BasisState),          intent(in)           :: bra
+      class(BasisState),          intent(in), optional :: ket
+      type(DegenerateSubspace),   intent(in)           :: subspace
+      class(SubspaceBasis),       intent(in)           :: subspace_basis
+      logical,                    intent(in), optional :: whole_subspace
+      type(AnharmonicData),       intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_BasisStates_PolynomialPotential(this,states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(PolynomialPotential), intent(inout)        :: this
+      class(BasisStates),         intent(inout)        :: states
+      type(DegenerateSubspace),   intent(in)           :: subspace
+      class(SubspaceBasis),       intent(in)           :: subspace_basis
+      logical,                    intent(in), optional :: whole_subspace
+      type(AnharmonicData),       intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    ! Identify basis functions which are constant,
+    !    add the constant energy to the potential's reference energy,
+    !    and remove the term.
+    ! Then identify basis functions with the same coupling as a previous coupling,
+    !    combine the two and remove the duplicate term.
+    module subroutine simplify_PolynomialPotential(this) 
+      class(PolynomialPotential), intent(inout) :: this
+    end subroutine
+  end interface
+  
+  interface
+    ! Calculate the thermal expectation of the potential, <V>, for a set of
+    !    harmonic states.
+    impure elemental module function harmonic_expectation_PolynomialPotential(this,frequency,thermal_energy,supercell_size,anharmonic_data) result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      real(dp),                   intent(in) :: frequency
+      real(dp),                   intent(in) :: thermal_energy
+      integer,                    intent(in) :: supercell_size
+      type(AnharmonicData),       intent(in) :: anharmonic_data
+      real(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_SubspaceBraKet_PolynomialPotential(this,braket,anharmonic_data) result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      class(SubspaceBraKet),      intent(in) :: braket
+      type(AnharmonicData),       intent(in) :: anharmonic_data
+      real(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_BasisState_PolynomialPotential(this,bra,ket,subspace,subspace_basis,anharmonic_data) result(output) 
+      class(PolynomialPotential), intent(in)           :: this
+      class(BasisState),          intent(in)           :: bra
+      class(BasisState),          intent(in), optional :: ket
+      type(DegenerateSubspace),   intent(in)           :: subspace
+      class(SubspaceBasis),       intent(in)           :: subspace_basis
+      type(AnharmonicData),       intent(in)           :: anharmonic_data
+      real(dp)                                         :: output
+    end function
+  end interface
+  
+  interface
+    module function coefficients_PolynomialPotential(this,anharmonic_data) &
+       & result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      type(AnharmonicData),       intent(in) :: anharmonic_data
+      real(dp), allocatable                  :: output(:)
+    end function
+  end interface
+  
+  interface
+    module subroutine set_coefficients_PolynomialPotential(this, &
+       & coefficients,anharmonic_data) 
+      class(PolynomialPotential), intent(inout) :: this
+      real(dp),                   intent(in)    :: coefficients(:)
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    module function all_basis_functions_PolynomialPotential(this, &
+       & anharmonic_data) result(output) 
+      class(PolynomialPotential), intent(in)  :: this
+      type(AnharmonicData),       intent(in)  :: anharmonic_data
+      type(PotentialBasePointer), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function variable_basis_functions_PolynomialPotential(this, &
+       & anharmonic_data) result(output) 
+      class(PolynomialPotential), intent(in)  :: this
+      type(AnharmonicData),       intent(in)  :: anharmonic_data
+      type(PotentialBasePointer), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    ! Interpolate the potential.
+    module function can_be_interpolated_PolynomialPotential(this) &
+       & result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      logical                                :: output
+    end function
+  end interface
+  
+  interface
+    module subroutine interpolate_potential_PolynomialPotential(this, &
+       & anharmonic_min_images,potential,anharmonic_data,             &
+       & interpolated_anharmonic_data,difference_dynamical_matrices,logfile) 
+      class(PolynomialPotential), intent(inout) :: this
+      type(MinImages),            intent(in)    :: anharmonic_min_images(:,:)
+      class(PotentialData),       intent(in)    :: potential
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+      type(AnharmonicData),       intent(in)    :: interpolated_anharmonic_data
+      type(DynamicalMatrix),      intent(in)    :: difference_dynamical_matrices(:)
+      type(OFile),                intent(inout) :: logfile
+    end subroutine
+  end interface
+  
+  interface
+    ! Calculate the contribution to a given monomial from the interpolation of
+    !    this potential.
+    impure elemental module function interpolate_coefficient_PolynomialPotential(this,monomial,interpolator) result(output) 
+      class(PolynomialPotential),   intent(in) :: this
+      type(ComplexMonomial),        intent(in) :: monomial
+      type(PolynomialInterpolator), intent(in) :: interpolator
+      complex(dp)                              :: output
+    end function
+  end interface
+  
+  interface
+    ! Calculate the effective dynamical matrices from which the potential can be
+    !    interpolated in the large-supercell limit.
+    module function calculate_dynamical_matrices_PolynomialPotential(this, &
+       & qpoints,thermal_energy,subspaces,subspace_bases,subspace_states,  &
+       & anharmonic_data) result(output) 
+      class(PolynomialPotential), intent(in)    :: this
+      type(QpointData),           intent(in)    :: qpoints(:)
+      real(dp),                   intent(in)    :: thermal_energy
+      type(DegenerateSubspace),   intent(in)    :: subspaces(:)
+      class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
+      class(BasisStates),         intent(inout) :: subspace_states(:)
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+      type(DynamicalMatrix), allocatable        :: output(:)
+    end function
+  end interface
+  
+  interface
+    ! Calculate the correction due to double counting
+    !    for the interpolated potential.
+    module function energy_correction_PolynomialPotential(this,subspaces, &
+       & subspace_bases,subspace_states,anharmonic_data) result(output) 
+      class(PolynomialPotential), intent(in)    :: this
+      type(DegenerateSubspace),   intent(in)    :: subspaces(:)
+      class(SubspaceBasis),       intent(in)    :: subspace_bases(:)
+      class(BasisStates),         intent(inout) :: subspace_states(:)
+      type(AnharmonicData),       intent(in)    :: anharmonic_data
+      real(dp)                                  :: output
+    end function
+  end interface
+  
+  interface
+    ! Expansion order.
+    impure elemental module function expansion_order_PolynomialPotential(this) result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      integer                                :: output
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_PolynomialPotential(this,input) 
+      class(PolynomialPotential), intent(out) :: this
+      type(String),               intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    module function write_PolynomialPotential(this) result(output) 
+      class(PolynomialPotential), intent(in) :: this
+      type(String), allocatable              :: output(:)
+    end function
+  end interface
+  
+  interface PolynomialPotential
+    module function new_PolynomialPotential_Strings(input) result(this) 
+      type(String), intent(in)  :: input(:)
+      type(PolynomialPotential) :: this
+    end function
+  
+    impure elemental module function new_PolynomialPotential_StringArray(input) result(this) 
+      type(StringArray), intent(in) :: input
+      type(PolynomialPotential)     :: this
+    end function
+  end interface
 end module

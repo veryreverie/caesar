@@ -2,11 +2,20 @@ cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
 include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(harmonic)
 
-add_library(harmonic generate_supercells.f90 hartree_to_ev.f90 snap_to_symmetry.f90 construct_supercell_hessian.f90 harmonic_data.f90 setup_harmonic.f90 run_harmonic.f90 calculate_normal_modes.f90 read_normal_modes.f90 calculate_harmonic_observables.f90 plot_normal_modes.f90 plot_dos_and_dispersion.f90 plot_thermodynamic_variables.f90 converge_qpoint_grid.f90 converge_harmonic_qpoints.f90 plot_harmonic_qpoint_convergence.f90 harmonic.f90)
-target_include_directories(harmonic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(harmonic_modules generate_supercells.f90 hartree_to_ev.f90 snap_to_symmetry.f90 construct_supercell_hessian.f90 harmonic_data.f90 setup_harmonic.f90 run_harmonic.f90 calculate_normal_modes.f90 read_normal_modes.f90 calculate_harmonic_observables.f90 plot_normal_modes.f90 plot_dos_and_dispersion.f90 plot_thermodynamic_variables.f90 converge_qpoint_grid.f90 converge_harmonic_qpoints.f90 plot_harmonic_qpoint_convergence.f90 harmonic.f90)
+add_library(harmonic_submodules generate_supercells_submodule.f90 hartree_to_ev_submodule.f90 snap_to_symmetry_submodule.f90 construct_supercell_hessian_submodule.f90 harmonic_data_submodule.f90 setup_harmonic_submodule.f90 run_harmonic_submodule.f90 calculate_normal_modes_submodule.f90 read_normal_modes_submodule.f90 calculate_harmonic_observables_submodule.f90 plot_normal_modes_submodule.f90 plot_dos_and_dispersion_submodule.f90 plot_thermodynamic_variables_submodule.f90 converge_qpoint_grid_submodule.f90 converge_harmonic_qpoints_submodule.f90 plot_harmonic_qpoint_convergence_submodule.f90 harmonic_submodule.f90)
+target_link_libraries(harmonic_submodules harmonic_modules)
+target_include_directories(harmonic_modules PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/utils utils/)
-target_link_libraries(harmonic utils)
+# Link against required modules.
+foreach(dir IN ITEMS common)
+  target_link_libraries(harmonic_modules ${dir}_modules)
+  target_link_libraries(harmonic_submodules ${dir}_submodules)
+endforeach()
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/common common/)
-target_link_libraries(harmonic common)
+# Enable testing.
+if(BUILD_TESTS)
+  set(test_srcs generate_supercells_test.pf hartree_to_ev_test.pf snap_to_symmetry_test.pf construct_supercell_hessian_test.pf harmonic_data_test.pf setup_harmonic_test.pf run_harmonic_test.pf calculate_normal_modes_test.pf read_normal_modes_test.pf calculate_harmonic_observables_test.pf plot_normal_modes_test.pf plot_dos_and_dispersion_test.pf plot_thermodynamic_variables_test.pf converge_qpoint_grid_test.pf converge_harmonic_qpoints_test.pf plot_harmonic_qpoint_convergence_test.pf)
+  add_pfunit_ctest(harmonic_tests TEST_SOURCES ${test_srcs} LINK_LIBRARIES funit ${PFUNIT_LIBRARIES})
+  target_link_libraries(harmonic_tests harmonic_submodules)
+endif()

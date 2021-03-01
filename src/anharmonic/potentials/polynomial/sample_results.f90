@@ -15,5 +15,4 @@ module caesar_sample_results_module
   type, extends(NoDefaultConstructor) :: SampleResults
     type(SampleResult), allocatable :: results(:)
   end type
-contains
 end module

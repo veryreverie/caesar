@@ -27,97 +27,39 @@ module caesar_calculation_reader_module
   end type
   
   interface CalculationReader
-    module procedure new_CalculationReader
+    ! Constructor.
+    module function new_CalculationReader(loto_direction) result(this) 
+      type(FractionVector), intent(in), optional :: loto_direction
+      type(CalculationReader)                    :: this
+    end function
   end interface
-contains
-
-! Constructor.
-function new_CalculationReader(loto_direction) result(this)
-  implicit none
   
-  type(FractionVector), intent(in), optional :: loto_direction
-  type(CalculationReader)                    :: this
+  interface
+    ! Return a list of the directories from which calculations have been read.
+    module function directories_read(this) result(output) 
+      class(CalculationReader), intent(in) :: this
+      type(String), allocatable            :: output(:)
+    end function
+  end interface
   
-  integer :: ialloc
+  interface
+    ! Read the results of an electronic structure calculation from the given
+    !    directory, and record the directory.
+    module function read_calculation(this,directory,displacement) &
+       & result(output) 
+      class(CalculationReader),    intent(inout)        :: this
+      type(String),                intent(in)           :: directory
+      type(CartesianDisplacement), intent(in), optional :: displacement
+      type(ElectronicStructure)                         :: output
+    end function
+  end interface
   
-  if (present(loto_direction)) then
-    this%loto_direction_ = loto_direction
-  endif
-  allocate(this%directories_(0), stat=ialloc); call err(ialloc)
-end function
-
-! Return a list of the directories from which calculations have been read.
-function directories_read(this) result(output)
-  implicit none
-  
-  class(CalculationReader), intent(in) :: this
-  type(String), allocatable            :: output(:)
-  
-  output = this%directories_
-end function
-
-! Read the results of an electronic structure calculation from the given
-!    directory, and record the directory.
-function read_calculation(this,directory,displacement) result(output)
-  implicit none
-  
-  class(CalculationReader),    intent(inout)        :: this
-  type(String),                intent(in)           :: directory
-  type(CartesianDisplacement), intent(in), optional :: displacement
-  type(ElectronicStructure)                         :: output
-  
-  type(IFile)  :: electronic_structure_file
-  
-  type(IFile)          :: structure_file
-  type(StructureData)  :: structure
-  type(LotoCorrection) :: loto_correction
-  
-  electronic_structure_file = IFile(directory//'/electronic_structure.dat')
-  output = ElectronicStructure(electronic_structure_file%lines())
-  
-  if (allocated(this%loto_direction_)) then
-    if (.not. output%has_linear_response()) then
-      call print_line(ERROR//': LO/TO splitting requested, but linear &
-         &response data is not present in electronic structure file in &
-         &directory '//directory)
-      call err()
-    elseif (.not. present(displacement)) then
-      call print_line(CODE_ERROR//': LO/TO splitting requested, but &
-         &displacement has not been passed to calculation reader.')
-      call err()
-    endif
-    
-    structure_file = IFile(directory//'/structure.dat')
-    structure = StructureData(structure_file%lines())
-    loto_correction = LotoCorrection( output%linear_response(), &
-                                    & this%loto_direction_,     &
-                                    & displacement,             &
-                                    & structure                 )
-    output = calculate_loto_correction(output, loto_correction)
-  endif
-  
-  ! Record the directory.
-  this%directories_ = [this%directories_, directory]
-end function
-
-! Read the results of a set of electronic structure calculations from the given
-!    directories, and record the directories.
-subroutine read_calculations(this,directories)
-  implicit none
-  
-  class(CalculationReader), intent(inout) :: this
-  type(String),             intent(in)    :: directories(:)
-  type(ElectronicStructure), allocatable  :: output(:)
-  
-  integer :: i,ialloc
-  
-  ! Read the calculations.
-  allocate(output(size(directories)), stat=ialloc); call err(ialloc)
-  do i=1,size(directories)
-    output(i) = this%read_calculation(directories(i))
-  enddo
-  
-  ! Record the directories.
-  this%directories_ = [this%directories_, directories]
-end subroutine
+  interface
+    ! Read the results of a set of electronic structure calculations from the given
+    !    directories, and record the directories.
+    module subroutine read_calculations(this,directories) 
+      class(CalculationReader), intent(inout) :: this
+      type(String),             intent(in)    :: directories(:)
+    end subroutine
+  end interface
 end module

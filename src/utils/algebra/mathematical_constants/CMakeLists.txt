@@ -7,5 +7,7 @@ add_library(mathematical_constants_submodules ${DUMMY_FILE})
 target_link_libraries(mathematical_constants_submodules mathematical_constants_modules)
 
 # Link against required modules.
-target_link_libraries(mathematical_constants_modules foundations_modules)
-target_link_libraries(mathematical_constants_submodules foundations_submodules)
+foreach(dir IN ITEMS foundations)
+  target_link_libraries(mathematical_constants_modules ${dir}_modules)
+  target_link_libraries(mathematical_constants_submodules ${dir}_submodules)
+endforeach()

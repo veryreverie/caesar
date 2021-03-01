@@ -1,0 +1,7 @@
+module potential_example_test
+  use funit
+
+  use caesar_potentials_module
+  implicit none
+contains
+end module

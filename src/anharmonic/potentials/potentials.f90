@@ -7,11 +7,9 @@ module caesar_potentials_module
   
   use caesar_potential_example_module
   implicit none
-contains
-subroutine startup_potentials()
-  implicit none
   
-  call startup_polynomial()
-  call startup_potential_example()
-end subroutine
+  interface
+    module subroutine startup_potentials()
+    end subroutine
+  end interface
 end module

@@ -1,0 +1,7 @@
+module stress_hessian_test
+  use funit
+
+  use caesar_harmonic_stress_module
+  implicit none
+contains
+end module

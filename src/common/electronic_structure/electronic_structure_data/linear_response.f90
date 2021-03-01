@@ -21,79 +21,40 @@ module caesar_linear_response_module
   end type
   
   interface LinearResponse
-    module procedure new_LinearResponse
-    module procedure new_LinearResponse_Strings
-    module procedure new_LinearResponse_StringArray
+    module function new_LinearResponse(permittivity,born_charges) result(this) 
+      type(RealMatrix), intent(in) :: permittivity
+      type(RealMatrix), intent(in) :: born_charges(:)
+      type(LinearResponse)         :: this
+    end function
   end interface
-contains
-
-function new_LinearResponse(permittivity,born_charges) result(this)
-  implicit none
   
-  type(RealMatrix), intent(in) :: permittivity
-  type(RealMatrix), intent(in) :: born_charges(:)
-  type(LinearResponse)         :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_LinearResponse(this,input) 
+      class(LinearResponse), intent(out) :: this
+      type(String),          intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  this%permittivity = permittivity
-  this%born_charges = born_charges
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_LinearResponse(this,input)
-  implicit none
+  interface
+    module function write_LinearResponse(this) result(output) 
+      class(LinearResponse), intent(in) :: this
+      type(String), allocatable         :: output(:)
+    end function
+  end interface
   
-  class(LinearResponse), intent(out) :: this
-  type(String),          intent(in)  :: input(:)
+  interface LinearResponse
+    module function new_LinearResponse_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(LinearResponse)     :: this
+    end function
   
-  type(RealMatrix)              :: permittivity
-  type(RealMatrix), allocatable :: born_charges(:)
-  
-  select type(this); type is(LinearResponse)
-    permittivity = RealMatrix(input(2:4))
-    born_charges = RealMatrix(split_into_sections( &
-                              & input(6:),         &
-                              & separating_line='' ))
-    
-    this = LinearResponse(permittivity,born_charges)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_LinearResponse(this) result(output)
-  implicit none
-  
-  class(LinearResponse), intent(in) :: this
-  type(String), allocatable         :: output(:)
-  
-  select type(this); type is(LinearResponse)
-    output = [ str('Permittivity'),                      &
-             & str(this%permittivity),                   &
-             & str('Born Effective Charges'),            &
-             & str(this%born_charges,separating_line='') ]
-  class default
-    call err()
-  end select
-end function
-
-function new_LinearResponse_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(LinearResponse)     :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_LinearResponse_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(LinearResponse)          :: this
-  
-  this = LinearResponse(str(input))
-end function
+    impure elemental module function new_LinearResponse_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(LinearResponse)          :: this
+    end function
+  end interface
 end module

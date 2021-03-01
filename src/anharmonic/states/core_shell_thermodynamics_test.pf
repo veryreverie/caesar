@@ -1,0 +1,7 @@
+module core_shell_thermodynamics_test
+  use funit
+
+  use caesar_states_module
+  implicit none
+contains
+end module

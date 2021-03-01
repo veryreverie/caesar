@@ -1,0 +1,7 @@
+module physical_constants_test
+  use funit
+
+  use caesar_structure_module
+  implicit none
+contains
+end module

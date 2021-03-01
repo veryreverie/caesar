@@ -15,10 +15,10 @@ target_link_libraries(io_modules compiler_specific)
 target_link_libraries(io_submodules io_modules)
 
 # Link against required modules.
-target_link_libraries(io_modules foundations_modules)
-target_link_libraries(io_submodules foundations_submodules)
-target_link_libraries(io_modules abstract_modules)
-target_link_libraries(io_submodules abstract_submodules)
+foreach(dir IN ITEMS foundations abstract)
+  target_link_libraries(io_modules ${dir}_modules)
+  target_link_libraries(io_submodules ${dir}_submodules)
+endforeach()
 
 # Enable testing.
 if(BUILD_TESTS)

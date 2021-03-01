@@ -52,467 +52,143 @@ module caesar_complex_mode_module
   end type
   
   interface ComplexMode
-    module procedure new_ComplexMode
-    module procedure new_ComplexMode_unprocessed
-    module procedure new_ComplexMode_HermitianEigenstuff
-    module procedure new_ComplexMode_Strings
-    module procedure new_ComplexMode_StringArray
+    ! ----------------------------------------------------------------------
+    ! Basic constructor.
+    ! ----------------------------------------------------------------------
+    module function new_ComplexMode(id,paired_id,frequency,spring_constant, &
+       & soft_mode,translational_mode,unit_vector,qpoint_id,                &
+       & paired_qpoint_id,subspace_id) result(this) 
+      integer,             intent(in) :: id
+      integer,             intent(in) :: paired_id
+      real(dp),            intent(in) :: frequency
+      real(dp),            intent(in) :: spring_constant
+      logical,             intent(in) :: soft_mode
+      logical,             intent(in) :: translational_mode
+      type(ComplexVector), intent(in) :: unit_vector(:)
+      integer,             intent(in) :: qpoint_id
+      integer,             intent(in) :: paired_qpoint_id
+      integer,             intent(in) :: subspace_id
+      type(ComplexMode)               :: this
+    end function
+  
+    ! ----------------------------------------------------------------------
+    ! Construct a complex mode, but without ids.
+    ! ----------------------------------------------------------------------
+    module function new_ComplexMode_unprocessed(frequency,unit_vector) &
+       & result(this) 
+      real(dp),            intent(in) :: frequency
+      type(ComplexVector), intent(in) :: unit_vector(:)
+      type(ComplexMode)               :: this
+    end function
+  
+    ! ----------------------------------------------------------------------
+    ! Construct a complex mode from the eigenstuff of the dynamical matrix.
+    ! ----------------------------------------------------------------------
+    impure elemental module function new_ComplexMode_HermitianEigenstuff(eigenstuff,structure) result(this) 
+      type(HermitianEigenstuff), intent(in) :: eigenstuff
+      type(StructureData),       intent(in) :: structure
+      type(ComplexMode)                     :: this
+    end function
   end interface
   
   interface conjg
-    module procedure conjg_ComplexMode
+    ! ----------------------------------------------------------------------
+    ! Take the conjugate of the mode.
+    ! This is equivalent to the transformation q -> -q.
+    ! ----------------------------------------------------------------------
+    impure elemental module function conjg_ComplexMode(input) result(output) 
+      type(ComplexMode), intent(in) :: input
+      type(ComplexMode)             :: output
+    end function
   end interface
   
   interface transform
-    module procedure transform_ComplexMode
+    ! ----------------------------------------------------------------------
+    ! Transform a mode by a symmetry operator.
+    ! ----------------------------------------------------------------------
+    ! N.B. the ID and paired ID will only be correct if 'symmetry' is the
+    !    symmetry used to construct the transformed modes from the input modes.
+    impure elemental module function transform_ComplexMode(input,symmetry, &
+       & qpoint_from,qpoint_to) result(output) 
+      type(ComplexMode),      intent(in) :: input
+      type(SymmetryOperator), intent(in) :: symmetry
+      type(QpointData),       intent(in) :: qpoint_from
+      type(QpointData),       intent(in) :: qpoint_to
+      type(ComplexMode)                  :: output
+    end function
   end interface
   
   interface select_qpoint
-    module procedure select_qpoint_ComplexMode
+    ! ----------------------------------------------------------------------
+    ! Select q-points corresponding to a given mode or modes.
+    ! ----------------------------------------------------------------------
+    module function select_qpoint_ComplexMode(mode,qpoints) result(output) 
+      type(ComplexMode), intent(in) :: mode
+      type(QpointData),  intent(in) :: qpoints(:)
+      type(QpointData)              :: output
+    end function
   end interface
   
   interface select_qpoints
-    module procedure select_qpoints_ComplexModes
+    module function select_qpoints_ComplexModes(modes,qpoints) result(output) 
+      type(ComplexMode), intent(in) :: modes(:)
+      type(QpointData),  intent(in) :: qpoints(:)
+      type(QpointData), allocatable :: output(:)
+    end function
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! Basic constructor.
-! ----------------------------------------------------------------------
-function new_ComplexMode(id,paired_id,frequency,spring_constant,soft_mode,  &
-   & translational_mode,unit_vector,qpoint_id,paired_qpoint_id,subspace_id) &
-   & result(this)
-  implicit none
   
-  integer,             intent(in) :: id
-  integer,             intent(in) :: paired_id
-  real(dp),            intent(in) :: frequency
-  real(dp),            intent(in) :: spring_constant
-  logical,             intent(in) :: soft_mode
-  logical,             intent(in) :: translational_mode
-  type(ComplexVector), intent(in) :: unit_vector(:)
-  integer,             intent(in) :: qpoint_id
-  integer,             intent(in) :: paired_qpoint_id
-  integer,             intent(in) :: subspace_id
-  type(ComplexMode)               :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! Generate the three purely translational modes at the gamma point.
+    ! ----------------------------------------------------------------------
+    module function generate_translational_modes(structure,qpoints) &
+       & result(output) 
+      type(StructureData), intent(in) :: structure
+      type(QpointData),    intent(in) :: qpoints(:)
+      type(ComplexMode), allocatable  :: output(:)
+    end function
+  end interface
   
-  this%id                 = id
-  this%paired_id          = paired_id
-  this%frequency          = frequency
-  this%spring_constant    = spring_constant
-  this%soft_mode          = soft_mode
-  this%translational_mode = translational_mode
-  this%unit_vector        = unit_vector
-  this%qpoint_id          = qpoint_id
-  this%paired_qpoint_id   = paired_qpoint_id
-  this%subspace_id        = subspace_id
-end function
-
-! ----------------------------------------------------------------------
-! Construct a complex mode, but without ids.
-! ----------------------------------------------------------------------
-function new_ComplexMode_unprocessed(frequency,unit_vector) result(this)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! Generate the stress prefactor associated with the mode,
+    !    or with two modes if a second mode is given.
+    ! ----------------------------------------------------------------------
+    impure elemental module function stress_prefactor(this,that) &
+       & result(output) 
+      class(ComplexMode), intent(in)           :: this
+      class(ComplexMode), intent(in), optional :: that
+      type(RealMatrix)                         :: output
+    end function
+  end interface
   
-  real(dp),            intent(in) :: frequency
-  type(ComplexVector), intent(in) :: unit_vector(:)
-  type(ComplexMode)               :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_ComplexMode(this,input) 
+      class(ComplexMode), intent(out) :: this
+      type(String),       intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  real(dp) :: spring_constant
+  interface
+    module function write_ComplexMode(this) result(output) 
+      class(ComplexMode), intent(in) :: this
+      type(String), allocatable      :: output(:)
+    end function
+  end interface
   
-  if (frequency>=0.0_dp) then
-    spring_constant = frequency**2
-  else
-    spring_constant = -frequency**2
-  endif
+  interface ComplexMode
+    module function new_ComplexMode_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(ComplexMode)        :: this
+    end function
   
-  this = ComplexMode( id                 = 0,                    &
-                    & paired_id          = 0,                    &
-                    & frequency          = frequency,            &
-                    & spring_constant    = spring_constant,      &
-                    & soft_mode          = frequency<-1.0e-6_dp, &
-                    & translational_mode = .false.,              &
-                    & unit_vector        = unit_vector,          &
-                    & qpoint_id          = 0,                    &
-                    & paired_qpoint_id   = 0,                    &
-                    & subspace_id        = 0                     )
-end function
-
-! ----------------------------------------------------------------------
-! Construct a complex mode from the eigenstuff of the dynamical matrix.
-! ----------------------------------------------------------------------
-impure elemental function new_ComplexMode_HermitianEigenstuff(eigenstuff, &
-   & structure) result(this)
-  implicit none
-  
-  type(HermitianEigenstuff), intent(in) :: eigenstuff
-  type(StructureData),       intent(in) :: structure
-  type(ComplexMode)                     :: this
-  
-  real(dp)                         :: frequency
-  type(ComplexVector), allocatable :: unit_vector(:)
-  
-  integer :: i,ialloc
-  
-  if (size(eigenstuff%evec)/=structure%no_modes_prim) then
-    call print_line(ERROR//': incompatible eigenvector and structure.')
-    call err()
-  endif
-  
-  ! Calculate frequency.
-  ! V = sum[ 0.5*w^2*u^2 ] where w is the frequency.
-  ! F = -2V = sum[ -w^2*u^2 ]
-  ! -> the evals of F are -w^2.
-  if (eigenstuff%eval>=0.0_dp) then
-    ! Unstable mode.
-    frequency = - sqrt(eigenstuff%eval)
-  else
-    ! Stable mode.
-    frequency = sqrt(- eigenstuff%eval)
-  endif
-  
-  ! Convert eigenvector with dimension no_modes into an array of
-  !    3D vectors.
-  allocate( unit_vector(structure%no_atoms_prim), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,structure%no_atoms_prim
-    unit_vector(i) = vec(eigenstuff%evec(3*i-2:3*i))
-  enddo
-  
-  ! Call private constructor.
-  this = ComplexMode( frequency   = frequency,  &
-                    & unit_vector = unit_vector )
-end function
-
-! ----------------------------------------------------------------------
-! Take the conjugate of the mode.
-! This is equivalent to the transformation q -> -q.
-! ----------------------------------------------------------------------
-impure elemental function conjg_ComplexMode(input) result(output)
-  implicit none
-  
-  type(ComplexMode), intent(in) :: input
-  type(ComplexMode)             :: output
-  
-  output = ComplexMode(                               &
-     & id                 = input%paired_id,          &
-     & paired_id          = input%id,                 &
-     & frequency          = input%frequency,          &
-     & spring_constant    = input%spring_constant,    &
-     & soft_mode          = input%soft_mode,          &
-     & translational_mode = input%translational_mode, &
-     & unit_vector        = conjg(input%unit_vector), &
-     & qpoint_id          = input%paired_qpoint_id,   &
-     & paired_qpoint_id   = input%qpoint_id,          &
-     & subspace_id        = input%subspace_id         )
-end function
-
-! ----------------------------------------------------------------------
-! Transform a mode by a symmetry operator.
-! ----------------------------------------------------------------------
-! N.B. the ID and paired ID will only be correct if 'symmetry' is the
-!    symmetry used to construct the transformed modes from the input modes.
-impure elemental function transform_ComplexMode(input,symmetry,qpoint_from, &
-   & qpoint_to) result(output)
-  implicit none
-  
-  type(ComplexMode),      intent(in) :: input
-  type(SymmetryOperator), intent(in) :: symmetry
-  type(QpointData),       intent(in) :: qpoint_from
-  type(QpointData),       intent(in) :: qpoint_to
-  type(ComplexMode)                  :: output
-  
-  integer :: no_atoms
-  integer :: no_modes
-  integer :: atom_from
-  integer :: atom_to
-  
-  type(IntVector) :: r
-  
-  type(ComplexVector), allocatable :: unit_vector(:)
-  
-  integer :: id
-  integer :: paired_id
-  
-  integer :: ialloc
-  
-  ! Check that inputs are consistent.
-  if (size(symmetry%atom_group)/=size(input%unit_vector)) then
-    call print_line(CODE_ERROR//': Symmetry and Mode do not have the same &
-       & number of atoms. Modes must only be transformed using symmetries of &
-       & the primitive structure.')
-  elseif (input%qpoint_id/=qpoint_from%id) then
-    call print_line(CODE_ERROR//': mode and q-point not compatible.')
-    call print_line(input%qpoint_id//' '//qpoint_from%id)
-    call err()
-  elseif (input%paired_qpoint_id/=qpoint_from%paired_qpoint_id) then
-    call print_line(CODE_ERROR//': mode and q-point not compatible.')
-    call err()
-  elseif (symmetry * qpoint_from /= qpoint_to) then
-    call print_line(CODE_ERROR//': Symmetry does not transform q-points as &
-       &expected.')
-    call err()
-  endif
-  
-  no_atoms = size(input%unit_vector)
-  no_modes = 3*no_atoms
-  
-  if (input%id==0) then
-    id = 0
-    paired_id = 0
-  else
-    id = input%id + no_modes*(qpoint_to%id-qpoint_from%id)
-    paired_id = input%paired_id                         &
-            & + no_modes*( qpoint_to%paired_qpoint_id   &
-            &            - qpoint_from%paired_qpoint_id )
-  endif
-  
-  allocate( unit_vector(no_atoms), &
-          & stat=ialloc); call err(ialloc)
-  output = input
-  do atom_from=1,no_atoms
-    atom_to = symmetry%atom_group * atom_from
-    r = symmetry%rvectors(atom_from)
-    
-    unit_vector(atom_to) = symmetry%cartesian_tensor    &
-                       & * input%unit_vector(atom_from) &
-                       & * exp_2pii(-qpoint_to%qpoint*r)
-  enddo
-  
-  output = ComplexMode( id                 = id,                         &
-                      & paired_id          = paired_id,                  &
-                      & frequency          = input%frequency,            &
-                      & spring_constant    = input%spring_constant,      &
-                      & soft_mode          = input%soft_mode,            &
-                      & translational_mode = input%translational_mode,   &
-                      & unit_vector        = unit_vector,                &
-                      & qpoint_id          = qpoint_to%id,               &
-                      & paired_qpoint_id   = qpoint_to%paired_qpoint_id, &
-                      & subspace_id        = input%subspace_id)
-end function
-
-! ----------------------------------------------------------------------
-! Select q-points corresponding to a given mode or modes.
-! ----------------------------------------------------------------------
-function select_qpoint_ComplexMode(mode,qpoints) result(output)
-  implicit none
-  
-  type(ComplexMode), intent(in) :: mode
-  type(QpointData),  intent(in) :: qpoints(:)
-  type(QpointData)              :: output
-  
-  output = qpoints(first(qpoints%id==mode%qpoint_id))
-end function
-
-function select_qpoints_ComplexModes(modes,qpoints) result(output)
-  implicit none
-  
-  type(ComplexMode), intent(in) :: modes(:)
-  type(QpointData),  intent(in) :: qpoints(:)
-  type(QpointData), allocatable :: output(:)
-  
-  integer :: i,ialloc
-  
-  allocate(output(size(modes)), stat=ialloc); call err(ialloc)
-  do i=1,size(modes)
-    output(i) = select_qpoint(modes(i), qpoints)
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Generate the three purely translational modes at the gamma point.
-! ----------------------------------------------------------------------
-function generate_translational_modes(structure,qpoints) result(output)
-  implicit none
-  
-  type(StructureData), intent(in) :: structure
-  type(QpointData),    intent(in) :: qpoints(:)
-  type(ComplexMode), allocatable  :: output(:)
-  
-  type(QpointData) :: gamma_qpoint
-  
-  integer                          :: id
-  complex(dp)                      :: vector(3)
-  type(ComplexVector), allocatable :: unit_vector(:)
-  
-  integer :: i,j,ialloc
-  
-  allocate(output(3), stat=ialloc); call err(ialloc)
-  
-  gamma_qpoint = qpoints(first(qpoints%is_gvector()))
-  
-  do i=1,3
-    id = (gamma_qpoint%id-1)*structure%no_modes+i
-    vector = [((0.0_dp,0.0_dp),j=1,3)]
-    vector(i) = cmplx(sqrt(1.0_dp/structure%no_modes),0.0_dp,dp)
-    unit_vector = [(vec(vector),j=1,structure%no_modes)]
-    output(i) = ComplexMode( id                 = id,              &
-                           & paired_id          = id,              &
-                           & frequency          = 0.0_dp,          &
-                           & spring_constant    = 0.0_dp,          &
-                           & soft_mode          = .false.,         &
-                           & translational_mode = .true.,          &
-                           & unit_vector        = unit_vector,     &
-                           & qpoint_id          = gamma_qpoint%id, &
-                           & paired_qpoint_id   = gamma_qpoint%id, &
-                           & subspace_id        = 0                )
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Generate the stress prefactor associated with the mode,
-!    or with two modes if a second mode is given.
-! ----------------------------------------------------------------------
-impure elemental function stress_prefactor(this,that) result(output)
-  implicit none
-  
-  class(ComplexMode), intent(in)           :: this
-  class(ComplexMode), intent(in), optional :: that
-  type(RealMatrix)                         :: output
-  
-  integer :: i
-  
-  output = dblemat(zeroes(3,3))
-  do i=1,size(this%unit_vector)
-    if (present(that)) then
-      if (this%qpoint_id==that%qpoint_id) then
-        output = output                                         &
-             & + real(outer_product( this%unit_vector(i),       &
-             &                       conjg(that%unit_vector(i)) ))
-      elseif (this%qpoint_id==that%paired_qpoint_id) then
-        output = output                                   &
-             & + real(outer_product( this%unit_vector(i), &
-             &                       that%unit_vector(i)  ))
-      else
-        call print_line(ERROR//': Trying to construct the stress prefactor &
-           &between modes at incompatible q-points.')
-        call err()
-      endif
-    else
-      output = output                                         &
-           & + real(outer_product( this%unit_vector(i),       &
-           &                       conjg(this%unit_vector(i)) ))
-    endif
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_ComplexMode(this,input)
-  implicit none
-  
-  class(ComplexMode), intent(out) :: this
-  type(String),       intent(in)  :: input(:)
-  
-  integer                          :: id
-  integer                          :: paired_id
-  real(dp)                         :: frequency
-  real(dp)                         :: spring_constant
-  logical                          :: soft_mode
-  logical                          :: translational_mode
-  type(ComplexVector), allocatable :: unit_vector(:)
-  integer                          :: qpoint_id
-  integer                          :: paired_qpoint_id
-  integer                          :: subspace_id
-  
-  type(String), allocatable :: line(:)
-  
-  integer :: no_atoms
-  
-  select type(this); type is(ComplexMode)
-    ! Read the id of this mode.
-    line = split_line(input(1))
-    id = int(line(4))
-    
-    ! Read the id of this mode's pair.
-    line = split_line(input(2))
-    paired_id = int(line(6))
-    
-    ! Read frequency and spring_constant.
-    line = split_line(input(3))
-    frequency = dble(line(4))
-    
-    line = split_line(input(4))
-    spring_constant = dble(line(4))
-    
-    ! Read whether or not this mode is soft.
-    line = split_line(input(5))
-    soft_mode = lgcl(line(5))
-    
-    ! Read whether or not this mode is purely translational.
-    line = split_line(input(6))
-    translational_mode = lgcl(line(5))
-    
-    ! Read the q-point id of this mode.
-    line = split_line(input(7))
-    qpoint_id = int(line(4))
-    
-    ! Read the q-point id of this mode's pair.
-    line = split_line(input(8))
-    paired_qpoint_id = int(line(5))
-    
-    ! Read the degeneracy id of this mode.
-    line = split_line(input(9))
-    subspace_id = int(line(4))
-    
-    ! Read in the vectors along the direction of the mode.
-    no_atoms = size(input)-10
-    unit_vector = ComplexVector(input(11:10+no_atoms))
-    
-    this = ComplexMode( id,                 &
-                      & paired_id,          &
-                      & frequency,          &
-                      & spring_constant,    &
-                      & soft_mode,          &
-                      & translational_mode, &
-                      & unit_vector,        &
-                      & qpoint_id,          &
-                      & paired_qpoint_id,   &
-                      & subspace_id)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_ComplexMode(this) result(output)
-  implicit none
-  
-  class(ComplexMode), intent(in) :: this
-  type(String), allocatable      :: output(:)
-  
-  select type(this); type is(ComplexMode)
-    output = [ 'Mode ID                   : '//this%id,                 &
-             & 'ID of paired mode         : '//this%paired_id,          &
-             & 'Mode frequency            : '//this%frequency,          &
-             & 'Spring constant           : '//this%spring_constant,    &
-             & 'Mode is soft              : '//this%soft_mode,          &
-             & 'Mode purely translational : '//this%translational_mode, &
-             & 'q-point id                : '//this%qpoint_id,          &
-             & 'Paired q-point id         : '//this%paired_qpoint_id,   &
-             & 'Subspace id               : '//this%subspace_id,        &
-             & str('Mass-weighted displacements in primitive cell:'),   &
-             & str(this%unit_vector)                                    ]
-  class default
-    call err()
-  end select
-end function
-
-function new_ComplexMode_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(ComplexMode)        :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_ComplexMode_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(ComplexMode)             :: this
-  
-  this = ComplexMode(str(input))
-end function
+    impure elemental module function new_ComplexMode_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(ComplexMode)             :: this
+    end function
+  end interface
 end module

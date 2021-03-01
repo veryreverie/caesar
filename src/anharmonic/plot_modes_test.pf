@@ -1,0 +1,7 @@
+module plot_modes_test
+  use funit
+
+  use caesar_anharmonic_module
+  implicit none
+contains
+end module

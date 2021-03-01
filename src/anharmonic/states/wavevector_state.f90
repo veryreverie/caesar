@@ -28,134 +28,72 @@ module caesar_wavevector_state_module
     procedure, public :: write => write_WavevectorState
   end type
   
-  interface WavevectorState
-    module procedure new_WavevectorState
-    module procedure new_WavevectorState_BasisState
-    module procedure new_WavevectorState_Strings
-    module procedure new_WavevectorState_StringArray
+  interface
+    ! Startup procedure.
+    module module subroutine startup_wavevector_state() 
+    end subroutine
   end interface
-contains
-
-! Startup procedure.
-subroutine startup_wavevector_state()
-  implicit none
   
-  type(WavevectorState) :: state
+  interface
+    ! Type representation.
+    impure elemental module module function representation_WavevectorState() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
   
-  call state%startup()
-end subroutine
-
-! Type representation.
-impure elemental function representation_WavevectorState() result(output)
-  implicit none
+  interface WavevectorState
+    ! Constructors.
+    module module function new_WavevectorState(subspace_id,wavevector, &
+       & state_ids,coefficients) result(this) 
+      integer,              intent(in) :: subspace_id
+      type(FractionVector), intent(in) :: wavevector
+      integer,              intent(in) :: state_ids(:)
+      real(dp),             intent(in) :: coefficients(:)
+      type(WavevectorState)            :: this
+    end function
   
-  type(String) :: output
+    recursive module module function new_WavevectorState_BasisState(input) &
+       & result(this) 
+      class(BasisState), intent(in) :: input
+      type(WavevectorState)         :: this
+    end function
+  end interface
   
-  output = 'wavevector state'
-end function
-
-! Constructors.
-function new_WavevectorState(subspace_id,wavevector,state_ids,coefficients) &
-   & result(this) 
-  implicit none
+  interface
+    ! Cast a class(BasisState) to a pointer of type(WavevectorState).
+    ! N.B. this must only be called on inputs with the TARGET attribute.
+    recursive module module function wavevector_state_pointer(input) &
+       & result(this) 
+      class(BasisState), intent(in), target :: input
+      type(WavevectorState), pointer        :: this
+    end function
+  end interface
   
-  integer,              intent(in) :: subspace_id
-  type(FractionVector), intent(in) :: wavevector
-  integer,              intent(in) :: state_ids(:)
-  real(dp),             intent(in) :: coefficients(:)
-  type(WavevectorState)            :: this
+  interface
+    ! I/O.
+    module module subroutine read_WavevectorState(this,input) 
+      class(WavevectorState), intent(out) :: this
+      type(String),           intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  this%subspace_id  = subspace_id
-  this%wavevector   = wavevector
-  this%state_ids    = state_ids
-  this%coefficients = coefficients
-end function
-
-recursive function new_WavevectorState_BasisState(input) result(this)
-  implicit none
+  interface
+    module module function write_WavevectorState(this) result(output) 
+      class(WavevectorState), intent(in) :: this
+      type(String), allocatable          :: output(:)
+    end function
+  end interface
   
-  class(BasisState), intent(in) :: input
-  type(WavevectorState)         :: this
+  interface WavevectorState
+    module module function new_WavevectorState_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(WavevectorState)    :: this
+    end function
   
-  select type(input); type is(WavevectorState)
-    this = input
-  type is(BasisStatePointer)
-    ! WORKAROUND: ifort doesn't recognise the interface to this function
-    !    from within this function, so the full name is used instead.
-    this = new_WavevectorState_BasisState(input%state())
-  class default
-    call err()
-  end select
-end function
-
-! Cast a class(BasisState) to a pointer of type(WavevectorState).
-! N.B. this must only be called on inputs with the TARGET attribute.
-recursive function wavevector_state_pointer(input) result(this)
-  implicit none
-  
-  class(BasisState), intent(in), target :: input
-  type(WavevectorState), pointer        :: this
-  
-  select type(input); type is(WavevectorState)
-    this => input
-  type is(BasisStatePointer)
-    this => wavevector_state_pointer(input%state())
-  class default
-    call err()
-  end select
-end function
-
-! I/O.
-subroutine read_WavevectorState(this,input)
-  implicit none
-  
-  class(WavevectorState), intent(out) :: this
-  type(String),           intent(in)  :: input(:)
-  
-  integer               :: subspace_id
-  type(FractionVector)  :: wavevector
-  integer,  allocatable :: state_ids(:)
-  real(dp), allocatable :: coefficients(:)
-  
-  select type(this); type is(WavevectorState)
-    subspace_id = int(token(input(1), 3))
-    wavevector = FractionVector(join(tokens(input(2),3)))
-    state_ids = int(tokens(input(3),3))
-    coefficients = dble(tokens(input(4),3))
-    
-    this = WavevectorState(subspace_id,wavevector,state_ids,coefficients)
-  end select
-end subroutine
-
-function write_WavevectorState(this) result(output)
-  implicit none
-  
-  class(WavevectorState), intent(in) :: this
-  type(String), allocatable          :: output(:)
-  
-  select type(this); type is(WavevectorState)
-    output = [ 'Subspace     : '//this%subspace_id,                      &
-             & 'Wavevector   : '//str(this%wavevector),                  &
-             & 'States       : '//this%state_ids,                        &
-             & 'Coefficients : '//join(this%coefficients, delimiter=' ') ]
-  end select
-end function
-
-function new_WavevectorState_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(WavevectorState)    :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_WavevectorState_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(WavevectorState)         :: this
-  
-  this = WavevectorState(str(input))
-end function
+    impure elemental module module function new_WavevectorState_StringArray(input) result(this) 
+      type(StringArray), intent(in) :: input
+      type(WavevectorState)         :: this
+    end function
+  end interface
 end module

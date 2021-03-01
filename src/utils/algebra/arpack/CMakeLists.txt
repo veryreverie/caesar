@@ -24,7 +24,7 @@ add_library(arpack_submodules ${DUMMY_FILE})
 target_link_libraries(arpack_submodules arpack_modules)
 
 # Link against required modules.
-target_link_libraries(arpack_modules foundations_modules)
-target_link_libraries(arpack_submodules foundations_submodules)
-target_link_libraries(arpack_modules io_modules)
-target_link_libraries(arpack_submodules io_submodules)
+foreach(dir IN ITEMS foundations io)
+  target_link_libraries(arpack_modules ${dir}_modules)
+  target_link_libraries(arpack_submodules ${dir}_submodules)
+endforeach()

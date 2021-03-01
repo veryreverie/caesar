@@ -3,26 +3,19 @@ include(${CMAKE_SOURCE_DIR}/cmake/cmake_utils.cmake)
 cmake_include_guard(common)
 
 # Common modules.
-add_library(common bands.f90 common.f90)
+add_library(common_modules common.f90)
+add_library(common_submodules ${DUMMY_FILE})
+target_link_libraries(common_submodules common_modules)
 
 # Include subsidiary modules.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/structure structure/)
-target_link_libraries(common structure)
+foreach(dir IN ITEMS structure normal_mode dynamical_matrices harmonic_stress electronic_structure observables)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/${dir} ${dir}/)
+  target_link_libraries(common_modules ${dir}_modules)
+  target_link_libraries(common_submodules ${dir}_submodules)
+endforeach()
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/normal_mode normal_mode/)
-target_link_libraries(common normal_mode)
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/dynamical_matrices dynamical_matrices/)
-target_link_libraries(common dynamical_matrices)
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/harmonic_stress harmonic_stress/)
-target_link_libraries(common harmonic_stress)
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/electronic_structure electronic_structure/)
-target_link_libraries(common electronic_structure)
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/observables observables/)
-target_link_libraries(common observables)
-
-# Link against utils module.
-target_link_libraries(common utils)
+# Link against required modules.
+foreach(dir IN ITEMS utils)
+  target_link_libraries(common_modules ${dir}_modules)
+  target_link_libraries(common_submodules ${dir}_submodules)
+endforeach()

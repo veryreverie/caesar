@@ -8,41 +8,21 @@ module caesar_plot_vscf_modes_module
   private
   
   public :: startup_plot_vscf_modes
-contains
-
-! ----------------------------------------------------------------------
-! Generates keywords and helptext.
-! ----------------------------------------------------------------------
-subroutine startup_plot_vscf_modes()
-  implicit none
   
-  type(CaesarMode) :: mode
+  interface
+    ! ----------------------------------------------------------------------
+    ! Generates keywords and helptext.
+    ! ----------------------------------------------------------------------
+    module subroutine startup_plot_vscf_modes() 
+    end subroutine
+  end interface
   
-  mode%mode_name = 'plot_vscf_modes'
-  mode%description = 'Plots the mapping of the vscf modes produced by &
-     &map_vscf_modes.'
-  mode%keywords = [                                                        &
-     & KeywordData( 'python_path',                                         &
-     &              'python_path is the path to the Python 3 executable.', &
-     &              default_value='python3') ]
-  mode%main_subroutine => plot_vscf_modes_subroutine
-  mode%suppress_settings_file = .true.
-  
-  call add_mode(mode)
-end subroutine
-
-! ----------------------------------------------------------------------
-! Main program.
-! ----------------------------------------------------------------------
-subroutine plot_vscf_modes_subroutine(arguments)
-  implicit none
-  
-  type(Dictionary), intent(in) :: arguments
-  
-  type(String) :: python_path
-  
-  python_path = arguments%value('python_path')
-  
-  call execute_python(str('plot_vscf_modes.py'),python_path)
-end subroutine
+  interface
+    ! ----------------------------------------------------------------------
+    ! Main program.
+    ! ----------------------------------------------------------------------
+    module subroutine plot_vscf_modes_subroutine(arguments) 
+      type(Dictionary), intent(in) :: arguments
+    end subroutine
+  end interface
 end module

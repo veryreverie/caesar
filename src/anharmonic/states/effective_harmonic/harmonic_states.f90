@@ -26,132 +26,70 @@ module caesar_harmonic_states_module
     procedure, public :: write => write_HarmonicStates
   end type
   
-  interface HarmonicStates
-    module procedure new_HarmonicStates
-    module procedure new_HarmonicStates_BasisStates
-    module procedure new_HarmonicStates_Strings
-    module procedure new_HarmonicStates_StringArray
+  interface
+    ! Startup procedure and type representation.
+    module subroutine startup_harmonic_states
+    end subroutine
   end interface
-contains
-
-! Startup procedure and type representation.
-subroutine startup_harmonic_states
-  implicit none
   
-  type(HarmonicStates) :: states
+  interface
+    impure elemental module function representation_HarmonicStates() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
   
-  call states%startup()
-end subroutine
-
-impure elemental function representation_HarmonicStates() result(output)
-  implicit none
+  interface HarmonicStates
+    ! Constructors.
+    impure elemental module function new_HarmonicStates(subspace_id, &
+       & frequency,thermal_energy) result(this) 
+      integer,  intent(in) :: subspace_id
+      real(dp), intent(in) :: frequency
+      real(dp), intent(in) :: thermal_energy
+      type(HarmonicStates) :: this
+    end function
   
-  type(String) :: output
+    recursive module function new_HarmonicStates_BasisStates(input) &
+       & result(this) 
+      class(BasisStates), intent(in) :: input
+      type(HarmonicStates)           :: this
+    end function
+  end interface
   
-  output = 'harmonic state'
-end function
-
-! Constructors.
-impure elemental function new_HarmonicStates(subspace_id,frequency, &
-   & thermal_energy) result(this)
-  implicit none
+  interface
+    ! Cast a class(BasisStates) to a pointer of type(HarmonicStates).
+    ! N.B. this must only be called on inputs with the TARGET attribute.
+    recursive module function harmonic_states_pointer(input) result(this) 
+      class(BasisStates), intent(in), target :: input
+      type(HarmonicStates), pointer          :: this
+    end function
+  end interface
   
-  integer,  intent(in) :: subspace_id
-  real(dp), intent(in) :: frequency
-  real(dp), intent(in) :: thermal_energy
-  type(HarmonicStates) :: this
+  interface
+    ! I/O.
+    module subroutine read_HarmonicStates(this,input) 
+      class(HarmonicStates), intent(out) :: this
+      type(String),          intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  this%subspace_id    = subspace_id
-  this%frequency      = frequency
-  this%thermal_energy = thermal_energy
-end function
-
-recursive function new_HarmonicStates_BasisStates(input) result(this)
-  implicit none
+  interface
+    module function write_HarmonicStates(this) result(output) 
+      class(HarmonicStates), intent(in) :: this
+      type(String), allocatable         :: output(:)
+    end function
+  end interface
   
-  class(BasisStates), intent(in) :: input
-  type(HarmonicStates)           :: this
+  interface HarmonicStates
+    module function new_HarmonicStates_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(HarmonicStates)     :: this
+    end function
   
-  select type(input); type is(HarmonicStates)
-    this = input
-  type is(BasisStatesPointer)
-    ! WORKAROUND: ifort doesn't recognise the interface to this function
-    !    from within this function, so the full name is used instead.
-    this = new_HarmonicStates_BasisStates(input%states())
-  class default
-    call err()
-  end select
-end function
-
-! Cast a class(BasisStates) to a pointer of type(HarmonicStates).
-! N.B. this must only be called on inputs with the TARGET attribute.
-recursive function harmonic_states_pointer(input) result(this)
-  implicit none
-  
-  class(BasisStates), intent(in), target :: input
-  type(HarmonicStates), pointer          :: this
-  
-  select type(input); type is(HarmonicStates)
-    this => input
-  type is(BasisStatesPointer)
-    this => harmonic_states_pointer(input%states_pointer())
-  class default
-    call err()
-  end select
-end function
-
-! I/O.
-subroutine read_HarmonicStates(this,input)
-  implicit none
-  
-  class(HarmonicStates), intent(out) :: this
-  type(String),          intent(in)  :: input(:)
-  
-  integer  :: subspace_id
-  real(dp) :: frequency
-  real(dp) :: thermal_energy
-  
-  select type(this); type is(HarmonicStates)
-    subspace_id = int(token(input(1),3))
-    frequency = dble(token(input(2),3))
-    thermal_energy = dble(token(input(3),4))
-    
-    this = HarmonicStates(subspace_id, frequency, thermal_energy)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_HarmonicStates(this) result(output)
-  implicit none
-  
-  class(HarmonicStates), intent(in) :: this
-  type(String), allocatable         :: output(:)
-  
-  select type(this); type is(HarmonicStates)
-    output = [ 'Subspace       : '//this%subspace_id,   &
-             & 'Frequency      : '//this%frequency,     &
-             & 'Thermal energy : '//this%thermal_energy ]
-  class default
-    call err()
-  end select
-end function
-
-function new_HarmonicStates_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(HarmonicStates)     :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_HarmonicStates_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(HarmonicStates)          :: this
-  
-  this = HarmonicStates(str(input))
-end function
+    impure elemental module function new_HarmonicStates_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(HarmonicStates)          :: this
+    end function
+  end interface
 end module

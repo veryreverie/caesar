@@ -172,10 +172,6 @@ module caesar_abstract_classes_module
     procedure, public :: write => write_SubspaceBasisPointer
   end type
   
-  ! An array of all types which extend SubspaceBasis.
-  ! This array will be filled in by startup routines.
-  type(SubspaceBasisPointer), allocatable :: TYPES_SubspaceBasis(:)
-  
   type, abstract, extends(Stringsable) :: PotentialBase
   contains
     procedure(representation_PotentialBase), public, deferred, nopass :: &
@@ -276,10 +272,6 @@ module caesar_abstract_classes_module
     procedure, public :: write => write_PotentialBasePointer
   end type
   
-  ! An array of all types which extend PotentialBase.
-  ! This array will be filled in by startup routines.
-  type(PotentialBasePointer), allocatable :: TYPES_PotentialBase(:)
-  
   type, abstract, extends(Stringsable) :: StressBase
   contains
     procedure(representation_StressBase), public, deferred, nopass :: &
@@ -366,10 +358,6 @@ module caesar_abstract_classes_module
     procedure, public :: read  => read_StressBasePointer
     procedure, public :: write => write_StressBasePointer
   end type
-  
-  ! An array of all types which extend StressBase.
-  ! This array will be filled in by startup routines.
-  type(StressBasePointer), allocatable :: TYPES_StressBase(:)
   
   ! ----------------------------------------------------------------------
   ! Abstract interfaces, defining the functionality of the abstract classes.
@@ -868,1207 +856,674 @@ module caesar_abstract_classes_module
     end function
   end interface
   
-  ! --------------------------------------------------
-  ! Pointer constructor interfaces.
-  ! --------------------------------------------------
+  interface
+    ! ----------------------------------------------------------------------
+    ! Startup methods.
+    ! ----------------------------------------------------------------------
+    module subroutine startup_SubspaceBasis(this) 
+      class(SubspaceBasis), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface
+    module subroutine startup_PotentialBase(this) 
+      class(PotentialBase), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface
+    module subroutine startup_StressBase(this) 
+      class(StressBase), intent(in) :: this
+    end subroutine
+  end interface
+  
   interface SubspaceBasisPointer
-    module procedure new_SubspaceBasisPointer
-    module procedure new_SubspaceBasisPointer_Strings
-    module procedure new_SubspaceBasisPointer_StringArray
+    ! ----------------------------------------------------------------------
+    ! SubspaceBasisPointer methods.
+    ! ----------------------------------------------------------------------
+    ! Construct a SubspaceBasisPointer from any type which extends SubspaceBasis.
+    impure elemental module function new_SubspaceBasisPointer(basis) &
+       & result(this) 
+      class(SubspaceBasis), intent(in) :: basis
+      type(SubspaceBasisPointer)       :: this
+    end function
+  end interface
+  
+  interface
+    ! Checks that the pointer has been allocated before it is used.
+    module subroutine check_SubspaceBasisPointer(this) 
+      class(SubspaceBasisPointer), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface
+    ! Type representation.
+    impure elemental module function representation_SubspaceBasisPointer() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
+  
+  interface
+    ! SubspaceBasis methods.
+    impure elemental module function initial_states_SubspaceBasisPointer(this,subspace,thermal_energy,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in) :: this
+      type(DegenerateSubspace),    intent(in) :: subspace
+      real(dp),                    intent(in) :: thermal_energy
+      type(AnharmonicData),        intent(in) :: anharmonic_data
+      type(BasisStatesPointer)                :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function calculate_states_SubspaceBasisPointer(this,subspace,subspace_potential,thermal_energy,state_energy_cutoff,convergence_data,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in) :: this
+      type(DegenerateSubspace),    intent(in) :: subspace
+      class(PotentialBase),        intent(in) :: subspace_potential
+      real(dp),                    intent(in) :: thermal_energy
+      real(dp),                    intent(in) :: state_energy_cutoff
+      type(ConvergenceData),       intent(in) :: convergence_data
+      type(AnharmonicData),        intent(in) :: anharmonic_data
+      type(BasisStatesPointer)                :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module subroutine process_subspace_potential_SubspaceBasisPointer(   this,potential,states,subspace,anharmonic_data) 
+      class(SubspaceBasisPointer), intent(in)            :: this
+      class(PotentialBase),        intent(inout)         :: potential
+      class(BasisStates),          intent(inout), target :: states
+      type(DegenerateSubspace),    intent(in)            :: subspace
+      type(AnharmonicData),        intent(in)            :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine process_subspace_stress_SubspaceBasisPointer(   this,stress,states,subspace,anharmonic_data) 
+      class(SubspaceBasisPointer), intent(in)            :: this
+      class(stressBase),           intent(inout)         :: stress
+      class(BasisStates),          intent(inout), target :: states
+      type(DegenerateSubspace),    intent(in)            :: subspace
+      type(AnharmonicData),        intent(in)            :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    module function select_symmetries_SubspaceBasisPointer(this,symmetries, &
+       & anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in) :: this
+      type(DegenerateSymmetry),    intent(in) :: symmetries(:)
+      type(AnharmonicData),        intent(in) :: anharmonic_data
+      type(DegenerateSymmetry), allocatable   :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function mode_ids_SubspaceBasisPointer(this,subspace, &
+       & anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in) :: this
+      type(DegenerateSubspace),    intent(in) :: subspace
+      type(AnharmonicData),        intent(in) :: anharmonic_data
+      integer, allocatable                    :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function paired_mode_ids_SubspaceBasisPointer(this,subspace, &
+       & anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in) :: this
+      type(DegenerateSubspace),    intent(in) :: subspace
+      type(AnharmonicData),        intent(in) :: anharmonic_data
+      integer, allocatable                    :: output(:)
+    end function
+  end interface
+  
+  interface
+    impure elemental module function inner_product_SubspaceBasisPointer(this,bra,ket,subspace,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)                   :: this
+      class(BasisState),           intent(in),           target :: bra
+      class(BasisState),           intent(in), optional, target :: ket
+      type(DegenerateSubspace),    intent(in)                   :: subspace
+      type(AnharmonicData),        intent(in)                   :: anharmonic_data
+      real(dp)                                                  :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function integrate_BasisState_SubspaceBasisPointer(   this,bra,monomial,ket,subspace,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)                   :: this
+      class(BasisState),           intent(in),           target :: bra
+      type(SparseMonomial),        intent(in)                   :: monomial
+      class(BasisState),           intent(in), optional, target :: ket
+      type(DegenerateSubspace),    intent(in)                   :: subspace
+      type(AnharmonicData),        intent(in)                   :: anharmonic_data
+      complex(dp)                                               :: output
+    end function
+  end interface
+  
+  interface
+    module function free_energy_gradient_SubspaceBasisPointer(this,         &
+        subspace_potential,basis_functions,subspace,states,thermal_energy, &
+          & state_energy_cutoff,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in) :: this
+      class(PotentialBase),        intent(in) :: subspace_potential
+      class(PotentialBase) ,intent(in) :: basis_functions(:) 
+      type(DegenerateSubspace),    intent(in) :: subspace
+      class(BasisStates),          intent(in) :: states
+      real(dp),                    intent(in) :: thermal_energy
+      real(dp),                    intent(in) :: state_energy_cutoff
+      type(AnharmonicData),        intent(in) :: anharmonic_data
+      real(dp), allocatable                   :: output(:)
+    end function
+  end interface
+  
+  interface
+    impure elemental module function kinetic_energy_SubspaceBasisPointer(this,bra,ket,subspace,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)                   :: this
+      class(BasisState),           intent(in),           target :: bra
+      class(BasisState),           intent(in), optional, target :: ket
+      type(DegenerateSubspace),    intent(in)                   :: subspace
+      type(AnharmonicData),        intent(in)                   :: anharmonic_data
+      real(dp)                                                  :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function harmonic_potential_energy_SubspaceBasisPointer(   this,bra,ket,subspace,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)                   :: this
+      class(BasisState),           intent(in),           target :: bra
+      class(BasisState),           intent(in), optional, target :: ket
+      type(DegenerateSubspace),    intent(in)                   :: subspace
+      type(AnharmonicData),        intent(in)                   :: anharmonic_data
+      real(dp)                                                  :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function kinetic_stress_SubspaceBasisPointer(this,bra,ket,subspace,stress_prefactors,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)                   :: this
+      class(BasisState),           intent(in),           target :: bra
+      class(BasisState),           intent(in), optional, target :: ket
+      type(DegenerateSubspace),    intent(in)                   :: subspace
+      type(StressPrefactors),      intent(in)                   :: stress_prefactors
+      type(AnharmonicData),        intent(in)                   :: anharmonic_data
+      type(RealMatrix)                                          :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function thermodynamic_data_SubspaceBasisPointer(this,thermal_energy,states,subspace,subspace_potential,subspace_stress,stress_prefactors,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)                  :: this
+      real(dp),                    intent(in)                  :: thermal_energy
+      class(BasisStates),          intent(in),          target :: states
+      type(DegenerateSubspace),    intent(in)                  :: subspace
+      class(PotentialBase),        intent(in)                  :: subspace_potential
+      class(StressBase),           intent(in), optional        :: subspace_stress
+      type(StressPrefactors),      intent(in), optional        :: stress_prefactors
+      type(AnharmonicData),        intent(in)                  :: anharmonic_data
+      type(ThermodynamicData)                                  :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function wavefunctions_SubspaceBasisPointer(this,states,subspace,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)         :: this
+      class(BasisStates),          intent(in), target :: states
+      type(DegenerateSubspace),    intent(in)         :: subspace
+      type(AnharmonicData),        intent(in)         :: anharmonic_data
+      type(SubspaceWavefunctionsPointer) :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function integrate_BasisStates_SubspaceBasisPointer(   this,states,monomial,subspace,anharmonic_data) result(output) 
+      class(SubspaceBasisPointer), intent(in)         :: this
+      class(BasisStates),          intent(in), target :: states
+      type(SparseMonomial),        intent(in)         :: monomial
+      type(DegenerateSubspace),    intent(in)         :: subspace
+      type(AnharmonicData),        intent(in)         :: anharmonic_data
+      complex(dp)                                     :: output
+    end function
+  end interface
+  
+  interface
+    ! I/O.
+    module subroutine read_SubspaceBasisPointer(this,input) 
+      class(SubspaceBasisPointer), intent(out) :: this
+      type(String),                intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    module function write_SubspaceBasisPointer(this) result(output) 
+      class(SubspaceBasisPointer), intent(in) :: this
+      type(String), allocatable               :: output(:)
+    end function
+  end interface
+  
+  interface SubspaceBasisPointer
+    module function new_SubspaceBasisPointer_Strings(input) result(this) 
+      type(String), intent(in)   :: input(:)
+      type(SubspaceBasisPointer) :: this
+    end function
+  
+    impure elemental module function new_SubspaceBasisPointer_StringArray(input) result(this) 
+      type(StringArray), intent(in) :: input
+      type(SubspaceBasisPointer)    :: this
+    end function
   end interface
   
   interface PotentialBasePointer
-    module procedure new_PotentialBasePointer
-    module procedure new_PotentialBasePointer_Strings
-    module procedure new_PotentialBasePointer_StringArray
+    ! ----------------------------------------------------------------------
+    ! PotentialBasePointer methods.
+    ! ----------------------------------------------------------------------
+    ! Construct a PotentialBasePointer from any type which extends PotentialBase.
+    impure elemental module function new_PotentialBasePointer(potential) &
+       & result(this) 
+      class(PotentialBase), intent(in) :: potential
+      type(PotentialBasePointer)       :: this
+    end function
+  end interface
+  
+  interface
+    ! Checks that the pointer has been allocated before it is used.
+    impure elemental module subroutine check_PotentialBasePointer(this) 
+      class(PotentialBasePointer), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface
+    ! Type representation.
+    impure elemental module function representation_PotentialBasePointer() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
+  
+  interface
+    ! Return the stored potential.
+    impure module function potential_PotentialBasePointer(this) result(output) 
+      class(PotentialBasePointer), intent(in) :: this
+      class(PotentialBase), allocatable       :: output
+    end function
+  end interface
+  
+  interface
+    ! Wrappers for all of PotentialBase's methods.
+    impure elemental module subroutine zero_energy_PotentialBasePointer(this) 
+      class(PotentialBasePointer), intent(inout) :: this
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine add_constant_PotentialBasePointer(this,input) 
+      class(PotentialBasePointer), intent(inout) :: this
+      real(dp),                    intent(in)    :: input
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module function energy_RealModeDisplacement_PotentialBasePointer(this,displacement) result(output) 
+      class(PotentialBasePointer),    intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      real(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function energy_ComplexModeDisplacement_PotentialBasePointer(   this,displacement) result(output) 
+      class(PotentialBasePointer),       intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      complex(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function force_RealModeDisplacement_PotentialBasePointer(this,displacement) result(output) 
+      class(PotentialBasePointer),    intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      type(RealModeForce)                    :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function force_ComplexModeDisplacement_PotentialBasePointer(   this,displacement) result(output) 
+      class(PotentialBasePointer),       intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      type(ComplexModeForce)                    :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_SubspaceBraKet_PotentialBasePointer(this,braket,whole_subspace,anharmonic_data) 
+      class(PotentialBasePointer), intent(inout)        :: this
+      class(SubspaceBraKet),       intent(in)           :: braket
+      logical,                     intent(in), optional :: whole_subspace
+      type(AnharmonicData),        intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_BasisState_PotentialBasePointer(this,bra,ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(PotentialBasePointer), intent(inout)        :: this
+      class(BasisState),           intent(in)           :: bra
+      class(BasisState),           intent(in), optional :: ket
+      type(DegenerateSubspace),    intent(in)           :: subspace
+      class(SubspaceBasis),        intent(in)           :: subspace_basis
+      logical,                     intent(in), optional :: whole_subspace
+      type(AnharmonicData),        intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_BasisStates_PotentialBasePointer(this,states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(PotentialBasePointer), intent(inout)        :: this
+      class(BasisStates),          intent(inout)        :: states
+      type(DegenerateSubspace),    intent(in)           :: subspace
+      class(SubspaceBasis),        intent(in)           :: subspace_basis
+      logical,                     intent(in), optional :: whole_subspace
+      type(AnharmonicData),        intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module function harmonic_expectation_PotentialBasePointer(this,frequency,thermal_energy,supercell_size,anharmonic_data) result(output) 
+      class(PotentialBasePointer), intent(in) :: this
+      real(dp),                intent(in) :: frequency
+      real(dp),                intent(in) :: thermal_energy
+      integer,                 intent(in) :: supercell_size
+      type(AnharmonicData),    intent(in) :: anharmonic_data
+      real(dp)                            :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_SubspaceBraKet_PotentialBasePointer(this,braket,anharmonic_data) result(output) 
+      class(PotentialBasePointer), intent(in) :: this
+      class(SubspaceBraKet),       intent(in) :: braket
+      type(AnharmonicData),        intent(in) :: anharmonic_data
+      real(dp)                                :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_BasisState_PotentialBasePointer(this,bra,ket,subspace,subspace_basis,anharmonic_data) result(output) 
+      class(PotentialBasePointer), intent(in)           :: this
+      class(BasisState),           intent(in)           :: bra
+      class(BasisState),           intent(in), optional :: ket
+      type(DegenerateSubspace),    intent(in)           :: subspace
+      class(SubspaceBasis),        intent(in)           :: subspace_basis
+      type(AnharmonicData),        intent(in)           :: anharmonic_data
+      real(dp)                                          :: output
+    end function
+  end interface
+  
+  interface
+    ! I/O.
+    module subroutine read_PotentialBasePointer(this,input) 
+      class(PotentialBasePointer), intent(out) :: this
+      type(String),            intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    module function write_PotentialBasePointer(this) result(output) 
+      class(PotentialBasePointer), intent(in) :: this
+      type(String), allocatable               :: output(:)
+    end function
+  end interface
+  
+  interface PotentialBasePointer
+    module function new_PotentialBasePointer_Strings(input) result(this) 
+      type(String), intent(in)   :: input(:)
+      type(PotentialBasePointer) :: this
+    end function
+  
+    impure elemental module function new_PotentialBasePointer_StringArray(input) result(this) 
+      type(StringArray), intent(in) :: input
+      type(PotentialBasePointer)        :: this
+    end function
   end interface
   
   interface StressBasePointer
-    module procedure new_StressBasePointer
-    module procedure new_StressBasePointer_Strings
-    module procedure new_StressBasePointer_StringArray
+    ! ----------------------------------------------------------------------
+    ! StressBasePointer methods.
+    ! ----------------------------------------------------------------------
+    ! Construct a StressBasePointer from any type which extends StressBase.
+    impure elemental module function new_StressBasePointer(stress) &
+       & result(this) 
+      class(StressBase), intent(in) :: stress
+      type(StressBasePointer)       :: this
+    end function
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! Startup methods.
-! ----------------------------------------------------------------------
-subroutine startup_SubspaceBasis(this)
-  implicit none
   
-  class(SubspaceBasis), intent(in) :: this
-  
-  integer :: i
-  
-  if (.not.allocated(TYPES_SubspaceBasis)) then
-    TYPES_SubspaceBasis = [SubspaceBasisPointer(this)]
-  elseif (.not.any([(                                        &
-     & this%representation()                                 &
-     &    == TYPES_SubspaceBasis(i)%basis_%representation(), &
-     & i=1,                                                  &
-     & size(TYPES_SubspaceBasis)                             )])) then
-    TYPES_SubspaceBasis = [TYPES_SubspaceBasis, SubspaceBasisPointer(this)]
-  endif
-end subroutine
-
-subroutine startup_PotentialBase(this)
-  implicit none
-  
-  class(PotentialBase), intent(in) :: this
-  
-  integer :: i
-  
-  if (.not.allocated(TYPES_PotentialBase)) then
-    TYPES_PotentialBase = [PotentialBasePointer(this)]
-  elseif (.not.any([(                                            &
-     & this%representation()                                     &
-     &    == TYPES_PotentialBase(i)%potential_%representation(), &
-     & i=1,                                                      &
-     & size(TYPES_PotentialBase)                                 )])) then
-    TYPES_PotentialBase = [TYPES_PotentialBase, PotentialBasePointer(this)]
-  endif
-end subroutine
-
-subroutine startup_StressBase(this)
-  implicit none
-  
-  class(StressBase), intent(in) :: this
-  
-  integer :: i
-  
-  if (.not.allocated(TYPES_StressBase)) then
-    TYPES_StressBase = [StressBasePointer(this)]
-  elseif (.not.any([(                                      &
-     & this%representation()                               &
-     &    == TYPES_StressBase(i)%stress_%representation(), &
-     & i=1,                                                &
-     & size(TYPES_StressBase)                              )])) then
-    TYPES_StressBase = [TYPES_StressBase, StressBasePointer(this)]
-  endif
-end subroutine
-
-! ----------------------------------------------------------------------
-! SubspaceBasisPointer methods.
-! ----------------------------------------------------------------------
-! Construct a SubspaceBasisPointer from any type which extends SubspaceBasis.
-impure elemental function new_SubspaceBasisPointer(basis) result(this)
-  implicit none
-  
-  class(SubspaceBasis), intent(in) :: basis
-  type(SubspaceBasisPointer)       :: this
-  
-  integer :: ialloc
-  
-  select type(basis); type is(SubspaceBasisPointer)
-    this = basis
-  class default
-    this%representation_ = basis%representation()
-    allocate( this%basis_, source=basis, &
-            & stat=ialloc); call err(ialloc)
-    this%frequency = this%basis_%frequency
-  end select
-end function
-
-! Checks that the pointer has been allocated before it is used.
-subroutine check_SubspaceBasisPointer(this)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  
-  if (.not. allocated(this%basis_)) then
-    call print_line(CODE_ERROR//': Trying to use a SubspaceBasisPointer &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Type representation.
-impure elemental function representation_SubspaceBasisPointer() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'pointer'
-end function
-
-! SubspaceBasis methods.
-impure elemental function initial_states_SubspaceBasisPointer(this,subspace, &
-   & thermal_energy,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  type(DegenerateSubspace),    intent(in) :: subspace
-  real(dp),                    intent(in) :: thermal_energy
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(BasisStatesPointer)                :: output
-  
-  call this%check()
-  
-  output = this%basis_%initial_states( subspace,       &
-                                     & thermal_energy, &
-                                     & anharmonic_data )
-end function
-
-impure elemental function calculate_states_SubspaceBasisPointer(this, &
-   & subspace,subspace_potential,thermal_energy,state_energy_cutoff,  &
-   & convergence_data,anharmonic_data) result(output) 
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  type(DegenerateSubspace),    intent(in) :: subspace
-  class(PotentialBase),        intent(in) :: subspace_potential
-  real(dp),                    intent(in) :: thermal_energy
-  real(dp),                    intent(in) :: state_energy_cutoff
-  type(ConvergenceData),       intent(in) :: convergence_data
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(BasisStatesPointer)                :: output
-  
-  call this%check()
-  
-  output = this%basis_%calculate_states( subspace,                &
-                                       & subspace_potential,      &
-                                       & thermal_energy,          &
-                                       & state_energy_cutoff,     &
-                                       & convergence_data,        &
-                                       & anharmonic_data          )
-end function
-
-impure elemental subroutine process_subspace_potential_SubspaceBasisPointer( &
-   & this,potential,states,subspace,anharmonic_data)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)            :: this
-  class(PotentialBase),        intent(inout)         :: potential
-  class(BasisStates),          intent(inout), target :: states
-  type(DegenerateSubspace),    intent(in)            :: subspace
-  type(AnharmonicData),        intent(in)            :: anharmonic_data
-  
-  call this%check()
-  
-  call this%basis_%process_subspace_potential( potential,      &
-                                             & states,         &
-                                             & subspace,       &
-                                             & anharmonic_data )
-end subroutine
-
-impure elemental subroutine process_subspace_stress_SubspaceBasisPointer( &
-   & this,stress,states,subspace,anharmonic_data)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)            :: this
-  class(stressBase),           intent(inout)         :: stress
-  class(BasisStates),          intent(inout), target :: states
-  type(DegenerateSubspace),    intent(in)            :: subspace
-  type(AnharmonicData),        intent(in)            :: anharmonic_data
-  
-  call this%check()
-  
-  call this%basis_%process_subspace_stress( stress,         &
-                                          & states,         &
-                                          & subspace,       &
-                                          & anharmonic_data )
-end subroutine
-
-function select_symmetries_SubspaceBasisPointer(this,symmetries, &
-   & anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  type(DegenerateSymmetry),    intent(in) :: symmetries(:)
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  type(DegenerateSymmetry), allocatable   :: output(:)
-  
-  call this%check()
-  
-  output = this%basis_%select_symmetries(symmetries, anharmonic_data)
-end function
-
-function mode_ids_SubspaceBasisPointer(this,subspace,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  type(DegenerateSubspace),    intent(in) :: subspace
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  integer, allocatable                    :: output(:)
-  
-  call this%check()
-  
-  output = this%basis_%mode_ids(subspace,anharmonic_data)
-end function
-
-function paired_mode_ids_SubspaceBasisPointer(this,subspace,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  type(DegenerateSubspace),    intent(in) :: subspace
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  integer, allocatable                    :: output(:)
-  
-  call this%check()
-  
-  output = this%basis_%paired_mode_ids(subspace,anharmonic_data)
-end function
-
-impure elemental function inner_product_SubspaceBasisPointer(this,bra,ket, &
-   & subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)                   :: this
-  class(BasisState),           intent(in),           target :: bra
-  class(BasisState),           intent(in), optional, target :: ket
-  type(DegenerateSubspace),    intent(in)                   :: subspace
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  real(dp)                                                  :: output
-  
-  call this%check()
-  
-  output = this%basis_%inner_product( bra,            &
-                                    & ket,            &
-                                    & subspace,       &
-                                    & anharmonic_data )
-end function
-
-impure elemental function integrate_BasisState_SubspaceBasisPointer( &
-   & this,bra,monomial,ket,subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)                   :: this
-  class(BasisState),           intent(in),           target :: bra
-  type(SparseMonomial),        intent(in)                   :: monomial
-  class(BasisState),           intent(in), optional, target :: ket
-  type(DegenerateSubspace),    intent(in)                   :: subspace
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  complex(dp)                                               :: output
-  
-  call this%check()
-  
-  output = this%basis_%integrate( bra,            &
-                                & monomial,       &
-                                & ket,            &
-                                & subspace,       &
-                                & anharmonic_data )
-end function
-
-function free_energy_gradient_SubspaceBasisPointer(this,subspace_potential, &
-   & basis_functions,subspace,states,thermal_energy,state_energy_cutoff,    &
-   & anharmonic_data) result(output) 
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  class(PotentialBase),        intent(in) :: subspace_potential
-  class(PotentialBase),        intent(in) :: basis_functions(:)
-  type(DegenerateSubspace),    intent(in) :: subspace
-  class(BasisStates),          intent(in) :: states
-  real(dp),                    intent(in) :: thermal_energy
-  real(dp),                    intent(in) :: state_energy_cutoff
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  real(dp), allocatable                   :: output(:)
-  
-  call this%check()
-  
-  output = this%basis_%free_energy_gradient( subspace_potential,  &
-                                           & basis_functions,     &
-                                           & subspace,            &
-                                           & states,              &
-                                           & thermal_energy,      &
-                                           & state_energy_cutoff, &
-                                           & anharmonic_data      )
-end function
-
-impure elemental function kinetic_energy_SubspaceBasisPointer(this,bra,ket, &
-   & subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)                   :: this
-  class(BasisState),           intent(in),           target :: bra
-  class(BasisState),           intent(in), optional, target :: ket
-  type(DegenerateSubspace),    intent(in)                   :: subspace
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  real(dp)                                                  :: output
-  
-  call this%check()
-  
-  output = this%basis_%kinetic_energy( bra,            &
-                                     & ket,            &
-                                     & subspace,       &
-                                     & anharmonic_data )
-end function
-
-impure elemental function harmonic_potential_energy_SubspaceBasisPointer( &
-   & this,bra,ket,subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)                   :: this
-  class(BasisState),           intent(in),           target :: bra
-  class(BasisState),           intent(in), optional, target :: ket
-  type(DegenerateSubspace),    intent(in)                   :: subspace
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  real(dp)                                                  :: output
-  
-  call this%check()
-  
-  output = this%basis_%harmonic_potential_energy( bra,            &
-                                                & ket,            &
-                                                & subspace,       &
-                                                & anharmonic_data )
-end function
-
-impure elemental function kinetic_stress_SubspaceBasisPointer(this,bra,ket, &
-   & subspace,stress_prefactors,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)                   :: this
-  class(BasisState),           intent(in),           target :: bra
-  class(BasisState),           intent(in), optional, target :: ket
-  type(DegenerateSubspace),    intent(in)                   :: subspace
-  type(StressPrefactors),      intent(in)                   :: stress_prefactors
-  type(AnharmonicData),        intent(in)                   :: anharmonic_data
-  type(RealMatrix)                                          :: output
-  
-  call this%check()
-  
-  output = this%basis_%kinetic_stress( bra,               &
-                                     & ket,               &
-                                     & subspace,          &
-                                     & stress_prefactors, &
-                                     & anharmonic_data    )
-end function
-
-impure elemental function thermodynamic_data_SubspaceBasisPointer(this, &
-   & thermal_energy,states,subspace,subspace_potential,subspace_stress, &
-   & stress_prefactors,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)                  :: this
-  real(dp),                    intent(in)                  :: thermal_energy
-  class(BasisStates),          intent(in),          target :: states
-  type(DegenerateSubspace),    intent(in)                  :: subspace
-  class(PotentialBase),        intent(in)                  :: subspace_potential
-  class(StressBase),           intent(in), optional        :: subspace_stress
-  type(StressPrefactors),      intent(in), optional        :: stress_prefactors
-  type(AnharmonicData),        intent(in)                  :: anharmonic_data
-  type(ThermodynamicData)                                  :: output
-  
-  call this%check()
-  
-  output = this%basis_%thermodynamic_data( thermal_energy,     &
-                                         & states,             &
-                                         & subspace,           &
-                                         & subspace_potential, &
-                                         & subspace_stress,    &
-                                         & stress_prefactors,  &
-                                         & anharmonic_data     )
-end function
-
-impure elemental function wavefunctions_SubspaceBasisPointer(this,states, &
-   & subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)         :: this
-  class(BasisStates),          intent(in), target :: states
-  type(DegenerateSubspace),    intent(in)         :: subspace
-  type(AnharmonicData),        intent(in)         :: anharmonic_data
-  type(SubspaceWavefunctionsPointer)              :: output
-  
-  call this%check()
-  
-  output = this%basis_%wavefunctions( states,         &
-                                    & subspace,       &
-                                    & anharmonic_data )
-end function
-
-impure elemental function integrate_BasisStates_SubspaceBasisPointer( &
-   & this,states,monomial,subspace,anharmonic_data) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in)         :: this
-  class(BasisStates),          intent(in), target :: states
-  type(SparseMonomial),        intent(in)         :: monomial
-  type(DegenerateSubspace),    intent(in)         :: subspace
-  type(AnharmonicData),        intent(in)         :: anharmonic_data
-  complex(dp)                                     :: output
-  
-  call this%check()
-  
-  output = this%basis_%integrate( states,         &
-                                & monomial,       &
-                                & subspace,       &
-                                & anharmonic_data )
-end function
-
-! I/O.
-subroutine read_SubspaceBasisPointer(this,input)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(out) :: this
-  type(String),                intent(in)  :: input(:)
-  
-  type(String), allocatable :: line(:)
-  
-  type(String) :: representation
-  
-  integer :: i
-  
-  select type(this); type is(SubspaceBasisPointer)
-    line = split_line(input(1))
-    representation = line(3)
-    
-    ! Identify which type corresponds to the representation.
-    i = first([(                                                         &
-       & TYPES_SubspaceBasis(i)%basis_%representation()==representation, &
-       & i=1,                                                            &
-       & size(TYPES_SubspaceBasis)                                       )])
-    
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_SubspaceBasis(i)%basis_%read(input(2:))
-    this = SubspaceBasisPointer(TYPES_SubspaceBasis(i))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_SubspaceBasisPointer(this) result(output)
-  implicit none
-  
-  class(SubspaceBasisPointer), intent(in) :: this
-  type(String), allocatable               :: output(:)
-  
-  select type(this); type is(SubspaceBasisPointer)
-    output = [ 'SubspaceBasis representation: '//this%representation_, &
-             & str(this%basis_)                                        ]
-  end select
-end function
-
-function new_SubspaceBasisPointer_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in)   :: input(:)
-  type(SubspaceBasisPointer) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_SubspaceBasisPointer_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(SubspaceBasisPointer)    :: this
-  
-  this = SubspaceBasisPointer(str(input))
-end function
-
-! ----------------------------------------------------------------------
-! PotentialBasePointer methods.
-! ----------------------------------------------------------------------
-! Construct a PotentialBasePointer from any type which extends PotentialBase.
-impure elemental function new_PotentialBasePointer(potential) result(this)
-  implicit none
-  
-  class(PotentialBase), intent(in) :: potential
-  type(PotentialBasePointer)       :: this
-  
-  integer :: ialloc
-  
-  select type(potential); type is(PotentialBasePointer)
-    this = potential
-  class default
-    this%representation_ = potential%representation()
-    allocate( this%potential_, source=potential, &
-            & stat=ialloc); call err(ialloc)
-  end select
-end function
-
-! Checks that the pointer has been allocated before it is used.
-impure elemental subroutine check_PotentialBasePointer(this)
-  implicit none
-  
-  class(PotentialBasePointer), intent(in) :: this
-  
-  if (.not. allocated(this%potential_)) then
-    call print_line(CODE_ERROR//': Trying to use a PotentialBasePointer &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Type representation.
-impure elemental function representation_PotentialBasePointer() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'pointer'
-end function
-
-! Return the stored potential.
-impure function potential_PotentialBasePointer(this) result(output)
-  implicit none
-  
-  class(PotentialBasePointer), intent(in) :: this
-  class(PotentialBase), allocatable       :: output
-  
-  call this%check()
-  
-  output = this%potential_
-end function
-
-! Wrappers for all of PotentialBase's methods.
-impure elemental subroutine zero_energy_PotentialBasePointer(this)
-  implicit none
-  
-  class(PotentialBasePointer), intent(inout) :: this
-  
-  call this%check()
-  
-  call this%potential_%zero_energy()
-end subroutine
-
-impure elemental subroutine add_constant_PotentialBasePointer(this,input)
-  implicit none
-  
-  class(PotentialBasePointer), intent(inout) :: this
-  real(dp),                    intent(in)    :: input
-  
-  call this%check()
-  
-  call this%potential_%add_constant(input)
-end subroutine
-
-impure elemental function energy_RealModeDisplacement_PotentialBasePointer(this, &
-   & displacement) result(output)
-  implicit none
-  
-  class(PotentialBasePointer),    intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  real(dp)                               :: output
-  
-  call this%check()
-  
-  output = this%potential_%energy(displacement)
-end function
-
-impure elemental function energy_ComplexModeDisplacement_PotentialBasePointer( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PotentialBasePointer),       intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                               :: output
-  
-  call this%check()
-  
-  output = this%potential_%energy(displacement)
-end function
-
-impure elemental function force_RealModeDisplacement_PotentialBasePointer(this, &
-   & displacement) result(output)
-  implicit none
-  
-  class(PotentialBasePointer),    intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  type(RealModeForce)                    :: output
-  
-  call this%check()
-  
-  output = this%potential_%force(displacement)
-end function
-
-impure elemental function force_ComplexModeDisplacement_PotentialBasePointer( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PotentialBasePointer),       intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexModeForce)                    :: output
-  
-  call this%check()
-  
-  output = this%potential_%force(displacement)
-end function
-
-impure elemental subroutine braket_SubspaceBraKet_PotentialBasePointer(this, &
-   & braket,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PotentialBasePointer), intent(inout)        :: this
-  class(SubspaceBraKet),       intent(in)           :: braket
-  logical,                     intent(in), optional :: whole_subspace
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%braket(braket,whole_subspace,anharmonic_data)
-end subroutine
-
-impure elemental subroutine braket_BasisState_PotentialBasePointer(this,bra, &
-   & ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PotentialBasePointer), intent(inout)        :: this
-  class(BasisState),           intent(in)           :: bra
-  class(BasisState),           intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
-  logical,                     intent(in), optional :: whole_subspace
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%braket( bra,            &
-                             & ket,            &
-                             & subspace,       &
-                             & subspace_basis, &
-                             & whole_subspace, &
-                             & anharmonic_data )
-end subroutine
-
-impure elemental subroutine braket_BasisStates_PotentialBasePointer(this, &
-   & states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PotentialBasePointer), intent(inout)        :: this
-  class(BasisStates),          intent(inout)        :: states
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
-  logical,                     intent(in), optional :: whole_subspace
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%braket( states,         &
-                             & subspace,       &
-                             & subspace_basis, &
-                             & whole_subspace, &
-                             & anharmonic_data )
-end subroutine
-
-impure elemental function harmonic_expectation_PotentialBasePointer(this, &
-   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
-  implicit none
-  
-  class(PotentialBasePointer), intent(in) :: this
-  real(dp),                intent(in) :: frequency
-  real(dp),                intent(in) :: thermal_energy
-  integer,                 intent(in) :: supercell_size
-  type(AnharmonicData),    intent(in) :: anharmonic_data
-  real(dp)                            :: output
-  
-  call this%check()
-  
-  output = this%potential_%harmonic_expectation( frequency,      &
-                                               & thermal_energy, &
-                                               & supercell_size, &
-                                               & anharmonic_data )
-end function
-
-recursive function potential_energy_SubspaceBraKet_PotentialBasePointer(this, &
-   & braket,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialBasePointer), intent(in) :: this
-  class(SubspaceBraKet),       intent(in) :: braket
-  type(AnharmonicData),        intent(in) :: anharmonic_data
-  real(dp)                                :: output
-  
-  call this%check()
-  
-  output = this%potential_%potential_energy(braket, anharmonic_data)
-end function
-
-recursive function potential_energy_BasisState_PotentialBasePointer(this, &
-   & bra,ket,subspace,subspace_basis,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialBasePointer), intent(in)           :: this
-  class(BasisState),           intent(in)           :: bra
-  class(BasisState),           intent(in), optional :: ket
-  type(DegenerateSubspace),    intent(in)           :: subspace
-  class(SubspaceBasis),        intent(in)           :: subspace_basis
-  type(AnharmonicData),        intent(in)           :: anharmonic_data
-  real(dp)                                          :: output
-  
-  call this%check()
-  
-  output = this%potential_%potential_energy( bra,            &
-                                           & ket,            &
-                                           & subspace,       &
-                                           & subspace_basis, &
-                                           & anharmonic_data )
-end function
-
-! I/O.
-subroutine read_PotentialBasePointer(this,input)
-  implicit none
-  
-  class(PotentialBasePointer), intent(out) :: this
-  type(String),            intent(in)  :: input(:)
-  
-  type(String), allocatable :: line(:)
-  
-  type(String) :: representation
-  
-  integer :: i
-  
-  select type(this); type is(PotentialBasePointer)
-    line = split_line(input(1))
-    representation = line(3)
-    
-    ! Identify which type corresponds to the representation.
-    i = first([(                                                             &
-       & TYPES_PotentialBase(i)%potential_%representation()==representation, &
-       & i=1,                                                                &
-       & size(TYPES_PotentialBase)                                          )])
-    
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_PotentialBase(i)%potential_%read(input(2:))
-    this = PotentialBasePointer(TYPES_PotentialBase(i))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_PotentialBasePointer(this) result(output)
-  implicit none
-  
-  class(PotentialBasePointer), intent(in) :: this
-  type(String), allocatable               :: output(:)
-  
-  select type(this); type is(PotentialBasePointer)
-    output = [ 'Potential representation: '//this%representation_, &
-             & str(this%potential_)                                ]
-  end select
-end function
-
-function new_PotentialBasePointer_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in)   :: input(:)
-  type(PotentialBasePointer) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_PotentialBasePointer_StringArray(input) &
-   & result(this) 
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(PotentialBasePointer)        :: this
-  
-  this = PotentialBasePointer(str(input))
-end function
-
-! ----------------------------------------------------------------------
-! StressBasePointer methods.
-! ----------------------------------------------------------------------
-! Construct a StressBasePointer from any type which extends StressBase.
-impure elemental function new_StressBasePointer(stress) result(this)
-  implicit none
-  
-  class(StressBase), intent(in) :: stress
-  type(StressBasePointer)       :: this
-  
-  integer :: ialloc
-  
-  select type(stress); type is(StressBasePointer)
-    this = stress
-  class default
-    this%representation_ = stress%representation()
-    allocate( this%stress_, source=stress, &
-            & stat=ialloc); call err(ialloc)
-  end select
-end function
-
-! Checks that the pointer has been allocated before it is used.
-impure elemental subroutine check_StressBasePointer(this)
-  implicit none
-  
-  class(StressBasePointer), intent(in) :: this
-  
-  if (.not. allocated(this%stress_)) then
-    call print_line(CODE_ERROR//': Trying to use a StressBasePointer before &
-       &it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Type representation.
-impure elemental function representation_StressBasePointer() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'pointer'
-end function
-
-impure elemental subroutine zero_stress_StressBasePointer(this)
-  implicit none
-  
-  class(StressBasePointer), intent(inout) :: this
-  
-  call this%check()
-  
-  call this%stress_%zero_stress()
-end subroutine
-
-impure elemental subroutine add_constant_StressBasePointer(this,input)
-  implicit none
-  
-  class(StressBasePointer), intent(inout) :: this
-  type(RealMatrix),         intent(in)    :: input
-  
-  call this%check()
-  
-  call this%stress_%add_constant(input)
-end subroutine
-
-impure elemental function stress_RealModeDisplacement_StressBasePointer(this, &
-   & displacement) result(output)
-  implicit none
-  
-  class(StressBasePointer),       intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  type(RealMatrix)                       :: output
-  
-  call this%check()
-  
-  output = this%stress_%stress(displacement)
-end function
-
-impure elemental function stress_ComplexModeDisplacement_StressBasePointer( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(StressBasePointer),          intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexMatrix)                       :: output
-  
-  call this%check()
-  
-  output = this%stress_%stress(displacement)
-end function
-
-impure elemental subroutine braket_SubspaceBraKet_StressBasePointer(this, &
-   & braket,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(StressBasePointer), intent(inout)        :: this
-  class(SubspaceBraKet),    intent(in)           :: braket
-  logical,                  intent(in), optional :: whole_subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%stress_%braket(braket,whole_subspace,anharmonic_data)
-end subroutine
-
-impure elemental subroutine braket_BasisState_StressBasePointer(this,bra, &
-   & ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(StressBasePointer), intent(inout)        :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  logical,                  intent(in), optional :: whole_subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%stress_%braket( bra,            &
-                          & ket,            &
-                          & subspace,       &
-                          & subspace_basis, &
-                          & whole_subspace, &
-                          & anharmonic_data )
-end subroutine
-
-impure elemental subroutine braket_BasisStates_StressBasePointer(this, &
-   & states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(StressBasePointer), intent(inout)        :: this
-  class(BasisStates),       intent(inout)        :: states
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  logical,                  intent(in), optional :: whole_subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%stress_%braket( states,         &
-                          & subspace,       &
-                          & subspace_basis, &
-                          & whole_subspace, &
-                          & anharmonic_data )
-end subroutine
-
-impure elemental function harmonic_expectation_StressBasePointer(this,frequency, &
-   & thermal_energy,supercell_size,anharmonic_data) result(output)
-  implicit none
-  
-  class(StressBasePointer), intent(in) :: this
-  real(dp),             intent(in) :: frequency
-  real(dp),             intent(in) :: thermal_energy
-  integer,              intent(in) :: supercell_size
-  type(AnharmonicData), intent(in) :: anharmonic_data
-  type(RealMatrix)                 :: output
-  
-  call this%check()
-  
-  output = this%stress_%harmonic_expectation( frequency,      &
-                                            & thermal_energy, &
-                                            & supercell_size, &
-                                            & anharmonic_data )
-end function
-
-recursive function potential_stress_SubspaceBraKet_StressBasePointer(this,braket, &
-   & anharmonic_data) result(output) 
-  implicit none
-  
-  class(StressBasePointer),  intent(in) :: this
-  class(SubspaceBraKet), intent(in) :: braket
-  type(AnharmonicData),  intent(in) :: anharmonic_data
-  type(RealMatrix)                  :: output
-  
-  call this%check()
-  
-  output = this%stress_%potential_stress(braket, anharmonic_data)
-end function
-
-recursive function potential_stress_BasisState_StressBasePointer(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output) 
-  implicit none
-  
-  class(StressBasePointer),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(RealMatrix)                               :: output
-  
-  call this%check()
-  
-  output = this%stress_%potential_stress( bra,            &
-                                        & ket,            &
-                                        & subspace,       &
-                                        & subspace_basis, &
-                                        & anharmonic_data )
-end function
-
-! I/O.
-subroutine read_StressBasePointer(this,input)
-  implicit none
-  
-  class(StressBasePointer), intent(out) :: this
-  type(String),             intent(in)  :: input(:)
-  
-  type(String), allocatable :: line(:)
-  
-  type(String) :: representation
-  
-  integer :: i
-  
-  select type(this); type is(StressBasePointer)
-    line = split_line(input(1))
-    representation = line(3)
-    
-    ! Identify which type corresponds to the representation.
-    i = first([(                                                       &
-       & TYPES_StressBase(i)%stress_%representation()==representation, &
-       & i=1,                                                          &
-       & size(TYPES_StressBase)                                        )])
-    
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_StressBase(i)%stress_%read(input(2:))
-    this = StressBasePointer(TYPES_StressBase(i))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_StressBasePointer(this) result(output)
-  implicit none
-  
-  class(StressBasePointer), intent(in) :: this
-  type(String), allocatable            :: output(:)
-  
-  select type(this); type is(StressBasePointer)
-    output = [ 'Stress representation: '//this%representation_, &
-             & str(this%stress_)                                ]
-  end select
-end function
-
-function new_StressBasePointer_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(StressBasePointer)  :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_StressBasePointer_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(StressBasePointer)       :: this
-  
-  this = StressBasePointer(str(input))
-end function
-
-! ----------------------------------------------------------------------
-! Concrete methods of abstract classes.
-! ----------------------------------------------------------------------
-! SubspaceBasis methods.
-impure elemental subroutine process_subspace_potential_SubspaceBasis(this, &
-   & potential,states,subspace,anharmonic_data)
-  implicit none
-  
-  class(SubspaceBasis),     intent(in)            :: this
-  class(PotentialBase),     intent(inout)         :: potential
-  class(BasisStates),       intent(inout), target :: states
-  type(DegenerateSubspace), intent(in)            :: subspace
-  type(AnharmonicData),     intent(in)            :: anharmonic_data
-  
-  ! This does nothing by default.
-end subroutine
-
-impure elemental subroutine process_subspace_stress_SubspaceBasis(this,stress, &
-   & states,subspace,anharmonic_data)
-  implicit none
-  
-  class(SubspaceBasis),     intent(in)            :: this
-  class(stressBase),        intent(inout)         :: stress
-  class(BasisStates),       intent(inout), target :: states
-  type(DegenerateSubspace), intent(in)            :: subspace
-  type(AnharmonicData),     intent(in)            :: anharmonic_data
-  
-  ! This does nothing by default.
-end subroutine
-
-function select_symmetries_SubspaceBasis(this,symmetries,anharmonic_data) &
-   & result(output) 
-  implicit none
-  
-  class(SubspaceBasis),     intent(in)  :: this
-  type(DegenerateSymmetry), intent(in)  :: symmetries(:)
-  type(AnharmonicData),     intent(in)  :: anharmonic_data
-  type(DegenerateSymmetry), allocatable :: output(:)
-  
-  ! By default, this just returns the whole list.
-  output = symmetries
-end function
-
-! Concrete PotentialBase methods.
-impure elemental function undisplaced_energy(this) result(output)
-  implicit none
-  
-  class(PotentialBase), intent(in) :: this
-  real(dp)                         :: output
-  
-  type(RealSingleDisplacement) :: zero_displacement(0)
-  
-  output = this%energy(RealModeDisplacement(zero_displacement))
-end function
-
-recursive function potential_energy_SubspaceBraKet_PotentialBase(this,braket, &
-   & anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialBase),  intent(in) :: this
-  class(SubspaceBraKet), intent(in) :: braket
-  type(AnharmonicData),  intent(in) :: anharmonic_data
-  real(dp)                          :: output
-  
-  type(PotentialBasePointer), allocatable :: integrated_potential
-  
-  integrated_potential = PotentialBasePointer(this)
-  call integrated_potential%braket( braket          = braket,         &
-                                  & anharmonic_data = anharmonic_data )
-  output = integrated_potential%undisplaced_energy()
-end function
-
-recursive function potential_energy_BasisState_PotentialBase(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialBase),     intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
-  
-  type(PotentialBasePointer), allocatable :: integrated_potential
-  
-  integrated_potential = PotentialBasePointer(this)
-  call integrated_potential%braket( bra             = bra,            &
-                                  & ket             = ket,            &
-                                  & subspace        = subspace,       &
-                                  & subspace_basis  = subspace_basis, &
-                                  & anharmonic_data = anharmonic_data )
-  output = integrated_potential%undisplaced_energy()
-end function
-
-! StressBase methods.
-impure elemental function undisplaced_stress(this) result(output)
-  implicit none
-  
-  class(StressBase), intent(in) :: this
-  type(RealMatrix)              :: output
-  
-  type(RealSingleDisplacement) :: zero_displacement(0)
-  
-  output = this%stress(RealModeDisplacement(zero_displacement))
-end function
-
-recursive function potential_stress_SubspaceBraKet_StressBase(this,braket, &
-   & anharmonic_data) result(output) 
-  implicit none
-  
-  class(StressBase),     intent(in) :: this
-  class(SubspaceBraKet), intent(in) :: braket
-  type(AnharmonicData),  intent(in) :: anharmonic_data
-  type(RealMatrix)                  :: output
-  
-  type(StressBasePointer), allocatable :: integrated_stress
-  
-  integrated_stress = StressBasePointer(this)
-  call integrated_stress%braket( braket          = braket,         &
-                               & anharmonic_data = anharmonic_data )
-  output = integrated_stress%undisplaced_stress()
-end function
-
-recursive function potential_stress_BasisState_StressBase(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output) 
-  implicit none
-  
-  class(StressBase),        intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  type(RealMatrix)                               :: output
-  
-  type(StressBasePointer), allocatable :: integrated_stress
-  
-  integrated_stress = StressBasePointer(this)
-  call integrated_stress%braket( bra             = bra,            &
-                               & ket             = ket,            &
-                               & subspace        = subspace,       &
-                               & subspace_basis  = subspace_basis, &
-                               & anharmonic_data = anharmonic_data )
-  output = integrated_stress%undisplaced_stress()
-end function
+  interface
+    ! Checks that the pointer has been allocated before it is used.
+    impure elemental module subroutine check_StressBasePointer(this) 
+      class(StressBasePointer), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface
+    ! Type representation.
+    impure elemental module function representation_StressBasePointer() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module subroutine zero_stress_StressBasePointer(this) 
+      class(StressBasePointer), intent(inout) :: this
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine add_constant_StressBasePointer(this, &
+       & input) 
+      class(StressBasePointer), intent(inout) :: this
+      type(RealMatrix),         intent(in)    :: input
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module function stress_RealModeDisplacement_StressBasePointer(this,displacement) result(output) 
+      class(StressBasePointer),       intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      type(RealMatrix)                       :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function stress_ComplexModeDisplacement_StressBasePointer(   this,displacement) result(output) 
+      class(StressBasePointer),          intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      type(ComplexMatrix)                       :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_SubspaceBraKet_StressBasePointer(this,braket,whole_subspace,anharmonic_data) 
+      class(StressBasePointer), intent(inout)        :: this
+      class(SubspaceBraKet),    intent(in)           :: braket
+      logical,                  intent(in), optional :: whole_subspace
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_BasisState_StressBasePointer(this,bra,ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(StressBasePointer), intent(inout)        :: this
+      class(BasisState),        intent(in)           :: bra
+      class(BasisState),        intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      logical,                  intent(in), optional :: whole_subspace
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_BasisStates_StressBasePointer(this,states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(StressBasePointer), intent(inout)        :: this
+      class(BasisStates),       intent(inout)        :: states
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      logical,                  intent(in), optional :: whole_subspace
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module function harmonic_expectation_StressBasePointer(this,frequency,thermal_energy,supercell_size,anharmonic_data) result(output) 
+      class(StressBasePointer), intent(in) :: this
+      real(dp),             intent(in) :: frequency
+      real(dp),             intent(in) :: thermal_energy
+      integer,              intent(in) :: supercell_size
+      type(AnharmonicData), intent(in) :: anharmonic_data
+      type(RealMatrix)                 :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_stress_SubspaceBraKet_StressBasePointer(this,braket,anharmonic_data) result(output) 
+      class(StressBasePointer),  intent(in) :: this
+      class(SubspaceBraKet), intent(in) :: braket
+      type(AnharmonicData),  intent(in) :: anharmonic_data
+      type(RealMatrix)                  :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_stress_BasisState_StressBasePointer(this,bra,ket,subspace,subspace_basis,anharmonic_data) result(output) 
+      class(StressBasePointer),     intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
+      class(BasisState),        intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      type(RealMatrix)                               :: output
+    end function
+  end interface
+  
+  interface
+    ! I/O.
+    module subroutine read_StressBasePointer(this,input) 
+      class(StressBasePointer), intent(out) :: this
+      type(String),             intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    module function write_StressBasePointer(this) result(output) 
+      class(StressBasePointer), intent(in) :: this
+      type(String), allocatable            :: output(:)
+    end function
+  end interface
+  
+  interface StressBasePointer
+    module function new_StressBasePointer_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(StressBasePointer)  :: this
+    end function
+  
+    impure elemental module function new_StressBasePointer_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(StressBasePointer)       :: this
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Concrete methods of abstract classes.
+    ! ----------------------------------------------------------------------
+    ! SubspaceBasis methods.
+    impure elemental module subroutine process_subspace_potential_SubspaceBasis(this,potential,states,subspace,anharmonic_data) 
+      class(SubspaceBasis),     intent(in)            :: this
+      class(PotentialBase),     intent(inout)         :: potential
+      class(BasisStates),       intent(inout), target :: states
+      type(DegenerateSubspace), intent(in)            :: subspace
+      type(AnharmonicData),     intent(in)            :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine process_subspace_stress_SubspaceBasis(this,stress,states,subspace,anharmonic_data) 
+      class(SubspaceBasis),     intent(in)            :: this
+      class(stressBase),        intent(inout)         :: stress
+      class(BasisStates),       intent(inout), target :: states
+      type(DegenerateSubspace), intent(in)            :: subspace
+      type(AnharmonicData),     intent(in)            :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    module function select_symmetries_SubspaceBasis(this,symmetries, &
+       & anharmonic_data) result(output) 
+      class(SubspaceBasis),     intent(in)  :: this
+      type(DegenerateSymmetry), intent(in)  :: symmetries(:)
+      type(AnharmonicData),     intent(in)  :: anharmonic_data
+      type(DegenerateSymmetry), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    ! Concrete PotentialBase methods.
+    impure elemental module function undisplaced_energy(this) result(output) 
+      class(PotentialBase), intent(in) :: this
+      real(dp)                         :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_SubspaceBraKet_PotentialBase(this,braket,anharmonic_data) result(output) 
+      class(PotentialBase),  intent(in) :: this
+      class(SubspaceBraKet), intent(in) :: braket
+      type(AnharmonicData),  intent(in) :: anharmonic_data
+      real(dp)                          :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_BasisState_PotentialBase(this,bra,ket,subspace,subspace_basis,anharmonic_data) result(output) 
+      class(PotentialBase),     intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
+      class(BasisState),        intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      real(dp)                                       :: output
+    end function
+  end interface
+  
+  interface
+    ! StressBase methods.
+    impure elemental module function undisplaced_stress(this) result(output) 
+      class(StressBase), intent(in) :: this
+      type(RealMatrix)              :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_stress_SubspaceBraKet_StressBase(this,braket,anharmonic_data) result(output) 
+      class(StressBase),     intent(in) :: this
+      class(SubspaceBraKet), intent(in) :: braket
+      type(AnharmonicData),  intent(in) :: anharmonic_data
+      type(RealMatrix)                  :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_stress_BasisState_StressBase(this, &
+       & bra,ket,subspace,subspace_basis,anharmonic_data) result(output) 
+      class(StressBase),        intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
+      class(BasisState),        intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      type(RealMatrix)                               :: output
+    end function
+  end interface
 end module

@@ -13,6 +13,7 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/mod/)
 #    cmake /path/to/src -DCMAKE_Fortran_COMPILER:PATH=nagfor
 # N.B. this will require a compatible C compiler, set using the flag -DCMAKE_C_COMPILER in the same manner.
 
+# Set compiler flags.
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   # Disabled warnings:
   #    maybe-uninitialized: erroneously triggers.
@@ -50,28 +51,10 @@ set_target_properties(caesar PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 # Link against subsidiary modules.
-add_subdirectory(${CMAKE_SOURCE_DIR}/utils utils/)
-target_link_libraries(caesar utils)
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/common common/)
-target_link_libraries(caesar common)
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/dft dft/)
-target_link_libraries(caesar dft)
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/harmonic harmonic/)
-target_link_libraries(caesar harmonic)
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/anharmonic anharmonic/)
-target_link_libraries(caesar anharmonic)
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/testing ${CMAKE_BINARY_DIR}/testing/)
-target_link_libraries(caesar testing)
-
-# Compile the old code to bin/old/ for testing purposes.
-#if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-#  add_subdirectory(${CMAKE_SOURCE_DIR}/old ${CMAKE_BINARY_DIR}/old/)
-#endif()
+foreach(dir IN ITEMS utils common dft harmonic anharmonic testing)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/${dir} ${dir}/)
+  target_link_libraries(caesar ${dir}_submodules)
+endforeach()
 
 # Copy the python scripts to bin/python/.
 add_subdirectory(${CMAKE_SOURCE_DIR}/python ${CMAKE_BINARY_DIR}/python/)

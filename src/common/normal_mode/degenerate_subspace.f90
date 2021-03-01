@@ -47,228 +47,106 @@ module caesar_degenerate_subspace_module
   end type
   
   interface DegenerateSubspace
-    module procedure new_DegenerateSubspace
-    module procedure new_DegenerateSubspace_Strings
-    module procedure new_DegenerateSubspace_StringArray
+    ! ----------------------------------------------------------------------
+    ! Basic functionality: constructor and size() module function.
+    ! ----------------------------------------------------------------------
+    module function new_DegenerateSubspace(id,frequency,mode_ids,paired_ids) &
+       & result(this) 
+      integer,  intent(in)     :: id
+      real(dp), intent(in)     :: frequency
+      integer,  intent(in)     :: mode_ids(:)
+      integer,  intent(in)     :: paired_ids(:)
+      type(DegenerateSubspace) :: this
+    end function
   end interface
   
   interface size
-    module procedure size_DegenerateSubspace
+    module function size_DegenerateSubspace(input) result(output) 
+      type(DegenerateSubspace), intent(in) :: input
+      integer                              :: output
+    end function
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! Basic functionality: constructor and size() function.
-! ----------------------------------------------------------------------
-function new_DegenerateSubspace(id,frequency,mode_ids,paired_ids) result(this)
-  implicit none
   
-  integer,  intent(in)     :: id
-  real(dp), intent(in)     :: frequency
-  integer,  intent(in)     :: mode_ids(:)
-  integer,  intent(in)     :: paired_ids(:)
-  type(DegenerateSubspace) :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! Construct the degenerate subspaces.
+    ! ----------------------------------------------------------------------
+    module function process_degeneracies(modes) result(output) 
+      type(ComplexMode), intent(in)         :: modes(:)
+      type(DegenerateSubspace), allocatable :: output(:)
+    end function
+  end interface
   
-  if (size(mode_ids)/=size(paired_ids)) then
-    call print_line(CODE_ERROR//': mode IDs and paired IDs do not match.')
-    call err()
-  endif
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the degenerate modes.
+    ! ----------------------------------------------------------------------
+    module function modes_DegenerateSubspace_ComplexModes(this,modes) &
+       & result(output) 
+      class(DegenerateSubspace), intent(in) :: this
+      type(ComplexMode),         intent(in) :: modes(:)
+      type(ComplexMode), allocatable        :: output(:)
+    end function
+  end interface
   
-  this%id         = id
-  this%frequency  = frequency
-  this%mode_ids   = mode_ids
-  this%paired_ids = paired_ids
-end function
-
-function size_DegenerateSubspace(input) result(output)
-  implicit none
+  interface
+    module function modes_DegenerateSubspace_RealModes(this,modes) &
+       & result(output) 
+      class(DegenerateSubspace), intent(in) :: this
+      type(RealMode),            intent(in) :: modes(:)
+      type(RealMode), allocatable           :: output(:)
+    end function
+  end interface
   
-  type(DegenerateSubspace), intent(in) :: input
-  integer                              :: output
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the q-points corresponding to the degenerate modes.
+    ! ----------------------------------------------------------------------
+    module function qpoints_DegenerateSubspace_ComplexModes(this,modes, &
+       & qpoints) result(output) 
+      class(DegenerateSubspace), intent(in) :: this
+      type(ComplexMode),         intent(in) :: modes(:)
+      type(QpointData),          intent(in) :: qpoints(:)
+      type(QpointData), allocatable         :: output(:)
+    end function
+  end interface
   
-  output = size(input%mode_ids)
-end function
-
-! ----------------------------------------------------------------------
-! Construct the degenerate subspaces.
-! ----------------------------------------------------------------------
-function process_degeneracies(modes) result(output)
-  implicit none
+  interface
+    module function qpoints_DegenerateSubspace_RealModes(this,modes,qpoints) &
+       & result(output) 
+      class(DegenerateSubspace), intent(in) :: this
+      type(RealMode),            intent(in) :: modes(:)
+      type(QpointData),          intent(in) :: qpoints(:)
+      type(QpointData), allocatable         :: output(:)
+    end function
+  end interface
   
-  type(ComplexMode), intent(in)         :: modes(:)
-  type(DegenerateSubspace), allocatable :: output(:)
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_DegenerateSubspace(this,input) 
+      class(DegenerateSubspace), intent(out) :: this
+      type(String),              intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  integer,           allocatable :: subspace_ids(:)
-  type(ComplexMode), allocatable :: subspace_modes(:)
+  interface
+    module function write_DegenerateSubspace(this) result(output) 
+      class(DegenerateSubspace), intent(in) :: this
+      type(String), allocatable             :: output(:)
+    end function
+  end interface
   
-  integer :: i,ialloc
+  interface DegenerateSubspace
+    module function new_DegenerateSubspace_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(DegenerateSubspace) :: this
+    end function
   
-  ! Make a list of degeneracy ids.
-  subspace_ids = modes%subspace_id
-  ! Remove the purely translational modes.
-  subspace_ids = subspace_ids(filter(.not.modes%translational_mode))
-  ! De-duplicate the list, so that each id appears exactly once.
-  subspace_ids = subspace_ids(set(subspace_ids))
-  
-  ! Generate subspaces.
-  allocate(output(size(subspace_ids)), stat=ialloc); call err(ialloc)
-  do i=1,size(output)
-    subspace_modes = modes(filter(modes%subspace_id==subspace_ids(i)))
-    
-    output(i) = DegenerateSubspace( id         = subspace_ids(i),             &
-                                  & frequency  = subspace_modes(1)%frequency, &
-                                  & mode_ids   = subspace_modes%id,           &
-                                  & paired_ids = subspace_modes%paired_id     )
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Returns the degenerate modes.
-! ----------------------------------------------------------------------
-function modes_DegenerateSubspace_ComplexModes(this,modes) result(output)
-  implicit none
-  
-  class(DegenerateSubspace), intent(in) :: this
-  type(ComplexMode),         intent(in) :: modes(:)
-  type(ComplexMode), allocatable        :: output(:)
-  
-  integer :: i,j,ialloc
-  
-  !output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
-  ! WORKAROUND: To avoid a memory leak in ifort 19.1.0.166
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    j = first(modes%id==this%mode_ids(i))
-    output(i) = modes(j)
-  enddo
-end function
-
-function modes_DegenerateSubspace_RealModes(this,modes) result(output)
-  implicit none
-  
-  class(DegenerateSubspace), intent(in) :: this
-  type(RealMode),            intent(in) :: modes(:)
-  type(RealMode), allocatable           :: output(:)
-  
-  integer :: i,j,ialloc
-  
-  !output = [( modes(first(modes%id==this%mode_ids(i))), i=1, size(this) )]
-  ! WORKAROUND: To avoid a memory leak in ifort 19.1.0.166
-  allocate(output(size(this)), stat=ialloc); call err(ialloc)
-  do i=1,size(this)
-    j = first(modes%id==this%mode_ids(i))
-    output(i) = modes(j)
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Returns the q-points corresponding to the degenerate modes.
-! ----------------------------------------------------------------------
-function qpoints_DegenerateSubspace_ComplexModes(this,modes,qpoints) &
-   & result(output)
-  implicit none
-  
-  class(DegenerateSubspace), intent(in) :: this
-  type(ComplexMode),         intent(in) :: modes(:)
-  type(QpointData),          intent(in) :: qpoints(:)
-  type(QpointData), allocatable         :: output(:)
-  
-  type(ComplexMode), allocatable :: subspace_modes(:)
-  
-  integer :: i
-  
-  subspace_modes = this%modes(modes)
-  output = [( qpoints(first(qpoints%id==subspace_modes(i)%qpoint_id)), &
-            & i=1,                                                     &
-            & size(subspace_modes)                                     )]
-end function
-
-function qpoints_DegenerateSubspace_RealModes(this,modes,qpoints) &
-   & result(output)
-  implicit none
-  
-  class(DegenerateSubspace), intent(in) :: this
-  type(RealMode),            intent(in) :: modes(:)
-  type(QpointData),          intent(in) :: qpoints(:)
-  type(QpointData), allocatable         :: output(:)
-  
-  type(RealMode), allocatable :: subspace_modes(:)
-  
-  integer :: i
-  
-  subspace_modes = this%modes(modes)
-  output = [( qpoints(first(qpoints%id==subspace_modes(i)%qpoint_id_plus)), &
-            & i=1,                                                          &
-            & size(subspace_modes)                                          )]
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_DegenerateSubspace(this,input)
-  implicit none
-  
-  class(DegenerateSubspace), intent(out) :: this
-  type(String),              intent(in)  :: input(:)
-  
-  integer              :: id
-  real(dp)             :: frequency
-  integer, allocatable :: mode_ids(:)
-  integer, allocatable :: paired_ids(:)
-  
-  type(String), allocatable :: line(:)
-  
-  select type(this); type is(DegenerateSubspace)
-    line = split_line(input(1))
-    id = int(line(5))
-    
-    line = split_line(input(2))
-    frequency = dble(line(5))
-    
-    line = split_line(input(3))
-    mode_ids = int(line(5:))
-    
-    line = split_line(input(4))
-    paired_ids = int(line(5:))
-    
-    this = DegenerateSubspace(id, frequency, mode_ids, paired_ids)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_DegenerateSubspace(this) result(output)
-  implicit none
-  
-  class(DegenerateSubspace), intent(in) :: this
-  type(String), allocatable             :: output(:)
-  
-  select type(this); type is(DegenerateSubspace)
-    output = [ 'Degenerate subspace ID : '//this%id,        &
-             & 'Frequency of modes     : '//this%frequency, &
-             & 'Degenerate mode IDs    : '//this%mode_ids,  &
-             & 'Paired mode IDS        : '//this%paired_ids ]
-  class default
-    call err()
-  end select
-end function
-
-function new_DegenerateSubspace_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(DegenerateSubspace) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_DegenerateSubspace_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(DegenerateSubspace)      :: this
-  
-  this = DegenerateSubspace(str(input))
-end function
+    impure elemental module function new_DegenerateSubspace_StringArray(input) result(this) 
+      type(StringArray), intent(in) :: input
+      type(DegenerateSubspace)      :: this
+    end function
+  end interface
 end module

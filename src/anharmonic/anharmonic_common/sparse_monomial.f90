@@ -18,59 +18,35 @@ module caesar_sparse_monomial_module
   end type
   
   interface SparseMonomial
-    module procedure new_SparseMonomial
-    module procedure new_SparseMonomial_String
+    ! Constructor.
+    module function new_SparseMonomial(modes) result(this) 
+      type(ComplexUnivariate), intent(in) :: modes(:)
+      type(SparseMonomial)                :: this
+    end function
   end interface
-contains
-
-! Constructor.
-function new_SparseMonomial(modes) result(this)
-  implicit none
   
-  type(ComplexUnivariate), intent(in) :: modes(:)
-  type(SparseMonomial)                :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_SparseMonomial(this,input) 
+      class(SparseMonomial), intent(out) :: this
+      type(String),          intent(in)  :: input
+    end subroutine
+  end interface
   
-  this%modes = modes
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_SparseMonomial(this,input)
-  implicit none
+  interface
+    module function write_SparseMonomial(this) result(output) 
+      class(SparseMonomial), intent(in) :: this
+      type(String)                      :: output
+    end function
+  end interface
   
-  class(SparseMonomial), intent(out) :: this
-  type(String),          intent(in)  :: input
-  
-  type(ComplexUnivariate), allocatable :: modes(:)
-  
-  select type(this); type is(SparseMonomial)
-    modes = ComplexUnivariate(tokens(input))
-    this = SparseMonomial(modes)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_SparseMonomial(this) result(output)
-  implicit none
-  
-  class(SparseMonomial), intent(in) :: this
-  type(String)                      :: output
-  
-  select type(this); type is(SparseMonomial)
-    output = join(str(this%modes))
-  class default
-    call err()
-  end select
-end function
-
-impure elemental function new_SparseMonomial_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(SparseMonomial)     :: this
-  
-  call this%read(input)
-end function
+  interface SparseMonomial
+    impure elemental module function new_SparseMonomial_String(input) &
+       & result(this) 
+      type(String), intent(in) :: input
+      type(SparseMonomial)     :: this
+    end function
+  end interface
 end module

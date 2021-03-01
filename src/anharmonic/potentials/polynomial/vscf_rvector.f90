@@ -18,61 +18,34 @@ module caesar_vscf_rvector_module
   end type
   
   interface VscfRvector
-    module procedure new_VscfRvector
-    module procedure new_VscfRvector_String
+    ! Constructor.
+    module function new_VscfRvector(subspace_id,rvector) result(this) 
+      integer,         intent(in) :: subspace_id
+      type(IntVector), intent(in) :: rvector
+      type(VscfRvector)           :: this
+    end function
   end interface
-contains
-
-! Constructor.
-function new_VscfRvector(subspace_id,rvector) result(this)
-  implicit none
   
-  integer,         intent(in) :: subspace_id
-  type(IntVector), intent(in) :: rvector
-  type(VscfRvector)           :: this
+  interface
+    ! I/O.
+    module subroutine read_VscfRvector(this,input) 
+      class(VscfRvector), intent(out) :: this
+      type(String),       intent(in)  :: input
+    end subroutine
+  end interface
   
-  this%subspace_id = subspace_id
-  this%rvector     = rvector
-end function
-
-! I/O.
-subroutine read_VscfRvector(this,input)
-  implicit none
+  interface
+    module function write_VscfRvector(this) result(output) 
+      class(VscfRvector), intent(in) :: this
+      type(String)                   :: output
+    end function
+  end interface
   
-  class(VscfRvector), intent(out) :: this
-  type(String),       intent(in)  :: input
-  
-  integer         :: subspace_id
-  type(IntVector) :: rvector
-  
-  type(String), allocatable :: line(:)
-  
-  select type(this); type is(VscfRvector)
-    line = split_line(input)
-    subspace_id = int(line(2))
-    rvector = vec(int(line(4:6)))
-    
-    this = VscfRvector(subspace_id,rvector)
-  end select
-end subroutine
-
-function write_VscfRvector(this) result(output)
-  implicit none
-  
-  class(VscfRvector), intent(in) :: this
-  type(String)                   :: output
-  
-  select type(this); type is(VscfRvector)
-    output = 'Subspace: '//this%subspace_id//' R-vector: '//this%rvector
-  end select
-end function
-
-impure elemental function new_VscfRvector_String(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input
-  type(VscfRvector)        :: this
-  
-  call this%read(input)
-end function
+  interface VscfRvector
+    impure elemental module function new_VscfRvector_String(input) &
+       & result(this) 
+      type(String), intent(in) :: input
+      type(VscfRvector)        :: this
+    end function
+  end interface
 end module

@@ -28,236 +28,136 @@ module caesar_mass_weighted_force_module
   end type
   
   interface MassWeightedForce
-    module procedure new_MassWeightedForce
-    module procedure new_MassWeightedForce_zero
-    module procedure new_MassWeightedForce_CartesianForce
-    module procedure new_MassWeightedForce_Strings
-    module procedure new_MassWeightedForce_StringArray
+    ! ----------------------------------------------------------------------
+    ! Constructor and size() module function.
+    ! ----------------------------------------------------------------------
+    module function new_MassWeightedForce(forces) result(this) 
+      type(RealVector), intent(in) :: forces(:)
+      type(MassWeightedForce)      :: this
+    end function
   end interface
   
   interface size
-    module procedure size_MassWeightedForce
+    module function size_MassWeightedForce(this) result(output) 
+      type(MassWeightedForce), intent(in) :: this
+      integer                             :: output
+    end function
+  end interface
+  
+  interface MassWeightedForce
+    ! ----------------------------------------------------------------------
+    ! Construct a zero force.
+    ! ----------------------------------------------------------------------
+    impure elemental module function new_MassWeightedForce_zero(structure) &
+       & result(this) 
+      type(StructureData), intent(in) :: structure
+      type(MassWeightedForce)         :: this
+    end function
+  
+    ! ----------------------------------------------------------------------
+    ! Conversion to and from non-mass-weighted co-ordinates.
+    ! ----------------------------------------------------------------------
+    module function new_MassWeightedForce_CartesianForce(input,structure) &
+       & result(output) 
+      type(CartesianForce), intent(in) :: input
+      type(StructureData),  intent(in) :: structure
+      type(MassWeightedForce)          :: output
+    end function
   end interface
   
   interface CartesianForce
-    module procedure new_CartesianForce_MassWeightedForce
+    module function new_CartesianForce_MassWeightedForce(input,structure) &
+       & result(output) 
+      type(MassWeightedForce), intent(in) :: input
+      type(StructureData),     intent(in) :: structure
+      type(CartesianForce)                :: output
+    end function
   end interface
   
   interface operator(*)
-    module procedure multiply_real_MassWeightedForce
-    module procedure multiply_MassWeightedForce_real
+    ! ----------------------------------------------------------------------
+    ! Algebra.
+    ! ----------------------------------------------------------------------
+    impure elemental module function multiply_real_MassWeightedForce(this, &
+       & that) result(output) 
+      real(dp),                intent(in) :: this
+      type(MassWeightedForce), intent(in) :: that
+      type(MassWeightedForce)             :: output
+    end function
+  
+    impure elemental module function multiply_MassWeightedForce_real(this, &
+       & that) result(output) 
+      type(MassWeightedForce), intent(in) :: this
+      real(dp),                intent(in) :: that
+      type(MassWeightedForce)             :: output
+    end function
   end interface
   
   interface operator(/)
-    module procedure divide_MassWeightedForce_real
+    impure elemental module function divide_MassWeightedForce_real(this,that) &
+       & result(output) 
+      type(MassWeightedForce), intent(in) :: this
+      real(dp),                intent(in) :: that
+      type(MassWeightedForce)             :: output
+    end function
   end interface
   
   interface operator(+)
-    module procedure add_MassWeightedForce_MassWeightedForce
+    impure elemental module function add_MassWeightedForce_MassWeightedForce(this,that) result(output) 
+      type(MassWeightedForce), intent(in) :: this
+      type(MassWeightedForce), intent(in) :: that
+      type(MassWeightedForce)             :: output
+    end function
   end interface
   
   interface sum
-    module procedure sum_MassWeightedForces
+    module function sum_MassWeightedForces(input) result(output) 
+      type(MassWeightedForce), intent(in) :: input(:)
+      type(MassWeightedForce)             :: output
+    end function
   end interface
   
   interface operator(-)
-    module procedure negative_MassWeightedForce
-    module procedure subtract_MassWeightedForce_MassWeightedForce
+    impure elemental module function negative_MassWeightedForce(this) &
+       & result(output) 
+      type(MassWeightedForce), intent(in) :: this
+      type(MassWeightedForce)             :: output
+    end function
+  
+    impure elemental module function subtract_MassWeightedForce_MassWeightedForce(this,that) result(output) 
+      type(MassWeightedForce), intent(in) :: this
+      type(MassWeightedForce), intent(in) :: that
+      type(MassWeightedForce)             :: output
+    end function
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! Constructor and size() function.
-! ----------------------------------------------------------------------
-function new_MassWeightedForce(forces) result(this)
-  implicit none
   
-  type(RealVector), intent(in) :: forces(:)
-  type(MassWeightedForce)      :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_MassWeightedForce(this,input) 
+      class(MassWeightedForce), intent(out) :: this
+      type(String),             intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  this%vectors = forces
-end function
-
-function size_MassWeightedForce(this) result(output)
-  implicit none
+  interface
+    module function write_MassWeightedForce(this) result(output) 
+      class(MassWeightedForce), intent(in) :: this
+      type(String), allocatable            :: output(:)
+    end function
+  end interface
   
-  type(MassWeightedForce), intent(in) :: this
-  integer                             :: output
+  interface MassWeightedForce
+    module function new_MassWeightedForce_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(MassWeightedForce)  :: this
+    end function
   
-  output = size(this%vectors)
-end function
-
-! ----------------------------------------------------------------------
-! Construct a zero force.
-! ----------------------------------------------------------------------
-impure elemental function new_MassWeightedForce_zero(structure) &
-   & result(this)
-  implicit none
-  
-  type(StructureData), intent(in) :: structure
-  type(MassWeightedForce)         :: this
-  
-  integer :: i
-  
-  this%vectors = [(dblevec(zeroes(3)), i=1, structure%no_atoms)]
-end function
-
-! ----------------------------------------------------------------------
-! Conversion to and from non-mass-weighted co-ordinates.
-! ----------------------------------------------------------------------
-function new_MassWeightedForce_CartesianForce(input,structure) &
-   & result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: input
-  type(StructureData),  intent(in) :: structure
-  type(MassWeightedForce)          :: output
-  
-  output = MassWeightedForce(input%vectors/sqrt(structure%atoms%mass()))
-end function
-
-function new_CartesianForce_MassWeightedForce(input,structure) &
-   & result(output)
-  implicit none
-  
-  type(MassWeightedForce), intent(in) :: input
-  type(StructureData),     intent(in) :: structure
-  type(CartesianForce)                :: output
-  
-  output = CartesianForce(input%vectors*sqrt(structure%atoms%mass()))
-end function
-
-! ----------------------------------------------------------------------
-! Algebra.
-! ----------------------------------------------------------------------
-impure elemental function multiply_real_MassWeightedForce(this,that) &
-   & result(output)
-  implicit none
-  
-  real(dp),                intent(in) :: this
-  type(MassWeightedForce), intent(in) :: that
-  type(MassWeightedForce)             :: output
-  
-  output = MassWeightedForce(this * that%vectors)
-end function
-
-impure elemental function multiply_MassWeightedForce_real(this,that) &
-   & result(output)
-  implicit none
-  
-  type(MassWeightedForce), intent(in) :: this
-  real(dp),                intent(in) :: that
-  type(MassWeightedForce)             :: output
-  
-  output = MassWeightedForce(this%vectors * that)
-end function
-
-impure elemental function divide_MassWeightedForce_real(this,that) &
-   & result(output)
-  implicit none
-  
-  type(MassWeightedForce), intent(in) :: this
-  real(dp),                intent(in) :: that
-  type(MassWeightedForce)             :: output
-  
-  output = MassWeightedForce(this%vectors / that)
-end function
-
-impure elemental function add_MassWeightedForce_MassWeightedForce(this,that) &
-   & result(output)
-  implicit none
-  
-  type(MassWeightedForce), intent(in) :: this
-  type(MassWeightedForce), intent(in) :: that
-  type(MassWeightedForce)             :: output
-  
-  output = MassWeightedForce(this%vectors + that%vectors)
-end function
-
-function sum_MassWeightedForces(input) result(output)
-  implicit none
-  
-  type(MassWeightedForce), intent(in) :: input(:)
-  type(MassWeightedForce)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(ERROR//': Trying to sum an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-impure elemental function negative_MassWeightedForce(this) result(output)
-  implicit none
-  
-  type(MassWeightedForce), intent(in) :: this
-  type(MassWeightedForce)             :: output
-  
-  output = MassWeightedForce(-this%vectors)
-end function
-
-impure elemental function subtract_MassWeightedForce_MassWeightedForce(this, &
-   & that) result(output)
-  implicit none
-  
-  type(MassWeightedForce), intent(in) :: this
-  type(MassWeightedForce), intent(in) :: that
-  type(MassWeightedForce)             :: output
-  
-  output = MassWeightedForce(this%vectors - that%vectors)
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_MassWeightedForce(this,input)
-  implicit none
-  
-  class(MassWeightedForce), intent(out) :: this
-  type(String),             intent(in)  :: input(:)
-  
-  select type(this); type is(MassWeightedForce)
-    this = MassWeightedForce(RealVector(input))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_MassWeightedForce(this) result(output)
-  implicit none
-  
-  class(MassWeightedForce), intent(in) :: this
-  type(String), allocatable            :: output(:)
-  
-  select type(this); type is(MassWeightedForce)
-    output = str(this%vectors)
-  class default
-    call err()
-  end select
-end function
-
-function new_MassWeightedForce_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(MassWeightedForce)  :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_MassWeightedForce_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(MassWeightedForce)       :: this
-  
-  this = MassWeightedForce(str(input))
-end function
+    impure elemental module function new_MassWeightedForce_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(MassWeightedForce)       :: this
+    end function
+  end interface
 end module

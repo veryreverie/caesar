@@ -1,0 +1,7 @@
+module integrated_test
+  use funit
+
+  use caesar_integration_module
+  implicit none
+contains
+end module

@@ -67,10 +67,6 @@ module caesar_subspace_state_module
     procedure, public :: write => write_SubspaceStatePointer
   end type
   
-  ! An array of all types which extend SubspaceState.
-  ! This array will be filled in by startup routines.
-  type(SubspaceStatePointer), allocatable :: TYPES_SubspaceState(:)
-  
   ! Abstract interface for SubspaceState functionality.
   abstract interface
     impure elemental function representation_SubspaceState() result(output)
@@ -119,206 +115,118 @@ module caesar_subspace_state_module
     end function
   end interface
   
-  interface SubspaceStatePointer
-    module procedure new_SubspaceStatePointer
-    module procedure new_SubspaceStatePointer_Strings
-    module procedure new_SubspaceStatePointer_StringArray
+  interface
+    ! Startup method.
+    module subroutine startup_SubspaceState(this) 
+      class(SubspaceState), intent(in) :: this
+    end subroutine
   end interface
-contains
-
-! Startup method.
-subroutine startup_SubspaceState(this)
-  implicit none
   
-  class(SubspaceState), intent(in) :: this
+  interface SubspaceStatePointer
+    ! --------------------------------------------------
+    ! SubspaceStatePointer methods.
+    ! --------------------------------------------------
+    ! Construct a SubspaceStatePointer from any type which extends SubspaceState.
+    impure elemental module function new_SubspaceStatePointer(state) &
+       & result(this) 
+      class(SubspaceState), intent(in) :: state
+      type(SubspaceStatePointer)       :: this
+    end function
+  end interface
   
-  integer :: i
+  interface
+    ! Checks that the pointer has been allocated before it is used.
+    module subroutine check_SubspaceStatePointer(this) 
+      class(SubspaceStatePointer), intent(in) :: this
+    end subroutine
+  end interface
   
-  if (.not. allocated(TYPES_SubspaceState)) then
-    TYPES_SubspaceState = [SubspaceStatePointer(this)]
-  elseif (.not. any([(                                    &
-     &    this%representation()                           &
-     & == TYPES_SubspaceState(i)%state_%representation(), &
-     & i=1,                                               &
-     & size(TYPES_SubspaceState)                          )])) then
-    TYPES_SubspaceState = [TYPES_SubspaceState, SubspaceStatePointer(this)]
-  endif
-end subroutine
-
-! --------------------------------------------------
-! SubspaceStatePointer methods.
-! --------------------------------------------------
-! Construct a SubspaceStatePointer from any type which extends SubspaceState.
-impure elemental function new_SubspaceStatePointer(state) result(this)
-  implicit none
+  interface
+    ! Type representation.
+    impure elemental module function representation_SubspaceStatePointer() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
   
-  class(SubspaceState), intent(in) :: state
-  type(SubspaceStatePointer)       :: this
+  interface
+    ! SubspaceState methods.
+    module function state_SubspaceStatePointer(this) result(output) 
+      class(SubspaceStatePointer), intent(in) :: this
+      class(SubspaceState), allocatable       :: output
+    end function
+  end interface
   
-  integer :: ialloc
+  interface
+    module function state_pointer_SubspaceStatePointer(this) result(output) 
+      class(SubspaceStatePointer), intent(in), target :: this
+      class(SubspaceState), pointer                   :: output
+    end function
+  end interface
   
-  select type(state); type is(SubspaceStatePointer)
-    this = state
-  class default
-    this%representation_ = state%representation()
-    allocate( this%state_, source=state, &
-            & stat=ialloc); call err(ialloc)
-  end select
-end function
-
-! Checks that the pointer has been allocated before it is used.
-subroutine check_SubspaceStatePointer(this)
-  implicit none
+  interface
+    ! --------------------------------------------------
+    ! SubspaceStatePointer wrappers for SubspaceState methods.
+    ! --------------------------------------------------
+    module function mode_ids_SubspaceStatePointer(this) result(output) 
+      class(SubspaceStatePointer), intent(in) :: this
+      integer, allocatable                    :: output(:)
+    end function
+  end interface
   
-  class(SubspaceStatePointer), intent(in) :: this
+  interface
+    module function paired_mode_ids_SubspaceStatePointer(this) result(output) 
+      class(SubspaceStatePointer), intent(in) :: this
+      integer, allocatable                    :: output(:)
+    end function
+  end interface
   
-  if (.not. allocated(this%state_)) then
-    call print_line(CODE_ERROR//': Trying to use a SubspaceStatePointer &
-       &before it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Type representation.
-impure elemental function representation_SubspaceStatePointer() &
-   & result(output)
-  implicit none
+  interface
+    impure elemental module function occupation_SubspaceStatePointer(this) &
+       & result(output) 
+      class(SubspaceStatePointer), intent(in) :: this
+      integer                                 :: output
+    end function
+  end interface
   
-  type(String) :: output
+  interface
+    module function wavevector_SubspaceStatePointer(this,modes,qpoints) &
+       & result(output) 
+      class(SubspaceStatePointer), intent(in) :: this
+      type(ComplexMode),           intent(in) :: modes(:)
+      type(QpointData),            intent(in) :: qpoints(:)
+      type(FractionVector)                    :: output
+    end function
+  end interface
   
-  output = 'pointer'
-end function
-
-! SubspaceState methods.
-function state_SubspaceStatePointer(this) result(output)
-  implicit none
+  interface
+    ! --------------------------------------------------
+    ! SubspaceStatePointer I/O.
+    ! --------------------------------------------------
+    module subroutine read_SubspaceStatePointer(this,input) 
+      class(SubspaceStatePointer), intent(out) :: this
+      type(String),                intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  class(SubspaceStatePointer), intent(in) :: this
-  class(SubspaceState), allocatable       :: output
+  interface
+    module function write_SubspaceStatePointer(this) result(output) 
+      class(SubspaceStatePointer), intent(in) :: this
+      type(String), allocatable               :: output(:)
+    end function
+  end interface
   
-  output = this%state_
-end function
-
-function state_pointer_SubspaceStatePointer(this) result(output)
-  implicit none
+  interface SubspaceStatePointer
+    module function new_SubspaceStatePointer_Strings(input) result(this) 
+      type(String), intent(in)   :: input(:)
+      type(SubspaceStatePointer) :: this
+    end function
+  end interface
   
-  class(SubspaceStatePointer), intent(in), target :: this
-  class(SubspaceState), pointer                   :: output
-  
-  output => this%state_
-end function
-
-! --------------------------------------------------
-! SubspaceStatePointer wrappers for SubspaceState methods.
-! --------------------------------------------------
-function mode_ids_SubspaceStatePointer(this) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in) :: this
-  integer, allocatable                    :: output(:)
-  
-  call this%check()
-  
-  output = this%state_%mode_ids()
-end function
-
-function paired_mode_ids_SubspaceStatePointer(this) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in) :: this
-  integer, allocatable                    :: output(:)
-  
-  call this%check()
-  
-  output = this%state_%paired_mode_ids()
-end function
-
-impure elemental function occupation_SubspaceStatePointer(this) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in) :: this
-  integer                                 :: output
-  
-  call this%check()
-  
-  output = this%state_%occupation()
-end function
-
-function wavevector_SubspaceStatePointer(this,modes,qpoints) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in) :: this
-  type(ComplexMode),           intent(in) :: modes(:)
-  type(QpointData),            intent(in) :: qpoints(:)
-  type(FractionVector)                    :: output
-  
-  call this%check()
-  
-  output = this%state_%wavevector(modes,qpoints)
-end function
-
-! --------------------------------------------------
-! SubspaceStatePointer I/O.
-! --------------------------------------------------
-subroutine read_SubspaceStatePointer(this,input)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(out) :: this
-  type(String),                intent(in)  :: input(:)
-  
-  type(String), allocatable :: line(:)
-  
-  type(String) :: representation
-  
-  integer :: i
-  
-  select type(this); type is(SubspaceStatePointer)
-    line = split_line(input(1))
-    representation = line(3)
-    
-    ! Identify which type corresponds to the representation.
-    i = first([(                                                         &
-       & TYPES_SubspaceState(i)%state_%representation()==representation, &
-       & i=1,                                                            &
-       & size(TYPES_SubspaceState)                                       )])
-    
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_SubspaceState(i)%state_%read(input(2:))
-    this = SubspaceStatePointer(TYPES_SubspaceState(i))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_SubspaceStatePointer(this) result(output)
-  implicit none
-  
-  class(SubspaceStatePointer), intent(in) :: this
-  type(String), allocatable               :: output(:)
-  
-  select type(this); type is(SubspaceStatePointer)
-    output = [ 'SubspaceState representation: '//this%representation_, &
-             & str(this%state_)                                        ]
-  end select
-end function
-
-function new_SubspaceStatePointer_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in)   :: input(:)
-  type(SubspaceStatePointer) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_SubspaceStatePointer_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(SubspaceStatePointer)    :: this
-  
-  this = SubspaceStatePointer(str(input))
-end function
+  interface SubspaceStatePointer
+    impure elemental module function new_SubspaceStatePointer_StringArray(input) result(this) 
+      type(StringArray), intent(in) :: input
+      type(SubspaceStatePointer)    :: this
+    end function
+  end interface
 end module

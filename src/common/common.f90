@@ -16,6 +16,5 @@ module caesar_common_module
   use caesar_harmonic_stress_module
   use caesar_electronic_structure_module
   use caesar_observables_module
-  use caesar_bands_module
   implicit none
 end module

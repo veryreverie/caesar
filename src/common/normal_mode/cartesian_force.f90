@@ -25,203 +25,118 @@ module caesar_cartesian_force_module
   end type
   
   interface CartesianForce
-    module procedure new_CartesianForce
-    module procedure new_CartesianForce_zero
-    module procedure new_CartesianForce_Strings
-    module procedure new_CartesianForce_StringArray
+    ! ----------------------------------------------------------------------
+    ! Constructor and size() module function.
+    ! ----------------------------------------------------------------------
+    module function new_CartesianForce(forces) result(this) 
+      type(RealVector), intent(in) :: forces(:)
+      type(CartesianForce)         :: this
+    end function
   end interface
   
   interface size
-    module procedure size_CartesianForce
+    module function size_CartesianForce(this) result(output) 
+      class(CartesianForce), intent(in) :: this
+      integer                           :: output
+    end function
+  end interface
+  
+  interface CartesianForce
+    ! ----------------------------------------------------------------------
+    ! Construct a zero force.
+    ! ----------------------------------------------------------------------
+    impure elemental module function new_CartesianForce_zero(structure) &
+       & result(this) 
+      type(StructureData), intent(in) :: structure
+      type(CartesianForce)            :: this
+    end function
   end interface
   
   interface operator(*)
-    module procedure multiply_real_CartesianForce
-    module procedure multiply_CartesianForce_real
+    ! ----------------------------------------------------------------------
+    ! Algebra.
+    ! ----------------------------------------------------------------------
+    impure elemental module function multiply_real_CartesianForce(this,that) &
+       & result(output) 
+      real(dp),             intent(in) :: this
+      type(CartesianForce), intent(in) :: that
+      type(CartesianForce)             :: output
+    end function
+  
+    impure elemental module function multiply_CartesianForce_real(this,that) &
+       & result(output) 
+      type(CartesianForce), intent(in) :: this
+      real(dp),             intent(in) :: that
+      type(CartesianForce)             :: output
+    end function
   end interface
   
   interface operator(/)
-    module procedure divide_CartesianForce_real
+    impure elemental module function divide_CartesianForce_real(this,that) &
+       & result(output) 
+      type(CartesianForce), intent(in) :: this
+      real(dp),             intent(in) :: that
+      type(CartesianForce)             :: output
+    end function
   end interface
   
   interface operator(+)
-    module procedure add_CartesianForce_CartesianForce
+    impure elemental module function add_CartesianForce_CartesianForce(this, &
+       & that) result(output) 
+      type(CartesianForce), intent(in) :: this
+      type(CartesianForce), intent(in) :: that
+      type(CartesianForce)             :: output
+    end function
   end interface
   
   interface sum
-    module procedure sum_CartesianForces
+    module function sum_CartesianForces(input) result(output) 
+      type(CartesianForce), intent(in) :: input(:)
+      type(CartesianForce)             :: output
+    end function
   end interface
   
   interface operator(-)
-    module procedure negative_CartesianForce
-    module procedure subtract_CartesianForce_CartesianForce
+    impure elemental module function negative_CartesianForce(this) &
+       & result(output) 
+      type(CartesianForce), intent(in) :: this
+      type(CartesianForce)             :: output
+    end function
+  
+    impure elemental module function subtract_CartesianForce_CartesianForce(this,that) result(output) 
+      type(CartesianForce), intent(in) :: this
+      type(CartesianForce), intent(in) :: that
+      type(CartesianForce)             :: output
+    end function
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! Constructor and size() function.
-! ----------------------------------------------------------------------
-function new_CartesianForce(forces) result(this)
-  implicit none
   
-  type(RealVector), intent(in) :: forces(:)
-  type(CartesianForce)         :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_CartesianForce(this,input) 
+      class(CartesianForce), intent(out) :: this
+      type(String),          intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  this%vectors = forces
-end function
-
-function size_CartesianForce(this) result(output)
-  implicit none
+  interface
+    module function write_CartesianForce(this) result(output) 
+      class(CartesianForce), intent(in) :: this
+      type(String), allocatable         :: output(:)
+    end function
+  end interface
   
-  class(CartesianForce), intent(in) :: this
-  integer                           :: output
+  interface CartesianForce
+    module function new_CartesianForce_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(CartesianForce)     :: this
+    end function
   
-  output = size(this%vectors)
-end function
-
-! ----------------------------------------------------------------------
-! Construct a zero force.
-! ----------------------------------------------------------------------
-impure elemental function new_CartesianForce_zero(structure) result(this)
-  implicit none
-  
-  type(StructureData), intent(in) :: structure
-  type(CartesianForce)            :: this
-  
-  integer :: i
-  
-  this%vectors = [(dblevec(zeroes(3)), i=1, structure%no_atoms)]
-end function
-
-! ----------------------------------------------------------------------
-! Algebra.
-! ----------------------------------------------------------------------
-impure elemental function multiply_real_CartesianForce(this,that) &
-   & result(output)
-  implicit none
-  
-  real(dp),             intent(in) :: this
-  type(CartesianForce), intent(in) :: that
-  type(CartesianForce)             :: output
-  
-  output = CartesianForce(this * that%vectors)
-end function
-
-impure elemental function multiply_CartesianForce_real(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: this
-  real(dp),             intent(in) :: that
-  type(CartesianForce)             :: output
-  
-  output = CartesianForce(this%vectors * that)
-end function
-
-impure elemental function divide_CartesianForce_real(this,that) result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: this
-  real(dp),             intent(in) :: that
-  type(CartesianForce)             :: output
-  
-  output = CartesianForce(this%vectors / that)
-end function
-
-impure elemental function add_CartesianForce_CartesianForce(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: this
-  type(CartesianForce), intent(in) :: that
-  type(CartesianForce)             :: output
-  
-  output = CartesianForce(this%vectors + that%vectors)
-end function
-
-function sum_CartesianForces(input) result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: input(:)
-  type(CartesianForce)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(ERROR//': Trying to sum an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-impure elemental function negative_CartesianForce(this) result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: this
-  type(CartesianForce)             :: output
-  
-  output = CartesianForce(-this%vectors)
-end function
-
-impure elemental function subtract_CartesianForce_CartesianForce(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CartesianForce), intent(in) :: this
-  type(CartesianForce), intent(in) :: that
-  type(CartesianForce)             :: output
-  
-  output = CartesianForce(this%vectors - that%vectors)
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_CartesianForce(this,input)
-  implicit none
-  
-  class(CartesianForce), intent(out) :: this
-  type(String),          intent(in)  :: input(:)
-  
-  select type(this); type is(CartesianForce)
-    this = CartesianForce(RealVector(input))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_CartesianForce(this) result(output)
-  implicit none
-  
-  class(CartesianForce), intent(in) :: this
-  type(String), allocatable         :: output(:)
-  
-  select type(this); type is(CartesianForce)
-    output = str(this%vectors)
-  class default
-    call err()
-  end select
-end function
-
-function new_CartesianForce_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(CartesianForce)     :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_CartesianForce_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(CartesianForce)          :: this
-  
-  this = CartesianForce(str(input))
-end function
+    impure elemental module function new_CartesianForce_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(CartesianForce)          :: this
+    end function
+  end interface
 end module

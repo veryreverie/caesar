@@ -42,249 +42,153 @@ module caesar_harmonic_state_real_module
     procedure, public :: write => write_HarmonicStateReal
   end type
   
-  interface HarmonicStateReal
-    module procedure new_HarmonicStateReal
-    module procedure new_HarmonicStateReal_SubspaceState
-    module procedure new_HarmonicStateReal_Strings
-    module procedure new_HarmonicStateReal_StringArray
+  interface
+    impure elemental module function prod_real(lhs,rhs) result(output) 
+      type(HarmonicStateReal), intent(in) :: lhs
+      type(HarmonicStateReal), intent(in) :: rhs
+      type(HarmonicStateReal)             :: output
+    end function
   end interface
-contains
-
-impure elemental function prod_real(lhs,rhs) result(output)
-  implicit none
   
-  type(HarmonicStateReal), intent(in) :: lhs
-  type(HarmonicStateReal), intent(in) :: rhs
-  type(HarmonicStateReal)             :: output
+  interface
+    ! Startup procedure.
+    module subroutine startup_harmonic_state_real() 
+    end subroutine
+  end interface
   
-  output = HarmonicStateReal([lhs%modes_,rhs%modes_])
-end function
-
-! Startup procedure.
-subroutine startup_harmonic_state_real()
-  implicit none
+  interface HarmonicStateReal
+    ! ----------------------------------------------------------------------
+    ! Constructor.
+    ! ----------------------------------------------------------------------
+    module function new_HarmonicStateReal(modes) result(this) 
+      type(HarmonicState1D), intent(in) :: modes(:)
+      type(HarmonicStateReal)           :: this
+    end function
   
-  type(HarmonicStateReal) :: state
+    recursive module function new_HarmonicStateReal_SubspaceState(input) &
+       & result(this) 
+      class(SubspaceState), intent(in) :: input
+      type(HarmonicStateReal)          :: this
+    end function
+  end interface
   
-  call state%startup()
-end subroutine
-
-! ----------------------------------------------------------------------
-! Constructor.
-! ----------------------------------------------------------------------
-function new_HarmonicStateReal(modes) result(this) 
-  implicit none
+  interface
+    ! Cast a class(SubspaceState) to a pointer of type(HarmonicStateReal).
+    ! N.B. this must only be called on inputs with the TARGET attribute.
+    recursive module function harmonic_state_real_pointer(input) result(this) 
+      class(SubspaceState), intent(in), target :: input
+      type(HarmonicStateReal), pointer         :: this
+    end function
+  end interface
   
-  type(HarmonicState1D), intent(in) :: modes(:)
-  type(HarmonicStateReal)           :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! Type representation.
+    ! ----------------------------------------------------------------------
+    impure elemental module function representation_HarmonicStateReal() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
   
-  this%modes_ = modes
-end function
-
-recursive function new_HarmonicStateReal_SubspaceState(input) result(this)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the modes spanned by the state.
+    ! ----------------------------------------------------------------------
+    module function mode_ids_HarmonicStateReal(this) result(output) 
+      class(HarmonicStateReal), intent(in) :: this
+      integer, allocatable                 :: output(:)
+    end function
+  end interface
   
-  class(SubspaceState), intent(in) :: input
-  type(HarmonicStateReal)          :: this
+  interface
+    module function paired_mode_ids_HarmonicStateReal(this) result(output) 
+      class(HarmonicStateReal), intent(in) :: this
+      integer, allocatable                 :: output(:)
+    end function
+  end interface
   
-  select type(input); type is(HarmonicStateReal)
-    this = input
-  type is(SubspaceStatePointer)
-    ! WORKAROUND: ifort doesn't recognise the interface to this function
-    !    from within this function, so the full name is used instead.
-    this = new_HarmonicStateReal_SubspaceState(input%state())
-  class default
-    call err()
-  end select
-end function
-
-! Cast a class(SubspaceState) to a pointer of type(HarmonicStateReal).
-! N.B. this must only be called on inputs with the TARGET attribute.
-recursive function harmonic_state_real_pointer(input) result(this)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the total occupation of a given state.
+    ! ----------------------------------------------------------------------
+    ! The total occupation of the state product_{q,i} |n_{q,i}> is equal to
+    !    sum_{q,i} n_{q,i}.
+    impure elemental module function occupation_HarmonicStateReal(this) &
+       & result(output) 
+      class(HarmonicStateReal), intent(in) :: this
+      integer                              :: output
+    end function
+  end interface
   
-  class(SubspaceState), intent(in), target :: input
-  type(HarmonicStateReal), pointer         :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the wavevector of a given state.
+    ! ----------------------------------------------------------------------
+    ! The wavevector of the state product_{q,i} |n_{q,i}> is equal to
+    !    sum_{q,i} n_{q,i}q.
+    module function wavevector_HarmonicStateReal(this,modes,qpoints) &
+       & result(output) 
+      class(HarmonicStateReal), intent(in) :: this
+      type(ComplexMode),        intent(in) :: modes(:)
+      type(QpointData),         intent(in) :: qpoints(:)
+      type(FractionVector)                 :: output
+    end function
+  end interface
   
-  select type(input); type is(HarmonicStateReal)
-    this => input
-  type is(SubspaceStatePointer)
-    this => harmonic_state_real_pointer(input%state_pointer())
-  class default
-    call err()
-  end select
-end function
-
-! ----------------------------------------------------------------------
-! Type representation.
-! ----------------------------------------------------------------------
-impure elemental function representation_HarmonicStateReal() result(output)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the wavefunction of the state,
+    !    with all coefficients accounted for.
+    ! ----------------------------------------------------------------------
+    impure elemental module function wavefunction_HarmonicStateReal(this, &
+       & frequency,supercell) result(output) 
+      class(HarmonicStateReal), intent(in) :: this
+      real(dp),                 intent(in) :: frequency
+      type(StructureData),      intent(in) :: supercell
+      type(String)                         :: output
+    end function
+  end interface
   
-  type(String) :: output
+  interface
+    ! ----------------------------------------------------------------------
+    ! Change the modes of the state by the specified group.
+    ! ----------------------------------------------------------------------
+    impure elemental module function change_modes_HarmonicStateReal(this, &
+       & mode_group) result(output) 
+      class(HarmonicStateReal), intent(in) :: this
+      type(Group),              intent(in) :: mode_group
+      type(HarmonicStateReal)              :: output
+    end function
+  end interface
   
-  output = 'harmonic real'
-end function
-
-! ----------------------------------------------------------------------
-! Returns the modes spanned by the state.
-! ----------------------------------------------------------------------
-function mode_ids_HarmonicStateReal(this) result(output)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_HarmonicStateReal(this,input) 
+      class(HarmonicStateReal), intent(out) :: this
+      type(String),             intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  class(HarmonicStateReal), intent(in) :: this
-  integer, allocatable                 :: output(:)
+  interface
+    module function write_HarmonicStateReal(this) result(output) 
+      class(HarmonicStateReal), intent(in) :: this
+      type(String), allocatable        :: output(:)
+    end function
+  end interface
   
-  output = this%modes_%id()
-end function
-
-function paired_mode_ids_HarmonicStateReal(this) result(output)
-  implicit none
+  interface HarmonicStateReal
+    module function new_HarmonicStateReal_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(HarmonicStateReal)  :: this
+    end function
   
-  class(HarmonicStateReal), intent(in) :: this
-  integer, allocatable                 :: output(:)
-  
-  output = this%modes_%id()
-end function
-
-! ----------------------------------------------------------------------
-! Returns the total occupation of a given state.
-! ----------------------------------------------------------------------
-! The total occupation of the state product_{q,i} |n_{q,i}> is equal to
-!    sum_{q,i} n_{q,i}.
-impure elemental function occupation_HarmonicStateReal(this) result(output)
-  implicit none
-  
-  class(HarmonicStateReal), intent(in) :: this
-  integer                              :: output
-  
-  output = sum(this%modes_%total_occupation())
-end function
-
-! ----------------------------------------------------------------------
-! Returns the wavevector of a given state.
-! ----------------------------------------------------------------------
-! The wavevector of the state product_{q,i} |n_{q,i}> is equal to
-!    sum_{q,i} n_{q,i}q.
-function wavevector_HarmonicStateReal(this,modes,qpoints) result(output)
-  implicit none
-  
-  class(HarmonicStateReal), intent(in) :: this
-  type(ComplexMode),        intent(in) :: modes(:)
-  type(QpointData),         intent(in) :: qpoints(:)
-  type(FractionVector)                 :: output
-  
-  integer :: i
-  
-  ! Effectively sum(this%modes_(:)%wavevector(modes,qpoints)).
-  output = this%modes_(1)%wavevector(modes,qpoints)
-  do i=2,size(this%modes_)
-    output = output + this%modes_(i)%wavevector(modes,qpoints)
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Returns the wavefunction of the state,
-!    with all coefficients accounted for.
-! ----------------------------------------------------------------------
-impure elemental function wavefunction_HarmonicStateReal(this,frequency, &
-   & supercell) result(output)
-  implicit none
-  
-  class(HarmonicStateReal), intent(in) :: this
-  real(dp),                 intent(in) :: frequency
-  type(StructureData),      intent(in) :: supercell
-  type(String)                         :: output
-  
-  ! TODO
-  call err()
-end function
-
-! ----------------------------------------------------------------------
-! Change the modes of the state by the specified group.
-! ----------------------------------------------------------------------
-impure elemental function change_modes_HarmonicStateReal(this,mode_group) &
-   & result(output)
-  implicit none
-  
-  class(HarmonicStateReal), intent(in) :: this
-  type(Group),              intent(in) :: mode_group
-  type(HarmonicStateReal)              :: output
-  
-  integer, allocatable :: ids(:)
-  integer, allocatable :: occupations(:)
-  integer, allocatable :: sort_key(:)
-  
-  ! Get the ids and occupations of the single-mode terms.
-  ids = this%modes_%id()
-  occupations = this%modes_%occupation()
-  
-  ! Change the ids according to the given group.
-  ids = mode_group*ids
-  
-  ! Sort the modes by id.
-  sort_key = sort(ids)
-  ids = ids(sort_key)
-  occupations = occupations(sort_key)
-  
-  ! Construct output using the new ids.
-  output = HarmonicStateReal(modes = HarmonicState1D(ids,occupations))
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_HarmonicStateReal(this,input)
-  implicit none
-  
-  class(HarmonicStateReal), intent(out) :: this
-  type(String),             intent(in)  :: input(:)
-  
-  type(HarmonicState1D), allocatable :: modes(:)
-  
-  type(String), allocatable :: line(:)
-  
-  integer :: i
-  
-  select type(this); type is(HarmonicStateReal)
-    line = split_line(input(1),delimiter='>')
-    line = [(line(i)//'>',i=1,size(line))]
-    modes = HarmonicState1D(line)
-    
-    this = HarmonicStateReal(modes)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_HarmonicStateReal(this) result(output)
-  implicit none
-  
-  class(HarmonicStateReal), intent(in) :: this
-  type(String), allocatable        :: output(:)
-  
-  select type(this); type is(HarmonicStateReal)
-    output = [join(str(this%modes_), delimiter='')]
-  class default
-    call err()
-  end select
-end function
-
-function new_HarmonicStateReal_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(HarmonicStateReal)  :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_HarmonicStateReal_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(HarmonicStateReal)       :: this
-  
-  this = HarmonicStateReal(str(input))
-end function
+    impure elemental module function new_HarmonicStateReal_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(HarmonicStateReal)       :: this
+    end function
+  end interface
 end module

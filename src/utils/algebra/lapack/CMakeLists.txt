@@ -20,7 +20,7 @@ add_library(lapack_submodules ${DUMMY_FILE})
 target_link_libraries(lapack_submodules lapack_modules)
 
 # Link against required modules.
-target_link_libraries(lapack_modules foundations_modules)
-target_link_libraries(lapack_submodules foundations_submodules)
-target_link_libraries(lapack_modules io_modules)
-target_link_libraries(lapack_submodules io_submodules)
+foreach(dir IN ITEMS foundations io)
+  target_link_libraries(lapack_modules ${dir}_modules)
+  target_link_libraries(lapack_submodules ${dir}_submodules)
+endforeach()

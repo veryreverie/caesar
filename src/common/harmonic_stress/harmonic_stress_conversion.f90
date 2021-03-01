@@ -18,63 +18,25 @@ module caesar_harmonic_stress_conversion_module
   public :: reconstruct_stress_hessian
   
   interface StressDynamicalMatrix
-    module procedure new_StressDynamicalMatrix_interpolated
+    ! Construct a stress dynamical matrix at an arbitrary q-point.
+    module function new_StressDynamicalMatrix_interpolated(q,supercell, &
+       & hessian,min_images) result(output) 
+      type(RealVector),    intent(in)           :: q
+      type(StructureData), intent(in)           :: supercell
+      type(StressHessian), intent(in)           :: hessian
+      type(MinImages),     intent(in), optional :: min_images(:,:)
+      type(StressDynamicalMatrix)               :: output
+    end function
   end interface
-contains
-
-! Construct a stress dynamical matrix at an arbitrary q-point.
-function new_StressDynamicalMatrix_interpolated(q,supercell,hessian, &
-   & min_images) result(output) 
-  implicit none
   
-  type(RealVector),    intent(in)           :: q
-  type(StructureData), intent(in)           :: supercell
-  type(StressHessian), intent(in)           :: hessian
-  type(MinImages),     intent(in), optional :: min_images(:,:)
-  type(StressDynamicalMatrix)               :: output
-  
-  type(DynamicalMatrix), allocatable :: elements(:,:)
-  
-  integer :: i,j,ialloc
-  
-  allocate(elements(3,3), stat=ialloc); call err(ialloc)
-  do i=1,3
-    do j=1,3
-      elements(j,i) = DynamicalMatrix( q,                     &
-                                     & supercell,             &
-                                     & hessian%elements(j,i), &
-                                     & min_images             )
-    enddo
-  enddo
-  
-  output = StressDynamicalMatrix(elements)
-end function
-
-function reconstruct_stress_hessian(large_supercell,qpoints, &
-   & dynamical_matrices,logfile) result(output) 
-  implicit none
-  
-  type(StructureData),         intent(in)    :: large_supercell
-  type(QpointData),            intent(in)    :: qpoints(:)
-  type(StressDynamicalMatrix), intent(in)    :: dynamical_matrices(:)
-  type(OFile),                 intent(inout) :: logfile
-  type(StressHessian)                        :: output
-  
-  type(CartesianHessian), allocatable :: elements(:,:)
-  
-  integer :: i,j,k,ialloc
-  
-  allocate(elements(3,3), stat=ialloc); call err(ialloc)
-  do i=1,3
-    do j=1,3
-      elements(j,i) = reconstruct_hessian(                              &
-         & large_supercell,                                             &
-         & qpoints,                                                     &
-         & [(dynamical_matrices(k)%elements(j,i), k=1, size(qpoints))], &
-         & logfile                                                      )
-    enddo
-  enddo
-  
-  output = StressHessian(elements)
-end function
+  interface
+    module function reconstruct_stress_hessian(large_supercell,qpoints, &
+       & dynamical_matrices,logfile) result(output) 
+      type(StructureData),         intent(in)    :: large_supercell
+      type(QpointData),            intent(in)    :: qpoints(:)
+      type(StressDynamicalMatrix), intent(in)    :: dynamical_matrices(:)
+      type(OFile),                 intent(inout) :: logfile
+      type(StressHessian)                        :: output
+    end function
+  end interface
 end module

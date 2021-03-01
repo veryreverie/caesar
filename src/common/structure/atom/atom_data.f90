@@ -4,7 +4,7 @@
 module caesar_atom_data_module
   use caesar_utils_module
   
-  use caesar_basic_atoms_module
+  use caesar_basic_atom_module
   implicit none
   
   private
@@ -46,162 +46,116 @@ module caesar_atom_data_module
   end type
   
   interface AtomData
-    module procedure new_AtomData
+    ! ----------------------------------------------------------------------
+    ! Constructor.
+    ! ----------------------------------------------------------------------
+    module function new_AtomData(basic_atom,lattice,recip_lattice,id, &
+       & prim_id,rvec_id) result(this) 
+      type(BasicAtom),  intent(in) :: basic_atom
+      type(RealMatrix), intent(in) :: lattice
+      type(RealMatrix), intent(in) :: recip_lattice
+      integer,          intent(in) :: id
+      integer,          intent(in) :: prim_id
+      integer,          intent(in) :: rvec_id
+      type(AtomData)               :: this
+    end function
   end interface
   
   interface BasicAtom
-    module procedure new_BasicAtom_AtomData
+    ! ----------------------------------------------------------------------
+    ! Conversion to BasicAtom.
+    ! ----------------------------------------------------------------------
+    impure elemental module function new_BasicAtom_AtomData(this) &
+       & result(output) 
+      type(AtomData), intent(in) :: this
+      type(BasicAtom)            :: output
+    end function
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! Constructor.
-! ----------------------------------------------------------------------
-function new_AtomData(basic_atom,lattice,recip_lattice,id,prim_id,rvec_id) &
-   & result(this)
-  implicit none
   
-  type(BasicAtom),  intent(in) :: basic_atom
-  type(RealMatrix), intent(in) :: lattice
-  type(RealMatrix), intent(in) :: recip_lattice
-  integer,          intent(in) :: id
-  integer,          intent(in) :: prim_id
-  integer,          intent(in) :: rvec_id
-  type(AtomData)               :: this
+  interface
+    ! ----------------------------------------------------------------------
+    ! Getters.
+    ! ----------------------------------------------------------------------
+    impure elemental module function species(this) result(output) 
+      class(AtomData), intent(in) :: this
+      type(String)                :: output
+    end function
+  end interface
   
-  this%lattice_ = lattice
-  this%recip_lattice_ = recip_lattice
+  interface
+    impure elemental module function mass(this) result(output) 
+      class(AtomData), intent(in) :: this
+      real(dp)                    :: output
+    end function
+  end interface
   
-  this%species_ = basic_atom%species
-  this%mass_ = basic_atom%mass
+  interface
+    impure elemental module function fractional_position(this) result(output) 
+      class(AtomData), intent(in) :: this
+      type(RealVector)            :: output
+    end function
+  end interface
   
-  call this%set_cartesian_position(basic_atom%cartesian_position)
+  interface
+    impure elemental module function cartesian_position(this) result(output) 
+      class(AtomData), intent(in) :: this
+      type(RealVector)            :: output
+    end function
+  end interface
   
-  this%id_ = id
-  this%prim_id_ = prim_id
-  this%rvec_id_ = rvec_id
-end function
-
-! ----------------------------------------------------------------------
-! Conversion to BasicAtom.
-! ----------------------------------------------------------------------
-impure elemental function new_BasicAtom_AtomData(this) result(output)
-  implicit none
+  interface
+    ! The id of the atom in the supercell, i.e. the atom is supercell%atoms(id).
+    impure elemental module function id(this) result(output) 
+      class(AtomData), intent(in) :: this
+      integer                     :: output
+    end function
+  end interface
   
-  type(AtomData), intent(in) :: this
-  type(BasicAtom)            :: output
+  interface
+    ! The id of the corresponding atom in the supercell's primitive cell.
+    impure elemental module function prim_id(this) result(output) 
+      class(AtomData), intent(in) :: this
+      integer                     :: output
+    end function
+  end interface
   
-  output = BasicAtom(this%species(), this%mass(), this%cartesian_position())
-end function
-
-! ----------------------------------------------------------------------
-! Getters.
-! ----------------------------------------------------------------------
-impure elemental function species(this) result(output)
-  implicit none
+  interface
+    ! The id of the R-vector which translates from the corresponding atom in the
+    !    supercell's primitive cell to this atom.
+    impure elemental module function rvec_id(this) result(output) 
+      class(AtomData), intent(in) :: this
+      integer                     :: output
+    end function
+  end interface
   
-  class(AtomData), intent(in) :: this
-  type(String)                :: output
+  interface
+    ! ----------------------------------------------------------------------
+    ! Setters.
+    ! ----------------------------------------------------------------------
+    module subroutine set_species(this,species) 
+      class(AtomData), intent(inout) :: this
+      type(String),    intent(in)    :: species
+    end subroutine
+  end interface
   
-  output = this%species_
-end function
-
-impure elemental function mass(this) result(output)
-  implicit none
+  interface
+    module subroutine set_mass(this,mass) 
+      class(AtomData), intent(inout) :: this
+      real(dp),        intent(in)    :: mass
+    end subroutine
+  end interface
   
-  class(AtomData), intent(in) :: this
-  real(dp)                    :: output
+  interface
+    module subroutine set_fractional_position(this,fractional_position) 
+      class(AtomData),  intent(inout) :: this
+      type(RealVector), intent(in)    :: fractional_position
+    end subroutine
+  end interface
   
-  output = this%mass_
-end function
-
-impure elemental function fractional_position(this) result(output)
-  implicit none
-  
-  class(AtomData), intent(in) :: this
-  type(RealVector)            :: output
-  
-  output = this%fractional_position_
-end function
-
-impure elemental function cartesian_position(this) result(output)
-  implicit none
-  
-  class(AtomData), intent(in) :: this
-  type(RealVector)            :: output
-  
-  output = this%cartesian_position_
-end function
-
-! The id of the atom in the supercell, i.e. the atom is supercell%atoms(id).
-impure elemental function id(this) result(output)
-  implicit none
-  
-  class(AtomData), intent(in) :: this
-  integer                     :: output
-  
-  output = this%id_
-end function
-
-! The id of the corresponding atom in the supercell's primitive cell.
-impure elemental function prim_id(this) result(output)
-  implicit none
-  
-  class(AtomData), intent(in) :: this
-  integer                     :: output
-  
-  output = this%prim_id_
-end function
-
-! The id of the R-vector which translates from the corresponding atom in the
-!    supercell's primitive cell to this atom.
-impure elemental function rvec_id(this) result(output)
-  implicit none
-  
-  class(AtomData), intent(in) :: this
-  integer                     :: output
-  
-  output = this%rvec_id_
-end function
-
-! ----------------------------------------------------------------------
-! Setters.
-! ----------------------------------------------------------------------
-subroutine set_species(this,species)
-  implicit none
-  
-  class(AtomData), intent(inout) :: this
-  type(String),    intent(in)    :: species
-  
-  this%species_ = species
-end subroutine
-
-subroutine set_mass(this,mass)
-  implicit none
-  
-  class(AtomData), intent(inout) :: this
-  real(dp),        intent(in)    :: mass
-  
-  this%mass_ = mass
-end subroutine
-
-subroutine set_fractional_position(this,fractional_position)
-  implicit none
-  
-  class(AtomData),  intent(inout) :: this
-  type(RealVector), intent(in)    :: fractional_position
-  
-  this%fractional_position_ = fractional_position
-  this%cartesian_position_ = transpose(this%lattice_) * fractional_position
-end subroutine
-
-subroutine set_cartesian_position(this,cartesian_position)
-  implicit none
-  
-  class(AtomData),  intent(inout) :: this
-  type(RealVector), intent(in)    :: cartesian_position
-  
-  this%cartesian_position_ = cartesian_position
-  this%fractional_position_ = this%recip_lattice_ * cartesian_position
-end subroutine
+  interface
+    module subroutine set_cartesian_position(this,cartesian_position) 
+      class(AtomData),  intent(inout) :: this
+      type(RealVector), intent(in)    :: cartesian_position
+    end subroutine
+  end interface
 end module

@@ -1,0 +1,7 @@
+module anharmonic_data_test
+  use funit
+
+  use caesar_anharmonic_common_module
+  implicit none
+contains
+end module

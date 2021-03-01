@@ -1,0 +1,7 @@
+module coupling_basis_functions_test
+  use funit
+
+  use caesar_polynomial_module
+  implicit none
+contains
+end module

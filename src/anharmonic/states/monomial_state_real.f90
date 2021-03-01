@@ -57,591 +57,238 @@ module caesar_monomial_state_real_module
     procedure, public :: write => write_MonomialStateReal
   end type
   
+  interface
+    ! Startup procedure.
+    module subroutine startup_monomial_state_real() 
+    end subroutine
+  end interface
+  
   interface MonomialStateReal
-    module procedure new_MonomialStateReal
-    module procedure new_MonomialStateReal_SubspaceState
-    module procedure new_MonomialStateReal_Strings
-    module procedure new_MonomialStateReal_StringArray
+    ! ----------------------------------------------------------------------
+    ! Constructor.
+    ! ----------------------------------------------------------------------
+    module function new_MonomialStateReal(supercell_size,frequency,modes) &
+       & result(this) 
+      integer,               intent(in) :: supercell_size
+      real(dp),              intent(in) :: frequency
+      type(MonomialState1D), intent(in) :: modes(:)
+      type(MonomialStateReal)           :: this
+    end function
+  
+    recursive module function new_MonomialStateReal_SubspaceState(input) &
+       & result(this) 
+      class(SubspaceState), intent(in) :: input
+      type(MonomialStateReal)          :: this
+    end function
+  end interface
+  
+  interface
+    ! Cast a class(SubspaceState) to a pointer of type(MonomialStateReal).
+    ! N.B. this must only be called on inputs with the TARGET attribute.
+    recursive module function monomial_state_real_pointer(input) result(this) 
+      class(SubspaceState), intent(in), target :: input
+      type(MonomialStateReal), pointer         :: this
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Type representation.
+    ! ----------------------------------------------------------------------
+    impure elemental module function representation_MonomialStateReal() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the modes spanned by the state.
+    ! ----------------------------------------------------------------------
+    module function mode_ids_MonomialStateReal(this) result(output) 
+      class(MonomialStateReal), intent(in) :: this
+      integer, allocatable                 :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function paired_mode_ids_MonomialStateReal(this) result(output) 
+      class(MonomialStateReal), intent(in) :: this
+      integer, allocatable                 :: output(:)
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Generates all monomial states in a subspace up to a given power.
+    ! ----------------------------------------------------------------------
+    module function generate_monomial_states(subspace,supercell_size, &
+       & frequency,modes,maximum_power) result(output) 
+      type(DegenerateSubspace), intent(in) :: subspace
+      integer,                  intent(in) :: supercell_size
+      real(dp),                 intent(in) :: frequency
+      type(ComplexMode),        intent(in) :: modes(:)
+      integer,                  intent(in) :: maximum_power
+      type(MonomialStateReal), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    recursive module function generate_monomial_states_helper(ids,power, &
+       & state) result(output) 
+      integer,                 intent(in)  :: ids(:)
+      integer,                 intent(in)  :: power
+      type(MonomialStateReal), intent(in)  :: state
+      type(MonomialStateReal), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the total power of a given state.
+    ! ----------------------------------------------------------------------
+    ! The total power of the state product_{q,i} |(u_{q,i})^(n_{q,i})> is equal to
+    !    sum_{q,i} n_{q,i}.
+    impure elemental module function occupation_MonomialStateReal(this) &
+       & result(output) 
+      class(MonomialStateReal), intent(in) :: this
+      integer                              :: output
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the wavevector of a given state.
+    ! ----------------------------------------------------------------------
+    ! The wavevector of the state product_{q,i} |(u_{q,i})^(n_{q,i})> is equal to
+    !    sum_{q,i} n_{q,i}q.
+    module function wavevector_MonomialStateReal(this,modes,qpoints) &
+       & result(output) 
+      class(MonomialStateReal), intent(in) :: this
+      type(ComplexMode),        intent(in) :: modes(:)
+      type(QpointData),         intent(in) :: qpoints(:)
+      type(FractionVector)                 :: output
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Returns the wavefunction of the state,
+    !    with all coefficients accounted for.
+    ! ----------------------------------------------------------------------
+    impure elemental module function wavefunction_MonomialStateReal(this, &
+       & frequency,supercell) result(output) 
+      class(MonomialStateReal), intent(in) :: this
+      real(dp),                 intent(in) :: frequency
+      type(StructureData),      intent(in) :: supercell
+      type(String)                         :: output
+    end function
   end interface
   
   interface finite_overlap
-    module procedure finite_overlap_MonomialStateReals
+    ! ----------------------------------------------------------------------
+    ! SubspaceState methods.
+    ! ----------------------------------------------------------------------
+    ! Returns whether or not braket(bra,ket) is non-zero.
+    impure elemental module function finite_overlap_MonomialStateReals(bra, &
+       & ket,anharmonic_data) result(output) 
+      type(MonomialStateReal), intent(in) :: bra
+      type(MonomialStateReal), intent(in) :: ket
+      type(AnharmonicData),    intent(in) :: anharmonic_data
+      logical                             :: output
+    end function
   end interface
-contains
-
-! Startup procedure.
-subroutine startup_monomial_state_real()
-  implicit none
   
-  type(MonomialStateReal) :: state
-  
-  call state%startup()
-end subroutine
-
-! ----------------------------------------------------------------------
-! Constructor.
-! ----------------------------------------------------------------------
-function new_MonomialStateReal(supercell_size,frequency,modes) result(this) 
-  implicit none
-  
-  integer,               intent(in) :: supercell_size
-  real(dp),              intent(in) :: frequency
-  type(MonomialState1D), intent(in) :: modes(:)
-  type(MonomialStateReal)           :: this
-  
-  this%supercell_size = supercell_size
-  this%frequency      = frequency
-  this%modes_         = modes
-  
-  this%log_2nw_ = log(2*this%supercell_size*this%frequency)
-end function
-
-recursive function new_MonomialStateReal_SubspaceState(input) result(this)
-  implicit none
-  
-  class(SubspaceState), intent(in) :: input
-  type(MonomialStateReal)          :: this
-  
-  select type(input); type is(MonomialStateReal)
-    this = input
-  type is(SubspaceStatePointer)
-    ! WORKAROUND: ifort doesn't recognise the interface to this function
-    !    from within this function, so the full name is used instead.
-    this = new_MonomialStateReal_SubspaceState(input%state())
-  class default
-    call err()
-  end select
-end function
-
-! Cast a class(SubspaceState) to a pointer of type(MonomialStateReal).
-! N.B. this must only be called on inputs with the TARGET attribute.
-recursive function monomial_state_real_pointer(input) result(this)
-  implicit none
-  
-  class(SubspaceState), intent(in), target :: input
-  type(MonomialStateReal), pointer         :: this
-  
-  select type(input); type is(MonomialStateReal)
-    this => input
-  type is(SubspaceStatePointer)
-    this => monomial_state_real_pointer(input%state_pointer())
-  class default
-    call err()
-  end select
-end function
-
-! ----------------------------------------------------------------------
-! Type representation.
-! ----------------------------------------------------------------------
-impure elemental function representation_MonomialStateReal() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'monomial real'
-end function
-
-! ----------------------------------------------------------------------
-! Returns the modes spanned by the state.
-! ----------------------------------------------------------------------
-function mode_ids_MonomialStateReal(this) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in) :: this
-  integer, allocatable                 :: output(:)
-  
-  output = this%modes_%id()
-end function
-
-function paired_mode_ids_MonomialStateReal(this) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in) :: this
-  integer, allocatable                 :: output(:)
-  
-  output = this%modes_%id()
-end function
-
-! ----------------------------------------------------------------------
-! Generates all monomial states in a subspace up to a given power.
-! ----------------------------------------------------------------------
-function generate_monomial_states(subspace,supercell_size,frequency,modes, &
-   & maximum_power) result(output)
-  implicit none
-  
-  type(DegenerateSubspace), intent(in) :: subspace
-  integer,                  intent(in) :: supercell_size
-  real(dp),                 intent(in) :: frequency
-  type(ComplexMode),        intent(in) :: modes(:)
-  integer,                  intent(in) :: maximum_power
-  type(MonomialStateReal), allocatable :: output(:)
-  
-  integer, allocatable    :: ids(:)
-  type(MonomialStateReal) :: state
-  
-  type(MonomialState1D) :: zero_modes(0)
-  
-  ids = subspace%mode_ids(sort(subspace%mode_ids))
-  state = MonomialStateReal( supercell_size = supercell_size, &
-                           & frequency      = frequency,      &
-                           & modes          = zero_modes      )
-  output = generate_monomial_states_helper(ids,maximum_power,state)
-end function
-
-recursive function generate_monomial_states_helper(ids,power,state) &
-   & result(output)
-  implicit none
-  
-  integer,                 intent(in)  :: ids(:)
-  integer,                 intent(in)  :: power
-  type(MonomialStateReal), intent(in)  :: state
-  type(MonomialStateReal), allocatable :: output(:)
-  
-  integer :: i
-  
-  if (size(ids)==0) then
-    output = [state]
-  else
-    output = [(                                                        &
-       & generate_monomial_states_helper(                              &
-       &      ids   = ids(2:),                                         &
-       &      power = power-i,                                         &
-       &      state = MonomialStateReal(                               &
-       &           supercell_size = state%supercell_size,              &
-       &           frequency      = state%frequency,                   &
-       &           modes          = [ state%modes_,                    &
-       &                              MonomialState1D(ids(1),i) ] ) ), &
-       & i=0,                                                          &
-       & power                                                         )]
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! Returns the total power of a given state.
-! ----------------------------------------------------------------------
-! The total power of the state product_{q,i} |(u_{q,i})^(n_{q,i})> is equal to
-!    sum_{q,i} n_{q,i}.
-impure elemental function occupation_MonomialStateReal(this) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in) :: this
-  integer                              :: output
-  
-  output = sum(this%modes_%total_power())
-end function
-
-! ----------------------------------------------------------------------
-! Returns the wavevector of a given state.
-! ----------------------------------------------------------------------
-! The wavevector of the state product_{q,i} |(u_{q,i})^(n_{q,i})> is equal to
-!    sum_{q,i} n_{q,i}q.
-function wavevector_MonomialStateReal(this,modes,qpoints) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in) :: this
-  type(ComplexMode),        intent(in) :: modes(:)
-  type(QpointData),         intent(in) :: qpoints(:)
-  type(FractionVector)                 :: output
-  
-  integer :: i
-  
-  output = sum([( this%modes_(i)%wavevector(modes,qpoints), &
-                & i=1,                                      &
-                & size(this%modes_)                         )])
-end function
-
-! ----------------------------------------------------------------------
-! Returns the wavefunction of the state,
-!    with all coefficients accounted for.
-! ----------------------------------------------------------------------
-impure elemental function wavefunction_MonomialStateReal(this,frequency, &
-   & supercell) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in) :: this
-  real(dp),                 intent(in) :: frequency
-  type(StructureData),      intent(in) :: supercell
-  type(String)                         :: output
-  
-  real(dp) :: log_2nw
-  real(dp) :: coefficient
-  
-  integer :: i
-  
-  ! |n> = sqrt((2Nw)^n/f(n)) u^n |0>,
-  !    where f(n) is the odd factorial of n, f(n) = (2n)!/(n!*2^n).
-  
-  log_2nw = log(2*supercell%sc_size*frequency)
-  coefficient = product(exp(0.5_dp*(            &
-     &   this%modes_%power()*log_2nw            &
-     & - log_odd_factorial(this%modes_%power()) )))
-  
-  if (size(this%modes_)==0) then
-    output = str(coefficient)//'|0>'
-  else
-    output = coefficient                                                   // &
-       & '*'                                                               // &
-       & join(                                                                &
-       & [( '(u'//this%modes_(i)%id()//'^'//this%modes_(i)%power()//')',      &
-       &    i=1,                                                              &
-       &    size(this%modes_)                                            )],  &
-       & delimiter='*'                                                   ) // &
-       & '|0>'
-  endif
-end function
-
-! ----------------------------------------------------------------------
-! SubspaceState methods.
-! ----------------------------------------------------------------------
-! Returns whether or not braket(bra,ket) is non-zero.
-impure elemental function finite_overlap_MonomialStateReals(bra,ket, &
-   & anharmonic_data) result(output)
-  implicit none
-  
-  type(MonomialStateReal), intent(in) :: bra
-  type(MonomialStateReal), intent(in) :: ket
-  type(AnharmonicData),    intent(in) :: anharmonic_data
-  logical                             :: output
-  
-  output = all(bra%modes_%finite_overlap(ket%modes_))
-end function
-
-impure elemental function inner_product_MonomialStateReal(this, &
-   & ket,anharmonic_data) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in)                   :: this
-  class(SubspaceState),     intent(in), optional, target :: ket
-  type(AnharmonicData),     intent(in)                   :: anharmonic_data
-  real(dp)                                               :: output
-  
-  type(MonomialStateReal), pointer :: monomial_ket
-  
-  if (present(ket)) then
-    monomial_ket => monomial_state_real_pointer(ket)
-    output = product(this%modes_%inner_product(monomial_ket%modes_))
-  else
-    ! Modes are normalised, so <p|p>=1.
-    output = 1
-  endif
-end function
-
-impure elemental function integrate_MonomialStateReal(this, &
-   & monomial,ket,anharmonic_data) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in)                   :: this
-  type(SparseMonomial),     intent(in)                   :: monomial
-  class(SubspaceState),     intent(in), optional, target :: ket
-  type(AnharmonicData),     intent(in)                   :: anharmonic_data
-  complex(dp)                                            :: output
-  
-  type(MonomialStateReal), pointer :: monomial_ket
-  
-  if (present(ket)) then
-    monomial_ket => monomial_state_real_pointer(ket)
-    output = product(this%modes_%braket( monomial_ket%modes_, &
-                                       & monomial%modes,      &
-                                       & this%log_2nw_        ))
-  else
-    output = product(this%modes_%braket( this%modes_,    &
-                                       & monomial%modes, &
-                                       & this%log_2nw_   ))
-  endif
-end function
-
-impure elemental function kinetic_energy_MonomialStateReal(this,ket, &
-   & anharmonic_data) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in)                   :: this
-  class(SubspaceState),     intent(in), optional, target :: ket
-  type(AnharmonicData),     intent(in)                   :: anharmonic_data
-  real(dp)                                               :: output
-  
-  type(MonomialStateReal), pointer :: monomial_ket
-  
-  type(MonomialState1D), allocatable :: bra_modes(:)
-  type(MonomialState1D), allocatable :: ket_modes(:)
-  real(dp),              allocatable :: overlap(:)
-  
-  ! |p> = product_i |p_i>
-  ! The kinetic energy is given by T = -(1/2N) sum_i d^2/d(u_i^2).
-  ! <p_i|d^2/d(u_i)^2|q_i> is calculated up to a factor of 2Nw, so
-  !    <p|T|q> = -w * sum_i <p_i|%second_derivative(|q_i>) * (<p'|q'>),
-  !    where |p'> is |p> excluding |p_i>, so |p>=|p_i>|p'>.
-  
-  bra_modes = this%modes_
-  
-  if (present(ket)) then
-    monomial_ket => monomial_state_real_pointer(ket)
-    ket_modes = monomial_ket%modes_
-    
-    if (all(bra_modes%finite_overlap(ket_modes))) then
-      ! All <p_i|q_i>/=0, so all <p'|q'>=<p|q>/<p_i|q_i>,
-      !    so <p|T|q> = -w<p|q>
-      !               * sum_i <p_i|%second_derivative(|q_i>) / <p_i|q_i>
-      overlap = bra_modes%inner_product(ket_modes)
-      output = -this%frequency*product(overlap) &
-           & * sum(bra_modes%second_derivative(ket_modes)/overlap)
-    else
-      ! At least one <p_i|q_i>=0, and for monomial states,
-      !    if <p_i|q_i>=0 then <p_i|T|q_i>=0 as well.
-      output = 0
-    endif
-  else
-    ! |p>=|q>, so <p'|q'>=1, and so
-    !    <p|T|q> = -w*sum_i <p_i|%second_derivative().
-    output = -this%frequency*sum(bra_modes%second_derivative(bra_modes))
-  endif
-end function
-
-impure elemental function harmonic_potential_energy_MonomialStateReal( &
-   & this,ket,anharmonic_data) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in)                   :: this
-  class(SubspaceState),     intent(in), optional, target :: ket
-  type(AnharmonicData),     intent(in)                   :: anharmonic_data
-  real(dp)                                               :: output
-  
-  type(MonomialStateReal), pointer :: monomial_ket
-  
-  type(MonomialState1D),   allocatable :: bra_modes(:)
-  type(MonomialState1D),   allocatable :: ket_modes(:)
-  type(ComplexUnivariate), allocatable :: harmonic_potential(:)
-  real(dp),                allocatable :: overlap(:)
-  
-  ! |p> = product_i |p_i>
-  ! The harmonic potential energy is given by V = (Nw^2/2) sum_i (u_i^2).
-  ! <p_i|(u_i)^2|q_i> is calculated up to a factor of 2Nw, so
-  !    <p|V|q> = (w/4) * sum_i <p_i|%braket(|q_i>,V_i) * (<p'|q'>),
-  !    where |p'> is |p> excluding |p_i>, so |p>=|p_i>|p'>.
-  
-  bra_modes = this%modes_
-  
-  harmonic_potential = ComplexUnivariate( id           = bra_modes%id(), &
-                                        & paired_id    = bra_modes%id(), &
-                                        & power        = 2,              &
-                                        & paired_power = 2               )
-  
-  if (present(ket)) then
-    monomial_ket => monomial_state_real_pointer(ket)
-    ket_modes = monomial_ket%modes_
-    
-    if (all(bra_modes%finite_overlap(ket_modes))) then
-      ! All <p_i|q_i>/=0, so all <p'|q'>=<p|q>/<p_i|q_i>,
-      !    so <p|T|q> = (w^2/4)<p|q>
-      !               * sum_i <p_i|%braket(|q_i>,V_i) / <p_i|q_i>
-      overlap = bra_modes%inner_product(ket_modes)
-      output = (this%frequency**2/4)*product(overlap)       &
-           & * sum( bra_modes%braket( ket_modes,            &
-           &                          harmonic_potential,   &
-           &                          this%log_2nw_       ) &
-           &      / overlap                                 )
-    else
-      ! At least one <p_i|q_i>=0, and for monomial states,
-      !    if <p_i|q_i>=0 then <p_i|V_i|q_i>=0 as well.
-      output = 0
-    endif
-  else
-    ! |p>=|q>, so <p'|q'>=1, and so
-    !    <p|V|q> = (w^2/4)*sum_i <p_i|%braket(|p_i>,V_i).
-    output = (this%frequency**2/4)                     &
-         & * sum(bra_modes%braket( bra_modes,          &
-         &                         harmonic_potential, &
-         &                         this%log_2nw_       ))
-  endif
-end function
-
-impure elemental function kinetic_stress_MonomialStateReal(this,ket, &
-   & stress_prefactors,anharmonic_data) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in)                   :: this
-  class(SubspaceState),     intent(in), optional, target :: ket
-  type(StressPrefactors),   intent(in)                   :: stress_prefactors
-  type(AnharmonicData),     intent(in)                   :: anharmonic_data
-  type(RealMatrix)                                       :: output
-  
-  type(MonomialStateReal), pointer :: monomial_ket
-  
-  logical,  allocatable :: finite_overlap(:)
-  real(dp), allocatable :: overlaps(:)
-  
-  integer :: i,j
-  
-  ! |p> = product_i |p_i>
-  ! The kinetic stress is given by
-  !    S = -(1/NV) sum_i (I_{i,i}d^2/d(u_i^2) + sum_{j/=i}I_{i,j}d^2/du_idu_j).
-  ! <p_i|d^2/d(u_i)^2|q_i> and <p_i|d^2/du_idu_j|q_i> are calculated up to
-  !    a factor of 2Nw, so
-  !    <p|S|q> = -2w * (
-  !      sum_i prefactor_{i,i}*<p_i|%second_derivative(|q_i>) * (<p'|q'>)
-  !    + sum_{i,j} prefactor_{i,j}*<p_i|%first_derivative(|q_i>)
-  !                               *<p_j|%first_derivative(|q_j>)*(<p''|q''>) ),
-  ! where |p'> is |p> excluding |p_i>, so |p>=|p_i>|p'>,
-  ! and |p''> is |p> excluding |p_i> and |p_j>, so |p>=|p_i>|p_j>|p''>.
-  
-  output = dblemat(zeroes(3,3))
-  
-  if (present(ket)) then
-    monomial_ket => monomial_state_real_pointer(ket)
-    
-    finite_overlap = this%modes_%finite_overlap(monomial_ket%modes_)
-    if (count(.not.finite_overlap)==0) then
-      ! All <p_i|q_i> are finite, so
-      !    <p'|q'> = <p|q>/<p_i|q_i>
-      !    <p''|q''> = <p|q>/(<p_i|q_i><p_j|q_j>)
-      ! For monomial states, if <p_i|q_i>/=0 then
-      !    <p_i|d/d(u_i)|q_i>=0 by parity.
-      ! S = -w<p|q>
-      !   & sum_i prefactor_{i,i}*<p_i|%second_derivative(|q_i>)/<p_i|q_i>
-      overlaps = this%modes_%inner_product(monomial_ket%modes_)
-      output = sum( stress_prefactors%prefactor( this%modes_%id(),       &
-           &                                     this%modes_%id()  )     &
-           &      * this%modes_%second_derivative(monomial_ket%modes_)   &
-           &      / overlaps                                           ) &
-           & * (-2*this%frequency)*product(overlaps)
-    elseif (count(.not.finite_overlap)==2) then
-      ! Exactly two <p_i|q_i> are zero. Label these i and j.
-      ! <p|S|q> = -w*
-      !   (prefactor_{i,j}+prefactor_{j,i})
-      !   * <p_i|%first_derivative(|q_i>)
-      !   * <p_j|%first_derivative(|q_j>)
-      !   * <p''|q''>
-      i = first(.not. finite_overlap)
-      j = i + first(.not. finite_overlap(i+1:))
-      
-      ! Calculate <p|S|q> up to the factor of <p''|q''>.
-      output = ( stress_prefactors%prefactor( this%modes_(i)%id(),     &
-           &                                  this%modes_(j)%id()  )   &
-           &   + stress_prefactors%prefactor( this%modes_(j)%id(),     &
-           &                                  this%modes_(i)%id()  ) ) &
-           & * this%modes_(i)%first_derivative(monomial_ket%modes_(i)) &
-           & * this%modes_(j)%first_derivative(monomial_ket%modes_(j)) &
-           & * (-2*this%frequency)
-      
-      ! Calculate and include the factor of <p''|q''>.
-      overlaps = this%modes_%inner_product(monomial_ket%modes_)
-      output = output                     &
-           & * product(overlaps(:i-1))    &
-           & * product(overlaps(i+1:j-1)) &
-           & * product(overlaps(j+1:))
-    else
-      ! More than two <p_i|q_i>=0, so the whole expression is zero.
-      return
-    endif
-  else
-    ! |p>=|q>, so all first derivative expectations are zero.
-    ! Also, <p|p>=1, so <p'|p'>=1.
-    ! -> <p|S|p> = -w sum_i prefactor_{i,i}<p_i|%second_derivative(|p_i>)
-    output = -2*this%frequency                                   &
-         & * sum( stress_prefactors%prefactor( this%modes_%id(), &
-         &                                     this%modes_%id()) &
-         &      * this%modes_%second_derivative(this%modes_)     )
-  endif
-  
-  ! Divide by the volume.
-  output = output / anharmonic_data%structure%volume
-end function
-
-! ----------------------------------------------------------------------
-! Change the modes of the state by the specified group.
-! ----------------------------------------------------------------------
-impure elemental function change_modes_MonomialStateReal(this,mode_group) &
-   & result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in) :: this
-  type(Group),          intent(in) :: mode_group
-  type(MonomialStateReal)              :: output
-  
-  integer, allocatable :: ids(:)
-  integer, allocatable :: powers(:)
-  integer, allocatable :: sort_key(:)
-  
-  ! Get the ids and powers of the single-mode terms.
-  ids = this%modes_%id()
-  powers = this%modes_%power()
-  
-  ! Change the ids according to the given group.
-  ids = mode_group*ids
-  
-  ! Sort the modes by id.
-  sort_key = sort(ids)
-  ids = ids(sort_key)
-  powers = powers(sort_key)
-  
-  ! Construct output using the new ids.
-  output = MonomialStateReal( supercell_size = this%supercell_size,        &
-                            & frequency      = this%frequency,             &
-                            & modes          = MonomialState1D(ids,powers) )
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_MonomialStateReal(this,input)
-  implicit none
-  
-  class(MonomialStateReal), intent(out) :: this
-  type(String),             intent(in)  :: input(:)
-  
-  integer                            :: supercell_size
-  real(dp)                           :: frequency
-  type(MonomialState1D), allocatable :: modes(:)
-  
-  type(String), allocatable :: line(:)
-  
-  integer :: i
-  
-  select type(this); type is(MonomialStateReal)
-    supercell_size = int(token(input(2),4))
-    
-    frequency = dble(token(input(3),3))
-    
-    line = split_line(input(5),delimiter='>')
-    line = [(line(i)//'>',i=1,size(line))]
-    modes = MonomialState1D(line)
-    
-    this = MonomialStateReal(supercell_size,frequency,modes)
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_MonomialStateReal(this) result(output)
-  implicit none
-  
-  class(MonomialStateReal), intent(in) :: this
-  type(String), allocatable        :: output(:)
-  
-  select type(this); type is(MonomialStateReal)
-    output = [ 'Supercell size : '//this%supercell_size, &
-             & 'Frequency      : '//this%frequency,      &
-             & str('State'),                             &
-             & join(str(this%modes_), delimiter='')      ]
-  class default
-    call err()
-  end select
-end function
-
-function new_MonomialStateReal_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(MonomialStateReal)      :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_MonomialStateReal_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(MonomialStateReal)           :: this
-  
-  this = MonomialStateReal(str(input))
-end function
+  interface
+    impure elemental module function inner_product_MonomialStateReal(this, &
+       & ket,anharmonic_data) result(output) 
+      class(MonomialStateReal), intent(in)                   :: this
+      class(SubspaceState),     intent(in), optional, target :: ket
+      type(AnharmonicData),     intent(in)                   :: anharmonic_data
+      real(dp)                                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function integrate_MonomialStateReal(this, &
+       & monomial,ket,anharmonic_data) result(output) 
+      class(MonomialStateReal), intent(in)                   :: this
+      type(SparseMonomial),     intent(in)                   :: monomial
+      class(SubspaceState),     intent(in), optional, target :: ket
+      type(AnharmonicData),     intent(in)                   :: anharmonic_data
+      complex(dp)                                            :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function kinetic_energy_MonomialStateReal(this, &
+       & ket,anharmonic_data) result(output) 
+      class(MonomialStateReal), intent(in)                   :: this
+      class(SubspaceState),     intent(in), optional, target :: ket
+      type(AnharmonicData),     intent(in)                   :: anharmonic_data
+      real(dp)                                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function harmonic_potential_energy_MonomialStateReal(   this,ket,anharmonic_data) result(output) 
+      class(MonomialStateReal), intent(in)                   :: this
+      class(SubspaceState),     intent(in), optional, target :: ket
+      type(AnharmonicData),     intent(in)                   :: anharmonic_data
+      real(dp)                                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function kinetic_stress_MonomialStateReal(this, &
+       & ket,stress_prefactors,anharmonic_data) result(output) 
+      class(MonomialStateReal), intent(in)                   :: this
+      class(SubspaceState),     intent(in), optional, target :: ket
+      type(StressPrefactors),   intent(in)                   :: stress_prefactors
+      type(AnharmonicData),     intent(in)                   :: anharmonic_data
+      type(RealMatrix)                                       :: output
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! Change the modes of the state by the specified group.
+    ! ----------------------------------------------------------------------
+    impure elemental module function change_modes_MonomialStateReal(this, &
+       & mode_group) result(output) 
+      class(MonomialStateReal), intent(in) :: this
+      type(Group),          intent(in) :: mode_group
+      type(MonomialStateReal)              :: output
+    end function
+  end interface
+  
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_MonomialStateReal(this,input) 
+      class(MonomialStateReal), intent(out) :: this
+      type(String),             intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    module function write_MonomialStateReal(this) result(output) 
+      class(MonomialStateReal), intent(in) :: this
+      type(String), allocatable        :: output(:)
+    end function
+  end interface
+  
+  interface MonomialStateReal
+    module function new_MonomialStateReal_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(MonomialStateReal)      :: this
+    end function
+  
+    impure elemental module function new_MonomialStateReal_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(MonomialStateReal)           :: this
+    end function
+  end interface
 end module

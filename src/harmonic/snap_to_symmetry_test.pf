@@ -1,0 +1,7 @@
+module snap_to_symmetry_test
+  use funit
+
+  use caesar_harmonic_module
+  implicit none
+contains
+end module

@@ -9,7 +9,7 @@ module caesar_caesar_modes_module
   use caesar_abstract_module
   
   use caesar_keyword_module
-  use caesar_argument_dictionary_module
+  use caesar_dictionary_module
   implicit none
   
   private
@@ -50,15 +50,6 @@ module caesar_caesar_modes_module
     procedure, private :: remove_keyword_character
   end type
   
-  interface CaesarMode
-    module procedure new_CaesarMode_character
-    module procedure new_CaesarMode_String
-    module procedure new_CaesarMode_character_character
-    module procedure new_CaesarMode_character_String
-    module procedure new_CaesarMode_String_character
-    module procedure new_CaesarMode_String_String
-  end interface
-  
   ! A dictionary of modes.
   type :: CaesarModes
     type(CaesarMode), private, allocatable :: modes_(:)
@@ -72,286 +63,152 @@ module caesar_caesar_modes_module
     procedure, public  :: print_help => print_help_CaesarModes
   end type
   
-  interface CaesarModes
-    module procedure new_CaesarModes
-    module procedure new_CaesarModes_CaesarMode
+  interface CaesarMode
+    ! ----------------------------------------------------------------------
+    ! CaesarMode procedures.
+    ! ----------------------------------------------------------------------
+    
+    ! Constructor which picks the requested mode from CAESAR_MODES.
+    module function new_CaesarMode_character(mode) result(this) 
+      character(*), intent(in) :: mode
+      type(CaesarMode)         :: this
+    end function
+  
+    module function new_CaesarMode_String(mode) result(this) 
+      type(String), intent(in) :: mode
+      type(CaesarMode)         :: this
+    end function
+  
+    ! Constructor for CaesarMode type. Takes:
+    !    - The name of the mode, e.g. 'harmonic'. This is converted to lower case.
+    !    - A brief description of the mode.
+    !    - The keywords associated with the mode.
+    !    - A pointer to the mode's module subroutine.
+    ! Can have suppress_from_helptext set, which stops the mode from appearing
+    !    in non-mode-specific help. This defaults to false.
+    module function new_CaesarMode_character_character(mode_name,     &
+        description,keywords,main_subroutine,suppress_from_helptext, &
+          & suppress_settings_file) result(output) 
+      character(*),              intent(in)           :: mode_name
+      character(*),              intent(in)           :: description
+      type(KeywordData),         intent(in)           :: keywords(:)
+      procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
+      logical,                   intent(in), optional :: suppress_from_helptext
+      logical,                   intent(in), optional :: suppress_settings_file
+      type(CaesarMode)                                :: output
+    end function
+  
+    module function new_CaesarMode_character_String(mode_name,description, &
+        keywords,main_subroutine,suppress_from_helptext, &
+          & suppress_settings_file) result(output) 
+      character(*),              intent(in)           :: mode_name
+      type(String),              intent(in)           :: description
+      type(KeywordData),         intent(in)           :: keywords(:)
+      procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
+      logical,                   intent(in), optional :: suppress_from_helptext
+      logical,                   intent(in), optional :: suppress_settings_file
+      type(CaesarMode)                                :: output
+    end function
+  
+    module function new_CaesarMode_String_character(mode_name,description, &
+        keywords,main_subroutine,suppress_from_helptext, &
+          & suppress_settings_file) result(output) 
+      type(String),              intent(in)           :: mode_name
+      character(*),              intent(in)           :: description
+      type(KeywordData),         intent(in)           :: keywords(:)
+      procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
+      logical,                   intent(in), optional :: suppress_from_helptext
+      logical,                   intent(in), optional :: suppress_settings_file
+      type(CaesarMode)                                :: output
+    end function
+  
+    module function new_CaesarMode_String_String(mode_name,description, &
+        keywords,main_subroutine,suppress_from_helptext, &
+          & suppress_settings_file) result(output) 
+      type(String),              intent(in)           :: mode_name
+      type(String),              intent(in)           :: description
+      type(KeywordData),         intent(in)           :: keywords(:)
+      procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
+      logical,                   intent(in), optional :: suppress_from_helptext
+      logical,                   intent(in), optional :: suppress_settings_file
+      type(CaesarMode)                                :: output
+    end function
+  end interface
+  
+  interface
+    ! Remove a keyword from a CaesarMode.
+    impure elemental module subroutine remove_keyword_String(this,keyword) 
+      class(CaesarMode), intent(inout) :: this
+      type(string),      intent(in)    :: keyword
+    end subroutine
+  end interface
+  
+  interface
+    module subroutine remove_keyword_character(this,keyword) 
+      class(CaesarMode), intent(inout) :: this
+      character(*),      intent(in)    :: keyword
+    end subroutine
   end interface
   
   interface Dictionary
-    module procedure new_Dictionary_CaesarMode
+    ! Construct a dictionary from a CaesarMode.
+    module function new_Dictionary_CaesarMode(mode) result(this) 
+      type(CaesarMode), intent(in) :: mode
+      type(Dictionary)             :: this
+    end function
   end interface
   
-  ! An array of modes, which will be populated at startup.
-  type(CaesarMode), allocatable :: CAESAR_MODES(:)
+  interface print_help
+    ! Prints helptext.
+    module subroutine print_help_CaesarMode(this) 
+      class(CaesarMode), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface CaesarModes
+    ! ----------------------------------------------------------------------
+    ! CaesarModes procedures.
+    ! ----------------------------------------------------------------------
+    
+    ! Constructor for CaesarModes.
+    module function new_CaesarModes() result(this) 
+      type(CaesarModes) :: this
+    end function
+  
+    module function new_CaesarModes_CaesarMode(modes) result(this) 
+      type(CaesarMode), intent(in) :: modes(:)
+      type(CaesarModes)            :: this
+    end function
+  end interface
+  
+  interface
+    ! Returns the mode with a given name.
+    module function mode_String(this,mode_name) result(output) 
+      class(CaesarModes), intent(in) :: this
+      type(String),       intent(in) :: mode_name
+      type(CaesarMode)               :: output
+    end function
+  end interface
+  
+  interface
+    module function mode_character(this,mode_name) result(output) 
+      class(CaesarModes), intent(in) :: this
+      character(*),       intent(in) :: mode_name
+      type(CaesarMode)               :: output
+    end function
+  end interface
+  
+  interface
+    ! Prints helptext.
+    module subroutine print_help_CaesarModes(this) 
+      class(CaesarModes), intent(in) :: this
+    end subroutine
+  end interface
   
   interface add_mode
-    module procedure add_mode_CaesarMode
+    ! Add a mode to the list of modes.
+    module subroutine add_mode_CaesarMode(mode) 
+      type(CaesarMode), intent(in) :: mode
+    end subroutine
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! CaesarMode procedures.
-! ----------------------------------------------------------------------
-
-! Constructor which picks the requested mode from CAESAR_MODES.
-function new_CaesarMode_character(mode) result(this)
-  implicit none
-  
-  character(*), intent(in) :: mode
-  type(CaesarMode)         :: this
-  
-  type(CaesarModes) :: modes
-  
-  modes = CaesarModes()
-  
-  this = modes%mode(mode)
-end function
-
-function new_CaesarMode_String(mode) result(this)
-  implicit none
-  
-  type(String), intent(in) :: mode
-  type(CaesarMode)         :: this
-  
-  this = CaesarMode(char(mode))
-end function
-
-! Constructor for CaesarMode type. Takes:
-!    - The name of the mode, e.g. 'harmonic'. This is converted to lower case.
-!    - A brief description of the mode.
-!    - The keywords associated with the mode.
-!    - A pointer to the mode's subroutine.
-! Can have suppress_from_helptext set, which stops the mode from appearing
-!    in non-mode-specific help. This defaults to false.
-function new_CaesarMode_character_character(mode_name,description,keywords, &
-   & main_subroutine,suppress_from_helptext,suppress_settings_file)      &
-   & result(output)
-  implicit none
-  
-  character(*),              intent(in)           :: mode_name
-  character(*),              intent(in)           :: description
-  type(KeywordData),         intent(in)           :: keywords(:)
-  procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
-  logical,                   intent(in), optional :: suppress_from_helptext
-  logical,                   intent(in), optional :: suppress_settings_file
-  type(CaesarMode)                                :: output
-  
-  output%mode_name = lower_case(mode_name)
-  output%description = description
-  output%keywords = keywords
-  output%main_subroutine => main_subroutine
-  
-  if (present(suppress_from_helptext)) then
-    output%suppress_from_helptext = suppress_from_helptext
-  else
-    output%suppress_from_helptext = .false.
-  endif
-  
-  if (present(suppress_settings_file)) then
-    output%suppress_settings_file = suppress_settings_file
-  else
-    output%suppress_settings_file = .false.
-  endif
-end function
-
-function new_CaesarMode_character_String(mode_name,description,keywords, &
-   & main_subroutine,suppress_from_helptext,suppress_settings_file)      &
-   & result(output)
-  implicit none
-  
-  character(*),              intent(in)           :: mode_name
-  type(String),              intent(in)           :: description
-  type(KeywordData),         intent(in)           :: keywords(:)
-  procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
-  logical,                   intent(in), optional :: suppress_from_helptext
-  logical,                   intent(in), optional :: suppress_settings_file
-  type(CaesarMode)                                :: output
-  
-  output = CaesarMode( mode_name,              &
-                     & char(description),      &
-                     & keywords,               &
-                     & main_subroutine,        &
-                     & suppress_from_helptext, &
-                     & suppress_settings_file)
-end function
-
-function new_CaesarMode_String_character(mode_name,description,keywords, &
-   & main_subroutine,suppress_from_helptext,suppress_settings_file)      &
-   & result(output)
-  implicit none
-  
-  type(String),              intent(in)           :: mode_name
-  character(*),              intent(in)           :: description
-  type(KeywordData),         intent(in)           :: keywords(:)
-  procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
-  logical,                   intent(in), optional :: suppress_from_helptext
-  logical,                   intent(in), optional :: suppress_settings_file
-  type(CaesarMode)                                :: output
-  
-  output = CaesarMode( char(mode_name),        &
-                     & description,            &
-                     & keywords,               &
-                     & main_subroutine,        &
-                     & suppress_from_helptext, &
-                     & suppress_settings_file)
-end function
-
-function new_CaesarMode_String_String(mode_name,description,keywords, &
-   & main_subroutine,suppress_from_helptext,suppress_settings_file)      &
-   & result(output)
-  implicit none
-  
-  type(String),              intent(in)           :: mode_name
-  type(String),              intent(in)           :: description
-  type(KeywordData),         intent(in)           :: keywords(:)
-  procedure(MainSubroutine), intent(in), pointer  :: main_subroutine
-  logical,                   intent(in), optional :: suppress_from_helptext
-  logical,                   intent(in), optional :: suppress_settings_file
-  type(CaesarMode)                                :: output
-  
-  output = CaesarMode( char(mode_name),        &
-                     & char(description),      &
-                     & keywords,               &
-                     & main_subroutine,        &
-                     & suppress_from_helptext, &
-                     & suppress_settings_file)
-end function
-
-! Remove a keyword from a CaesarMode.
-impure elemental subroutine remove_keyword_String(this,keyword)
-  implicit none
-  
-  class(CaesarMode), intent(inout) :: this
-  type(string),      intent(in)    :: keyword
-  
-  integer :: i
-  
-  i = first(this%keywords%keyword()==keyword, default=0)
-  if (i/=0) then
-    this%keywords = [this%keywords(:i-1), this%keywords(i+1:)]
-  endif
-end subroutine
-
-subroutine remove_keyword_character(this,keyword)
-  implicit none
-  
-  class(CaesarMode), intent(inout) :: this
-  character(*),      intent(in)    :: keyword
-  
-  call this%remove_keyword(str(keyword))
-end subroutine
-
-! Construct a dictionary from a CaesarMode.
-function new_Dictionary_CaesarMode(mode) result(this)
-  implicit none
-  
-  type(CaesarMode), intent(in) :: mode
-  type(Dictionary)             :: this
-  
-  this = Dictionary(mode%keywords)
-end function
-
-! Prints helptext.
-subroutine print_help_CaesarMode(this)
-  implicit none
-  
-  class(CaesarMode), intent(in) :: this
-  
-  call print_line('')
-  call print_line(colour(this%mode_name,'cyan'))
-  call print_line(this%description)
-end subroutine
-
-! ----------------------------------------------------------------------
-! CaesarModes procedures.
-! ----------------------------------------------------------------------
-
-! Constructor for CaesarModes.
-function new_CaesarModes() result(this)
-  implicit none
-  
-  type(CaesarModes) :: this
-  
-  if (.not. allocated(CAESAR_MODES)) then
-    call print_line(CODE_ERROR//': CAESAR_MODES has not been allocated.')
-    call err()
-  else
-    this%modes_ = CAESAR_MODES
-  endif
-end function
-
-function new_CaesarModes_CaesarMode(modes) result(this)
-  implicit none
-  
-  type(CaesarMode), intent(in) :: modes(:)
-  type(CaesarModes)            :: this
-  
-  this%modes_ = modes
-end function
-
-! Returns the mode with a given name.
-function mode_String(this,mode_name) result(output)
-  implicit none
-  
-  class(CaesarModes), intent(in) :: this
-  type(String),       intent(in) :: mode_name
-  type(CaesarMode)               :: output
-  
-  type(String) :: lower_case_mode_name
-  
-  integer :: i
-  
-  lower_case_mode_name = lower_case(mode_name)
-  
-  i = first(this%modes_%mode_name==lower_case_mode_name, default=0)
-  
-  if (i==0) then
-    call print_line(ERROR//': Unrecognised mode: '//mode_name)
-    call print_line('Call '//colour('caesar -h','white')//' for help.')
-    call quit()
-  endif
-  
-  output = this%modes_(i)
-end function
-
-function mode_character(this,mode_name) result(output)
-  implicit none
-  
-  class(CaesarModes), intent(in) :: this
-  character(*),       intent(in) :: mode_name
-  type(CaesarMode)               :: output
-  
-  output = this%mode(str(mode_name))
-end function
-
-! Prints helptext.
-subroutine print_help_CaesarModes(this)
-  implicit none
-  
-  class(CaesarModes), intent(in) :: this
-  
-  integer :: i
-  
-  do i=1,size(this%modes_)
-    call this%modes_(i)%print_help()
-  enddo
-end subroutine
-
-! Add a mode to the list of modes.
-subroutine add_mode_CaesarMode(mode)
-  implicit none
-  
-  type(CaesarMode), intent(in) :: mode
-  
-  if (.not. allocated(CAESAR_MODES)) then
-    CAESAR_MODES = [mode]
-  else
-    if (any(CAESAR_MODES%mode_name==mode%mode_name)) then
-      call print_line(CODE_ERROR//': Trying to add the same mode twice.')
-      call err()
-    else
-      CAESAR_MODES = [CAESAR_MODES, mode]
-    endif
-  endif
-end subroutine
 end module

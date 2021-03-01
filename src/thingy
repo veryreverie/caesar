@@ -1,9 +1,0 @@
-#!/bin/bash
-find . -type f -name "*.f90" -print0 | xargs -0 sed -i'' -e 's/precision_module/foundations_module/g'
-find . -type f -name "*.F90" -print0 | xargs -0 sed -i'' -e 's/precision_module/foundations_module/g'
-find . -type f -name "*.pf" -print0 | xargs -0 sed -i'' -e 's/precision_module/foundations_module/g'
-find . -type f -name "CMakeLists.txt" -print0 | xargs -0 sed -i'' -e 's/precision_module/foundations_module/g'
-find . -type f -name "*.f90" -print0 | xargs -0 sed -i'' -e 's/precision_submodule/foundations_submodule/g'
-find . -type f -name "*.F90" -print0 | xargs -0 sed -i'' -e 's/precision_submodule/foundations_submodule/g'
-find . -type f -name "*.pf" -print0 | xargs -0 sed -i'' -e 's/precision_submodule/foundations_submodule/g'
-find . -type f -name "CMakeLists.txt" -print0 | xargs -0 sed -i'' -e 's/precision_submodule/foundations_submodule/g'

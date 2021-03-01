@@ -1,0 +1,7 @@
+module basic_atom_test
+  use funit
+
+  use caesar_atom_module
+  implicit none
+contains
+end module

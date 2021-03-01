@@ -1,0 +1,7 @@
+module harmonic_properties_test
+  use funit
+
+  use caesar_observables_module
+  implicit none
+contains
+end module

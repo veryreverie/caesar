@@ -1,0 +1,7 @@
+module loto_splitting_test
+  use funit
+
+  use caesar_electronic_structure_common_module
+  implicit none
+contains
+end module

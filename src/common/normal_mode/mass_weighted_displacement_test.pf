@@ -1,0 +1,7 @@
+module mass_weighted_displacement_test
+  use funit
+
+  use caesar_normal_mode_module
+  implicit none
+contains
+end module

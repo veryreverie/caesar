@@ -26,239 +26,129 @@ module caesar_cartesian_displacement_module
   end type
   
   interface CartesianDisplacement
-    module procedure new_CartesianDisplacement
-    module procedure new_CartesianDisplacement_zero
-    module procedure new_CartesianDisplacement_Strings
-    module procedure new_CartesianDisplacement_StringArray
+    ! ----------------------------------------------------------------------
+    ! Constructor and size() module function.
+    ! ----------------------------------------------------------------------
+    module function new_CartesianDisplacement(displacements) result(this) 
+      type(RealVector), intent(in) :: displacements(:)
+      type(CartesianDisplacement)  :: this
+    end function
   end interface
   
   interface size
-    module procedure size_CartesianDisplacement
+    module function size_CartesianDisplacement(this) result(output) 
+      class(CartesianDisplacement), intent(in) :: this
+      integer                                  :: output
+    end function
+  end interface
+  
+  interface CartesianDisplacement
+    ! ----------------------------------------------------------------------
+    ! Construct a zero displacement.
+    ! ----------------------------------------------------------------------
+    impure elemental module function new_CartesianDisplacement_zero(structure) result(this) 
+      type(StructureData), intent(in) :: structure
+      type(CartesianDisplacement)     :: this
+    end function
   end interface
   
   interface displace_structure
-    module procedure displace_structure_CartesianDisplacement
+    ! ----------------------------------------------------------------------
+    ! Construct the structure which is displaced from the input structure.
+    ! ----------------------------------------------------------------------
+    module function displace_structure_CartesianDisplacement(structure, &
+       & displacement) result(output) 
+      type(StructureData),         intent(in) :: structure
+      type(CartesianDisplacement), intent(in) :: displacement
+      type(StructureData)                     :: output
+    end function
   end interface
   
   interface operator(*)
-    module procedure multiply_real_CartesianDisplacement
-    module procedure multiply_CartesianDisplacement_real
+    ! ----------------------------------------------------------------------
+    ! Algebra.
+    ! ----------------------------------------------------------------------
+    impure elemental module function multiply_real_CartesianDisplacement(this,that) result(output) 
+      real(dp),                    intent(in) :: this
+      type(CartesianDisplacement), intent(in) :: that
+      type(CartesianDisplacement)             :: output
+    end function
+  
+    impure elemental module function multiply_CartesianDisplacement_real(this,that) result(output) 
+      type(CartesianDisplacement), intent(in) :: this
+      real(dp),                    intent(in) :: that
+      type(CartesianDisplacement)             :: output
+    end function
   end interface
   
   interface operator(/)
-    module procedure divide_CartesianDisplacement_real
+    impure elemental module function divide_CartesianDisplacement_real(this, &
+       & that) result(output) 
+      type(CartesianDisplacement), intent(in) :: this
+      real(dp),                    intent(in) :: that
+      type(CartesianDisplacement)             :: output
+    end function
   end interface
   
   interface operator(+)
-    module procedure add_CartesianDisplacement_CartesianDisplacement
+    impure elemental module function add_CartesianDisplacement_CartesianDisplacement(   this,that) result(output) 
+      type(CartesianDisplacement), intent(in) :: this
+      type(CartesianDisplacement), intent(in) :: that
+      type(CartesianDisplacement)             :: output
+    end function
   end interface
   
   interface sum
-    module procedure sum_CartesianDisplacements
+    module function sum_CartesianDisplacements(input) result(output) 
+      type(CartesianDisplacement), intent(in) :: input(:)
+      type(CartesianDisplacement)             :: output
+    end function
   end interface
   
   interface operator(-)
-    module procedure negative_CartesianDisplacement
-    module procedure subtract_CartesianDisplacement_CartesianDisplacement
+    impure elemental module function negative_CartesianDisplacement(this) &
+       & result(output) 
+      type(CartesianDisplacement), intent(in) :: this
+      type(CartesianDisplacement)             :: output
+    end function
   end interface
-contains
-
-! ----------------------------------------------------------------------
-! Constructor and size() function.
-! ----------------------------------------------------------------------
-function new_CartesianDisplacement(displacements) result(this)
-  implicit none
   
-  type(RealVector), intent(in) :: displacements(:)
-  type(CartesianDisplacement)  :: this
+  interface operator(-)
+    impure elemental module function                                              subtract_CartesianDisplacement_CartesianDisplacement(this,that) result(output) 
+      type(CartesianDisplacement), intent(in) :: this
+      type(CartesianDisplacement), intent(in) :: that
+      type(CartesianDisplacement)             :: output
+    end function
+  end interface
   
-  this%vectors = displacements
-end function
-
-function size_CartesianDisplacement(this) result(output)
-  implicit none
+  interface
+    ! ----------------------------------------------------------------------
+    ! I/O.
+    ! ----------------------------------------------------------------------
+    module subroutine read_CartesianDisplacement(this,input) 
+      class(CartesianDisplacement), intent(out) :: this
+      type(String),                 intent(in)  :: input(:)
+    end subroutine
+  end interface
   
-  class(CartesianDisplacement), intent(in) :: this
-  integer                                  :: output
+  interface
+    module function write_CartesianDisplacement(this) result(output) 
+      class(CartesianDisplacement), intent(in) :: this
+      type(String), allocatable                :: output(:)
+    end function
+  end interface
   
-  output = size(this%vectors)
-end function
-
-! ----------------------------------------------------------------------
-! Construct a zero displacement.
-! ----------------------------------------------------------------------
-impure elemental function new_CartesianDisplacement_zero(structure) &
-   & result(this)
-  implicit none
+  interface CartesianDisplacement
+    module function new_CartesianDisplacement_Strings(input) result(this) 
+      type(String), intent(in)    :: input(:)
+      type(CartesianDisplacement) :: this
+    end function
+  end interface
   
-  type(StructureData), intent(in) :: structure
-  type(CartesianDisplacement)     :: this
-  
-  integer :: i
-  
-  this%vectors = [(dblevec(zeroes(3)), i=1, structure%no_atoms)]
-end function
-
-! ----------------------------------------------------------------------
-! Construct the structure which is displaced from the input structure.
-! ----------------------------------------------------------------------
-function displace_structure_CartesianDisplacement(structure,displacement) &
-   & result(output)
-  implicit none
-  
-  type(StructureData),         intent(in) :: structure
-  type(CartesianDisplacement), intent(in) :: displacement
-  type(StructureData)                     :: output
-  
-  integer :: i
-  
-  if (structure%no_atoms/=size(displacement)) then
-    call print_line(CODE_ERROR//': Trying to displace a structure by a &
-       &displacement which does not match the number of atoms.')
-    call err()
-  endif
-  
-  output = structure
-  
-  do i=1,size(displacement)
-    call output%atoms(i)%set_cartesian_position( &
-        &   output%atoms(i)%cartesian_position() &
-        & + displacement%vectors(i))
-  enddo
-end function
-
-! ----------------------------------------------------------------------
-! Algebra.
-! ----------------------------------------------------------------------
-impure elemental function multiply_real_CartesianDisplacement(this,that) &
-   & result(output)
-  implicit none
-  
-  real(dp),                    intent(in) :: this
-  type(CartesianDisplacement), intent(in) :: that
-  type(CartesianDisplacement)             :: output
-  
-  output = CartesianDisplacement(this * that%vectors)
-end function
-
-impure elemental function multiply_CartesianDisplacement_real(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CartesianDisplacement), intent(in) :: this
-  real(dp),                    intent(in) :: that
-  type(CartesianDisplacement)             :: output
-  
-  output = CartesianDisplacement(this%vectors * that)
-end function
-
-impure elemental function divide_CartesianDisplacement_real(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CartesianDisplacement), intent(in) :: this
-  real(dp),                    intent(in) :: that
-  type(CartesianDisplacement)             :: output
-  
-  output = CartesianDisplacement(this%vectors / that)
-end function
-
-impure elemental function add_CartesianDisplacement_CartesianDisplacement( &
-   & this,that) result(output)
-  implicit none
-  
-  type(CartesianDisplacement), intent(in) :: this
-  type(CartesianDisplacement), intent(in) :: that
-  type(CartesianDisplacement)             :: output
-  
-  output = CartesianDisplacement(this%vectors + that%vectors)
-end function
-
-function sum_CartesianDisplacements(input) result(output)
-  implicit none
-  
-  type(CartesianDisplacement), intent(in) :: input(:)
-  type(CartesianDisplacement)             :: output
-  
-  integer :: i
-  
-  if (size(input)==0) then
-    call print_line(ERROR//': Trying to sum an empty array.')
-    call err()
-  endif
-  
-  output = input(1)
-  do i=2,size(input)
-    output = output + input(i)
-  enddo
-end function
-
-impure elemental function negative_CartesianDisplacement(this) result(output)
-  implicit none
-  
-  type(CartesianDisplacement), intent(in) :: this
-  type(CartesianDisplacement)             :: output
-  
-  output = CartesianDisplacement(-this%vectors)
-end function
-
-impure elemental function                                            &
-   & subtract_CartesianDisplacement_CartesianDisplacement(this,that) &
-   & result(output)
-  implicit none
-  
-  type(CartesianDisplacement), intent(in) :: this
-  type(CartesianDisplacement), intent(in) :: that
-  type(CartesianDisplacement)             :: output
-  
-  output = CartesianDisplacement(this%vectors - that%vectors)
-end function
-
-! ----------------------------------------------------------------------
-! I/O.
-! ----------------------------------------------------------------------
-subroutine read_CartesianDisplacement(this,input)
-  implicit none
-  
-  class(CartesianDisplacement), intent(out) :: this
-  type(String),                 intent(in)  :: input(:)
-  
-  select type(this); type is(CartesianDisplacement)
-    this = CartesianDisplacement(RealVector(input))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_CartesianDisplacement(this) result(output)
-  implicit none
-  
-  class(CartesianDisplacement), intent(in) :: this
-  type(String), allocatable                :: output(:)
-  
-  select type(this); type is(CartesianDisplacement)
-    output = str(this%vectors)
-  class default
-    call err()
-  end select
-end function
-
-function new_CartesianDisplacement_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in)    :: input(:)
-  type(CartesianDisplacement) :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_CartesianDisplacement_StringArray(input) &
-   & result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(CartesianDisplacement)   :: this
-  
-  this = CartesianDisplacement(str(input))
-end function
+  interface CartesianDisplacement
+    impure elemental module function new_CartesianDisplacement_StringArray(input) result(this) 
+      type(StringArray), intent(in) :: input
+      type(CartesianDisplacement)   :: this
+    end function
+  end interface
 end module

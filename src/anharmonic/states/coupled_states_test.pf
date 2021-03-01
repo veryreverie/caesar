@@ -1,0 +1,7 @@
+module coupled_states_test
+  use funit
+
+  use caesar_states_module
+  implicit none
+contains
+end module

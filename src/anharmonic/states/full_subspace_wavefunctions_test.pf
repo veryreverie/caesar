@@ -1,0 +1,7 @@
+module full_subspace_wavefunctions_test
+  use funit
+
+  use caesar_states_module
+  implicit none
+contains
+end module

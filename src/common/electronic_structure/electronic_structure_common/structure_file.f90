@@ -11,29 +11,18 @@ module caesar_structure_file_module
   
   public :: read_structure_file
   public :: write_structure_file
-contains
-
-function read_structure_file(filename) result(this)
-  implicit none
   
-  type(String), intent(in) :: filename
-  type(StructureData)      :: this
+  interface
+    module function read_structure_file(filename) result(this) 
+      type(String), intent(in) :: filename
+      type(StructureData)      :: this
+    end function
+  end interface
   
-  type(IFile) :: structure_file
-  
-  structure_file = IFile(filename)
-  this = StructureData(structure_file%lines())
-end function
-
-subroutine write_structure_file(this,filename)
-  implicit none
-  
-  type(StructureData), intent(in) :: this
-  type(String),        intent(in) :: filename
-  
-  type(OFile) :: structure_file
-  
-  structure_file = OFile(filename)
-  call structure_file%print_lines(this)
-end subroutine
+  interface
+    module subroutine write_structure_file(this,filename) 
+      type(StructureData), intent(in) :: this
+      type(String),        intent(in) :: filename
+    end subroutine
+  end interface
 end module

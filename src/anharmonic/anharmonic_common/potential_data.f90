@@ -139,16 +139,6 @@ module caesar_potential_data_module
     procedure, public :: write => write_PotentialPointer
   end type
   
-  ! An array of all types which extend PotentialData.
-  ! This array will be filled in by startup routines.
-  type(PotentialPointer), allocatable :: TYPES_PotentialData(:)
-  
-  interface PotentialPointer
-    module procedure new_PotentialPointer
-    module procedure new_PotentialPointer_Strings
-    module procedure new_PotentialPointer_StringArray
-  end interface
-  
   abstract interface
     ! PotentialData procedures.
     impure elemental function representation_PotentialData() result(output)
@@ -272,630 +262,382 @@ module caesar_potential_data_module
       type(PotentialBasePointer), allocatable :: output(:)
     end function
   end interface
-contains
-
-subroutine startup_PotentialData(this)
-  implicit none
-  
-  class(PotentialData), intent(in) :: this
-  
-  type(PotentialBasePointer) :: base
-  
-  integer :: i
-  
-  ! TODO: this doesn't work. It calls the startup() method for
-  !    PotentialBasePointer only.
-  base = PotentialBasePointer(this)
-  call base%startup()
-  
-  if (.not.allocated(TYPES_PotentialData)) then
-    TYPES_PotentialData = [PotentialPointer(this)]
-  elseif (.not.any([(                                            &
-     & this%representation()                                     &
-     &    == TYPES_PotentialData(i)%potential_%representation(), &
-     & i=1,                                                      &
-     & size(TYPES_PotentialData)                                 )])) then
-    TYPES_PotentialData = [TYPES_PotentialData, PotentialPointer(this)]
-  endif
-end subroutine
-
-! Construct a PotentialPointer from any type which extends PotentialData.
-impure elemental function new_PotentialPointer(potential) result(this)
-  implicit none
-  
-  class(PotentialData), intent(in) :: potential
-  type(PotentialPointer)           :: this
-  
-  integer :: ialloc
-  
-  select type(potential); type is(PotentialPointer)
-    this = potential
-  class default
-    this%representation_ = potential%representation()
-    allocate( this%potential_, source=potential, &
-            & stat=ialloc); call err(ialloc)
-  end select
-end function
-
-! Checks that the pointer has been allocated before it is used.
-impure elemental subroutine check_PotentialPointer(this)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  
-  if (.not. allocated(this%potential_)) then
-    call print_line(CODE_ERROR//': Trying to use a PotentialPointer before &
-       &it has been allocated.')
-    call err()
-  endif
-end subroutine
-
-! Type representation.
-impure elemental function representation_PotentialPointer() result(output)
-  implicit none
-  
-  type(String) :: output
-  
-  output = 'pointer'
-end function
-
-! Return the stored potential.
-impure function potential_PotentialPointer(this) result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  class(PotentialData), allocatable   :: output
-  
-  call this%check()
-  
-  output = this%potential_
-end function
-
-! Wrappers for all of PotentialData's methods.
-subroutine generate_sampling_points_PotentialPointer(this,anharmonic_data, &
-   & use_forces,energy_to_force_ratio,use_hessians,calculate_stress,       &
-   & sampling_points_dir,calculation_writer,logfile)
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  type(AnharmonicData),    intent(in)    :: anharmonic_data
-  logical,                 intent(in)    :: use_forces
-  real(dp),                intent(in)    :: energy_to_force_ratio
-  logical,                 intent(in)    :: use_hessians
-  logical,                 intent(in)    :: calculate_stress
-  type(String),            intent(in)    :: sampling_points_dir
-  type(CalculationWriter), intent(inout) :: calculation_writer
-  type(OFile),             intent(inout) :: logfile
-  
-  call this%check()
-  
-  call this%potential_%generate_sampling_points( anharmonic_data,       &
-                                               & use_forces,            &
-                                               & energy_to_force_ratio, &
-                                               & use_hessians,          &
-                                               & calculate_stress,      &
-                                               & sampling_points_dir,   &
-                                               & calculation_writer,    &
-                                               & logfile                )
-end subroutine
-
-subroutine generate_potential_PotentialPointer(this,anharmonic_data,     &
-   & weighted_energy_force_ratio,sampling_points_dir,calculation_reader, &
-   & logfile)
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  type(AnharmonicData),    intent(in)    :: anharmonic_data
-  real(dp),                intent(in)    :: weighted_energy_force_ratio
-  type(String),            intent(in)    :: sampling_points_dir
-  type(CalculationReader), intent(inout) :: calculation_reader
-  type(OFile),             intent(inout) :: logfile
-  
-  call this%check()
-  
-  call this%potential_%generate_potential( anharmonic_data,              &
-                                         & weighted_energy_force_ratio,  &
-                                         & sampling_points_dir,          &
-                                         & calculation_reader,           &
-                                         & logfile                       )
-end subroutine
-
-function generate_stress_PotentialPointer(this,anharmonic_data,           &
-   & sampling_points_dir,stress_expansion_order,stress_subspace_coupling, &
-   & vscf_basis_functions_only,calculation_reader,logfile) result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in)    :: this
-  type(AnharmonicData),    intent(in)    :: anharmonic_data
-  type(String),            intent(in)    :: sampling_points_dir
-  integer,                 intent(in)    :: stress_expansion_order
-  type(SubspaceCoupling),  intent(in)    :: stress_subspace_coupling(:)
-  logical,                 intent(in)    :: vscf_basis_functions_only
-  type(CalculationReader), intent(inout) :: calculation_reader
-  type(OFile),             intent(inout) :: logfile
-  type(StressPointer)                    :: output
-  
-  call this%check()
-  
-  output = this%potential_%generate_stress( anharmonic_data,           &
-                                          & sampling_points_dir,       &
-                                          & stress_expansion_order,    &
-                                          & stress_subspace_coupling,  &
-                                          & vscf_basis_functions_only, &
-                                          & calculation_reader,        &
-                                          & logfile                    )
-end function
-
-impure elemental subroutine zero_energy_PotentialPointer(this)
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  
-  call this%check()
-  
-  call this%potential_%zero_energy()
-end subroutine
-
-impure elemental subroutine add_constant_PotentialPointer(this,input)
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  real(dp),                intent(in)    :: input
-  
-  call this%check()
-  
-  call this%potential_%add_constant(input)
-end subroutine
-
-subroutine optimise_subspace_potential_PotentialPointer(this,subspace, &
-   & subspace_basis,old_subspace_potential,anharmonic_data)
-  implicit none
-  
-  class(PotentialPointer),  intent(inout)        :: this
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  class(PotentialData),     intent(in), optional :: old_subspace_potential
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%optimise_subspace_potential( subspace,               &
-                                                  & subspace_basis,         &
-                                                  & old_subspace_potential, &
-                                                  & anharmonic_data         )
-end subroutine
-
-impure elemental function energy_RealModeDisplacement_PotentialPointer(this, &
-   & displacement) result(output)
-  implicit none
-  
-  class(PotentialPointer),    intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  real(dp)                               :: output
-  
-  call this%check()
-  
-  output = this%potential_%energy(displacement)
-end function
-
-impure elemental function energy_ComplexModeDisplacement_PotentialPointer( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PotentialPointer),       intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  complex(dp)                               :: output
-  
-  call this%check()
-  
-  output = this%potential_%energy(displacement)
-end function
-
-impure elemental function force_RealModeDisplacement_PotentialPointer(this, &
-   & displacement) result(output)
-  implicit none
-  
-  class(PotentialPointer),    intent(in) :: this
-  type(RealModeDisplacement), intent(in) :: displacement
-  type(RealModeForce)                    :: output
-  
-  call this%check()
-  
-  output = this%potential_%force(displacement)
-end function
-
-impure elemental function force_ComplexModeDisplacement_PotentialPointer( &
-   & this,displacement) result(output)
-  implicit none
-  
-  class(PotentialPointer),       intent(in) :: this
-  type(ComplexModeDisplacement), intent(in) :: displacement
-  type(ComplexModeForce)                    :: output
-  
-  call this%check()
-  
-  output = this%potential_%force(displacement)
-end function
-
-impure elemental subroutine braket_SubspaceBraKet_PotentialPointer(this, &
-   & braket,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PotentialPointer), intent(inout)        :: this
-  class(SubspaceBraKet),   intent(in)           :: braket
-  logical,                 intent(in), optional :: whole_subspace
-  type(AnharmonicData),    intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%braket(braket,whole_subspace,anharmonic_data)
-end subroutine
-
-impure elemental subroutine braket_BasisState_PotentialPointer(this,bra,ket, &
-   & subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PotentialPointer),  intent(inout)        :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  logical,                  intent(in), optional :: whole_subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%braket( bra,            &
-                             & ket,            &
-                             & subspace,       &
-                             & subspace_basis, &
-                             & whole_subspace, &
-                             & anharmonic_data )
-end subroutine
-
-impure elemental subroutine braket_BasisStates_PotentialPointer(this,states, &
-   & subspace,subspace_basis,whole_subspace,anharmonic_data) 
-  implicit none
-  
-  class(PotentialPointer),  intent(inout)        :: this
-  class(BasisStates),       intent(inout)        :: states
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  logical,                  intent(in), optional :: whole_subspace
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%braket( states,         &
-                             & subspace,       &
-                             & subspace_basis, &
-                             & whole_subspace, &
-                             & anharmonic_data )
-end subroutine
-
-impure elemental function harmonic_expectation_PotentialPointer(this, &
-   & frequency,thermal_energy,supercell_size,anharmonic_data) result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  real(dp),                intent(in) :: frequency
-  real(dp),                intent(in) :: thermal_energy
-  integer,                 intent(in) :: supercell_size
-  type(AnharmonicData),    intent(in) :: anharmonic_data
-  real(dp)                            :: output
-  
-  call this%check()
-  
-  output = this%potential_%harmonic_expectation( frequency,      &
-                                               & thermal_energy, &
-                                               & supercell_size, &
-                                               & anharmonic_data )
-end function
-
-recursive function potential_energy_SubspaceBraKet_PotentialPointer(this, &
-   & braket,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  class(SubspaceBraKet),   intent(in) :: braket
-  type(AnharmonicData),    intent(in) :: anharmonic_data
-  real(dp)                            :: output
-  
-  call this%check()
-  
-  output = this%potential_%potential_energy(braket, anharmonic_data)
-end function
-
-recursive function potential_energy_BasisState_PotentialPointer(this,bra,ket, &
-   & subspace,subspace_basis,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialPointer),  intent(in)           :: this
-  class(BasisState),        intent(in)           :: bra
-  class(BasisState),        intent(in), optional :: ket
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  real(dp)                                       :: output
-  
-  call this%check()
-  
-  output = this%potential_%potential_energy( bra,            &
-                                           & ket,            &
-                                           & subspace,       &
-                                           & subspace_basis, &
-                                           & anharmonic_data )
-end function
-
-function coefficients_PotentialPointer(this,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  type(AnharmonicData),    intent(in) :: anharmonic_data
-  real(dp), allocatable               :: output(:)
-  
-  call this%check()
-  
-  output = this%potential_%coefficients(anharmonic_data)
-end function
-
-subroutine set_coefficients_PotentialPointer(this,coefficients, &
-   & anharmonic_data)
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  real(dp),                intent(in)    :: coefficients(:)
-  type(AnharmonicData),    intent(in)    :: anharmonic_data
-  
-  call this%check()
-  
-  call this%potential_%set_coefficients( coefficients,   &
-                                       & anharmonic_data )
-end subroutine
-
-function all_basis_functions_PotentialPointer(this,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in)     :: this
-  type(AnharmonicData),    intent(in)     :: anharmonic_data
-  type(PotentialBasePointer), allocatable :: output(:)
-  
-  call this%check()
-  
-  output = this%potential_%all_basis_functions(anharmonic_data)
-end function
-
-function variable_basis_functions_PotentialPointer(this,anharmonic_data) &
-   & result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in)     :: this
-  type(AnharmonicData),    intent(in)     :: anharmonic_data
-  type(PotentialBasePointer), allocatable :: output(:)
-  
-  call this%check()
-  
-  output = this%potential_%variable_basis_functions(anharmonic_data)
-end function
-
-function can_be_interpolated_PotentialPointer(this) result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  logical                             :: output
-  
-  call this%check()
-  
-  output = this%potential_%can_be_interpolated()
-end function
-
-subroutine interpolate_potential_PotentialPointer(this, &
-   & anharmonic_min_images,potential,anharmonic_data,   &
-   & interpolated_anharmonic_data,difference_dynamical_matrices,logfile) 
-  implicit none
-  
-  class(PotentialPointer), intent(inout) :: this
-  type(MinImages),         intent(in)    :: anharmonic_min_images(:,:)
-  class(PotentialData),    intent(in)    :: potential
-  type(AnharmonicData),    intent(in)    :: anharmonic_data
-  type(AnharmonicData),    intent(in)    :: interpolated_anharmonic_data
-  type(DynamicalMatrix),   intent(in)    :: difference_dynamical_matrices(:)
-  type(OFile),             intent(inout) :: logfile
-  
-  call this%check()
-  
-  call this%potential_%interpolate_potential( anharmonic_min_images,         &
-                                            & potential,                     &
-                                            & anharmonic_data,               &
-                                            & interpolated_anharmonic_data,  &
-                                            & difference_dynamical_matrices, &
-                                            & logfile                        )
-end subroutine
-
-function calculate_dynamical_matrices_PotentialPointer(this,qpoints,          &
-   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
-   & result(output) 
-  implicit none
-  
-  class(PotentialPointer),  intent(in)    :: this
-  type(QpointData),         intent(in)    :: qpoints(:)
-  real(dp),                 intent(in)    :: thermal_energy
-  type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
-  class(BasisStates),       intent(inout) :: subspace_states(:)
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(DynamicalMatrix), allocatable      :: output(:)
-  
-  call this%check()
-  
-  output = this%potential_%calculate_dynamical_matrices( qpoints,             &
-                                                       & thermal_energy,      &
-                                                       & subspaces,           &
-                                                       & subspace_bases,      &
-                                                       & subspace_states,     &
-                                                       & anharmonic_data      )
-end function
-
-function energy_correction_PotentialPointer(this,subspaces,subspace_bases, &
-   & subspace_states,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialPointer),  intent(in)    :: this
-  type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
-  class(BasisStates),       intent(inout) :: subspace_states(:)
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  real(dp)                                :: output
-  
-  call this%check()
-  
-  output = this%potential_%energy_correction( subspaces,       &
-                                            & subspace_bases,  &
-                                            & subspace_states, &
-                                            & anharmonic_data  )
-end function
-
-! Concrete PotentialData methods.
-function can_be_interpolated_PotentialData(this) result(output)
-  implicit none
-  
-  class(PotentialData), intent(in) :: this
-  logical                          :: output
-  
-  output = .false.
-end function
-
-subroutine interpolate_potential_PotentialData(this,anharmonic_min_images, &
-   & potential,anharmonic_data,interpolated_anharmonic_data,               &
-   & difference_dynamical_matrices,logfile) 
-  implicit none
-  
-  class(PotentialData),  intent(inout) :: this
-  type(MinImages),       intent(in)    :: anharmonic_min_images(:,:)
-  class(PotentialData),  intent(in)    :: potential
-  type(AnharmonicData),  intent(in)    :: anharmonic_data
-  type(AnharmonicData),  intent(in)    :: interpolated_anharmonic_data
-  type(DynamicalMatrix), intent(in)    :: difference_dynamical_matrices(:)
-  type(OFile),           intent(inout) :: logfile
-  
-  ! This should be gated behind can_be_interpolated.
-  call print_line(CODE_ERROR//': interpolate_potential not implemented for &
-     &this potential.')
-  call err()
-end subroutine
-
-function calculate_dynamical_matrices_PotentialData(this,qpoints,             &
-   & thermal_energy,subspaces,subspace_bases,subspace_states,anharmonic_data) &
-   & result(output) 
-  implicit none
-  
-  class(PotentialData),     intent(in)    :: this
-  type(QpointData),         intent(in)    :: qpoints(:)
-  real(dp),                 intent(in)    :: thermal_energy
-  type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
-  class(BasisStates),       intent(inout) :: subspace_states(:)
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  type(DynamicalMatrix), allocatable      :: output(:)
-  
-  ! This should be gated behind can_be_interpolated.
-  call print_line(CODE_ERROR//': calculate_dynamical_matrices not &
-     &implemented for this potential.')
-  call err()
-end function
-
-function energy_correction_PotentialData(this,subspaces,subspace_bases, &
-   & subspace_states,anharmonic_data) result(output) 
-  implicit none
-  
-  class(PotentialData),     intent(in)    :: this
-  type(DegenerateSubspace), intent(in)    :: subspaces(:)
-  class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
-  class(BasisStates),       intent(inout) :: subspace_states(:)
-  type(AnharmonicData),     intent(in)    :: anharmonic_data
-  real(dp)                                :: output
-  
-  ! This should be gated behind can_be_interpolated.
-  call print_line(CODE_ERROR//': energy_correction not implemented for this &
-     &potential.')
-  call err()
-end function
-
-subroutine optimise_subspace_potential_PotentialData(this,subspace, &
-   & subspace_basis,old_subspace_potential,anharmonic_data) 
-  implicit none
-  
-  class(PotentialData),     intent(inout)        :: this
-  type(DegenerateSubspace), intent(in)           :: subspace
-  class(SubspaceBasis),     intent(in)           :: subspace_basis
-  class(PotentialData),     intent(in), optional :: old_subspace_potential
-  type(AnharmonicData),     intent(in)           :: anharmonic_data
-  
-  ! By default this doesn't do anything.
-end subroutine
-
-! I/O.
-subroutine read_PotentialPointer(this,input)
-  implicit none
-  
-  class(PotentialPointer), intent(out) :: this
-  type(String),            intent(in)  :: input(:)
-  
-  type(String), allocatable :: line(:)
-  
-  type(String) :: representation
-  
-  integer :: i
-  
-  select type(this); type is(PotentialPointer)
-    line = split_line(input(1))
-    representation = line(3)
-    
-    ! Identify which type corresponds to the representation.
-    i = first([(                                                             &
-       & TYPES_PotentialData(i)%potential_%representation()==representation, &
-       & i=1,                                                                &
-       & size(TYPES_PotentialData)                                          )])
-    
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_PotentialData(i)%potential_%read(input(2:))
-    this = PotentialPointer(TYPES_PotentialData(i))
-  class default
-    call err()
-  end select
-end subroutine
-
-function write_PotentialPointer(this) result(output)
-  implicit none
-  
-  class(PotentialPointer), intent(in) :: this
-  type(String), allocatable           :: output(:)
-  
-  select type(this); type is(PotentialPointer)
-    output = [ 'Potential representation: '//this%representation_, &
-             & str(this%potential_)                                ]
-  end select
-end function
-
-function new_PotentialPointer_Strings(input) result(this)
-  implicit none
-  
-  type(String), intent(in) :: input(:)
-  type(PotentialPointer)   :: this
-  
-  call this%read(input)
-end function
-
-impure elemental function new_PotentialPointer_StringArray(input) result(this)
-  implicit none
-  
-  type(StringArray), intent(in) :: input
-  type(PotentialPointer)        :: this
-  
-  this = PotentialPointer(str(input))
-end function
-
+  
+  interface
+    module subroutine startup_PotentialData(this) 
+      class(PotentialData), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface PotentialPointer
+    ! Construct a PotentialPointer from any type which extends PotentialData.
+    impure elemental module function new_PotentialPointer(potential) &
+       & result(this) 
+      class(PotentialData), intent(in) :: potential
+      type(PotentialPointer)           :: this
+    end function
+  end interface
+  
+  interface
+    ! Checks that the pointer has been allocated before it is used.
+    impure elemental module subroutine check_PotentialPointer(this) 
+      class(PotentialPointer), intent(in) :: this
+    end subroutine
+  end interface
+  
+  interface
+    ! Type representation.
+    impure elemental module function representation_PotentialPointer() &
+       & result(output) 
+      type(String) :: output
+    end function
+  end interface
+  
+  interface
+    ! Return the stored potential.
+    impure module function potential_PotentialPointer(this) result(output) 
+      class(PotentialPointer), intent(in) :: this
+      class(PotentialData), allocatable   :: output
+    end function
+  end interface
+  
+  interface
+    ! Wrappers for all of PotentialData's methods.
+    module subroutine generate_sampling_points_PotentialPointer(this,   &
+       & anharmonic_data,use_forces,energy_to_force_ratio,use_hessians, &
+       & calculate_stress,sampling_points_dir,calculation_writer,logfile) 
+      class(PotentialPointer), intent(inout) :: this
+      type(AnharmonicData),    intent(in)    :: anharmonic_data
+      logical,                 intent(in)    :: use_forces
+      real(dp),                intent(in)    :: energy_to_force_ratio
+      logical,                 intent(in)    :: use_hessians
+      logical,                 intent(in)    :: calculate_stress
+      type(String),            intent(in)    :: sampling_points_dir
+      type(CalculationWriter), intent(inout) :: calculation_writer
+      type(OFile),             intent(inout) :: logfile
+    end subroutine
+  end interface
+  
+  interface
+    module subroutine generate_potential_PotentialPointer(this,           &
+       & anharmonic_data,weighted_energy_force_ratio,sampling_points_dir, &
+       & calculation_reader,logfile) 
+      class(PotentialPointer), intent(inout) :: this
+      type(AnharmonicData),    intent(in)    :: anharmonic_data
+      real(dp),                intent(in)    :: weighted_energy_force_ratio
+      type(String),            intent(in)    :: sampling_points_dir
+      type(CalculationReader), intent(inout) :: calculation_reader
+      type(OFile),             intent(inout) :: logfile
+    end subroutine
+  end interface
+  
+  interface
+    module function generate_stress_PotentialPointer(this,anharmonic_data, &
+       & sampling_points_dir,stress_expansion_order,                       &
+        stress_subspace_coupling,vscf_basis_functions_only, &
+          & calculation_reader,logfile) result(output) 
+      class(PotentialPointer), intent(in)    :: this
+      type(AnharmonicData),    intent(in)    :: anharmonic_data
+      type(String),            intent(in)    :: sampling_points_dir
+      integer,                 intent(in)    :: stress_expansion_order
+      type(SubspaceCoupling),  intent(in)    :: stress_subspace_coupling(:)
+      logical,intent(in) :: vscf_basis_functions_only
+      type(CalculationReader), intent(inout) :: calculation_reader
+      type(OFile),             intent(inout) :: logfile
+      type(StressPointer)                    :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module subroutine zero_energy_PotentialPointer(this) 
+      class(PotentialPointer), intent(inout) :: this
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine add_constant_PotentialPointer(this, &
+       & input) 
+      class(PotentialPointer), intent(inout) :: this
+      real(dp),                intent(in)    :: input
+    end subroutine
+  end interface
+  
+  interface
+    module subroutine optimise_subspace_potential_PotentialPointer(this, &
+       & subspace,subspace_basis,old_subspace_potential,anharmonic_data) 
+      class(PotentialPointer),  intent(inout)        :: this
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      class(PotentialData),     intent(in), optional :: old_subspace_potential
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module function energy_RealModeDisplacement_PotentialPointer(this,displacement) result(output) 
+      class(PotentialPointer),    intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      real(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function energy_ComplexModeDisplacement_PotentialPointer(   this,displacement) result(output) 
+      class(PotentialPointer),       intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      complex(dp)                               :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function force_RealModeDisplacement_PotentialPointer(this,displacement) result(output) 
+      class(PotentialPointer),    intent(in) :: this
+      type(RealModeDisplacement), intent(in) :: displacement
+      type(RealModeForce)                    :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module function force_ComplexModeDisplacement_PotentialPointer(   this,displacement) result(output) 
+      class(PotentialPointer),       intent(in) :: this
+      type(ComplexModeDisplacement), intent(in) :: displacement
+      type(ComplexModeForce)                    :: output
+    end function
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_SubspaceBraKet_PotentialPointer(this,braket,whole_subspace,anharmonic_data) 
+      class(PotentialPointer), intent(inout)        :: this
+      class(SubspaceBraKet),   intent(in)           :: braket
+      logical,                 intent(in), optional :: whole_subspace
+      type(AnharmonicData),    intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_BasisState_PotentialPointer(this,bra,ket,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(PotentialPointer),  intent(inout)        :: this
+      class(BasisState),        intent(in)           :: bra
+      class(BasisState),        intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      logical,                  intent(in), optional :: whole_subspace
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module subroutine braket_BasisStates_PotentialPointer(this,states,subspace,subspace_basis,whole_subspace,anharmonic_data) 
+      class(PotentialPointer),  intent(inout)        :: this
+      class(BasisStates),       intent(inout)        :: states
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      logical,                  intent(in), optional :: whole_subspace
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    impure elemental module function harmonic_expectation_PotentialPointer(this,frequency,thermal_energy,supercell_size,anharmonic_data) result(output) 
+      class(PotentialPointer), intent(in) :: this
+      real(dp),                intent(in) :: frequency
+      real(dp),                intent(in) :: thermal_energy
+      integer,                 intent(in) :: supercell_size
+      type(AnharmonicData),    intent(in) :: anharmonic_data
+      real(dp)                            :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_SubspaceBraKet_PotentialPointer(this,braket,anharmonic_data) result(output) 
+      class(PotentialPointer), intent(in) :: this
+      class(SubspaceBraKet),   intent(in) :: braket
+      type(AnharmonicData),    intent(in) :: anharmonic_data
+      real(dp)                            :: output
+    end function
+  end interface
+  
+  interface
+    recursive module function potential_energy_BasisState_PotentialPointer(this,bra,ket,subspace,subspace_basis,anharmonic_data) result(output) 
+      class(PotentialPointer),  intent(in)           :: this
+      class(BasisState),        intent(in)           :: bra
+      class(BasisState),        intent(in), optional :: ket
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+      real(dp)                                       :: output
+    end function
+  end interface
+  
+  interface
+    module function coefficients_PotentialPointer(this,anharmonic_data) &
+       & result(output) 
+      class(PotentialPointer), intent(in) :: this
+      type(AnharmonicData),    intent(in) :: anharmonic_data
+      real(dp), allocatable               :: output(:)
+    end function
+  end interface
+  
+  interface
+    module subroutine set_coefficients_PotentialPointer(this,coefficients, &
+       & anharmonic_data) 
+      class(PotentialPointer), intent(inout) :: this
+      real(dp),                intent(in)    :: coefficients(:)
+      type(AnharmonicData),    intent(in)    :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    module function all_basis_functions_PotentialPointer(this, &
+       & anharmonic_data) result(output) 
+      class(PotentialPointer), intent(in)     :: this
+      type(AnharmonicData),    intent(in)     :: anharmonic_data
+      type(PotentialBasePointer), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function variable_basis_functions_PotentialPointer(this, &
+       & anharmonic_data) result(output) 
+      class(PotentialPointer), intent(in)     :: this
+      type(AnharmonicData),    intent(in)     :: anharmonic_data
+      type(PotentialBasePointer), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function can_be_interpolated_PotentialPointer(this) result(output) 
+      class(PotentialPointer), intent(in) :: this
+      logical                             :: output
+    end function
+  end interface
+  
+  interface
+    module subroutine interpolate_potential_PotentialPointer(this, &
+       & anharmonic_min_images,potential,anharmonic_data,          &
+       & interpolated_anharmonic_data,difference_dynamical_matrices,logfile) 
+      class(PotentialPointer), intent(inout) :: this
+      type(MinImages),         intent(in)    :: anharmonic_min_images(:,:)
+      class(PotentialData),    intent(in)    :: potential
+      type(AnharmonicData),    intent(in)    :: anharmonic_data
+      type(AnharmonicData),    intent(in)    :: interpolated_anharmonic_data
+      type(DynamicalMatrix),   intent(in)    :: difference_dynamical_matrices(:)
+      type(OFile),             intent(inout) :: logfile
+    end subroutine
+  end interface
+  
+  interface
+    module function calculate_dynamical_matrices_PotentialPointer(this,   &
+       & qpoints,thermal_energy,subspaces,subspace_bases,subspace_states, &
+       & anharmonic_data) result(output) 
+      class(PotentialPointer),  intent(in)    :: this
+      type(QpointData),         intent(in)    :: qpoints(:)
+      real(dp),                 intent(in)    :: thermal_energy
+      type(DegenerateSubspace), intent(in)    :: subspaces(:)
+      class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+      class(BasisStates),       intent(inout) :: subspace_states(:)
+      type(AnharmonicData),     intent(in)    :: anharmonic_data
+      type(DynamicalMatrix), allocatable      :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function energy_correction_PotentialPointer(this,subspaces, &
+       & subspace_bases,subspace_states,anharmonic_data) result(output) 
+      class(PotentialPointer),  intent(in)    :: this
+      type(DegenerateSubspace), intent(in)    :: subspaces(:)
+      class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+      class(BasisStates),       intent(inout) :: subspace_states(:)
+      type(AnharmonicData),     intent(in)    :: anharmonic_data
+      real(dp)                                :: output
+    end function
+  end interface
+  
+  interface
+    ! Concrete PotentialData methods.
+    module function can_be_interpolated_PotentialData(this) result(output) 
+      class(PotentialData), intent(in) :: this
+      logical                          :: output
+    end function
+  end interface
+  
+  interface
+    module subroutine interpolate_potential_PotentialData(this, &
+       & anharmonic_min_images,potential,anharmonic_data,       &
+       & interpolated_anharmonic_data,difference_dynamical_matrices,logfile) 
+      class(PotentialData),  intent(inout) :: this
+      type(MinImages),       intent(in)    :: anharmonic_min_images(:,:)
+      class(PotentialData),  intent(in)    :: potential
+      type(AnharmonicData),  intent(in)    :: anharmonic_data
+      type(AnharmonicData),  intent(in)    :: interpolated_anharmonic_data
+      type(DynamicalMatrix), intent(in)    :: difference_dynamical_matrices(:)
+      type(OFile),           intent(inout) :: logfile
+    end subroutine
+  end interface
+  
+  interface
+    module function calculate_dynamical_matrices_PotentialData(this,qpoints, &
+       & thermal_energy,subspaces,subspace_bases,subspace_states,            &
+       & anharmonic_data) result(output) 
+      class(PotentialData),     intent(in)    :: this
+      type(QpointData),         intent(in)    :: qpoints(:)
+      real(dp),                 intent(in)    :: thermal_energy
+      type(DegenerateSubspace), intent(in)    :: subspaces(:)
+      class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+      class(BasisStates),       intent(inout) :: subspace_states(:)
+      type(AnharmonicData),     intent(in)    :: anharmonic_data
+      type(DynamicalMatrix), allocatable      :: output(:)
+    end function
+  end interface
+  
+  interface
+    module function energy_correction_PotentialData(this,subspaces, &
+       & subspace_bases,subspace_states,anharmonic_data) result(output) 
+      class(PotentialData),     intent(in)    :: this
+      type(DegenerateSubspace), intent(in)    :: subspaces(:)
+      class(SubspaceBasis),     intent(in)    :: subspace_bases(:)
+      class(BasisStates),       intent(inout) :: subspace_states(:)
+      type(AnharmonicData),     intent(in)    :: anharmonic_data
+      real(dp)                                :: output
+    end function
+  end interface
+  
+  interface
+    module subroutine optimise_subspace_potential_PotentialData(this, &
+       & subspace,subspace_basis,old_subspace_potential,anharmonic_data) 
+      class(PotentialData),     intent(inout)        :: this
+      type(DegenerateSubspace), intent(in)           :: subspace
+      class(SubspaceBasis),     intent(in)           :: subspace_basis
+      class(PotentialData),     intent(in), optional :: old_subspace_potential
+      type(AnharmonicData),     intent(in)           :: anharmonic_data
+    end subroutine
+  end interface
+  
+  interface
+    ! I/O.
+    module subroutine read_PotentialPointer(this,input) 
+      class(PotentialPointer), intent(out) :: this
+      type(String),            intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    module function write_PotentialPointer(this) result(output) 
+      class(PotentialPointer), intent(in) :: this
+      type(String), allocatable           :: output(:)
+    end function
+  end interface
+  
+  interface PotentialPointer
+    module function new_PotentialPointer_Strings(input) result(this) 
+      type(String), intent(in) :: input(:)
+      type(PotentialPointer)   :: this
+    end function
+  
+    impure elemental module function new_PotentialPointer_StringArray(input) &
+       & result(this) 
+      type(StringArray), intent(in) :: input
+      type(PotentialPointer)        :: this
+    end function
+  end interface
 end module
