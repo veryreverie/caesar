@@ -2,13 +2,11 @@ submodule (caesar_run_harmonic_module) caesar_run_harmonic_submodule
   use caesar_harmonic_module
 contains
 
-module procedure startup_run_harmonic
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'run_harmonic'
-  mode%description = 'Runs DFT calculations set up by setup_harmonic. &
+module procedure run_harmonic_mode
+  output%mode_name = 'run_harmonic'
+  output%description = 'Runs DFT calculations set up by setup_harmonic. &
      &should be run after setup_harmonic.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'supercells_to_run',                                      &
      &              'supercells_to_run is the indices of the first and last &
      &supercell to run. These should be specified as two integers separated &
@@ -57,9 +55,7 @@ module procedure startup_run_harmonic
      &calculations will be re-run if an electronic_structure.dat file is &
      &found in their directory.',                                             &
      &               default_value='true')                                    ]
-  mode%main_subroutine => run_harmonic_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => run_harmonic_subroutine
 end procedure
 
 module procedure run_harmonic_subroutine
@@ -114,7 +110,7 @@ module procedure run_harmonic_subroutine
   ! --------------------------------------------------
   ! Read in arguments to previous calculations.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')

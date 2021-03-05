@@ -10,8 +10,6 @@ module caesar_wavevector_state_module
   
   private
   
-  public :: startup_wavevector_state
-  
   public :: WavevectorState
   
   public :: wavevector_state_pointer
@@ -27,12 +25,6 @@ module caesar_wavevector_state_module
     procedure, public :: read  => read_WavevectorState
     procedure, public :: write => write_WavevectorState
   end type
-  
-  interface
-    ! Startup procedure.
-    module module subroutine startup_wavevector_state() 
-    end subroutine
-  end interface
   
   interface
     ! Type representation.

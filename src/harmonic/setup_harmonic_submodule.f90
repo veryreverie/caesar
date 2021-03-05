@@ -2,13 +2,11 @@ submodule (caesar_setup_harmonic_module) caesar_setup_harmonic_submodule
   use caesar_harmonic_module
 contains
 
-module procedure startup_setup_harmonic
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'setup_harmonic'
-  mode%description = 'Sets up harmonic calculation. Generates supercells, &
+module procedure setup_harmonic_mode
+  output%mode_name = 'setup_harmonic'
+  output%description = 'Sets up harmonic calculation. Generates supercells, &
      &and prepares DFT inputs.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
      &single-point energy calculations. Settings are: "castep", &
@@ -54,9 +52,7 @@ module procedure startup_setup_harmonic
      &calculation and may not be re-specified in calculate_normal_modes or &
      &calculate_potential.',                                                  &
      &              is_optional = .true.)                                     ]
-  mode%main_subroutine => setup_harmonic_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => setup_harmonic_subroutine
 end procedure
 
 module procedure setup_harmonic_subroutine

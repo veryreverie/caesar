@@ -2,14 +2,12 @@ submodule (caesar_map_modes_module) caesar_map_modes_submodule
   use caesar_anharmonic_module
 contains
 
-module procedure startup_map_modes
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'map_modes'
-  mode%description = 'Maps the potential along normal modes. If use_potential &
+module procedure map_modes_mode
+  output%mode_name = 'map_modes'
+  output%description = 'Maps the potential along normal modes. If use_potential &
   &is true, map_modes should be run after calculate_potential, &
   &otherwise it may be run after calculate_normal_modes.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
   & KeywordData( 'harmonic_path',                                             &
   &              'harmonic_path is the path to the directory where harmonic &
   &calculations were run.',                                                   &
@@ -99,9 +97,7 @@ module procedure startup_map_modes
   &structure calculations should be run in addition to the user-defined &
   &script. Settings are: "none" and "quip".',                                 &
   &              default_value='none')                                        ]
-  mode%main_subroutine => map_modes_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => map_modes_subroutine
 end procedure
 
 module procedure map_modes_subroutine
@@ -235,7 +231,7 @@ module procedure map_modes_subroutine
   calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file(                 &
           & harmonic_path//'/setup_harmonic.used_settings' )
   seedname = setup_harmonic_arguments%value('seedname')

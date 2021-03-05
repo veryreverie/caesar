@@ -12,8 +12,6 @@ module caesar_harmonic_state_complex_module
   
   private
   
-  public :: startup_harmonic_state_complex
-  
   public :: HarmonicStateComplex
   
   public :: harmonic_state_complex_pointer
@@ -50,12 +48,6 @@ module caesar_harmonic_state_complex_module
       type(HarmonicStateComplex), intent(in) :: rhs
       type(HarmonicStateComplex)             :: output
     end function
-  end interface
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_harmonic_state_complex() 
-    end subroutine
   end interface
   
   interface HarmonicStateComplex

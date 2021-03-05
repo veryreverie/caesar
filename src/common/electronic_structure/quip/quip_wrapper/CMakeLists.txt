@@ -6,6 +6,7 @@ if (DEFINED LINK_TO_QUIP AND LINK_TO_QUIP)
   add_library(quip_wrapper quip_wrapper.f90)
 else ()
   add_library(quip_wrapper quip_dummy.f90)
+  target_link_libraries(quip_wrapper utils_submodules)
 endif ()
 
 # Link to QUIP, if LINK_TO_QUIP is set.

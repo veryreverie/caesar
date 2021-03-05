@@ -2,21 +2,17 @@ submodule (caesar_map_vscf_modes_module) caesar_map_vscf_modes_submodule
   use caesar_anharmonic_module
 contains
 
-module procedure startup_map_vscf_modes
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'map_vscf_modes'
-  mode%description = 'Maps the VSCF potential along normal modes. &
+module procedure map_vscf_modes_mode
+  output%mode_name = 'map_vscf_modes'
+  output%description = 'Maps the VSCF potential along normal modes. &
      &Should be run after calculate_vscf_potential.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'no_single_mode_samples',                                 &
      &              'no_single_mode_samples is the number of points (either &
      &side of zero) along each mode at which the VSCF potential will be &
      &sampled when determining the effective frequency with which the &
      &harmonic basis along that mode will be constructed.')                   ]
-  mode%main_subroutine => map_vscf_modes_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => map_vscf_modes_subroutine
 end procedure
 
 module procedure map_vscf_modes_subroutine

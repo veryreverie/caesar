@@ -4,7 +4,6 @@
 module caesar_polynomial_potential_module
   use caesar_common_module
   
-  use caesar_states_module
   use caesar_anharmonic_common_module
   
   use caesar_polynomial_interpolator_module
@@ -20,8 +19,6 @@ module caesar_polynomial_potential_module
   implicit none
   
   private
-  
-  public :: startup_polynomial_potential
   
   public :: PolynomialPotential
   
@@ -102,12 +99,6 @@ module caesar_polynomial_potential_module
     procedure, public :: read  => read_PolynomialPotential
     procedure, public :: write => write_PolynomialPotential
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_polynomial_potential() 
-    end subroutine
-  end interface
   
   interface PolynomialPotential
     ! Constructors.

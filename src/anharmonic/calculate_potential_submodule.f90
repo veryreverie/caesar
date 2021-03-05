@@ -2,13 +2,11 @@ submodule (caesar_calculate_potential_module) caesar_calculate_potential_submodu
   use caesar_anharmonic_module
 contains
 
-module procedure startup_calculate_potential
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'calculate_potential'
-  mode%description = 'Uses the results of run_anharmonic to calculate &
+module procedure calculate_potential_mode
+  output%mode_name = 'calculate_potential'
+  output%description = 'Uses the results of run_anharmonic to calculate &
      &the anharmonic potential. Should be run after run_anharmonic.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'energy_to_force_ratio',                                  &
      &              'energy_to_force_ratio is the same as &
      &energy_to_force_ratio in setup_anharmonic. If unset, this will default &
@@ -51,9 +49,7 @@ module procedure startup_calculate_potential
      &all S, where S is the symmetry matrix and q is loto_direction. See &
      &structure.dat for the list of symmetries.',                             &
      &              is_optional = .true.)                                     ]
-  mode%main_subroutine => calculate_potential_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => calculate_potential_subroutine
 end procedure
 
 module procedure calculate_potential_subroutine
@@ -138,11 +134,11 @@ module procedure calculate_potential_subroutine
   endif
   
   ! Read in setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   
   ! Read in setup_anharmonic arguments.
-  setup_anharmonic_arguments = Dictionary(CaesarMode('setup_anharmonic'))
+  setup_anharmonic_arguments = Dictionary(setup_anharmonic_mode())
   call setup_anharmonic_arguments%read_file( &
           & 'setup_anharmonic.used_settings' )
   potential_representation = &

@@ -2,17 +2,15 @@ submodule (caesar_read_normal_modes_module) caesar_read_normal_modes_submodule
   use caesar_harmonic_module
 contains
 
-module procedure startup_read_normal_modes
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'read_normal_modes'
-  mode%description = 'Reads in normal modes from a separate calculation, e.g. &
+module procedure read_normal_modes_mode
+  output%mode_name = 'read_normal_modes'
+  output%description = 'Reads in normal modes from a separate calculation, e.g. &
      &a Hessian calculation or DFPT dynamical matrix calculation. Acts as a &
      &replacement for setup_harmonic, run_harmonic and &
      &calculate_normal_modes, for situations where harmonic phonons can be &
      &calculated directly rather than requiring a non-diagonal supercell &
      &calculation.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
      &single-point energy calculations. Settings are: "castep", &
@@ -57,9 +55,7 @@ module procedure startup_read_normal_modes
      &              'acoustic_sum_rule specifies where the acoustic sum rule &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
      &              default_value='both')                                     ]
-  mode%main_subroutine => read_normal_modes_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => read_normal_modes_subroutine
 end procedure
 
 module procedure read_normal_modes_subroutine
@@ -189,7 +185,7 @@ module procedure read_normal_modes_subroutine
   ! --------------------------------------------------
   ! Write everything to file.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%set(arguments)
   call setup_harmonic_arguments%write_file('setup_harmonic.used_settings')
   

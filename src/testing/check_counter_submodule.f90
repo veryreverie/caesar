@@ -2,17 +2,13 @@ submodule (caesar_check_counter_module) caesar_check_counter_submodule
   use caesar_testing_module
 contains
 
-module procedure startup_check_counter
-  type(CaesarMode) :: mode
-  
+module procedure check_counter_mode
   integer :: ialloc
   
-  mode%mode_name = 'check_counter'
-  mode%description = 'Checks for a gfortran bug with shared counters.'
-  allocate(mode%keywords(0), stat=ialloc); call err(ialloc)
-  mode%main_subroutine => check_counter_subroutine
-  
-  call add_mode(mode)
+  output%mode_name = 'check_counter'
+  output%description = 'Checks for a gfortran bug with shared counters.'
+  allocate(output%keywords(0), stat=ialloc); call err(ialloc)
+  output%main_subroutine => check_counter_subroutine
 end procedure
 
 module procedure check_counter_subroutine

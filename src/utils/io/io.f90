@@ -6,6 +6,10 @@ module caesar_io_module
   use caesar_print_settings_module
   use caesar_print_module
   use caesar_intrinsics_module
+  use caesar_c_string_module
+  use caesar_home_directory_module
+  use caesar_current_working_directory_module
+  use caesar_executable_locations_module
   use caesar_io_utils_module
   use caesar_token_module
   use caesar_string_writeable_module
@@ -18,10 +22,4 @@ module caesar_io_module
   use caesar_stringable_module
   use caesar_stringsable_module
   implicit none
-contains
-subroutine startup_io()
-  implicit none
-  
-  call startup_io_utils()
-end subroutine
 end module

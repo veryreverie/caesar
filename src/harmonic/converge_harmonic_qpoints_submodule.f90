@@ -2,23 +2,12 @@ submodule (caesar_converge_harmonic_qpoints_module) caesar_converge_harmonic_qpo
   use caesar_harmonic_module
 contains
 
-module procedure startup_converge_harmonic_qpoints
-  type(CaesarMode) :: mode
+module procedure converge_harmonic_qpoints_mode
+  type(ProgramMode) :: mode
   
-  type(CaesarMode) :: setup_harmonic_mode
-  type(CaesarMode) :: run_harmonic_mode
-  type(CaesarMode) :: calculate_normal_modes_mode
-  type(CaesarMode) :: calculate_harmonic_observables_mode
-  
-  setup_harmonic_mode = CaesarMode('setup_harmonic')
-  run_harmonic_mode = CaesarMode('run_harmonic')
-  calculate_normal_modes_mode = CaesarMode('calculate_normal_modes')
-  calculate_harmonic_observables_mode = &
-     & CaesarMode('calculate_harmonic_observables')
-  
-  mode%mode_name = 'converge_harmonic_qpoints'
-  mode%description = 'Converges harmonic free energies w/r/t q-point spacing.'
-  mode%keywords = [                                                           &
+  output%mode_name = 'converge_harmonic_qpoints'
+  output%description = 'Converges harmonic free energies w/r/t q-point spacing.'
+  output%keywords = [                                                         &
      & KeywordData( 'maximum_q-point_spacing',                                &
      &              'maximum_q-point_spacing is the largest q-point spacing &
      &at which energies will be calculated. maximum_q-point_spacing should be &
@@ -41,19 +30,21 @@ module procedure startup_converge_harmonic_qpoints
      &frequencies and/or energies that must be within the defined tolerance &
      &of each other for convergence to be considered reached',                &
      &              default_value='3')                                        ]
-  mode%keywords = [ mode%keywords,                               &
-                  & setup_harmonic_mode%keywords,                &
-                  & run_harmonic_mode%keywords,                  &
-                  & calculate_normal_modes_mode%keywords,        &
-                  & calculate_harmonic_observables_mode%keywords ]
-  mode%main_subroutine => converge_harmonic_qpoints_subroutine
+  output%main_subroutine => converge_harmonic_qpoints_subroutine
   
+  ! Add keywords for the modes called by converge_harmonic_qpoints.
+  mode = setup_harmonic_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  mode = run_harmonic_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  mode = calculate_normal_modes_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  mode = calculate_harmonic_observables_mode()
+  output%keywords = [output%keywords, mode%keywords]
   call mode%remove_keyword('q-point_grid')
   call mode%remove_keyword('supercells_to_run')
   call mode%remove_keyword('calculations_to_run')
   call mode%remove_keyword('exit_on_error')
-  
-  call add_mode(mode)
 end procedure
 
 module procedure converge_harmonic_qpoints_subroutine
@@ -212,7 +203,7 @@ module procedure calculate_free_energies
   output_file_name = &
      & directory//'/harmonic_observables/thermodynamic_variables.dat'
   if (repeat_calculations .or. .not. file_exists(output_file_name)) then
-    setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+    setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
     call setup_harmonic_arguments%set(arguments)
     call setup_harmonic_arguments%set('working_directory', directory)
     call setup_harmonic_arguments%set( 'output_file', &
@@ -220,7 +211,7 @@ module procedure calculate_free_energies
     call setup_harmonic_arguments%set('q-point_grid', str(qpoint_grid))
     call call_caesar('setup_harmonic', setup_harmonic_arguments)
     
-    run_harmonic_arguments = Dictionary(CaesarMode('run_harmonic'))
+    run_harmonic_arguments = Dictionary(run_harmonic_mode())
     call run_harmonic_arguments%set(arguments)
     call run_harmonic_arguments%set('working_directory', directory)
     call run_harmonic_arguments%set( 'output_file', &
@@ -228,7 +219,7 @@ module procedure calculate_free_energies
     call call_caesar('run_harmonic', run_harmonic_arguments)
     
     calculate_normal_modes_arguments = &
-       & Dictionary(CaesarMode('calculate_normal_modes'))
+       & Dictionary(calculate_normal_modes_mode())
     call calculate_normal_modes_arguments%set(arguments)
     call calculate_normal_modes_arguments%set('working_directory', directory)
     call calculate_normal_modes_arguments%set(       &
@@ -238,7 +229,7 @@ module procedure calculate_free_energies
                     & calculate_normal_modes_arguments )
     
     calculate_harmonic_observables_arguments = &
-       & Dictionary(CaesarMode('calculate_harmonic_observables'))
+       & Dictionary(calculate_harmonic_observables_mode())
     call calculate_harmonic_observables_arguments%set(arguments)
     call calculate_harmonic_observables_arguments%set( 'working_directory', &
                                                      & directory            )

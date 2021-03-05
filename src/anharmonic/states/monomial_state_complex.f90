@@ -12,8 +12,6 @@ module caesar_monomial_state_complex_module
   
   private
   
-  public :: startup_monomial_state_complex
-  
   public :: MonomialStateComplex
   
   public :: monomial_state_complex_pointer
@@ -55,12 +53,6 @@ module caesar_monomial_state_complex_module
     procedure, public :: read  => read_MonomialStateComplex
     procedure, public :: write => write_MonomialStateComplex
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_monomial_state_complex() 
-    end subroutine
-  end interface
   
   interface MonomialStateComplex
     ! ----------------------------------------------------------------------

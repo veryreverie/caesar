@@ -15,8 +15,6 @@ module caesar_full_subspace_basis_module
   
   private
   
-  public :: startup_full_subspace_basis
-  
   public :: FullSubspaceBasis
   
   ! All states spanning the subspace.
@@ -79,12 +77,6 @@ module caesar_full_subspace_basis_module
     procedure, public :: read  => read_FullSubspaceBasis
     procedure, public :: write => write_FullSubspaceBasis
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_full_subspace_basis() 
-    end subroutine
-  end interface
   
   interface FullSubspaceBasis
     ! ----------------------------------------------------------------------

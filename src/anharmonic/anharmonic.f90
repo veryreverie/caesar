@@ -3,6 +3,8 @@
 ! ======================================================================
 ! This module is simply an interface for the various harmonic modules.
 module caesar_anharmonic_module
+  use caesar_common_module
+  
   use caesar_setup_anharmonic_module
   use caesar_run_anharmonic_module
   use caesar_calculate_potential_module
@@ -20,7 +22,8 @@ module caesar_anharmonic_module
   implicit none
   
   interface
-    module subroutine startup_anharmonic()
-    end subroutine
+    module function anharmonic_modes() result(output)
+      type(ProgramMode), allocatable :: output(:)
+    end function
   end interface
 end module

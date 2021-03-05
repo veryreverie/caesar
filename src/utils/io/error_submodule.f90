@@ -25,14 +25,14 @@ module procedure err_allocate_flag
 end procedure
 
 module procedure set_error_strings_coloured
-  ERROR = RED_ESC//'Error'//RESET_ESC
-  CODE_ERROR = RED_ESC//'Code Error'//RESET_ESC
-  WARNING = LIGHT_MAGENTA_ESC//'Warning'//RESET_ESC
+  ERROR => ERROR_COLOURED
+  CODE_ERROR => CODE_ERROR_COLOURED
+  WARNING => WARNING_COLOURED
 end procedure
 
 module procedure set_error_strings_uncoloured
-  ERROR = 'Error'
-  CODE_ERROR = 'Code Error'
-  WARNING = 'Warning'
+  ERROR => ERROR_UNCOLOURED
+  CODE_ERROR => CODE_ERROR_UNCOLOURED
+  WARNING => WARNING_UNCOLOURED
 end procedure
 end submodule

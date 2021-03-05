@@ -1,10 +1,10 @@
 submodule (caesar_print_module) caesar_print_submodule
-  !> The width of the terminal.
-  integer :: TERMINAL_WIDTH = 79
   !> The output file unit. Defaults to the terminal.
   integer :: OUTPUT_FILE_UNIT = OUTPUT_UNIT
 contains
 module procedure print_line_character
+  integer :: terminal_width
+  
   type(PrintSettings) :: print_settings
   
   integer                   :: last_space
@@ -39,6 +39,9 @@ module procedure print_line_character
   elseif (len(line)==0) then
     lines = [str(line)]
   else
+    ! Get the terminal width.
+    terminal_width = get_terminal_width()
+    
     ! Identify which characters are spaces.
     is_space = [(line(i:i)==' ', i=1, len(line))]
     
@@ -76,7 +79,7 @@ module procedure print_line_character
     enddo
     
     ! Identify lines.
-    current_terminal_width = TERMINAL_WIDTH - print_settings%indent
+    current_terminal_width = terminal_width - print_settings%indent
     line_start = 1
     allocate(lines(0), stat=ialloc); call err(ialloc)
     do
@@ -115,7 +118,7 @@ module procedure print_line_character
       positions = positions(first_none_space:) - positions(first_none_space-1)
       
       ! Account for the overhang in the terminal width.
-      current_terminal_width = TERMINAL_WIDTH        &
+      current_terminal_width = terminal_width        &
                            & - print_settings%indent &
                            & - print_settings%overhang
     enddo
@@ -245,17 +248,14 @@ module procedure unset_output_unit
   call set_error_strings_coloured()
 end procedure
 
-module procedure set_terminal_width
-  integer :: width
+!> Gets the terminal width using [[get_terminal_width_c]].
+function get_terminal_width() result(output)
+  integer :: output
   logical :: success
   
-  success = get_terminal_width_c(width)
-  if (success) then
-    TERMINAL_WIDTH = width
-  else
-    call print_line( 'Failed to get terminal width. &
-                     &Reverting to default of 79 characters.')
-    TERMINAL_WIDTH = 79
+  success = get_terminal_width_c(output)
+  if (.not. success) then
+    output = 79
   endif
-end procedure
+end function
 end submodule

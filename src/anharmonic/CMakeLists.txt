@@ -5,7 +5,6 @@ cmake_include_guard(anharmonic)
 add_library(anharmonic_modules generate_subspace_potentials.f90 mode_map.f90 vscf.f90 interpolation.f90 setup_anharmonic.f90 run_anharmonic.f90 calculate_potential.f90 map_modes.f90 plot_modes.f90 map_potential.f90 plot_potential_map.f90 map_vscf_modes.f90 plot_vscf_modes.f90 calculate_anharmonic_observables.f90 plot_vscf_states.f90 plot_vscf_convergence.f90 anharmonic.f90)
 add_library(anharmonic_submodules generate_subspace_potentials_submodule.f90 mode_map_submodule.f90 vscf_submodule.f90 interpolation_submodule.f90 setup_anharmonic_submodule.f90 run_anharmonic_submodule.f90 calculate_potential_submodule.f90 map_modes_submodule.f90 plot_modes_submodule.f90 map_potential_submodule.f90 plot_potential_map_submodule.f90 map_vscf_modes_submodule.f90 plot_vscf_modes_submodule.f90 calculate_anharmonic_observables_submodule.f90 plot_vscf_states_submodule.f90 plot_vscf_convergence_submodule.f90 anharmonic_submodule.f90)
 target_link_libraries(anharmonic_submodules anharmonic_modules)
-target_include_directories(anharmonic_modules PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Include subsidiary modules.
 foreach(dir IN ITEMS anharmonic_common states potentials)

@@ -9,14 +9,15 @@ module caesar_update_basis_functions_module
   
   private
   
-  public :: startup_update_basis_functions
+  public :: update_basis_functions_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_update_basis_functions() 
-    end subroutine
+    module function update_basis_functions_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

@@ -1,60 +1,6 @@
 submodule (caesar_abstract_classes_module) caesar_abstract_classes_submodule
   use caesar_anharmonic_common_module
-  
-  ! An array of all types which extend SubspaceBasis.
-  ! This array will be filled in by startup routines.
-  type(SubspaceBasisPointer), allocatable :: TYPES_SubspaceBasis(:)
-  
-  ! An array of all types which extend PotentialBase.
-  ! This array will be filled in by startup routines.
-  type(PotentialBasePointer), allocatable :: TYPES_PotentialBase(:)
-  
-  ! An array of all types which extend StressBase.
-  ! This array will be filled in by startup routines.
-  type(StressBasePointer), allocatable :: TYPES_StressBase(:)
 contains
-
-module procedure startup_SubspaceBasis
-  integer :: i
-  
-  if (.not.allocated(TYPES_SubspaceBasis)) then
-    TYPES_SubspaceBasis = [SubspaceBasisPointer(this)]
-  elseif (.not.any([(                                        &
-     & this%representation()                                 &
-     &    == TYPES_SubspaceBasis(i)%basis_%representation(), &
-     & i=1,                                                  &
-     & size(TYPES_SubspaceBasis)                             )])) then
-    TYPES_SubspaceBasis = [TYPES_SubspaceBasis, SubspaceBasisPointer(this)]
-  endif
-end procedure
-
-module procedure startup_PotentialBase
-  integer :: i
-  
-  if (.not.allocated(TYPES_PotentialBase)) then
-    TYPES_PotentialBase = [PotentialBasePointer(this)]
-  elseif (.not.any([(                                            &
-     & this%representation()                                     &
-     &    == TYPES_PotentialBase(i)%potential_%representation(), &
-     & i=1,                                                      &
-     & size(TYPES_PotentialBase)                                 )])) then
-    TYPES_PotentialBase = [TYPES_PotentialBase, PotentialBasePointer(this)]
-  endif
-end procedure
-
-module procedure startup_StressBase
-  integer :: i
-  
-  if (.not.allocated(TYPES_StressBase)) then
-    TYPES_StressBase = [StressBasePointer(this)]
-  elseif (.not.any([(                                      &
-     & this%representation()                               &
-     &    == TYPES_StressBase(i)%stress_%representation(), &
-     & i=1,                                                &
-     & size(TYPES_StressBase)                              )])) then
-    TYPES_StressBase = [TYPES_StressBase, StressBasePointer(this)]
-  endif
-end procedure
 
 module procedure new_SubspaceBasisPointer
   integer :: ialloc
@@ -225,6 +171,8 @@ module procedure integrate_BasisStates_SubspaceBasisPointer
 end procedure
 
 module procedure read_SubspaceBasisPointer
+  type(SubspaceBasisPointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -236,15 +184,13 @@ module procedure read_SubspaceBasisPointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([(                                                         &
-       & TYPES_SubspaceBasis(i)%basis_%representation()==representation, &
-       & i=1,                                                            &
-       & size(TYPES_SubspaceBasis)                                       )])
+    types = types_SubspaceBasis()
+    i = first([(                                           &
+       & types(i)%basis_%representation()==representation, &
+       & i=1,                                              &
+       & size(types)                                       )])
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_SubspaceBasis(i)%basis_%read(input(2:))
-    this = SubspaceBasisPointer(TYPES_SubspaceBasis(i))
+    call this%basis_%read(input(2:))
   class default
     call err()
   end select
@@ -384,6 +330,8 @@ module procedure potential_energy_BasisState_PotentialBasePointer
 end procedure
 
 module procedure read_PotentialBasePointer
+  type(PotentialBasePointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -395,15 +343,13 @@ module procedure read_PotentialBasePointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([(                                                             &
-       & TYPES_PotentialBase(i)%potential_%representation()==representation, &
-       & i=1,                                                                &
-       & size(TYPES_PotentialBase)                                          )])
+    types = types_PotentialBase()
+    i = first([(                                               &
+       & types(i)%potential_%representation()==representation, &
+       & i=1,                                                  &
+       & size(types)                                           )])
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_PotentialBase(i)%potential_%read(input(2:))
-    this = PotentialBasePointer(TYPES_PotentialBase(i))
+    call this%potential_%read(input(2:))
   class default
     call err()
   end select
@@ -525,6 +471,8 @@ module procedure potential_stress_BasisState_StressBasePointer
 end procedure
 
 module procedure read_StressBasePointer
+  type(StressBasePointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -536,15 +484,13 @@ module procedure read_StressBasePointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([(                                                       &
-       & TYPES_StressBase(i)%stress_%representation()==representation, &
-       & i=1,                                                          &
-       & size(TYPES_StressBase)                                        )])
+    types = types_StressBase()
+    i = first([(                                            &
+       & types(i)%stress_%representation()==representation, &
+       & i=1,                                               &
+       & size(types)                                        )])
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_StressBase(i)%stress_%read(input(2:))
-    this = StressBasePointer(TYPES_StressBase(i))
+    call this%stress_%read(input(2:))
   class default
     call err()
   end select

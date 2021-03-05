@@ -2,12 +2,6 @@ submodule (caesar_polynomial_stress_module) caesar_polynomial_stress_submodule
   use caesar_polynomial_module
 contains
 
-module procedure startup_polynomial_stress
-  type(PolynomialStress) :: stress
-  
-  call stress%startup()
-end procedure
-
 module procedure new_PolynomialStress
   this%stress_expansion_order_ = stress_expansion_order
   this%reference_stress_       = reference_stress

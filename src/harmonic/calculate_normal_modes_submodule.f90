@@ -2,13 +2,11 @@ submodule (caesar_calculate_normal_modes_module) caesar_calculate_normal_modes_s
   use caesar_harmonic_module
 contains
 
-module procedure startup_calculate_normal_modes
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'calculate_normal_modes'
-  mode%description = 'Finds harmonic normal modes. Should be called &
+module procedure calculate_normal_modes_mode
+  output%mode_name = 'calculate_normal_modes'
+  output%description = 'Finds harmonic normal modes. Should be called &
      &after run_harmonic.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'acoustic_sum_rule',                                      &
      &              'acoustic_sum_rule specifies where the acoustic sum rule &
      &is applied. The options are "off", "forces", "matrices" and "both".',   &
@@ -22,9 +20,7 @@ module procedure startup_calculate_normal_modes
      &all S, where S is the symmetry matrix and q is loto_direction. See &
      &structure.dat for the list of symmetries.',                             &
      &              is_optional = .true.)                                     ]
-  mode%main_subroutine => calculate_normal_modes_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => calculate_normal_modes_subroutine
 end procedure
 
 module procedure calculate_normal_modes_subroutine
@@ -93,7 +89,7 @@ module procedure calculate_normal_modes_subroutine
   ! Read in previous arguments.
   ! --------------------------------------------------
   call print_line('Reading in previously calculated data.')
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   

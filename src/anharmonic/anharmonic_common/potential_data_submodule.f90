@@ -1,31 +1,6 @@
 submodule (caesar_potential_data_module) caesar_potential_data_submodule
   use caesar_anharmonic_common_module
-  
-  ! An array of all types which extend PotentialData.
-  ! This array will be filled in by startup routines.
-  type(PotentialPointer), allocatable :: TYPES_PotentialData(:)
 contains
-
-module procedure startup_PotentialData
-  type(PotentialBasePointer) :: base
-  
-  integer :: i
-  
-  ! TODO: this doesn't work. It calls the startup() method for
-  !    PotentialBasePointer only.
-  base = PotentialBasePointer(this)
-  call base%startup()
-  
-  if (.not.allocated(TYPES_PotentialData)) then
-    TYPES_PotentialData = [PotentialPointer(this)]
-  elseif (.not.any([(                                            &
-     & this%representation()                                     &
-     &    == TYPES_PotentialData(i)%potential_%representation(), &
-     & i=1,                                                      &
-     & size(TYPES_PotentialData)                                 )])) then
-    TYPES_PotentialData = [TYPES_PotentialData, PotentialPointer(this)]
-  endif
-end procedure
 
 module procedure new_PotentialPointer
   integer :: ialloc
@@ -281,6 +256,8 @@ module procedure optimise_subspace_potential_PotentialData
 end procedure
 
 module procedure read_PotentialPointer
+  type(PotentialPointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -292,15 +269,14 @@ module procedure read_PotentialPointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([(                                                             &
-       & TYPES_PotentialData(i)%potential_%representation()==representation, &
-       & i=1,                                                                &
-       & size(TYPES_PotentialData)                                          )])
+    types = types_PotentialData()
+    i = first([(                                               &
+       & types(i)%potential_%representation()==representation, &
+       & i=1,                                                  &
+       & size(types)                                           )])
+    this = types(i)
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_PotentialData(i)%potential_%read(input(2:))
-    this = PotentialPointer(TYPES_PotentialData(i))
+    call this%potential_%read(input(2:))
   class default
     call err()
   end select

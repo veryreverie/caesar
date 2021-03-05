@@ -2,12 +2,6 @@ submodule (caesar_wavevector_state_module) caesar_wavevector_state_submodule
   use caesar_states_module
 contains
 
-module procedure startup_wavevector_state
-  type(WavevectorState) :: state
-  
-  call state%startup()
-end procedure
-
 module procedure representation_WavevectorState
   output = 'wavevector state'
 end procedure

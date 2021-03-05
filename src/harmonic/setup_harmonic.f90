@@ -11,14 +11,15 @@ module caesar_setup_harmonic_module
   
   private
   
-  public :: startup_setup_harmonic
+  public :: setup_harmonic_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_setup_harmonic() 
-    end subroutine
+    module function setup_harmonic_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

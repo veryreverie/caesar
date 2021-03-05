@@ -6,12 +6,6 @@ module procedure prod_complex
   output = HarmonicStateComplex([lhs%modes_,rhs%modes_])
 end procedure
 
-module procedure startup_harmonic_state_complex
-  type(HarmonicStateComplex) :: state
-  
-  call state%startup()
-end procedure
-
 module procedure new_HarmonicStateComplex
   this%modes_ = modes
 end procedure

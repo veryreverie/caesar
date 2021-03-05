@@ -8,14 +8,15 @@ module caesar_run_harmonic_module
   
   private
   
-  public :: startup_run_harmonic
+  public :: run_harmonic_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_run_harmonic() 
-    end subroutine
+    module function run_harmonic_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

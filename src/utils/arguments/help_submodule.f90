@@ -3,10 +3,6 @@ submodule (caesar_help_module) caesar_help_submodule
 contains
 
 module procedure help_default
-  type(CaesarModes) :: caesar_modes
-  
-  caesar_modes = CaesarModes()
-  
   call print_line('caesar - Calculates harmonic and anharmonic vibrational &
      &contributions to crystal properties.')
   call print_line('')
@@ -101,7 +97,7 @@ module procedure help_default
   call print_line('')
   call print_line('Accepted '//colour('modes','cyan')//':')
   
-  call caesar_modes%print_help()
+  call program_modes%print_help()
   
   call print_line('')
   call print_line('Return code:')
@@ -145,18 +141,14 @@ module procedure help_default
 end procedure
 
 module procedure help_specific
-  type(CaesarModes)              :: caesar_modes
-  type(CaesarMode)               :: caesar_mode
   type(KeywordData), allocatable :: keywords(:)
   
   integer :: i
   
-  caesar_modes = CaesarModes()
-  caesar_mode = caesar_modes%mode(mode)
-  keywords = caesar_mode%keywords
+  keywords = program_mode%keywords
   
   if (keyword=='') then
-    call caesar_mode%print_help()
+    call program_mode%print_help()
     call print_line('')
     call print_line('')
     call print_line('Accepted keywords:')
@@ -174,8 +166,8 @@ module procedure help_specific
     
     call print_line('')
     call print_line('Keyword '//keyword//' not recognised. For a list of &
-       &keywords associated with mode '//mode//', call:')
-    call print_line('  caesar '//mode//' -h')
+       &keywords associated with mode '//program_mode%mode_name//', call:')
+    call print_line('  caesar '//program_mode%mode_name//' -h')
   endif
 end procedure
 end submodule

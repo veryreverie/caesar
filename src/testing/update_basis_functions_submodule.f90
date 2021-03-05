@@ -2,22 +2,18 @@ submodule (caesar_update_basis_functions_module) caesar_update_basis_functions_s
   use caesar_testing_module
 contains
 
-subroutine startup_update_basis_functions()
-  type(CaesarMode) :: mode
-  
+module procedure update_basis_functions_mode
   integer :: ialloc
   
-  mode%mode_name = 'update_basis_functions'
-  mode%description = 'Updates the format of files to allow calculations &
+  output%mode_name = 'update_basis_functions'
+  output%description = 'Updates the format of files to allow calculations &
      &performed using Caesar from December 2018 and earlier to be used with &
      &Caesar from January 2019 and later. If this update is run, neither &
      &setup_anharmonic nor run_anharmonic need be run again, but &
      &calculate_potential and later steps will need re-running.'
-  allocate(mode%keywords(0), stat=ialloc); call err(ialloc)
-  mode%main_subroutine => update_basis_functions_subroutine
-  
-  call add_mode(mode)
-end subroutine
+  allocate(output%keywords(0), stat=ialloc); call err(ialloc)
+  output%main_subroutine => update_basis_functions_subroutine
+end procedure
 
 module procedure update_basis_functions_subroutine
   type(AnharmonicData) :: anharmonic_data

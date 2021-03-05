@@ -2,12 +2,6 @@ submodule (caesar_harmonic_states_module) caesar_harmonic_states_submodule
   use caesar_effective_harmonic_module
 contains
 
-module procedure startup_harmonic_states
-  type(HarmonicStates) :: states
-  
-  call states%startup()
-end procedure
-
 module procedure representation_HarmonicStates
   output = 'harmonic state'
 end procedure

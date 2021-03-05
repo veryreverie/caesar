@@ -2,23 +2,19 @@ submodule (caesar_plot_thermodynamic_variables_module) caesar_plot_thermodynamic
   use caesar_harmonic_module
 contains
 
-module procedure startup_plot_thermodynamic_variables
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'plot_thermodynamic_variables'
-  mode%description = 'Plots the thermodynamic variables &
+module procedure plot_thermodynamic_variables_mode
+  output%mode_name = 'plot_thermodynamic_variables'
+  output%description = 'Plots the thermodynamic variables &
      &calculated by calculate_harmonic_observables or &
      & calculate_anharmonic_observables. Should be called from within the &
      &harmonic_observables or anharmonic_observables directory. The -d flag &
      &may be useful for this.'
-  mode%keywords = [                                                        &
+  output%keywords = [                                                      &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  mode%main_subroutine => plot_thermodynamic_variables_subroutine
-  mode%suppress_settings_file = .true.
-  
-  call add_mode(mode)
+  output%main_subroutine => plot_thermodynamic_variables_subroutine
+  output%suppress_settings_file = .true.
 end procedure
 
 module procedure plot_thermodynamic_variables_subroutine

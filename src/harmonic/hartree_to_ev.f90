@@ -5,14 +5,15 @@ module caesar_hartree_to_ev_module
   
   private
   
-  public :: startup_hartree_to_ev
+  public :: hartree_to_ev_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_hartree_to_ev() 
-    end subroutine
+    module function hartree_to_ev_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

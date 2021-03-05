@@ -7,14 +7,15 @@ module caesar_plot_vscf_modes_module
   
   private
   
-  public :: startup_plot_vscf_modes
+  public :: plot_vscf_modes_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_plot_vscf_modes() 
-    end subroutine
+    module function plot_vscf_modes_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

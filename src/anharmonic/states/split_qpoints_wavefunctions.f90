@@ -9,8 +9,6 @@ module caesar_split_qpoints_wavefunctions_module
   
   private
   
-  public :: startup_split_qpoints_wavefunctions
-  
   public :: SplitQpointsWavefunctions
   
   type, extends(SubspaceWavefunctions) :: SplitQpointsWavefunctions
@@ -29,11 +27,6 @@ module caesar_split_qpoints_wavefunctions_module
     procedure, public :: read  => read_SplitQpointsWavefunctions
     procedure, public :: write => write_SplitQpointsWavefunctions
   end type
-  
-  interface
-    module subroutine startup_split_qpoints_wavefunctions() 
-    end subroutine
-  end interface
   
   interface SplitQpointsWavefunctions
     module function new_SplitQpointsWavefunctions(subspace_id,mode_ids, &

@@ -2,15 +2,13 @@ submodule (caesar_calculate_harmonic_observables_module) caesar_calculate_harmon
   use caesar_harmonic_module
 contains
 
-module procedure startup_calculate_harmonic_observables
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'calculate_harmonic_observables'
-  mode%description = 'Calculates observables under the harmonic &
+module procedure calculate_harmonic_observables_mode
+  output%mode_name = 'calculate_harmonic_observables'
+  output%description = 'Calculates observables under the harmonic &
      &approximation: the phonon density of states and dispersion curve, &
      &and the energy, free energy and entropy per unit cell. Should be run &
      &after calculate_normal_modes.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'min_frequency',                                          &
      &              'min_frequency is the frequency below which modes will be &
      &ignored when calculating thermodynamic quantities. min_frequency should &
@@ -55,9 +53,7 @@ module procedure startup_calculate_harmonic_observables
      &space at which the normal modes are calculated when calculating the &
      &vibrational density of states.',                                        &
      &              default_value='10000')                                    ]
-  mode%main_subroutine => calculate_harmonic_observables_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => calculate_harmonic_observables_subroutine
 end procedure
 
 module procedure calculate_harmonic_observables_subroutine
@@ -153,7 +149,7 @@ module procedure calculate_harmonic_observables_subroutine
   ! --------------------------------------------------
   ! Read in previous arguments.
   ! --------------------------------------------------
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file('setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
   

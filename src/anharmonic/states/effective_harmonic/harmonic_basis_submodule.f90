@@ -2,12 +2,6 @@ submodule (caesar_harmonic_basis_module) caesar_harmonic_basis_submodule
   use caesar_effective_harmonic_module
 contains
 
-module procedure startup_harmonic_basis
-  type(HarmonicBasis) :: basis
-  
-  call basis%startup()
-end procedure
-
 module procedure representation_HarmonicBasis
   output = 'harmonic'
 end procedure

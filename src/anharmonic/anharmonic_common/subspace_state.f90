@@ -25,7 +25,6 @@ module caesar_subspace_state_module
   contains
     procedure(representation_SubspaceState), public, deferred, nopass :: &
        & representation
-    procedure, public :: startup => startup_SubspaceState
     
     ! Return the id of the modes across which the state is defined.
     procedure(mode_ids_SubspaceState), public, deferred :: mode_ids
@@ -116,10 +115,9 @@ module caesar_subspace_state_module
   end interface
   
   interface
-    ! Startup method.
-    module subroutine startup_SubspaceState(this) 
-      class(SubspaceState), intent(in) :: this
-    end subroutine
+    module function types_SubspaceState() result(output)
+      type(SubspaceStatePointer), allocatable :: output(:)
+    end function
   end interface
   
   interface SubspaceStatePointer

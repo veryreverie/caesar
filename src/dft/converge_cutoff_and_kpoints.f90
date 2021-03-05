@@ -10,14 +10,14 @@ module caesar_converge_cutoff_and_kpoints_module
   
   private
   
-  public :: converge_cutoff_and_kpoints
+  public :: converge_cutoff_and_kpoints_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module function converge_cutoff_and_kpoints() result(output) 
-      type(CaesarMode) :: output
+    module function converge_cutoff_and_kpoints_mode() result(output) 
+      type(ProgramMode) :: output
     end function
   end interface
   

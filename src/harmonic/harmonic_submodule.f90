@@ -1,17 +1,18 @@
 submodule (caesar_harmonic_module) caesar_harmonic_submodule
 contains
-module procedure startup_harmonic
-  call startup_hartree_to_ev()
-  call startup_snap_to_symmetry()
-  call startup_setup_harmonic()
-  call startup_run_harmonic()
-  call startup_calculate_normal_modes()
-  call startup_read_normal_modes()
-  call startup_plot_normal_modes()
-  call startup_calculate_harmonic_observables()
-  call startup_plot_dos_and_dispersion()
-  call startup_plot_thermodynamic_variables()
-  call startup_converge_harmonic_qpoints()
-  call startup_plot_harmonic_qpoint_convergence()
+module procedure harmonic_modes
+  output = [                                   &
+     & hartree_to_ev_mode(),                   &
+     & snap_to_symmetry_mode(),                &
+     & setup_harmonic_mode(),                  &
+     & run_harmonic_mode(),                    &
+     & calculate_normal_modes_mode(),          &
+     & read_normal_modes_mode(),               &
+     & plot_normal_modes_mode(),               &
+     & calculate_harmonic_observables_mode(),  &
+     & plot_dos_and_dispersion_mode(),         &
+     & plot_thermodynamic_variables_mode(),    &
+     & converge_harmonic_qpoints_mode(),       &
+     & plot_harmonic_qpoint_convergence_mode() ]
 end procedure
 end submodule

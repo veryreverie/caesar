@@ -2,12 +2,6 @@ submodule (caesar_split_qpoints_basis_module) caesar_split_qpoints_basis_submodu
   use caesar_states_module
 contains
 
-module procedure startup_split_qpoints_basis
-  type(SplitQpointsBasis) :: basis
-  
-  call basis%startup()
-end procedure
-
 module procedure new_QpointModeIDs
   this%mode_ids = mode_ids(sort(mode_ids))
   this%paired_mode_ids = paired_mode_ids(sort(paired_mode_ids))

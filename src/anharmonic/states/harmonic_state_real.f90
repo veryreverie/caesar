@@ -12,8 +12,6 @@ module caesar_harmonic_state_real_module
   
   private
   
-  public :: startup_harmonic_state_real
-  
   public :: HarmonicStateReal
   
   public :: harmonic_state_real_pointer
@@ -48,12 +46,6 @@ module caesar_harmonic_state_real_module
       type(HarmonicStateReal), intent(in) :: rhs
       type(HarmonicStateReal)             :: output
     end function
-  end interface
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_harmonic_state_real() 
-    end subroutine
   end interface
   
   interface HarmonicStateReal

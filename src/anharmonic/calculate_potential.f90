@@ -3,6 +3,7 @@
 ! ======================================================================
 module caesar_calculate_potential_module
   use caesar_common_module
+  use caesar_harmonic_module
   
   use caesar_anharmonic_common_module
   use caesar_potentials_module
@@ -11,14 +12,15 @@ module caesar_calculate_potential_module
   
   private
   
-  public :: startup_calculate_potential
+  public :: calculate_potential_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_calculate_potential() 
-    end subroutine
+    module function calculate_potential_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

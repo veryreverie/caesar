@@ -9,14 +9,15 @@ module caesar_converge_harmonic_qpoints_module
   
   private
   
-  public :: startup_converge_harmonic_qpoints
+  public :: converge_harmonic_qpoints_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_converge_harmonic_qpoints() 
-    end subroutine
+    module function converge_harmonic_qpoints_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

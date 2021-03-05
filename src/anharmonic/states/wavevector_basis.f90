@@ -27,8 +27,6 @@ module caesar_wavevector_basis_module
   
   private
   
-  public :: startup_wavevector_basis
-  
   public :: WavevectorBasis
   
   public :: calculate_states
@@ -94,12 +92,6 @@ module caesar_wavevector_basis_module
     integer, allocatable   :: selected_states(:)
     type(SparseRealMatrix) :: hamiltonian
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_wavevector_basis() 
-    end subroutine
-  end interface
   
   interface
     ! Type representation.

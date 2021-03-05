@@ -6,12 +6,6 @@ module procedure prod_real
   output = HarmonicStateReal([lhs%modes_,rhs%modes_])
 end procedure
 
-module procedure startup_harmonic_state_real
-  type(HarmonicStateReal) :: state
-  
-  call state%startup()
-end procedure
-
 module procedure new_HarmonicStateReal
   this%modes_ = modes
 end procedure

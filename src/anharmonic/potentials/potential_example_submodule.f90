@@ -2,12 +2,6 @@ submodule (caesar_potential_example_module) caesar_potential_example_submodule
   use caesar_potentials_module
 contains
 
-module procedure startup_potential_example
-  type(PotentialDataExample) :: potential
-  
-  call potential%startup()
-end procedure
-
 module procedure new_PotentialDataExample
   this%example_contents = example_contents
 end procedure

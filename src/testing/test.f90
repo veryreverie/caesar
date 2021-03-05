@@ -11,14 +11,15 @@ module caesar_test_module
   
   private
   
-  public :: startup_test
+  public :: test_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_test() 
-    end subroutine
+    module function test_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

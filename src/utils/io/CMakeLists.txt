@@ -9,8 +9,10 @@ else()
   add_library(compiler_specific compiler_specific_default.f90)
 endif()
 
-add_library(io_modules system.c terminal.f90 error.f90 string_base.f90 string.f90 print_settings.f90 print.f90 intrinsics.f90 io_utils.f90 token.f90 string_array.f90 string_writeable.f90 strings_writeable.f90 file.f90 ifile.f90 ofile_target.f90 ofile.f90 string_readable.f90 strings_readable.f90 stringable.f90 stringsable.f90 io.f90)
-add_library(io_submodules error_submodule.f90 string_base_submodule.f90 string_submodule.f90 print_settings_submodule.f90 print_submodule.f90 intrinsics_submodule.f90 io_utils_submodule.f90 token_submodule.f90 string_array_submodule.f90 string_writeable_submodule.f90 strings_writeable_submodule.f90 file_submodule.f90 ifile_submodule.f90 ofile_target_submodule.f90 ofile_submodule.f90)
+add_definitions(-DEXECUTABLE_LOCATION="${CMAKE_BINARY_DIR}/bin" -DPYTHON_SCRIPTS_LOCATION="${CMAKE_BINARY_DIR}/python")
+
+add_library(io_modules system.c terminal.f90 error.f90 string_base.f90 string.f90 print_settings.f90 print.f90 intrinsics.f90 c_string.f90 home_directory.f90 current_working_directory.f90 executable_locations.f90 io_utils.f90 token.f90 string_array.f90 string_writeable.f90 strings_writeable.f90 file.f90 ifile.f90 ofile_target.f90 ofile.f90 string_readable.f90 strings_readable.f90 stringable.f90 stringsable.f90 io.f90)
+add_library(io_submodules error_submodule.f90 string_base_submodule.f90 string_submodule.f90 print_settings_submodule.f90 print_submodule.f90 intrinsics_submodule.f90 c_string_submodule.f90 home_directory_submodule.f90 current_working_directory_submodule.f90 executable_locations_submodule.F90 io_utils_submodule.f90 token_submodule.f90 string_array_submodule.f90 string_writeable_submodule.f90 strings_writeable_submodule.f90 file_submodule.f90 ifile_submodule.f90 ofile_target_submodule.f90 ofile_submodule.f90)
 target_link_libraries(io_modules compiler_specific)
 target_link_libraries(io_submodules io_modules)
 

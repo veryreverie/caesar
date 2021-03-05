@@ -8,14 +8,15 @@ module caesar_plot_harmonic_convergence_module
   
   private
   
-  public :: startup_plot_harmonic_convergence
+  public :: plot_harmonic_convergence_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_plot_harmonic_convergence() 
-    end subroutine
+    module function plot_harmonic_convergence_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

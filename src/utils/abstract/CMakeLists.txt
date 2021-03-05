@@ -15,10 +15,15 @@ target_link_libraries(abstract_modules shared_counter)
 target_link_libraries(abstract_submodules abstract_modules)
 
 # Link against required modules.
-target_link_libraries(abstract_modules foundations_modules)
-target_link_libraries(abstract_submodules foundations_submodules)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../io io/)
-target_link_libraries(abstract_submodules io_submodules)
+foreach(dir IN ITEMS foundations)
+  target_link_libraries(abstract_modules ${dir}_modules)
+  target_link_libraries(abstract_submodules ${dir}_submodules)
+endforeach()
+
+# Link submodules to required submodules later in the module build tree.
+foreach(dir IN ITEMS io)
+  target_link_libraries(abstract_submodules ${dir}_submodules)
+endforeach()
 
 # Enable testing.
 if(BUILD_TESTS)

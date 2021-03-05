@@ -2,12 +2,6 @@ submodule (caesar_split_qpoints_wavefunctions_module) caesar_split_qpoints_wavef
   use caesar_states_module
 contains
 
-module procedure startup_split_qpoints_wavefunctions
-  type(SplitQpointsWavefunctions) :: wavefunctions
-  
-  call wavefunctions%startup()
-end procedure
-
 module procedure new_SplitQpointsWavefunctions
   if (size(energies)/=size(wavefunctions)) then
     call err()

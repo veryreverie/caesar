@@ -15,7 +15,6 @@ module caesar_print_module
   public :: colour
   public :: set_output_unit
   public :: unset_output_unit
-  public :: set_terminal_width
   
   interface print_line
     !> Prints a character or string variable, either to the terminal or
@@ -130,12 +129,6 @@ module caesar_print_module
   interface unset_output_unit
     !> Unset OUTPUT_FILE_UNIT.
     module subroutine unset_output_unit()
-    end subroutine
-  end interface
-
-  interface set_terminal_width
-    !> Set the terminal width.
-    module subroutine set_terminal_width()
     end subroutine
   end interface
 end module

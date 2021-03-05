@@ -26,5 +26,4 @@ module caesar_anharmonic_common_module
   use caesar_stress_data_module
   use caesar_potential_data_module
   implicit none
-contains
 end module

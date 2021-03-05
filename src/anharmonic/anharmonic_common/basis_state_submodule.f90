@@ -1,24 +1,6 @@
 submodule (caesar_basis_state_module) caesar_basis_state_submodule
   use caesar_anharmonic_common_module
-  
-  ! An array of all types which extend BasisState.
-  ! This array will be filled in by startup routines.
-  type(BasisStatePointer), allocatable :: TYPES_BasisState(:)
 contains
-
-module procedure startup_BasisState
-  integer :: i
-  
-  if (.not.allocated(TYPES_BasisState)) then
-    TYPES_BasisState = [BasisStatePointer(this)]
-  elseif (.not.any([(                                     &
-     & this%representation()                              &
-     &    == TYPES_BasisState(i)%state_%representation(), &
-     & i=1,                                               &
-     & size(TYPES_BasisState)                             )])) then
-    TYPES_BasisState = [TYPES_BasisState, BasisStatePointer(this)]
-  endif
-end procedure
 
 module procedure new_BasisStatePointer
   integer :: ialloc
@@ -54,6 +36,8 @@ module procedure state_pointer_BasisStatePointer
 end procedure
 
 module procedure read_BasisStatePointer
+  type(BasisStatePointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -65,15 +49,14 @@ module procedure read_BasisStatePointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([(                                                      &
-       & TYPES_BasisState(i)%state_%representation()==representation, &
-       & i=1,                                                         &
-       & size(TYPES_BasisState)                                       )])
+    types = types_BasisState()
+    i = first([(                                           &
+       & types(i)%state_%representation()==representation, &
+       & i=1,                                              &
+       & size(types)                                       )])
+    this = types(i)
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_BasisState(i)%state_%read(input(2:))
-    this = BasisStatePointer(TYPES_BasisState(i))
+    call this%state_%read(input(2:))
   class default
     call err()
   end select

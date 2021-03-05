@@ -23,7 +23,6 @@ module caesar_potential_data_module
   contains
     procedure(representation_PotentialData), public, deferred, nopass :: &
        & representation
-    procedure, public :: startup => startup_PotentialData
     
     ! Given all input data, generate the set of sampling points at which
     !    electronic structure calculations should be run in order to
@@ -264,9 +263,9 @@ module caesar_potential_data_module
   end interface
   
   interface
-    module subroutine startup_PotentialData(this) 
-      class(PotentialData), intent(in) :: this
-    end subroutine
+    module function types_PotentialData() result(output)
+      type(PotentialPointer), allocatable :: output(:)
+    end function
   end interface
   
   interface PotentialPointer

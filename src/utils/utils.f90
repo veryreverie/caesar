@@ -16,10 +16,4 @@ module caesar_utils_module
   use caesar_algebra_module
   use caesar_random_module
   implicit none
-contains
-subroutine startup_utils()
-  implicit none
-  
-  call startup_io()
-end subroutine
 end module

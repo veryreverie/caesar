@@ -13,20 +13,16 @@ module caesar_io_utils_module
   
   private
   
-  public :: startup_io_utils
   public :: CommandLineFlag
   public :: file_exists
   public :: command_line_args
   public :: mkdir
-  public :: set_working_directory
   public :: system_call
   public :: get_flag
   public :: read_line_from_user
   public :: format_path
-  public :: execute_old_code
   public :: execute_python
   public :: call_caesar
-  public :: parse_c_string
   
   !> Stores a flag from the command line input, and its argument.
   type :: CommandLineFlag
@@ -71,18 +67,6 @@ module caesar_io_utils_module
       type(String), intent(in), optional :: working_directory
       type(String)                       :: output
     end function
-  end interface
-  
-  interface set_working_directory
-    !> Sets the current working directory to `working_directory`.
-    module subroutine set_working_directory_character(working_directory) 
-      character(*), intent(in) :: working_directory
-    end subroutine
-
-    !> Sets the current working directory to `working_directory`.
-    module subroutine set_working_directory_String(working_directory) 
-      type(String), intent(in) :: working_directory
-    end subroutine
   end interface
   
   interface call_caesar
@@ -142,45 +126,7 @@ module caesar_io_utils_module
       type(String) :: line
     end function
   end interface
-
-  interface get_home_directory
-    !> Sets `HOME` to the path to the directory '~'.
-    module function get_home_directory() result(output) 
-      type(String) :: output
-    end function
-  end interface
-
-  interface get_current_directory
-    !> Sets `CWD` to the path to the current working directory.
-    module function get_current_directory() result(output) 
-      type(String) :: output
-    end function
-  end interface
-
-  interface get_exe_location
-    !> Sets `EXE_LOCATION` to the path to the `caesar` executable.
-    module function get_exe_location() result(output) 
-      type(String) :: output
-    end function
-  end interface
-
-  interface startup_io_utils
-    !> Initialises this module's global variables.
-    !> Must be called before any other procedures in this module.
-    module subroutine startup_io_utils() 
-    end subroutine
-  end interface
   
-  interface execute_old_code
-    !> Executes one of the old caesar executables.
-    !> Adds the path to old Caesar to PATH in a subshell.
-    !> Moves to the working directory.
-    !> Runs the given file.
-    module subroutine execute_old_code(filename) 
-      type(String), intent(in) :: filename
-    end subroutine
-  end interface
-
   interface execute_python
     !> Executes one of the Python scripts.
     module subroutine execute_python(filename,python_path,python_arguments) 
@@ -188,14 +134,6 @@ module caesar_io_utils_module
       type(String), intent(in)           :: python_path
       type(String), intent(in), optional :: python_arguments(:)
     end subroutine
-  end interface
-
-  interface parse_c_string
-    !> Converts a `NUL`-terminated C string to a Fortran [[String(type)]].
-    module function parse_c_string(input) result(output) 
-      character(*), intent(in) :: input
-      type(String)             :: output
-    end function
   end interface
 
   interface escape_bash_characters
@@ -209,30 +147,6 @@ module caesar_io_utils_module
   
   !> Interface to C functions in `system.c`.
   interface
-    !> `getcwd` interface.
-    function get_cwd_c(result_size, cwd) bind(c) result(success)
-      use, intrinsic :: iso_c_binding
-      integer(kind=c_int),    intent(in)  :: result_size
-      character(kind=c_char), intent(out) :: cwd(*)
-      logical(kind=c_bool)                :: success
-    end function
-  
-    !> `getenv('HOME')` interface.
-    function get_home_c(home) bind(c) result(success)
-      use, intrinsic :: iso_c_binding
-      character(kind=c_char), intent(out) :: home(*)
-      logical(kind=c_bool)                :: success
-    end function
-  
-    !> `readlink('/proc/self/exe')` interface.
-    function get_exe_location_c(result_size,exe_location) bind(c) &
-       & result(success)
-      use, intrinsic :: iso_c_binding
-      integer(kind=c_int),    intent(in)  :: result_size
-      character(kind=c_char), intent(out) :: exe_location
-      logical(kind=c_bool)                :: success
-    end function
-  
     !> Flag parsing interface.
     function get_flag_c(argc,argvs,options,flag,output) bind(c) result(success)
       use, intrinsic :: iso_c_binding

@@ -6,11 +6,4 @@ module caesar_effective_harmonic_module
   use caesar_harmonic_states_module
   use caesar_harmonic_basis_module
   implicit none
-contains
-subroutine startup_effective_harmonic()
-  implicit none
-  
-  call startup_harmonic_states()
-  call startup_harmonic_basis()
-end subroutine
 end module

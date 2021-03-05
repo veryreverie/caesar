@@ -13,5 +13,3 @@ foreach(dir IN ITEMS foundations macros abstract io algebra random arguments)
   target_link_libraries(utils_modules ${dir}_modules)
   target_link_libraries(utils_submodules ${dir}_submodules)
 endforeach()
-
-target_include_directories(utils_modules PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -12,14 +12,15 @@ module caesar_calculate_harmonic_observables_module
   
   private
   
-  public :: startup_calculate_harmonic_observables
+  public :: calculate_harmonic_observables_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_calculate_harmonic_observables() 
-    end subroutine
+    module function calculate_harmonic_observables_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

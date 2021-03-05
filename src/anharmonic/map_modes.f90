@@ -3,6 +3,7 @@
 ! ======================================================================
 module caesar_map_modes_module
   use caesar_common_module
+  use caesar_harmonic_module
   
   use caesar_anharmonic_common_module
   use caesar_potentials_module
@@ -12,14 +13,15 @@ module caesar_map_modes_module
   
   private
   
-  public :: startup_map_modes
+  public :: map_modes_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_map_modes() 
-    end subroutine
+    module function map_modes_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

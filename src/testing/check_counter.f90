@@ -7,14 +7,15 @@ module caesar_check_counter_module
   
   private
   
-  public :: startup_check_counter
+  public :: check_counter_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_check_counter() 
-    end subroutine
+    module function check_counter_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

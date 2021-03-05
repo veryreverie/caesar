@@ -1,31 +1,6 @@
 submodule (caesar_stress_data_module) caesar_stress_data_submodule
   use caesar_anharmonic_common_module
-  
-  ! An array of all types which extend StressData.
-  ! This array will be filled in by startup routines.
-  type(StressPointer), allocatable :: TYPES_StressData(:)
 contains
-
-module procedure startup_StressData
-  type(StressBasePointer) :: base
-  
-  integer :: i
-  
-  ! TODO: this doesn't work. It calls the startup() method for
-  !    StressBasePointer only.
-  base = StressBasePointer(this)
-  call base%startup()
-  
-  if (.not.allocated(TYPES_StressData)) then
-    TYPES_StressData = [StressPointer(this)]
-  elseif (.not.any([(                                      &
-     & this%representation()                               &
-     &    == TYPES_StressData(i)%stress_%representation(), &
-     & i=1,                                                &
-     & size(TYPES_StressData)                              )])) then
-    TYPES_StressData = [TYPES_StressData, StressPointer(this)]
-  endif
-end procedure
 
 module procedure new_StressPointer
   integer :: ialloc
@@ -172,6 +147,8 @@ module procedure stress_correction_StressData
 end procedure
 
 module procedure read_StressPointer
+  type(StressPointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -183,15 +160,14 @@ module procedure read_StressPointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([(                                                       &
-       & TYPES_StressData(i)%stress_%representation()==representation, &
-       & i=1,                                                          &
-       & size(TYPES_StressData)                                        )])
+    types = types_StressData()
+    i = first([(                                            &
+       & types(i)%stress_%representation()==representation, &
+       & i=1,                                               &
+       & size(types)                                        )])
+    this = types(i)
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_StressData(i)%stress_%read(input(2:))
-    this = StressPointer(TYPES_StressData(i))
+    call this%stress_%read(input(2:))
   class default
     call err()
   end select

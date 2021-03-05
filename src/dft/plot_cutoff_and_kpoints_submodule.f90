@@ -2,7 +2,7 @@ submodule (caesar_plot_cutoff_and_kpoints_module) caesar_plot_cutoff_and_kpoints
   use caesar_dft_module
 contains
 
-module procedure plot_cutoff_and_kpoints
+module procedure plot_cutoff_and_kpoints_mode
   output%mode_name = 'plot_cutoff_and_kpoints'
   output%description = 'Plots the output of coverge_cutoff_and_kpoints'
   output%keywords = [                                                      &

@@ -1,24 +1,6 @@
 submodule (caesar_subspace_state_module) caesar_subspace_state_submodule
   use caesar_anharmonic_common_module
-  
-  ! An array of all types which extend SubspaceState.
-  ! This array will be filled in by startup routines.
-  type(SubspaceStatePointer), allocatable :: TYPES_SubspaceState(:)
 contains
-
-module procedure startup_SubspaceState
-  integer :: i
-  
-  if (.not. allocated(TYPES_SubspaceState)) then
-    TYPES_SubspaceState = [SubspaceStatePointer(this)]
-  elseif (.not. any([(                                    &
-     &    this%representation()                           &
-     & == TYPES_SubspaceState(i)%state_%representation(), &
-     & i=1,                                               &
-     & size(TYPES_SubspaceState)                          )])) then
-    TYPES_SubspaceState = [TYPES_SubspaceState, SubspaceStatePointer(this)]
-  endif
-end procedure
 
 module procedure new_SubspaceStatePointer
   integer :: ialloc
@@ -77,6 +59,8 @@ module procedure wavevector_SubspaceStatePointer
 end procedure
 
 module procedure read_SubspaceStatePointer
+  type(SubspaceStatePointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -88,15 +72,14 @@ module procedure read_SubspaceStatePointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([(                                                         &
-       & TYPES_SubspaceState(i)%state_%representation()==representation, &
-       & i=1,                                                            &
-       & size(TYPES_SubspaceState)                                       )])
+    types = types_SubspaceState()
+    i = first([(                                           &
+       & types(i)%state_%representation()==representation, &
+       & i=1,                                              &
+       & size(types)                         )])
+    this = types(i)
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_SubspaceState(i)%state_%read(input(2:))
-    this = SubspaceStatePointer(TYPES_SubspaceState(i))
+    call this%state_%read(input(2:))
   class default
     call err()
   end select

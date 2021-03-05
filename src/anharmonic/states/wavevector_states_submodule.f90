@@ -2,12 +2,6 @@ submodule (caesar_wavevector_states_module) caesar_wavevector_states_submodule
   use caesar_states_module
 contains
 
-module procedure startup_wavevector_states
-  type(WavevectorStates) :: states
-  
-  call states%startup()
-end procedure
-
 module procedure new_WavevectorStates
   this%subspace_id = subspace_id
   this%states = states

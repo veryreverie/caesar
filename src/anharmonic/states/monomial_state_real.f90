@@ -12,8 +12,6 @@ module caesar_monomial_state_real_module
   
   private
   
-  public :: startup_monomial_state_real
-  
   public :: MonomialStateReal
   
   public :: monomial_state_real_pointer
@@ -56,12 +54,6 @@ module caesar_monomial_state_real_module
     procedure, public :: read  => read_MonomialStateReal
     procedure, public :: write => write_MonomialStateReal
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_monomial_state_real() 
-    end subroutine
-  end interface
   
   interface MonomialStateReal
     ! ----------------------------------------------------------------------

@@ -8,14 +8,15 @@ module caesar_plot_potential_map_module
   
   private
   
-  public :: startup_plot_potential_map
+  public :: plot_potential_map_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_plot_potential_map() 
-    end subroutine
+    module function plot_potential_map_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

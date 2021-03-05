@@ -17,10 +17,8 @@ module caesar_split_qpoints_basis_module
   
   private
   
-  public :: startup_split_qpoints_basis
-  
-  public :: SplitQpointsBasis
   public :: QpointModeIDs
+  public :: SplitQpointsBasis
   
   type, extends(Stringable) :: QpointModeIDs
     integer, allocatable :: mode_ids(:)
@@ -110,12 +108,6 @@ module caesar_split_qpoints_basis_module
     ! Private helper functions.
     !procedure, private :: integrate_potential
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_split_qpoints_basis() 
-    end subroutine
-  end interface
   
   interface QpointModeIDs
     ! QpointModeIDs methods.

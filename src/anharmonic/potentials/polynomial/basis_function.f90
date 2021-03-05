@@ -8,7 +8,6 @@
 module caesar_basis_function_module
   use caesar_common_module
   
-  use caesar_states_module
   use caesar_anharmonic_common_module
   
   use caesar_polynomial_interpolator_module

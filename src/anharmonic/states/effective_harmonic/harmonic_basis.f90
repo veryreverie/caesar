@@ -11,8 +11,6 @@ module caesar_harmonic_basis_module
   
   private
   
-  public :: startup_harmonic_basis
-  
   public :: HarmonicBasis
   
   type, extends(SubspaceBasis) :: HarmonicBasis
@@ -57,12 +55,6 @@ module caesar_harmonic_basis_module
     procedure, public :: read  => read_HarmonicBasis
     procedure, public :: write => write_HarmonicBasis
   end type
-  
-  interface
-    ! Startup procedure and type representation.
-    module subroutine startup_harmonic_basis() 
-    end subroutine
-  end interface
   
   interface
     impure elemental module function representation_HarmonicBasis() &

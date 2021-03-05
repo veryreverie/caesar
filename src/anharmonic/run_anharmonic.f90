@@ -3,6 +3,7 @@
 ! ======================================================================
 module caesar_run_anharmonic_module
   use caesar_common_module
+  use caesar_harmonic_module
   
   use caesar_anharmonic_common_module
   use caesar_potentials_module
@@ -10,14 +11,15 @@ module caesar_run_anharmonic_module
   
   private
   
-  public :: startup_run_anharmonic
+  public :: run_anharmonic_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_run_anharmonic() 
-    end subroutine
+    module function run_anharmonic_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

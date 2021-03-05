@@ -2,7 +2,7 @@ submodule (caesar_converge_qpoint_grid_module) caesar_converge_qpoint_grid_submo
   use caesar_harmonic_module
 contains
 
-module procedure converge_qpoint_grid
+module procedure converge_qpoint_grid_mode
   output%mode_name = 'converge_qpoint_grid'
   output%description = 'Monitors convergence of harmonic frequencies and free energies wrt qpoint grid.'
   output%keywords = [                                                         &

@@ -9,8 +9,6 @@ module caesar_harmonic_states_module
   
   private
   
-  public :: startup_harmonic_states
-  
   public :: HarmonicStates
   
   public :: harmonic_states_pointer
@@ -25,12 +23,6 @@ module caesar_harmonic_states_module
     procedure, public :: read  => read_HarmonicStates
     procedure, public :: write => write_HarmonicStates
   end type
-  
-  interface
-    ! Startup procedure and type representation.
-    module subroutine startup_harmonic_states
-    end subroutine
-  end interface
   
   interface
     impure elemental module function representation_HarmonicStates() &

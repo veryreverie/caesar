@@ -2,13 +2,11 @@ submodule (caesar_run_anharmonic_module) caesar_run_anharmonic_submodule
   use caesar_anharmonic_module
 contains
 
-module procedure startup_run_anharmonic
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'run_anharmonic'
-  mode%description = 'Runs DFT calculations set up by setup_anharmonic. &
+module procedure run_anharmonic_mode
+  output%mode_name = 'run_anharmonic'
+  output%description = 'Runs DFT calculations set up by setup_anharmonic. &
      &Should be run after setup_anharmonic.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'calculations_to_run',                                    &
      &              'calculations_to_run specifies the first and last &
      &calculations to run inclusive. These should be given as two integers &
@@ -50,9 +48,7 @@ module procedure startup_run_anharmonic
      &calculations will be re-run if an electronic_structure.dat file is &
      &found in their directory.',                                             &
      &               default_value='true')                                    ]
-  mode%main_subroutine => run_anharmonic_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => run_anharmonic_subroutine
 end procedure
 
 module procedure run_anharmonic_subroutine
@@ -97,14 +93,14 @@ module procedure run_anharmonic_subroutine
   repeat_calculations = lgcl(arguments%value('repeat_calculations'))
   
   ! Read in setup_harmonic settings.
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file( &
           & 'setup_harmonic.used_settings' )
   file_type = setup_harmonic_arguments%value('file_type')
   seedname = setup_harmonic_arguments%value('seedname')
   
   ! Read in setup_anharmonic settings.
-  setup_anharmonic_arguments = Dictionary(CaesarMode('setup_anharmonic'))
+  setup_anharmonic_arguments = Dictionary(setup_anharmonic_mode())
   call setup_anharmonic_arguments%read_file('setup_anharmonic.used_settings')
   use_forces = lgcl(setup_anharmonic_arguments%value('use_forces'))
   use_hessians = lgcl(setup_anharmonic_arguments%value('use_hessians'))

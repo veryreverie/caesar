@@ -2,15 +2,13 @@ submodule (caesar_snap_to_symmetry_module) caesar_snap_to_symmetry_submodule
   use caesar_harmonic_module
 contains
 
-module procedure startup_snap_to_symmetry
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'snap_to_symmetry'
-  mode%description = 'Uses spglib to snap a structure to a symmetry. The &
+module procedure snap_to_symmetry_mode
+  output%mode_name = 'snap_to_symmetry'
+  output%description = 'Uses spglib to snap a structure to a symmetry. The &
      &symmetry to which the structure is snapped is found by calling spglib &
      &with the given symmetry precision. The routine attempts to find the &
      &snapped structure which is as close to the input structure as possible.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'file_type',                                              &
      &              'file_type is the file type which will be used for &
      &single-point energy calculations. Settings are: "castep", &
@@ -29,9 +27,7 @@ module procedure startup_snap_to_symmetry
      &minimum inter-atomic distance, and much larger than the geometry &
      &optimisation tolerance.',                                               &
      &              default_value='0.1')                                      ]
-  mode%main_subroutine => snap_to_symmetry_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => snap_to_symmetry_subroutine
 end procedure
 
 module procedure snap_to_symmetry_subroutine

@@ -22,7 +22,6 @@ module caesar_stress_data_module
   contains
     procedure(representation_StressData), public, deferred, nopass :: &
        & representation
-    procedure, public :: startup => startup_StressData
     
     ! Interpolation of the stress.
     procedure, public :: can_be_interpolated => &
@@ -88,9 +87,9 @@ module caesar_stress_data_module
   end interface
   
   interface
-    module subroutine startup_StressData(this) 
-      class(StressData), intent(in) :: this
-    end subroutine
+    module function types_StressData() result(output)
+      type(StressPointer), allocatable :: output(:)
+    end function
   end interface
   
   interface StressPointer

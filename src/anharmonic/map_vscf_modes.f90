@@ -13,14 +13,15 @@ module caesar_map_vscf_modes_module
   
   private
   
-  public :: startup_map_vscf_modes
+  public :: map_vscf_modes_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_map_vscf_modes() 
-    end subroutine
+    module function map_vscf_modes_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

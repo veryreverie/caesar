@@ -51,7 +51,7 @@ set_target_properties(caesar PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 # Link against subsidiary modules.
-foreach(dir IN ITEMS utils common dft harmonic anharmonic testing)
+foreach(dir IN ITEMS utils common harmonic anharmonic dft testing)
   add_subdirectory(${CMAKE_SOURCE_DIR}/${dir} ${dir}/)
   target_link_libraries(caesar ${dir}_submodules)
 endforeach()

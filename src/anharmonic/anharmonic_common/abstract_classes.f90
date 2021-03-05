@@ -63,7 +63,6 @@ module caesar_abstract_classes_module
   contains
     procedure(representation_SubspaceBasis), public, deferred, nopass :: &
        & representation
-    procedure, public :: startup => startup_SubspaceBasis
     
     ! Functionality for generating SubspaceStates.
     procedure(initial_states_SubspaceBasis), public, deferred :: initial_states
@@ -176,7 +175,6 @@ module caesar_abstract_classes_module
   contains
     procedure(representation_PotentialBase), public, deferred, nopass :: &
        & representation
-    procedure, public :: startup => startup_PotentialBase
     
     ! Return the energy at zero displacement
     procedure, public :: undisplaced_energy
@@ -276,7 +274,6 @@ module caesar_abstract_classes_module
   contains
     procedure(representation_StressBase), public, deferred, nopass :: &
        & representation
-    procedure, public :: startup => startup_StressBase
     
     ! Return the stress at zero displacement.
     procedure, public :: undisplaced_stress
@@ -857,24 +854,17 @@ module caesar_abstract_classes_module
   end interface
   
   interface
-    ! ----------------------------------------------------------------------
-    ! Startup methods.
-    ! ----------------------------------------------------------------------
-    module subroutine startup_SubspaceBasis(this) 
-      class(SubspaceBasis), intent(in) :: this
-    end subroutine
-  end interface
-  
-  interface
-    module subroutine startup_PotentialBase(this) 
-      class(PotentialBase), intent(in) :: this
-    end subroutine
-  end interface
-  
-  interface
-    module subroutine startup_StressBase(this) 
-      class(StressBase), intent(in) :: this
-    end subroutine
+    module function types_SubspaceBasis() result(output)
+      type(SubspaceBasisPointer), allocatable :: output(:)
+    end function
+    
+    module function types_PotentialBase() result(output)
+      type(PotentialBasePointer), allocatable :: output(:)
+    end function
+    
+    module function types_StressBase() result(output)
+      type(StressBasePointer), allocatable :: output(:)
+    end function
   end interface
   
   interface SubspaceBasisPointer

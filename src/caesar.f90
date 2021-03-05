@@ -20,7 +20,8 @@ program caesar
   type(String) :: mode
   
   ! The chosen subroutine, and the keywords it accepts.
-  type(CaesarMode)                       :: caesar_mode
+  type(ProgramModes)                     :: program_modes
+  type(ProgramMode)                      :: program_mode
   procedure(MainSubroutine), pointer     :: main_subroutine => null ()
   type(KeywordData),         allocatable :: keywords(:)
   
@@ -34,14 +35,12 @@ program caesar
   type(String) :: filename
   
   ! --------------------------------------------------
-  ! Call startup subroutines,
-  !    which must be called before anything else happens.
+  ! Collect together the program modes.
   ! --------------------------------------------------
-  call startup_utils()
-  call startup_harmonic()
-  call startup_anharmonic()
-  call startup_dft()
-  call startup_testing()
+  program_modes = ProgramModes([ harmonic_modes(),   &
+                               & anharmonic_modes(), &
+                               & dft_modes(),        &
+                               & testing_modes()     ])
   
   ! --------------------------------------------------
   ! Read in command line arguments and process the mode.
@@ -69,7 +68,7 @@ program caesar
   ! Help calls, both correct and malformed.
   elseif (mode == '-h' .or. mode == '--help' .or. mode == 'help') then
     if (size(args) == 2) then
-      call help()
+      call help(program_modes)
     else
       call print_line(colour('Error: no mode specified.','red'))
       call print_line('For keyword-specific help, please also specify a mode, &
@@ -98,9 +97,9 @@ program caesar
   
   ! Normal inputs.
   else
-    caesar_mode = CaesarMode(mode)
-    keywords = caesar_mode%keywords
-    main_subroutine => caesar_mode%main_subroutine
+    program_mode = program_modes%mode(mode)
+    keywords = program_mode%keywords
+    main_subroutine => program_mode%main_subroutine
   endif
   
   ! --------------------------------------------------
@@ -120,7 +119,7 @@ program caesar
   ! Handle help calls.
   ! --------------------------------------------------
   if (arguments%is_set('help')) then
-    call help(arguments%value('help'), mode)
+    call help(arguments%value('help'), program_mode)
     call quit()
   endif
   
@@ -135,12 +134,12 @@ program caesar
   ! --------------------------------------------------
   ! Set working directory.
   ! --------------------------------------------------
-  call set_working_directory(arguments%value('working_directory'))
+  call set_current_working_directory(arguments%value('working_directory'))
   
   ! --------------------------------------------------
   ! Write settings to file.
   ! --------------------------------------------------
-  if (.not. caesar_mode%suppress_settings_file) then
+  if (.not. program_mode%suppress_settings_file) then
     filename = mode//'.used_settings'
     call arguments%write_file(filename)
   endif

@@ -2,19 +2,15 @@ submodule (caesar_plot_modes_module) caesar_plot_modes_submodule
   use caesar_anharmonic_module
 contains
 
-module procedure startup_plot_modes
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'plot_modes'
-  mode%description = 'Plots the modes mapped by map_modes.'
-  mode%keywords = [                                                        &
+module procedure plot_modes_mode
+  output%mode_name = 'plot_modes'
+  output%description = 'Plots the modes mapped by map_modes.'
+  output%keywords = [                                                        &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  mode%main_subroutine => plot_modes_subroutine
-  mode%suppress_settings_file = .true.
-  
-  call add_mode(mode)
+  output%main_subroutine => plot_modes_subroutine
+  output%suppress_settings_file = .true.
 end procedure
 
 module procedure plot_modes_subroutine

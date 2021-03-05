@@ -2,12 +2,6 @@ submodule (caesar_wavevector_basis_module) caesar_wavevector_basis_submodule
   use caesar_states_module
 contains
 
-module procedure startup_wavevector_basis
-  type(WavevectorBasis) :: basis
-  
-  call basis%startup()
-end procedure
-
 module procedure representation_WavevectorBasis
   output = 'wavevector basis'
 end procedure

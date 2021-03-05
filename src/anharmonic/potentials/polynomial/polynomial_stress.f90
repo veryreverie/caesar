@@ -4,7 +4,6 @@
 module caesar_polynomial_stress_module
   use caesar_common_module
   
-  use caesar_states_module
   use caesar_anharmonic_common_module
   
   use caesar_polynomial_interpolator_module
@@ -13,8 +12,6 @@ module caesar_polynomial_stress_module
   implicit none
   
   private
-  
-  public :: startup_polynomial_stress
   
   public :: PolynomialStress
   
@@ -66,12 +63,6 @@ module caesar_polynomial_stress_module
     procedure, public :: read  => read_PolynomialStress
     procedure, public :: write => write_PolynomialStress
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_polynomial_stress() 
-    end subroutine
-  end interface
   
   interface PolynomialStress
     ! Constructor.

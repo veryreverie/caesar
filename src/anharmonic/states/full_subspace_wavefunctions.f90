@@ -9,8 +9,6 @@ module caesar_full_subspace_wavefunctions_module
   
   private
   
-  public :: startup_full_subspace_wavefunctions
-  
   public :: FullSubspaceWavefunctions
   
   type, extends(SubspaceWavefunctions) :: FullSubspaceWavefunctions
@@ -29,11 +27,6 @@ module caesar_full_subspace_wavefunctions_module
     procedure, public :: read  => read_FullSubspaceWavefunctions
     procedure, public :: write => write_FullSubspaceWavefunctions
   end type
-  
-  interface
-    module subroutine startup_full_subspace_wavefunctions() 
-    end subroutine
-  end interface
   
   interface FullSubspaceWavefunctions
     module function new_FullSubspaceWavefunctions(subspace_id,mode_ids, &

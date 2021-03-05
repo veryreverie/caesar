@@ -7,14 +7,14 @@ module caesar_plot_cutoff_and_kpoints_module
   
   private
   
-  public :: plot_cutoff_and_kpoints
+  public :: plot_cutoff_and_kpoints_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module function plot_cutoff_and_kpoints() result(output) 
-      type(CaesarMode) :: output
+    module function plot_cutoff_and_kpoints_mode() result(output) 
+      type(ProgramMode) :: output
     end function
   end interface
   

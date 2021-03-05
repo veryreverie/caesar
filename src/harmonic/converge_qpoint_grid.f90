@@ -10,14 +10,14 @@ module caesar_converge_qpoint_grid_module
   
   private
   
-  public :: converge_qpoint_grid
+  public :: converge_qpoint_grid_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext
     ! ----------------------------------------------------------------------
-    module function converge_qpoint_grid() result(output) 
-      type(CaesarMode) :: output
+    module function converge_qpoint_grid_mode() result(output) 
+      type(ProgramMode) :: output
     end function
   end interface
   

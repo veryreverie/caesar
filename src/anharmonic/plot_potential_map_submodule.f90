@@ -2,20 +2,16 @@ submodule (caesar_plot_potential_map_module) caesar_plot_potential_map_submodule
   use caesar_anharmonic_module
 contains
 
-module procedure startup_plot_potential_map
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'plot_potential_map'
-  mode%description = 'Plots the mapping of the anharmonic potential &
+module procedure plot_potential_map_mode
+  output%mode_name = 'plot_potential_map'
+  output%description = 'Plots the mapping of the anharmonic potential &
      &calculated by map_potential.'
-  mode%keywords = [                                                      &
+  output%keywords = [                                                      &
      & KeywordData( 'python_path',                                         &
      &              'python_path is the path to the Python 3 executable.', &
      &              default_value='python3') ]
-  mode%main_subroutine => plot_potential_map_subroutine
-  mode%suppress_settings_file = .true.
-  
-  call add_mode(mode)
+  output%main_subroutine => plot_potential_map_subroutine
+  output%suppress_settings_file = .true.
 end procedure
 
 module procedure plot_potential_map_subroutine

@@ -9,14 +9,15 @@ module caesar_read_normal_modes_module
   
   private
   
-  public :: startup_read_normal_modes
+  public :: read_normal_modes_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_read_normal_modes() 
-    end subroutine
+    module function read_normal_modes_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

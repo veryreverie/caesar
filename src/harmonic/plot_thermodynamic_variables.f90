@@ -8,14 +8,15 @@ module caesar_plot_thermodynamic_variables_module
   
   private
   
-  public :: startup_plot_thermodynamic_variables
+  public :: plot_thermodynamic_variables_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_plot_thermodynamic_variables() 
-    end subroutine
+    module function plot_thermodynamic_variables_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

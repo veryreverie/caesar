@@ -1,26 +1,16 @@
 submodule (caesar_converge_harmonic_frequencies_module) caesar_converge_harmonic_frequencies_submodule
+  use caesar_harmonic_module
   use caesar_dft_module
 contains
 
-module procedure startup_converge_harmonic_frequencies
-  type(CaesarMode) :: mode
+module procedure converge_harmonic_frequencies_mode
+  type(ProgramMode) :: mode
   
-  type(CaesarMode) :: setup_harmonic_mode
-  type(CaesarMode) :: run_harmonic_mode
-  type(CaesarMode) :: calculate_normal_modes_mode
-  type(CaesarMode) :: calculate_harmonic_observables_mode
-  
-  setup_harmonic_mode = CaesarMode('setup_harmonic')
-  run_harmonic_mode = CaesarMode('run_harmonic')
-  calculate_normal_modes_mode = CaesarMode('calculate_normal_modes')
-  calculate_harmonic_observables_mode = &
-     & CaesarMode('calculate_harmonic_observables')
-  
-  mode%mode_name = 'converge_harmonic_frequencies'
-  mode%description = 'Converges harmonic frequencies and free energies &
+  output%mode_name = 'converge_harmonic_frequencies'
+  output%description = 'Converges harmonic frequencies and free energies &
      &w/r/t cutoff energy, k-point spacing and electronic smearing. N.B. only &
      &the value being converged will be changed in each input file.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'converge_cutoff',                                      &
      &              'converge_cutoff specifies whether or not electronic &
      &cut-off energy will be converged.',                                     &
@@ -90,18 +80,21 @@ module procedure startup_converge_harmonic_frequencies
      &frequencies and/or energies that must be within the defined tolerance &
      &of each other for convergence to be considered reached',                &
      &              default_value='3')                                        ]
-  mode%keywords = [ mode%keywords,                               &
-                  & setup_harmonic_mode%keywords,                &
-                  & run_harmonic_mode%keywords,                  &
-                  & calculate_normal_modes_mode%keywords,        &
-                  & calculate_harmonic_observables_mode%keywords ]
-  mode%main_subroutine => converge_harmonic_frequencies_subroutine
   
-  call mode%remove_keyword('supercells_to_run')
-  call mode%remove_keyword('calculations_to_run')
-  call mode%remove_keyword('exit_on_error')
+  output%main_subroutine => converge_harmonic_frequencies_subroutine
   
-  call add_mode(mode)
+  ! Add keywords for the modes called by converge_harmonic_frequencies.
+  mode = setup_harmonic_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  mode = run_harmonic_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  mode = calculate_normal_modes_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  mode = calculate_harmonic_observables_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  call output%remove_keyword('supercells_to_run')
+  call output%remove_keyword('calculations_to_run')
+  call output%remove_keyword('exit_on_error')
 end procedure
 
 module procedure converge_harmonic_frequencies_subroutine
@@ -628,7 +621,7 @@ module procedure calculate_frequencies
   endif
   
   ! Call setup_harmonic.
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%set(arguments)
   call setup_harmonic_arguments%set('working_directory', directory)
   call setup_harmonic_arguments%set( 'output_file',                      &
@@ -636,7 +629,7 @@ module procedure calculate_frequencies
   call call_caesar('setup_harmonic', setup_harmonic_arguments)
   
   ! Call run_harmonic.
-  run_harmonic_arguments = Dictionary(CaesarMode('run_harmonic'))
+  run_harmonic_arguments = Dictionary(run_harmonic_mode())
   call run_harmonic_arguments%set(arguments)
   call run_harmonic_arguments%set('working_directory', directory)
   call run_harmonic_arguments%set( 'output_file',                    &
@@ -645,7 +638,7 @@ module procedure calculate_frequencies
   
   ! Call calculate_normal_modes.
   calculate_normal_modes_arguments = &
-     & Dictionary(CaesarMode('calculate_normal_modes'))
+     & Dictionary(calculate_normal_modes_mode())
   call calculate_normal_modes_arguments%set(arguments)
   call calculate_normal_modes_arguments%set('working_directory', directory)
   call calculate_normal_modes_arguments%set(       &
@@ -676,7 +669,7 @@ module procedure calculate_free_energies
   file_name = directory//'/harmonic_observables/thermodynamic_variables.dat'
   if (repeat_calculations .or. .not. file_exists(file_name)) then
     calculate_harmonic_observables_arguments = &
-       & Dictionary(CaesarMode('calculate_harmonic_observables'))
+       & Dictionary(calculate_harmonic_observables_mode())
     call calculate_harmonic_observables_arguments%set(arguments)
     call calculate_harmonic_observables_arguments%set( 'working_directory', &
                                                      & directory            )

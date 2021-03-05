@@ -2,13 +2,11 @@ submodule (caesar_map_potential_module) caesar_map_potential_submodule
   use caesar_anharmonic_module
 contains
 
-module procedure startup_map_potential
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'map_potential'
-  mode%description = 'Maps out the potential at finite displacements along &
+module procedure map_potential_mode
+  output%mode_name = 'map_potential'
+  output%description = 'Maps out the potential at finite displacements along &
      & pairs of modes.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
      & KeywordData( 'modes',                                                  &
      &              'modes is the IDs of the real modes along which &
      &displacements will be made. Modes should be given as a set of integer &
@@ -52,9 +50,7 @@ module procedure startup_map_potential
      &structure calculations should be run in addition to the user-defined &
      &script. Settings are: "none" and "quip".',                              &
      &              default_value='none') ]
-  mode%main_subroutine => map_potential_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => map_potential_subroutine
 end procedure
 
 module procedure map_potential_subroutine
@@ -141,7 +137,7 @@ module procedure map_potential_subroutine
   calculation_type = arguments%value('calculation_type')
   
   ! Read in setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file( &
           & 'setup_harmonic.used_settings' )
   seedname = setup_harmonic_arguments%value('seedname')

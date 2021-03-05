@@ -2,12 +2,6 @@ submodule (caesar_monomial_state_real_module) caesar_monomial_state_real_submodu
   use caesar_states_module
 contains
 
-module procedure startup_monomial_state_real
-  type(MonomialStateReal) :: state
-  
-  call state%startup()
-end procedure
-
 module procedure new_MonomialStateReal
   this%supercell_size = supercell_size
   this%frequency      = frequency

@@ -4,6 +4,8 @@
 ! Should be run after calculate_potential.
 module caesar_calculate_anharmonic_observables_module
   use caesar_common_module 
+  use caesar_harmonic_module
+  
   use caesar_states_module
   use caesar_anharmonic_common_module
   use caesar_potentials_module
@@ -15,14 +17,15 @@ module caesar_calculate_anharmonic_observables_module
   
   private
   
-  public :: startup_calculate_anharmonic_observables
+  public :: calculate_anharmonic_observables_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_calculate_anharmonic_observables() 
-    end subroutine
+    module function calculate_anharmonic_observables_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

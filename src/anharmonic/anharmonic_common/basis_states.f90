@@ -18,7 +18,6 @@ module caesar_basis_states_module
   contains
     procedure(representation_BasisStates), public, deferred, nopass :: &
        & representation
-    procedure, public :: startup => startup_BasisStates
   end type
   
   type, extends(BasisStates) :: BasisStatesPointer
@@ -48,9 +47,9 @@ module caesar_basis_states_module
   end interface
   
   interface
-    module subroutine startup_BasisStates(this) 
-      class(BasisStates), intent(in) :: this
-    end subroutine
+    module function types_BasisStates() result(output)
+      type(BasisStatesPointer), allocatable :: output(:)
+    end function
   end interface
   
   interface BasisStatesPointer

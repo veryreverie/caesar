@@ -2,12 +2,6 @@ submodule (caesar_full_subspace_basis_module) caesar_full_subspace_basis_submodu
   use caesar_states_module
 contains
 
-module procedure startup_full_subspace_basis
-  type(FullSubspaceBasis) :: basis
-  
-  call basis%startup()
-end procedure
-
 module procedure new_FullSubspaceBasis
   this%supercell_size  = supercell_size
   this%maximum_power   = maximum_power

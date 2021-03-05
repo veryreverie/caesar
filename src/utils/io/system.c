@@ -13,22 +13,7 @@
 // --------------------------------------------------
 // Functions which inquire about directory and system properties.
 // --------------------------------------------------
-bool get_cwd_c(const int* result_size, char* cwd)
-{
-  char buffer[*result_size];
-  char * result = getcwd(buffer, sizeof(buffer)-1);
-  if (result==NULL)
-  {
-    return false;
-  }
-  else
-  {
-    strcpy(cwd,result);
-    return true;
-  }
-}
-
-bool get_home_c(char* home)
+bool get_home_directory_c(char* home)
 {
   char * result = getenv("HOME");
   if (result==NULL)
@@ -42,18 +27,17 @@ bool get_home_c(char* home)
   }
 }
 
-bool get_exe_location_c(const int* result_size, char* exe_location)
+bool get_current_working_directory_c(const int* result_size, char* cwd)
 {
   char buffer[*result_size];
-  ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer)-1);
-  if (len==-1)
+  char * result = getcwd(buffer, sizeof(buffer)-1);
+  if (result==NULL)
   {
     return false;
   }
   else
   {
-    *(buffer+len) = '\0';
-    strcpy(exe_location, buffer);
+    strcpy(cwd,result);
     return true;
   }
 }

@@ -9,14 +9,15 @@ module caesar_snap_to_symmetry_module
   
   private
   
-  public :: startup_snap_to_symmetry
+  public :: snap_to_symmetry_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generate keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_snap_to_symmetry() 
-    end subroutine
+    module function snap_to_symmetry_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

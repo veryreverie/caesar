@@ -1,4 +1,4 @@
-module caesar_modes_test
+module program_mode_test
   use funit
 
   use caesar_arguments_module

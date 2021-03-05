@@ -1,19 +1,19 @@
 submodule (caesar_anharmonic_module) caesar_anharmonic_submodule
 contains
-module procedure startup_anharmonic
-  call startup_states()
-  call startup_potentials()
-  call startup_setup_anharmonic()
-  call startup_run_anharmonic()
-  call startup_calculate_potential()
-  call startup_map_modes()
-  call startup_plot_modes()
-  call startup_map_potential()
-  call startup_plot_potential_map()
-  call startup_map_vscf_modes()
-  call startup_plot_vscf_modes()
-  call startup_calculate_anharmonic_observables()
-  call startup_plot_vscf_convergence()
-  call startup_plot_vscf_states()
+
+module procedure anharmonic_modes
+  output = [                                    &
+     & setup_anharmonic_mode(),                 &
+     & run_anharmonic_mode(),                   &
+     & calculate_potential_mode(),              &
+     & map_modes_mode(),                        &
+     & plot_modes_mode(),                       &
+     & map_potential_mode(),                    &
+     & plot_potential_map_mode(),               &
+     & map_vscf_modes_mode(),                   &
+     & plot_vscf_modes_mode(),                  &
+     & calculate_anharmonic_observables_mode(), &
+     & plot_vscf_convergence_mode(),            &
+     & plot_vscf_states_mode()                  ]
 end procedure
 end submodule

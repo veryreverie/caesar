@@ -2,12 +2,6 @@ submodule (caesar_full_subspace_wavefunctions_module) caesar_full_subspace_wavef
   use caesar_states_module
 contains
 
-module procedure startup_full_subspace_wavefunctions
-  type(FullSubspaceWavefunctions) :: wavefunctions
-  
-  call wavefunctions%startup()
-end procedure
-
 module procedure new_FullSubspaceWavefunctions
   if (size(energies)/=size(wavefunctions)) then
     call err()

@@ -2,12 +2,6 @@ submodule (caesar_polynomial_potential_module) caesar_polynomial_potential_submo
   use caesar_polynomial_module
 contains
 
-module procedure startup_polynomial_potential
-  type(PolynomialPotential) :: potential
-  
-  call potential%startup()
-end procedure
-
 module procedure new_PolynomialPotential
   this%potential_expansion_order_ = anharmonic_data%potential_expansion_order
 end procedure

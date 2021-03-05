@@ -8,14 +8,15 @@ module caesar_plot_dos_and_dispersion_module
   
   private
   
-  public :: startup_plot_dos_and_dispersion
+  public :: plot_dos_and_dispersion_mode
   
   interface
     ! ----------------------------------------------------------------------
     ! Generates keywords and helptext.
     ! ----------------------------------------------------------------------
-    module subroutine startup_plot_dos_and_dispersion() 
-    end subroutine
+    module function plot_dos_and_dispersion_mode() result(output)
+      type(ProgramMode) :: output
+    end function
   end interface
   
   interface

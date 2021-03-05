@@ -1,27 +1,6 @@
 submodule (caesar_subspace_wavefunctions_module) caesar_subspace_wavefunctions_submodule
   use caesar_anharmonic_common_module
-  
-  ! An array of all types which extend SubspaceWavefunctions.
-  ! This array will be filled in by startup routines.
-  type(SubspaceWavefunctionsPointer), allocatable :: &
-     & TYPES_SubspaceWavefunctions(:)
 contains
-
-module procedure startup_SubspaceWavefunctions
-  integer :: i
-  
-  if (.not. allocated(TYPES_SubspaceWavefunctions)) then
-    TYPES_SubspaceWavefunctions = [SubspaceWavefunctionsPointer(this)]
-  elseif (.not. any([(                          &
-     &    this%representation()                 &
-     & == TYPES_SubspaceWavefunctions(i         &
-     &       )%wavefunctions_%representation(), &
-     & i=1,                                     &
-     & size(TYPES_SubspaceWavefunctions)        )])) then
-    TYPES_SubspaceWavefunctions = [ TYPES_SubspaceWavefunctions,       &
-                                  & SubspaceWavefunctionsPointer(this) ]
-  endif
-end procedure
 
 module procedure new_SubspaceWavefunctionsPointer
   integer :: ialloc
@@ -48,6 +27,8 @@ module procedure representation_SubspaceWavefunctionsPointer
 end procedure
 
 module procedure read_SubspaceWavefunctionsPointer
+  type(SubspaceWavefunctionsPointer), allocatable :: types(:)
+  
   type(String), allocatable :: line(:)
   
   type(String) :: representation
@@ -59,15 +40,13 @@ module procedure read_SubspaceWavefunctionsPointer
     representation = line(3)
     
     ! Identify which type corresponds to the representation.
-    i = first([( TYPES_SubspaceWavefunctions(i                         &
-               &    )%wavefunctions_%representation()==representation, &
-               & i=1,                                                  &
-               & size(TYPES_SubspaceWavefunctions)                     )])
+    types = types_SubspaceWavefunctions()
+    i = first([( types(i)%wavefunctions_%representation()==representation, &
+               & i=1,                                                      &
+               & size(types)                                               )])
+    this = types(i)
     
-    ! Read the input into the element of the correct type,
-    !    and copy that element into the output.
-    call TYPES_SubspaceWavefunctions(i)%wavefunctions_%read(input(2:))
-    this = SubspaceWavefunctionsPointer(TYPES_SubspaceWavefunctions(i))
+    call this%wavefunctions_%read(input(2:))
   class default
     call err()
   end select

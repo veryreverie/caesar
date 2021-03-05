@@ -7,9 +7,4 @@ module caesar_potentials_module
   
   use caesar_potential_example_module
   implicit none
-  
-  interface
-    module subroutine startup_potentials()
-    end subroutine
-  end interface
 end module

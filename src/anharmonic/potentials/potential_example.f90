@@ -12,7 +12,6 @@ module caesar_potential_example_module
   
   private
   
-  public :: startup_potential_example
   public :: potential_example_subroutine
   public :: PotentialDataExample
   
@@ -63,12 +62,6 @@ module caesar_potential_example_module
     procedure, public :: read  => read_PotentialDataExample
     procedure, public :: write => write_PotentialDataExample
   end type
-  
-  interface
-    ! Startup procedure.
-    module subroutine startup_potential_example() 
-    end subroutine
-  end interface
   
   interface PotentialDataExample
     ! --------------------------------------------------

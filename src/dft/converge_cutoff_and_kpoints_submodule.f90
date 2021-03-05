@@ -2,7 +2,7 @@ submodule (caesar_converge_cutoff_and_kpoints_module) caesar_converge_cutoff_and
   use caesar_dft_module
 contains
 
-module procedure converge_cutoff_and_kpoints
+module procedure converge_cutoff_and_kpoints_mode
   output%mode_name = 'converge_cutoff_and_kpoints'
   output%description = 'Converges cutoff energy and k-point spacing.'
   output%keywords = [                                                         &

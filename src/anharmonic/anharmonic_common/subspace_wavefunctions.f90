@@ -15,7 +15,6 @@ module caesar_subspace_wavefunctions_module
   contains
     procedure(representation_SubspaceWavefunctions), public, deferred, &
        & nopass :: representation
-    procedure, public :: startup => startup_SubspaceWavefunctions
   end type
   
   type, extends(SubspaceWavefunctions) :: SubspaceWavefunctionsPointer
@@ -44,18 +43,18 @@ module caesar_subspace_wavefunctions_module
   end interface
   
   interface
-    ! The startup method.
-    module subroutine startup_SubspaceWavefunctions(this) 
-      class(SubspaceWavefunctions) ,intent(in) :: this
-    end subroutine
+    module function types_SubspaceWavefunctions() result(output)
+      type(SubspaceWavefunctionsPointer), allocatable :: output(:)
+    end function
   end interface
   
   interface SubspaceWavefunctionsPointer
     ! Construct a SubspaceWavefunctionsPointer from any type which extends
     !    SubspaceWavefunctions.
-    impure elemental module function new_SubspaceWavefunctionsPointer(wavefunctions) result(this) 
-      class(SubspaceWavefunctions) ,intent(in) :: wavefunctions
-      type(SubspaceWavefunctionsPointer) :: this
+    impure elemental module function new_SubspaceWavefunctionsPointer( &
+       & wavefunctions) result(this) 
+      class(SubspaceWavefunctions), intent(in) :: wavefunctions
+      type(SubspaceWavefunctionsPointer)       :: this
     end function
   end interface
   
@@ -68,7 +67,8 @@ module caesar_subspace_wavefunctions_module
   
   interface
     ! Type representation.
-    impure elemental module function representation_SubspaceWavefunctionsPointer() result(output) 
+    impure elemental module function &
+       & representation_SubspaceWavefunctionsPointer() result(output) 
       type(String) :: output
     end function
   end interface
@@ -97,7 +97,8 @@ module caesar_subspace_wavefunctions_module
       type(SubspaceWavefunctionsPointer) :: this
     end function
   
-    impure elemental module function new_SubspaceWavefunctionsPointer_StringArray(input) result(this) 
+    impure elemental module function &
+       & new_SubspaceWavefunctionsPointer_StringArray(input) result(this) 
       type(StringArray), intent(in)      :: input
       type(SubspaceWavefunctionsPointer) :: this
     end function

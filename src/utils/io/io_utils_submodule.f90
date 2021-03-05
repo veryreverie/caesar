@@ -1,15 +1,9 @@
 submodule (caesar_io_utils_module) caesar_io_utils_submodule
-  !> The directory `~`.
-  type(String) :: HOME
-  !> The current working directory.
-  type(String) :: CWD
-  !> The location of the `caesar` executable.
-  type(String) :: EXE_LOCATION
-  !> The path to the old `caesar` executables.
-  type(String) :: OLD_PATH
-  !> The path to the `caesar` python scripts.
-  type(String) :: PYTHON_SCRIPTS_PATH
+  use caesar_home_directory_module
+  use caesar_current_working_directory_module
+  use caesar_executable_locations_module
 contains
+
 module procedure file_exists_character
   inquire(file=char(format_path(filename)), exist=output)
 end procedure
@@ -116,80 +110,6 @@ module procedure read_line_from_user
   line = trim(char_line)
 end procedure
 
-module procedure get_home_directory
-  integer, parameter  :: result_size = 1024
-  
-  character(result_size) :: home_dir
-  logical                :: success
-  
-  success = get_home_c(home_dir)
-  
-  if (.not. success) then
-    call print_line(ERROR//': getenv("HOME") failed.')
-    call err()
-  endif
-  
-  output = parse_c_string(home_dir)
-end procedure
-
-module procedure get_current_directory
-  integer, parameter :: result_size = 1024
-  
-  character(result_size) :: current_dir
-  logical                :: success
-  
-  success = get_cwd_c(result_size, current_dir)
-  
-  if (.not. success) then
-    call print_line(ERROR//': getcwd failed.')
-    call err()
-  endif
-  
-  output = parse_c_string(current_dir)
-end procedure
-
-module procedure get_exe_location
-  integer, parameter :: result_size = 1024
-  
-  character(result_size) :: exe_location
-  logical                :: success
-  
-  success = get_exe_location_c(result_size, exe_location)
-  
-  if (.not. success) then
-    call print_line(ERROR//': readlink("/proc/self/exe") failed.')
-    call err()
-  endif
-  
-  output = parse_c_string(exe_location)
-end procedure
-
-module procedure startup_io_utils
-  type(String) :: caesar_dir
-  
-  call set_terminal_width()
-  HOME = get_home_directory()
-  CWD = get_current_directory()
-  EXE_LOCATION = get_exe_location()
-  if (  slice(EXE_LOCATION,len(EXE_LOCATION)-10,len(EXE_LOCATION)) &
-   & /= '/bin/caesar') then
-    call print_line('Caesar executable in unexpected location: '//EXE_LOCATION)
-    call err()
-  endif
-  caesar_dir = slice(EXE_LOCATION,1,len(EXE_LOCATION)-11)
-  OLD_PATH = caesar_dir//'/old'
-  PYTHON_SCRIPTS_PATH = caesar_dir//'/python'
-  call unset_output_unit()
-end procedure
-
-module procedure set_working_directory_character
-  CWD = format_path(working_directory)
-end procedure
-
-module procedure set_working_directory_String
-  call set_working_directory(char(working_directory))
-end procedure
-
 module procedure format_path_character
   integer :: length
   
@@ -205,7 +125,7 @@ module procedure format_path_character
   if (present(working_directory)) then
     wd = working_directory
   else
-    wd = CWD
+    wd = current_working_directory()
   endif
   
   ! foo/ -> foo
@@ -222,7 +142,7 @@ module procedure format_path_character
       output = wd
     elseif (path(:1)=='~') then
       ! ~ -> /home/directory
-      output = HOME
+      output = home_directory()
     else
       ! foo -> /current/working/directory/foo
       output = wd//'/'//path(:1)
@@ -236,7 +156,7 @@ module procedure format_path_character
       output = wd//path(2:length)
     elseif (path(:2)=='~/') then
       ! ~/foo -> /home/directory/foo
-      output = HOME//path(2:length)
+      output = home_directory()//path(2:length)
     else
       ! foo -> /current/working/directory/foo
       output = wd//'/'//path(:length)
@@ -248,24 +168,12 @@ module procedure format_path_String
   output = format_path(char(path),working_directory)
 end procedure
 
-module procedure execute_old_code
-  integer :: result_code
-  
-  result_code = system_call( &
-     & '( PATH='//OLD_PATH//':$PATH; cd '//CWD//'; '//filename//' )')
-  
-  if (result_code/=0) then
-    call print_line(ERROR//': '//filename//' failed.')
-    call err()
-  endif
-end procedure
-
 module procedure execute_python
   type(String) :: command
   integer      :: result_code
   
-  command = 'cd '//CWD//'; &
-            &'//python_path//' '//PYTHON_SCRIPTS_PATH//'/'//filename
+  command = 'cd '//current_working_directory()//'; &
+            &'//python_path//' '//python_scripts_location()//'/'//filename
   
   if (present(python_arguments)) then
     command = command//' '//join(python_arguments)
@@ -283,7 +191,7 @@ module procedure call_caesar_character
   type(String) :: command
   integer      :: result_code
   
-  command = 'cd '//CWD//'; '//EXE_LOCATION
+  command = 'cd '//current_working_directory()//'; '//executable_location()
   if (present(arguments)) then
     command = command//' '//escape_bash_characters(arguments)
   endif
@@ -300,24 +208,6 @@ end procedure
 
 module procedure call_caesar_String
   call call_caesar(char(arguments))
-end procedure
-
-module procedure parse_c_string
-  integer :: i
-  
-  output = ''
-  do i=1,len(input)
-    if (input(i:i)==char(0)) then
-      output = input(:i-1)
-      exit
-    endif
-  enddo
-  
-  if (output=='') then
-    call print_line(ERROR//': C string string not nul-terminated: '// &
-       & input)
-    call err()
-  endif
 end procedure
 
 module procedure escape_bash_characters

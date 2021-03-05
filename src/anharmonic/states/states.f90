@@ -5,12 +5,8 @@
 module caesar_states_module
   use caesar_effective_harmonic_module
   
-  use caesar_monomial_state_1d_module
-  use caesar_monomial_state_2d_module
   use caesar_harmonic_state_1d_module
   use caesar_harmonic_state_2d_module
-  use caesar_monomial_state_real_module
-  use caesar_monomial_state_complex_module
   use caesar_harmonic_state_real_module
   use caesar_harmonic_state_complex_module
   use caesar_harmonic_braket_real_module
@@ -23,9 +19,4 @@ module caesar_states_module
   use caesar_full_subspace_basis_module
   use caesar_split_qpoints_basis_module
   implicit none
-  
-  interface
-    module subroutine startup_states()
-    end subroutine
-  end interface
 end module

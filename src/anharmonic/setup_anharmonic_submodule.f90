@@ -2,13 +2,11 @@ submodule (caesar_setup_anharmonic_module) caesar_setup_anharmonic_submodule
   use caesar_anharmonic_module
 contains
 
-module procedure startup_setup_anharmonic
-  type(CaesarMode) :: mode
-  
-  mode%mode_name = 'setup_anharmonic'
-  mode%description = 'Sets up anharmonic calculations. Should be run after &
+module procedure setup_anharmonic_mode
+  output%mode_name = 'setup_anharmonic'
+  output%description = 'Sets up anharmonic calculations. Should be run after &
      &calculate_normal_modes.'
-  mode%keywords = [                                                           &
+  output%keywords = [                                                         &
   & KeywordData( 'harmonic_path',                                             &
   &              'harmonic_path is the path to the directory where harmonic &
   &calculations were run.',                                                   &
@@ -91,9 +89,7 @@ module procedure startup_setup_anharmonic
   &4, otherwise insufficient sampling points are generated to fit the full &
   &stress.',                                                                  &
   &              default_value='true')                                        ]
-  mode%main_subroutine => setup_anharmonic_subroutine
-  
-  call add_mode(mode)
+  output%main_subroutine => setup_anharmonic_subroutine
 end procedure
 
 module procedure setup_anharmonic_subroutine
@@ -188,7 +184,7 @@ module procedure setup_anharmonic_subroutine
   endif
   
   ! Read setup_harmonic arguments.
-  setup_harmonic_arguments = Dictionary(CaesarMode('setup_harmonic'))
+  setup_harmonic_arguments = Dictionary(setup_harmonic_mode())
   call setup_harmonic_arguments%read_file( &
      & harmonic_path//'/setup_harmonic.used_settings')
   seedname = setup_harmonic_arguments%value('seedname')
