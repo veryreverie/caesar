@@ -11,8 +11,8 @@ module caesar_help_module
   
   private
   
-  ! Prints help text.
   public :: help
+  public :: print_copyright
   
   interface help
     ! ----------------------------------------------------------------------
@@ -28,6 +28,12 @@ module caesar_help_module
     module subroutine help_specific(keyword,program_mode) 
       type(String),      intent(in) :: keyword
       type(ProgramMode), intent(in) :: program_mode
+    end subroutine
+  end interface
+  
+  interface
+    ! Prints the copyright notice.
+    module subroutine print_copyright()
     end subroutine
   end interface
 end module

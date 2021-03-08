@@ -3,8 +3,12 @@ submodule (caesar_help_module) caesar_help_submodule
 contains
 
 module procedure help_default
-  call print_line('caesar - Calculates harmonic and anharmonic vibrational &
-     &contributions to crystal properties.')
+  call print_line('Caesar; a utility for calculating the vibrational free &
+     &energy of periodic crystals.')
+  call print_line('Copyright (C) 2021 Mark Johnson')
+  call print_line('This program comes with ABSOLUTELY NO WARRANTY. &
+     &This is free software, and you are welcome to redistribute it &
+     &under certain conditions; type "caesar --copyright" for details.')
   call print_line('')
   call print_line('Usage:')
   call print_line('')
@@ -91,7 +95,12 @@ module procedure help_default
   call print_line('')
   call print_line( colour('--version','white'), &
                  & settings=PrintSettings(indent=2))
-  call print_line( 'Causes Caesar to display version information and quit.', &
+  call print_line( 'Displays version information and quits.', &
+                 & settings=PrintSettings(indent=4))
+  call print_line('')
+  call print_line( colour('--copyright','white'), &
+                 & settings=PrintSettings(indent=2))
+  call print_line( 'Displays copyright information and quits.', &
                  & settings=PrintSettings(indent=4))
   call print_line('')
   call print_line('')
@@ -169,5 +178,25 @@ module procedure help_specific
        &keywords associated with mode '//program_mode%mode_name//', call:')
     call print_line('  caesar '//program_mode%mode_name//' -h')
   endif
+end procedure
+
+module procedure print_copyright
+  call print_line('Caesar; a utility for calculating the vibrational free &
+     &energy of periodic crystals.')
+  call print_line('Copyright (C) 2021 Mark Johnson')
+  call print_line('')
+  call print_line('This program is free software: you can redistribute it &
+     &and/or modify it under the terms of the GNU Lesser General Public &
+     &License as published by the Free Software Foundation, either version 3 &
+     &of the License, or (at your option) any later version.')
+  call print_line('')
+  call print_line('This program is distributed in the hope that it will be &
+     &useful, but WITHOUT ANY WARRANTY; without even the implied warranty of &
+     &MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU &
+     &Lesser General Public License for more details.')
+  call print_line('')
+  call print_line('You should have received a copy of the GNU Lesser General &
+     &Public License along with this program.  If not, see &
+     &<https://www.gnu.org/licenses/>.')
 end procedure
 end submodule
