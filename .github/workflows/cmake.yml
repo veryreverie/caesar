@@ -16,9 +16,9 @@ jobs:
     
     env:
       CMAKE_COMPILER_FLAGS: >
-        "-DCMAKE_C_COMPILER:path=gcc-10
+        -DCMAKE_C_COMPILER:path=gcc-10
         -DCMAKE_CXX_COMPILER:path=g++-10
-        -DCMAKE_Fortran_COMPILER:path=gfortran-10"
+        -DCMAKE_Fortran_COMPILER:path=gfortran-10
 
     steps:
     - uses: actions/checkout@v2
