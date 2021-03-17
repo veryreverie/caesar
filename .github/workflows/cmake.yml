@@ -18,10 +18,11 @@ jobs:
     - uses: actions/checkout@v2
     
     - name: export compiler version variables
-      run: |
-        export CC=gcc-10
-        export CXX=g++-10
-        export FC=gfortran-10
+      run: >
+        export CMAKE_COMPILER_FLAGS="
+          -DCMAKE_C_COMPILER:path=gcc-10
+          -DCMAKE_CXX_COMPILER:path=g++-10
+          -DCMAKE_Fortran_COMPILER:path=gfortran-10"
     
     # Install pFUnit.
     - name: Cache pFUnit
@@ -41,13 +42,14 @@ jobs:
       if: steps.cache-pfunit.outputs.cache-hit != 'true'
       run: |
         cmake -E make_directory ${{github.workspace}}/pfunit/build
-        cmake -E make_directory ${{github.workspace}}/pfunit-install
+        cmake -E make_directory ${{github.workspace}}/pfunit_install
     
     - name: Make pFUnit
       if: steps.cache-pfunit.outputs.cache-hit != 'true'
       working-directory: ${{github.workspace}}/pfunit/build
       run: |
         cmake .. \
+          $CMAKE_COMPILER_FLAGS \
           -DSKIP_MPI:logical=true \
           -DSKIP_OPENMP:logical=true \
           -DSKIP_FHAMCREST:logical=true \
@@ -73,15 +75,15 @@ jobs:
       if: steps.cache-spglib.outputs.cache-hit != 'true'
       run: |
         cmake -E make_directory ${{github.workspace}}/spglib/build
-        cmake -E make_directory ${{github.workspace}}/spglib-install
+        cmake -E make_directory ${{github.workspace}}/spglib_install
     
     - name: Make spglib
       if: steps.cache-spglib.outputs.cache-hit != 'true'
       working-directory: ${{github.workspace}}/spglib/build
       run: |
-        cmake .. -DCMAKE_INSTALL_PREFIX=""
+        cmake .. -DCMAKE_INSTALL_PREFIX="" $CMAKE_COMPILER_FLAGS
         make
-        make DESTDIR=${{github.workspace}}/spglib-install install
+        make DESTDIR=${{github.workspace}}/spglib_install install
     
     # Install Caesar.
     - name: Make Caesar build directory
@@ -94,16 +96,17 @@ jobs:
       run: |
         pfunit_flags=""
         for pfunit_lib in PFUNIT GFTL GFTL_SHARED; do
-          pfunit_dir=$(find ${{github.workspace}}/pfunit-install \
+          pfunit_dir=$(find ${{github.workspace}}/pfunit_install \
             -name "${pfunit_lib}Config.cmake" | xargs -I{} dirname {})
           pfunit_flags="${pfunit_flags} -D${pfunit_lib}_DIR:path=${pfunit_dir}"
         done
-        export PATH="${{github.workspace}}/spglib-install/include:$PATH"
-        export LIB="${{github.workspace}}/spglib-install/lib:$LIB"
+        export PATH="${{github.workspace}}/spglib_install/include:$PATH"
+        export LIB="${{github.workspace}}/spglib_install/lib:$LIB"
         cmake $GITHUB_WORKSPACE/src \
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
           $pfunit_flags \
-          -DCORRECT_COUNTER_BUG:logical=true
+          -DCORRECT_COUNTER_BUG:logical=true \
+          $CMAKE_COMPILER_FLAGS
 
     - name: Build
       working-directory: ${{github.workspace}}/build
