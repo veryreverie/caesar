@@ -19,7 +19,7 @@ if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   #    maybe-uninitialized: erroneously triggers.
   #    unused-dummy-argument: triggers for inherited functions.
   set(CMAKE_Fortran_FLAGS "-g -O3 -march=native -W -Wall -Wextra -pedantic -fmax-errors=1  -std=f2008 -fall-intrinsics -ffpe-trap=zero,overflow -fimplicit-none -no-pie -Wno-maybe-uninitialized -Wno-unused-dummy-argument -fbacktrace -fno-omit-frame-pointer -ffree-line-length-none")
-  if (CMAKE_Fortran_COMPILER_VERSION LESS 10)
+  if (CMAKE_Fortran_COMPILER_VERSION LESS 9)
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fcheck=all -fcheck-array-temporaries")
   else()
     # Additional disabled warnings:

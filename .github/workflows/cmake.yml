@@ -94,6 +94,8 @@ jobs:
       shell: bash
       working-directory: ${{github.workspace}}/build
       run: |
+        echo $CMAKE_COMPILER_FLAGS
+        gfortran-10 --version
         pfunit_flags=""
         for pfunit_lib in PFUNIT GFTL GFTL_SHARED; do
           pfunit_dir=$(find ${{github.workspace}}/pfunit_install \
