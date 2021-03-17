@@ -13,14 +13,11 @@ jobs:
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
+    compiler: gcc
+    gfortran: 10
 
     steps:
     - uses: actions/checkout@v2
-
-    - name: Install build deps
-      # Grab external packages needed to build Caesar
-      run: |
-        sudo apt install gfortran liblapack-dev libblas-dev
     
     - name: Clone pFUnit
       working-directory: ${{github.workspace}}
