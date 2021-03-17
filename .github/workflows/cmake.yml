@@ -34,11 +34,10 @@ jobs:
     - name: Make pFUnit
       working-directory: ${{github.workspace}}/pfunit/build
       run: |
-        >
-          cmake ..
-          -DSKIP_MPI:logical=true
-          -DSKIP_OPENMP:logical=true
-          -DSKIP_FHAMCREST:logical=true
+        cmake .. \
+          -DSKIP_MPI:logical=true \
+          -DSKIP_OPENMP:logical=true \
+          -DSKIP_FHAMCREST:logical=true \
           -DSKIP_ESMF:logical=true
         make tests
         make install
@@ -48,31 +47,25 @@ jobs:
         cmake -E make_directory ${{github.workspace}}/build
 
     - name: Configure CMake
-      # Use a bash shell so we can use the same syntax for environment variable
-      # access regardless of the host operating system
       shell: bash
       working-directory: ${{github.workspace}}/build
-      # Note the current convention is to use the -S and -B options here to specify source
-      # and build directories, but this is only available with CMake 3.13 and higher.
-      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
       run: |
         pfunit_flags=""
         for pfunit_lib in PFUNIT GFTL GFTL_SHARED; do
-          >
-            pfunit_dir=$(find ${{github.workspace}}/pfunit/build/installed
+          pfunit_dir=$(find ${{github.workspace}}/pfunit/build/installed \
             -name "${pfunit_lib}Config.cmake" | xargs -I{} dirname {})
           pfunit_flags="${pfunit_flags} -D${pfunit_lib}_DIR:path=${pfunit_dir}"
         done
-        >
-          cmake $GITHUB_WORKSPACE/src
-          -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-          $pfunit_flags
+        cmake $GITHUB_WORKSPACE/src \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          $pfunit_flags \
           -DCORRECT_COUNTER_BUG:logical=true
 
     - name: Build
       working-directory: ${{github.workspace}}/build
       shell: bash
-      # Execute the build.  You can specify a specific target with "--target <NAME>"
+      # Execute the build.
+      # You can specify a specific target with "--target <NAME>"
       run: cmake --build . --config $BUILD_TYPE
 
     - name: Test
