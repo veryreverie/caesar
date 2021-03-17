@@ -13,14 +13,15 @@ jobs:
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
-    
-    include:
-      - runs-on: ubuntu-latest
-        compiler: gcc
-        gcc: 10
 
     steps:
     - uses: actions/checkout@v2
+    
+    - name: export compiler version variables
+      run: |
+        export CC=gcc-10
+        export CXX=g++-10
+        export FC=gfortran-10
     
     # Install pFUnit.
     - name: Cache pFUnit
