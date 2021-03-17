@@ -14,21 +14,33 @@ jobs:
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
     compiler: gcc
-    gfortran: 10
+    gcc: 10
 
     steps:
     - uses: actions/checkout@v2
     
+    # Install pFUnit.
+    - name: Cache pFUnit
+      id: cache-pfunit
+      uses: actions/cache@v2
+      with:
+        path: pfunit_install
+        key: ${{ runner.os }}-pfunit
+    
     - name: Clone pFUnit
+      if: steps.cache-pfunit.outputs.cache-hit != 'true'
       working-directory: ${{github.workspace}}
       run: |
         git clone https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit
     
-    - name: Make pFUnit build directory
+    - name: Make pFUnit build and install directories
+      if: steps.cache-pfunit.outputs.cache-hit != 'true'
       run: |
         cmake -E make_directory ${{github.workspace}}/pfunit/build
+        cmake -E make_directory ${{github.workspace}}/pfunit-install
     
     - name: Make pFUnit
+      if: steps.cache-pfunit.outputs.cache-hit != 'true'
       working-directory: ${{github.workspace}}/pfunit/build
       run: |
         cmake .. \
@@ -37,25 +49,37 @@ jobs:
           -DSKIP_FHAMCREST:logical=true \
           -DSKIP_ESMF:logical=true
         make tests
-        make install
+        make DESTDIR=${{github.workspace}}/pfunit_install install
+    
+    # Install spglib.
+    - name: Cache spglib
+      id: cache-spglib
+      uses: actions/cache@v2
+      with:
+        path: spglib_install
+        key: ${{ runner.os }}-spglib
     
     - name: Clone spglib
+      if: steps.cache-spglib.outputs.cache-hit != 'true'
       working-directory: ${{github.workspace}}
       run: |
         git clone https://github.com/spglib/spglib.git spglib
 
-    - name: Make spglib build and installed directories
+    - name: Make spglib build and install directories
+      if: steps.cache-spglib.outputs.cache-hit != 'true'
       run: |
         cmake -E make_directory ${{github.workspace}}/spglib/build
-        cmake -E make_directory ${{github.workspace}}/spglib/build/installed
+        cmake -E make_directory ${{github.workspace}}/spglib-install
     
     - name: Make spglib
+      if: steps.cache-spglib.outputs.cache-hit != 'true'
       working-directory: ${{github.workspace}}/spglib/build
       run: |
         cmake .. -DCMAKE_INSTALL_PREFIX=""
         make
-        make DESTDIR=installed install
+        make DESTDIR=${{github.workspace}}/spglib-install install
     
+    # Install Caesar.
     - name: Make Caesar build directory
       run: |
         cmake -E make_directory ${{github.workspace}}/build
@@ -66,12 +90,12 @@ jobs:
       run: |
         pfunit_flags=""
         for pfunit_lib in PFUNIT GFTL GFTL_SHARED; do
-          pfunit_dir=$(find ${{github.workspace}}/pfunit/build/installed \
+          pfunit_dir=$(find ${{github.workspace}}/pfunit-install \
             -name "${pfunit_lib}Config.cmake" | xargs -I{} dirname {})
           pfunit_flags="${pfunit_flags} -D${pfunit_lib}_DIR:path=${pfunit_dir}"
         done
-        export PATH="${{github.workspace}}/spglib/build/installed/include:$PATH"
-        export LIB="${{github.workspace}}/spglib/build/installed/lib:$LIB"
+        export PATH="${{github.workspace}}/spglib-install/include:$PATH"
+        export LIB="${{github.workspace}}/spglib-install/lib:$LIB"
         cmake $GITHUB_WORKSPACE/src \
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
           $pfunit_flags \
