@@ -22,12 +22,12 @@ jobs:
       run: |
         sudo apt install gfortran liblapack-dev libblas-dev
     
-    - name: Install pFUnit
+    - name: Clone pFUnit
       working-directory: ${{github.workspace}}
       run: |
         git clone https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit
     
-    - name: Make pFUnit build dir
+    - name: Make pFUnit build directory
       run: |
         cmake -E make_directory ${{github.workspace}}/pfunit/build
     
@@ -41,8 +41,25 @@ jobs:
           -DSKIP_ESMF:logical=true
         make tests
         make install
+    
+    - name: Clone spglib
+      working-directory: ${{github.workspace}}
+      run: |
+        git clone https://github.com/spglib/spglib.git spglib
 
-    - name: Make Caesar build dir
+    - name: Make spglib build and installed directories
+      run: |
+        cmake -E make_directory ${{github.workspace}}/spglib/build
+        cmake -E make_directory ${{github.workspace}}/spglib/build/installed
+    
+    - name: Make spglib
+      working-directory: ${{github.workspace}}/spglib/build
+      run: |
+        cmake .. -DCMAKE_INSTALL_PREFIX=""
+        make
+        make DESTDIR=installed install
+    
+    - name: Make Caesar build directory
       run: |
         cmake -E make_directory ${{github.workspace}}/build
 
@@ -56,6 +73,8 @@ jobs:
             -name "${pfunit_lib}Config.cmake" | xargs -I{} dirname {})
           pfunit_flags="${pfunit_flags} -D${pfunit_lib}_DIR:path=${pfunit_dir}"
         done
+        export PATH="${{github.workspace}}/spglib/build/installed/include:$PATH"
+        export LIB="${{github.workspace}}/spglib/build/installed/lib:$LIB"
         cmake $GITHUB_WORKSPACE/src \
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
           $pfunit_flags \

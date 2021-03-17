@@ -52,7 +52,7 @@ Caesar requires the C API of spglib, which can be obtained as:
    cd spglib
    mkdir _build
    cd _build
-   cmake ..
+   cmake .. -DCMAKE_INSTALL_PREFIX=""
    make
    mkdir _install
    make DESTDIR=_install install
