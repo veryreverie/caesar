@@ -18,9 +18,11 @@ else()
 endif()
 add_library(lapack_submodules ${DUMMY_FILE})
 target_link_libraries(lapack_submodules lapack_modules)
+add_dependencies(lapack_submodules lapack_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS foundations io)
   target_link_libraries(lapack_modules ${dir}_modules)
   target_link_libraries(lapack_submodules ${dir}_submodules)
+  add_dependencies(lapack_modules ${dir}_modules)
 endforeach()

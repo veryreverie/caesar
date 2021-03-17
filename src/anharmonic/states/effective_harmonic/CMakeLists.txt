@@ -5,11 +5,13 @@ cmake_include_guard(effective_harmonic)
 add_library(effective_harmonic_modules harmonic_states.f90 harmonic_basis.f90 effective_harmonic.f90)
 add_library(effective_harmonic_submodules harmonic_states_submodule.f90 harmonic_basis_submodule.f90)
 target_link_libraries(effective_harmonic_submodules effective_harmonic_modules)
+add_dependencies(effective_harmonic_submodules effective_harmonic_modules)
 
 # Link against other modules.
 foreach(dir IN ITEMS common anharmonic_common)
   target_link_libraries(effective_harmonic_modules ${dir}_modules)
   target_link_libraries(effective_harmonic_submodules ${dir}_submodules)
+  add_dependencies(effective_harmonic_modules ${dir}_modules)
 endforeach()
 
 # Enable testing.

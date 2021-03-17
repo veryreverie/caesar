@@ -5,9 +5,11 @@ cmake_include_guard(xyz)
 add_library(xyz_modules xyz.f90)
 add_library(xyz_submodules ${DUMMY_FILE})
 target_link_libraries(xyz_submodules xyz_modules)
+add_dependencies(xyz_submodules xyz_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS utils structure)
   target_link_libraries(xyz_modules ${dir}_modules)
   target_link_libraries(xyz_submodules ${dir}_submodules)
+  add_dependencies(xyz_modules ${dir}_modules)
 endforeach()

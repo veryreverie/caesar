@@ -22,9 +22,11 @@ else()
 endif()
 add_library(arpack_submodules ${DUMMY_FILE})
 target_link_libraries(arpack_submodules arpack_modules)
+add_dependencies(arpack_submodules arpack_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS foundations io)
   target_link_libraries(arpack_modules ${dir}_modules)
   target_link_libraries(arpack_submodules ${dir}_submodules)
+  add_dependencies(arpack_modules ${dir}_modules)
 endforeach()

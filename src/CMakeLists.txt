@@ -54,6 +54,7 @@ set_target_properties(caesar PROPERTIES
 foreach(dir IN ITEMS utils common harmonic anharmonic dft testing)
   add_subdirectory(${CMAKE_SOURCE_DIR}/${dir} ${dir}/)
   target_link_libraries(caesar ${dir}_submodules)
+  add_dependencies(caesar ${dir}_submodules)
 endforeach()
 
 # Copy the python scripts to bin/python/.

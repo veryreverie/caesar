@@ -5,6 +5,7 @@ cmake_include_guard(foundations)
 add_library(foundations_modules precision.f90 traits.f90 foundations.f90)
 add_library(foundations_submodules ${DUMMY_FILE})
 target_link_libraries(foundations_submodules foundations_modules)
+add_dependencies(foundations_submodules foundations_modules)
 
 # Enable testing.
 if(BUILD_TESTS)

@@ -6,11 +6,13 @@ cmake_include_guard(observables)
 add_library(observables_modules thermodynamic_data.f90 qpoint_path.f90 harmonic_properties.f90 observables.f90)
 add_library(observables_submodules thermodynamic_data_submodule.f90 qpoint_path_submodule.f90 harmonic_properties_submodule.f90)
 target_link_libraries(observables_submodules observables_modules)
+add_dependencies(observables_submodules observables_modules)
 
 # Link against required module.
 foreach(dir IN ITEMS utils structure normal_mode dynamical_matrices harmonic_stress)
   target_link_libraries(observables_modules ${dir}_modules)
   target_link_libraries(observables_submodules ${dir}_submodules)
+  add_dependencies(observables_modules ${dir}_modules)
 endforeach()
 
 # Enable testing.

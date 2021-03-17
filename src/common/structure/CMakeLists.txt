@@ -5,18 +5,21 @@ cmake_include_guard(structure)
 add_library(structure_modules physical_constants.f90 basic_symmetry.f90 qpoint.f90 generate_qpoints.f90 symmetry.f90 structure_data.f90 supercell.f90 structure.f90)
 add_library(structure_submodules physical_constants_submodule.f90 basic_symmetry_submodule.f90 qpoint_submodule.f90 generate_qpoints_submodule.f90 symmetry_submodule.f90 structure_data_submodule.f90 supercell_submodule.f90)
 target_link_libraries(structure_submodules structure_modules)
+add_dependencies(structure_submodules structure_modules)
 
 # Include subsidiary modules.
 foreach(dir IN ITEMS atom spglib)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/${dir} ${dir}/)
   target_link_libraries(structure_modules ${dir}_modules)
   target_link_libraries(structure_submodules ${dir}_submodules)
+  add_dependencies(structure_modules ${dir}_modules)
 endforeach()
 
 # Link against required modules.
 foreach(dir IN ITEMS utils)
   target_link_libraries(structure_modules ${dir}_modules)
   target_link_libraries(structure_submodules ${dir}_submodules)
+  add_dependencies(structure_modules ${dir}_modules)
 endforeach()
 
 # Enable testing.

@@ -6,11 +6,13 @@ cmake_include_guard(harmonic_stress)
 add_library(harmonic_stress_modules stress_hessian.f90 stress_dynamical_matrix.f90 harmonic_stress_conversion.f90 harmonic_stress.f90)
 add_library(harmonic_stress_submodules stress_hessian_submodule.f90 stress_dynamical_matrix_submodule.f90 harmonic_stress_conversion_submodule.f90)
 target_link_libraries(harmonic_stress_submodules harmonic_stress_modules)
+add_dependencies(harmonic_stress_submodules harmonic_stress_modules)
 
 # Link against required module.
 foreach(dir IN ITEMS utils structure normal_mode dynamical_matrices)
   target_link_libraries(harmonic_stress_modules ${dir}_modules)
   target_link_libraries(harmonic_stress_submodules ${dir}_submodules)
+  add_dependencies(harmonic_stress_modules ${dir}_modules)
 endforeach()
 
 # Enable testing.

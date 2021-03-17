@@ -6,11 +6,13 @@ cmake_include_guard(integration)
 add_library(integration_modules integratable.f90 integrated.f90 integration.f90)
 add_library(integration_submodules integrated_submodule.f90)
 target_link_libraries(integration_submodules integration_modules)
+add_dependencies(integration_submodules integration_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS common)
   target_link_libraries(integration_modules ${dir}_modules)
   target_link_libraries(integration_submodules ${dir}_submodules)
+  add_dependencies(integration_modules ${dir}_modules)
 endforeach()
 
 # Enable testing.

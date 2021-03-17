@@ -12,12 +12,15 @@ endif()
 add_library(abstract_modules logic.f90 shared_counter.f90 abstract.f90)
 add_library(abstract_submodules logic_submodule.f90 shared_counter_submodule.f90)
 target_link_libraries(abstract_modules shared_counter)
+add_dependencies(abstract_modules shared_counter)
 target_link_libraries(abstract_submodules abstract_modules)
+add_dependencies(abstract_submodules abstract_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS foundations)
   target_link_libraries(abstract_modules ${dir}_modules)
   target_link_libraries(abstract_submodules ${dir}_submodules)
+  add_dependencies(abstract_modules ${dir}_modules)
 endforeach()
 
 # Link submodules to required submodules later in the module build tree.

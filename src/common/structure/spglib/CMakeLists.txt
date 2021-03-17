@@ -29,9 +29,11 @@ else()
   add_library(spglib_submodules spglib_symmetries_submodule.f90 spglib_dummy_submodule.f90)
 endif()
 target_link_libraries(spglib_submodules spglib_modules)
+add_dependencies(spglib_submodules spglib_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS utils atom)
   target_link_libraries(spglib_modules ${dir}_modules)
   target_link_libraries(spglib_submodules ${dir}_submodules)
+  add_dependencies(spglib_modules ${dir}_modules)
 endforeach()

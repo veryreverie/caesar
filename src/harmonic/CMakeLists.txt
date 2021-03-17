@@ -5,11 +5,13 @@ cmake_include_guard(harmonic)
 add_library(harmonic_modules generate_supercells.f90 hartree_to_ev.f90 snap_to_symmetry.f90 construct_supercell_hessian.f90 harmonic_data.f90 setup_harmonic.f90 run_harmonic.f90 calculate_normal_modes.f90 read_normal_modes.f90 calculate_harmonic_observables.f90 plot_normal_modes.f90 plot_dos_and_dispersion.f90 plot_thermodynamic_variables.f90 converge_qpoint_grid.f90 converge_harmonic_qpoints.f90 plot_harmonic_qpoint_convergence.f90 harmonic.f90)
 add_library(harmonic_submodules generate_supercells_submodule.f90 hartree_to_ev_submodule.f90 snap_to_symmetry_submodule.f90 construct_supercell_hessian_submodule.f90 harmonic_data_submodule.f90 setup_harmonic_submodule.f90 run_harmonic_submodule.f90 calculate_normal_modes_submodule.f90 read_normal_modes_submodule.f90 calculate_harmonic_observables_submodule.f90 plot_normal_modes_submodule.f90 plot_dos_and_dispersion_submodule.f90 plot_thermodynamic_variables_submodule.f90 converge_qpoint_grid_submodule.f90 converge_harmonic_qpoints_submodule.f90 plot_harmonic_qpoint_convergence_submodule.f90 harmonic_submodule.f90)
 target_link_libraries(harmonic_submodules harmonic_modules)
+add_dependencies(harmonic_submodules harmonic_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS common)
   target_link_libraries(harmonic_modules ${dir}_modules)
   target_link_libraries(harmonic_submodules ${dir}_submodules)
+  add_dependencies(harmonic_modules ${dir}_modules)
 endforeach()
 
 # Enable testing.

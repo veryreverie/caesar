@@ -5,11 +5,13 @@ cmake_include_guard(electronic_structure_data)
 add_library(electronic_structure_data_modules linear_response.f90 electronic_structure_data.f90)
 add_library(electronic_structure_data_submodules linear_response_submodule.f90 electronic_structure_data_submodule.f90)
 target_link_libraries(electronic_structure_data_submodules electronic_structure_data_modules)
+add_dependencies(electronic_structure_data_submodules electronic_structure_data_modules)
 
 # Link against required modules.
 foreach(dir IN ITEMS utils structure normal_mode)
   target_link_libraries(electronic_structure_data_modules ${dir}_modules)
   target_link_libraries(electronic_structure_data_submodules ${dir}_submodules)
+  add_dependencies(electronic_structure_data_modules ${dir}_modules)
 endforeach()
 
 # Enable testing.

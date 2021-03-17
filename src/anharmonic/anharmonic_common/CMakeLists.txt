@@ -5,18 +5,21 @@ cmake_include_guard(anharmonic_common)
 add_library(anharmonic_common_modules interpolated_supercell.f90 max_displacement.f90 subspace_coupling.f90 subspace_monomial.f90 degenerate_symmetry.f90 anharmonic_data.f90 subspace_wavefunctions.f90 stress_prefactors.f90 sparse_monomial.f90 subspace_state.f90 subspace_braket.f90 basis_state.f90 expectation_cache.f90 basis_states.f90 pulay.f90 abstract_classes.f90 braket.f90 stress_data.f90 potential_data.f90 anharmonic_common.f90)
 add_library(anharmonic_common_submodules interpolated_supercell_submodule.f90 max_displacement_submodule.f90 subspace_coupling_submodule.f90 subspace_monomial_submodule.f90 degenerate_symmetry_submodule.f90 anharmonic_data_submodule.f90 subspace_wavefunctions_submodule.f90 stress_prefactors_submodule.f90 sparse_monomial_submodule.f90 subspace_state_submodule.f90 basis_state_submodule.f90 expectation_cache_submodule.f90 basis_states_submodule.f90 pulay_submodule.f90 abstract_classes_submodule.f90 braket_submodule.f90 stress_data_submodule.f90 potential_data_submodule.f90)
 target_link_libraries(anharmonic_common_submodules anharmonic_common_modules)
+add_dependencies(anharmonic_common_submodules anharmonic_common_modules)
 
 # Include subsidiary modules.
 foreach(dir IN ITEMS integration)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/${dir} ${dir}/)
   target_link_libraries(anharmonic_common_modules ${dir}_modules)
   target_link_libraries(anharmonic_common_submodules ${dir}_submodules)
+  add_dependencies(anharmonic_common_modules ${dir}_modules)
 endforeach()
 
 # Link against required modules.
 foreach(dir IN ITEMS common harmonic)
   target_link_libraries(anharmonic_common_modules ${dir}_modules)
   target_link_libraries(anharmonic_common_submodules ${dir}_submodules)
+  add_dependencies(anharmonic_common_modules ${dir}_modules)
 endforeach()
 
 # Link submodules to required submodules later in the module build tree.
