@@ -47,13 +47,12 @@ jobs:
       if: steps.cache-pfunit.outputs.cache-hit != 'true'
       working-directory: ${{github.workspace}}/pfunit/build
       run: |
-        echo ${{env.CMAKE_COMPILER_FLAGS}}
         cmake .. \
-          ${{env.CMAKE_COMPILER_FLAGS}} \
           -DSKIP_MPI:logical=true \
           -DSKIP_OPENMP:logical=true \
           -DSKIP_FHAMCREST:logical=true \
-          -DSKIP_ESMF:logical=true
+          -DSKIP_ESMF:logical=true \
+          ${{env.CMAKE_COMPILER_FLAGS}}
         make tests
         make DESTDIR=${{github.workspace}}/pfunit_install install
     
