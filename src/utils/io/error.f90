@@ -15,27 +15,35 @@ module caesar_error_module
   public :: set_error_strings_coloured
   public :: set_error_strings_uncoloured
   
+  !> The string `Error` without terminal escape characters for colour.
   character(5),  target, private :: ERROR_UNCOLOURED = 'Error'
+  !> The string `Code Error` without terminal escape characters for colour.
   character(10), target, private :: CODE_ERROR_UNCOLOURED = 'Code Error'
+  !> The string `Warning` without terminal escape characters for colour.
   character(7),  target, private :: WARNING_UNCOLOURED = 'Warning'
   
+  !> The string `Error` with terminal escape characters for red.
   character(14), target, private :: ERROR_COLOURED = &
                                   & RED_ESC//'Error'//RESET_ESC
+  !> The string `Code Error` with terminal escape characters for red.
   character(19), target, private :: CODE_ERROR_COLOURED = &
                                   & RED_ESC//'Code Error'//RESET_ESC
+  !> The string `Warning` with terminal escape characters for magenta.
   character(16), target, private :: WARNING_COLOURED = &
                                   & LIGHT_MAGENTA_ESC//'Warning'//RESET_ESC
   
+  !> The string `Error`, with or without terminal escape characters for colour
+  !>    as defined by [[set_error_strings_coloured]] and
+  !>    [[set_error_strings_uncoloured]].
   character(:), pointer, protected :: ERROR => ERROR_COLOURED
+  !> The string `Code Error`, with or without terminal escape characters for
+  !>    colour as defined by [[set_error_strings_coloured]] and
+  !>    [[set_error_strings_uncoloured]].
   character(:), pointer, protected :: CODE_ERROR => CODE_ERROR_UNCOLOURED
+  !> The string `Warning`, with or without terminal escape characters for
+  !>    colour as defined by [[set_error_strings_coloured]] and
+  !>    [[set_error_strings_uncoloured]].
   character(:), pointer, protected :: WARNING => WARNING_UNCOLOURED
-  
-  !!> The string `ERROR`, in red if colour enabled.
-  !character(:), allocatable, protected :: ERROR
-  !!> The string `CODE ERROR`, in red if colour enabled.
-  !character(:), allocatable, protected :: CODE_ERROR
-  !!> The string `WARNING`, in magenta if colour enabled.
-  !character(:), allocatable, protected :: WARNING
   
   interface
     !> Aborts without a stacktrace.

@@ -4,4 +4,635 @@ module algebra_utils_test
   use caesar_algebra_module
   implicit none
 contains
+
+@test
+subroutine test_l2_norm_reals()
+  type :: TestCase
+    real(dp), allocatable :: input(:)
+    real(dp)              :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  real(dp), allocatable :: input(:)
+  real(dp)              :: expected
+  real(dp)              :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i
+  
+  test_cases = [ TestCase([real(dp)::], 0.0_dp),                       &
+               & TestCase([0.0_dp], 0.0_dp),                           &
+               & TestCase([5.0_dp], 5.0_dp),                           &
+               & TestCase([-5.0_dp], 5.0_dp),                          &
+               & TestCase([(5.0_dp,i=1,9)], 15.0_dp),                  &
+               & TestCase([-5.0_dp, 0.0_dp, 5.0_dp, 7.0_dp, 9.0_dp],   &
+               &          sqrt(180.0_dp)                             ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    expected = test_cases(i)%output
+    output = l2_norm(input)
+    
+    message(1) = 'Input    : '//input
+    message(2) = 'Output   : '//output
+    message(3) = 'Expected : '//expected
+    
+    @assertTrue(abs(output-expected)<1.0e-10_dp, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_l2_norm_complexes()
+  type :: TestCase
+    complex(dp), allocatable :: input(:)
+    real(dp)                 :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  complex(dp), allocatable :: input(:)
+  real(dp)                 :: expected
+  real(dp)                 :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i
+  
+  test_cases = [ TestCase([complex(dp)::], 0.0_dp),            &
+               & TestCase([(0.0_dp,0.0_dp)], 0.0_dp),          &
+               & TestCase([(5.0_dp,0.0_dp)], 5.0_dp),          &
+               & TestCase([(-5.0_dp,0.0_dp)], 5.0_dp),         &
+               & TestCase([(0.0_dp,5.0_dp)], 5.0_dp),          &
+               & TestCase([(0.0_dp,-5.0_dp)], 5.0_dp),         &
+               & TestCase([((5.0_dp,0.0_dp),i=1,9)], 15.0_dp), &
+               & TestCase([(-5.0_dp,0.0_dp),                   &
+               &           (0.0_dp,0.0_dp),                    &
+               &           (0.0_dp,5.0_dp),                    &
+               &           (7.0_dp,-9.0_dp)],                  &
+               &          sqrt(180.0_dp)      )                ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    expected = test_cases(i)%output
+    output = l2_norm(input)
+    
+    message(1) = 'Input    : '//input
+    message(2) = 'Output   : '//output
+    message(3) = 'Expected : '//expected
+    
+    @assertTrue(abs(output-expected)<1.0e-10_dp, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_sum_squares_RealVector()
+  type :: TestCase
+    type(RealVector) :: input
+    real(dp)         :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(RealVector) :: input
+  real(dp)         :: expected
+  real(dp)         :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i
+  
+  test_cases = [ TestCase(vec([real(dp)::]), 0.0_dp),                       &
+               & TestCase(vec([0.0_dp]), 0.0_dp),                           &
+               & TestCase(vec([5.0_dp]), 25.0_dp),                          &
+               & TestCase(vec([-5.0_dp]), 25.0_dp),                         &
+               & TestCase(vec([(5.0_dp,i=1,9)]), 225.0_dp),                 &
+               & TestCase(vec([-5.0_dp, 0.0_dp, 5.0_dp, 7.0_dp, 9.0_dp]),   &
+               &          180.0_dp                                        ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    expected = test_cases(i)%output
+    output = sum_squares(input)
+    
+    message(1) = 'Input    : '//input
+    message(2) = 'Output   : '//output
+    message(3) = 'Expected : '//expected
+    
+    @assertTrue(abs(output-expected)<1.0e-10_dp, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_sum_squares_RealMatrix()
+  type :: TestCase
+    type(RealMatrix) :: input
+    real(dp)         :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(RealMatrix) :: input
+  real(dp)         :: expected
+  real(dp)         :: output
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( mat([real(dp)::], 0,0),         &
+               &           0.0_dp                  ),      &
+               & TestCase( mat([real(dp)::], 5,0),         &
+               &           0.0_dp                  ),      &
+               & TestCase( mat([real(dp)::], 0,5),         &
+               &           0.0_dp                  ),      &
+               & TestCase( mat([5.0_dp], 1,1),             &
+               &           25.0_dp             ),          &
+               & TestCase( mat([-5.0_dp], 1,1),            &
+               &           25.0_dp              ),         &
+               & TestCase( mat([(5.0_dp,i=1,25)], 5,5),    &
+               &           625.0_dp                     ), &
+               & TestCase( mat([1.0_dp,2.0_dp,             &
+               &                3.0_dp,4.0_dp], 2,2),      &
+               &           30.0_dp                    )    ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    expected = test_cases(i)%output
+    output = sum_squares(input)
+    
+    message = [str('Input    : '), str(input)]
+    message = [message, 'Output   : '//output]
+    message = [message, 'Expected : '//expected]
+    
+    @assertTrue(abs(output-expected)<1.0e-10_dp, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_sum_squares_ComplexVector()
+  type :: TestCase
+    type(ComplexVector) :: input
+    real(dp)            :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(ComplexVector) :: input
+  real(dp)            :: expected
+  real(dp)            :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i
+  
+  test_cases = [ TestCase(vec([complex(dp)::]), 0.0_dp),             &
+               & TestCase(vec([(0.0_dp,0.0_dp)]), 0.0_dp),           &
+               & TestCase(vec([(5.0_dp,0.0_dp)]), 25.0_dp),          &
+               & TestCase(vec([(-5.0_dp,0.0_dp)]), 25.0_dp),         &
+               & TestCase(vec([(0.0_dp,5.0_dp)]), 25.0_dp),          &
+               & TestCase(vec([(0.0_dp,-5.0_dp)]), 25.0_dp),         &
+               & TestCase(vec([((5.0_dp,0.0_dp),i=1,9)]), 225.0_dp), &
+               & TestCase(vec([(-5.0_dp,0.0_dp),                     &
+               &               (0.0_dp,0.0_dp),                      &
+               &               (0.0_dp,5.0_dp),                      &
+               &               (7.0_dp,-9.0_dp)]),                   &
+               &          180.0_dp             )                     ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    expected = test_cases(i)%output
+    output = sum_squares(input)
+    
+    message(1) = 'Input    : '//input
+    message(2) = 'Output   : '//output
+    message(3) = 'Expected : '//expected
+    
+    @assertTrue(abs(output-expected)<1.0e-10_dp, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_sum_squares_ComplexMatrix()
+  type :: TestCase
+    type(ComplexMatrix) :: input
+    real(dp)            :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(ComplexMatrix) :: input
+  real(dp)            :: expected
+  real(dp)            :: output
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( mat([complex(dp)::], 0,0),                      &
+               &           0.0_dp                    ),                    &
+               & TestCase( mat([complex(dp)::], 5,0),                      &
+               &           0.0_dp                    ),                    &
+               & TestCase( mat([complex(dp)::], 0,5),                      &
+               &           0.0_dp                    ),                    &
+               & TestCase( mat([(5.0_dp,0.0_dp)], 1,1),                    &
+               &           25.0_dp               ),                        &
+               & TestCase( mat([(-5.0_dp,0.0_dp)], 1,1),                   &
+               &           25.0_dp                ),                       &
+               & TestCase( mat([(0.0_dp,5.0_dp)], 1,1),                    &
+               &           25.0_dp               ),                        &
+               & TestCase( mat([(0.0_dp,-5.0_dp)], 1,1),                   &
+               &           25.0_dp                ),                       &
+               & TestCase( mat([((5.0_dp,5.0_dp),i=1,25)], 5,5),           &
+               &           1250.0_dp                       ),              &
+               & TestCase( mat([(1.0_dp,2.0_dp), (3.0_dp,4.0_dp),          &
+               &                (5.0_dp,6.0_dp), (7.0_dp,8.0_dp)], 2,2),   &
+               &           204.0_dp                                      ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    expected = test_cases(i)%output
+    output = sum_squares(input)
+    
+    message = [str('Input    : '), str(input)]
+    message = [message, 'Output   : '//output]
+    message = [message, 'Expected : '//expected]
+    
+    @assertTrue(abs(output-expected)<1.0e-10_dp, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_triple_product_IntVector()
+  type :: TestCase
+    type(IntVector) :: input(3)
+    integer         :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(IntVector) :: input(3)
+  integer         :: output
+  integer         :: expected
+  
+  type(String) :: message(6)
+  
+  integer :: i
+  
+  test_cases = [ TestCase([vec([1,0,0]),                  &
+               &           vec([0,1,0]),                  &
+               &           vec([0,0,1])], 1),             &
+               & TestCase([vec([1,0,0]),                  &
+               &           vec([1,0,0]),                  &
+               &           vec([0,0,1])], 0),             &
+               & TestCase([vec([1,0,0]),                  &
+               &           vec([0,1,0]),                  &
+               &           vec([1,1,0])], 0),             &
+               & TestCase([vec([1,1,1]),                  &
+               &           vec([-1,1,-1]),                &
+               &           vec([0,0,-1])], -2),           &
+               & TestCase([vec([17,-12,140]),             &
+               &           vec([-71,46,1]),               &
+               &           vec([3410,-2,0])], -21981406 ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = triple_product(input(1), input(2), input(3))
+    expected = test_cases(i)%output
+    
+    message = [ str('Input:'),          &
+              & str(input),             &
+              & 'Output   : '//output,  &
+              & 'Expected : '//expected ]
+    
+    @assertTrue(output==expected, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_triple_product_RealVector()
+  type :: TestCase
+    type(RealVector) :: input(3)
+    real(dp)         :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(RealVector) :: input(3)
+  real(dp)         :: output
+  real(dp)         :: expected
+  
+  type(String) :: message(6)
+  
+  integer :: i
+  
+  test_cases = [ TestCase([vec([1.0_dp,0.0_dp,0.0_dp]),                       &
+               &           vec([0.0_dp,1.0_dp,0.0_dp]),                       &
+               &           vec([0.0_dp,0.0_dp,1.0_dp])], 1.0_dp),             &
+               & TestCase([vec([1.0_dp,0.0_dp,0.0_dp]),                       &
+               &           vec([1.0_dp,0.0_dp,0.0_dp]),                       &
+               &           vec([0.0_dp,0.0_dp,1.0_dp])], 0.0_dp),             &
+               & TestCase([vec([1.0_dp,0.0_dp,0.0_dp]),                       &
+               &           vec([0.0_dp,1.0_dp,0.0_dp]),                       &
+               &           vec([1.0_dp,1.0_dp,0.0_dp])], 0.0_dp),             &
+               & TestCase([vec([1.0_dp,1.0_dp,1.0_dp]),                       &
+               &           vec([-1.0_dp,1.0_dp,-1.0_dp]),                     &
+               &           vec([0.0_dp,0.0_dp,-1.0_dp])], -2.0_dp),           &
+               & TestCase([vec([17.0_dp,-12.0_dp,140.0_dp]),                  &
+               &           vec([-71.0_dp,46.0_dp,1.0_dp]),                    &
+               &           vec([3410.0_dp,-2.0_dp,0.0_dp])], -21981406.0_dp ) ]
+  
+  do i=1,size(test_cases)
+    input = test_cases(i)%input
+    output = triple_product(input(1), input(2), input(3))
+    expected = test_cases(i)%output
+    
+    message = [ str('Input:'),          &
+              & str(input),             &
+              & 'Output   : '//output,  &
+              & 'Expected : '//expected ]
+    
+    @assertTrue(abs(output-expected)<1e-10_dp, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_factorial()
+  ! Tests out of order to test caching.
+  @assertTrue(factorial(0)==1)
+  @assertTrue(factorial(1)==1)
+  @assertTrue(factorial(10)==3628800)
+  @assertTrue(factorial(5)==120)
+end subroutine
+
+@test
+subroutine test_real_factorial()
+  ! Tests out of order to test caching.
+  @assertTrue(abs(real_factorial(0)-1)<1e-10_dp)
+  @assertTrue(abs(real_factorial(1)-1)<1e-10_dp)
+  @assertTrue(abs(real_factorial(10)-3628800)<1e-10_dp)
+  @assertTrue(abs(real_factorial(5)-120)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_log_factorial()
+  ! Tests out of order to test caching.
+  @assertTrue(abs(log_factorial(0)-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_factorial(1)-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_factorial(10)-log(3628800.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_factorial(5)-log(120.0_dp))<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_odd_factorial()
+  ! Tests out of order to test caching.
+  @assertTrue(odd_factorial(0)==1)
+  @assertTrue(odd_factorial(1)==1)
+  @assertTrue(odd_factorial(2)==3)
+  @assertTrue(odd_factorial(6)==10395)
+  @assertTrue(odd_factorial(4)==105)
+end subroutine
+
+@test
+subroutine test_real_odd_factorial()
+  ! Tests out of order to test caching.
+  @assertTrue(abs(real_odd_factorial(0)-1)<1e-10_dp)
+  @assertTrue(abs(real_odd_factorial(1)-1)<1e-10_dp)
+  @assertTrue(abs(real_odd_factorial(2)-3)<1e-10_dp)
+  @assertTrue(abs(real_odd_factorial(6)-10395)<1e-10_dp)
+  @assertTrue(abs(real_odd_factorial(4)-105)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_log_odd_factorial()
+  ! Tests out of order to test caching.
+  @assertTrue(abs(log_odd_factorial(0)-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_odd_factorial(1)-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_odd_factorial(2)-log(3.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_odd_factorial(6)-log(10395.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_odd_factorial(4)-log(105.0_dp))<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_binomial()
+  ! Tests out of order to test caching.
+  @assertTrue(binomial(0,0)==1)
+  @assertTrue(binomial(5,0)==1)
+  @assertTrue(binomial(5,5)==1)
+  @assertTrue(binomial(10,5)==252)
+  @assertTrue(binomial(5,2)==10)
+end subroutine
+
+@test
+subroutine test_real_binomial()
+  ! Tests out of order to test caching.
+  @assertTrue(abs(real_binomial(0,0)-1)<1e-10_dp)
+  @assertTrue(abs(real_binomial(5,0)-1)<1e-10_dp)
+  @assertTrue(abs(real_binomial(5,5)-1)<1e-10_dp)
+  @assertTrue(abs(real_binomial(10,5)-252)<1e-10_dp)
+  @assertTrue(abs(real_binomial(5,2)-10)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_log_binomial()
+  ! Tests out of order to test caching.
+  @assertTrue(abs(log_binomial(0,0)-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_binomial(5,0)-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_binomial(5,5)-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_binomial(10,5)-log(252.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_binomial(5,2)-log(10.0_dp))<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_multinomial()
+  integer :: i
+  
+  @assertTrue(multinomial(0,[integer::])==1)
+  @assertTrue(multinomial(5,[integer::])==120)
+  @assertTrue(multinomial(5,[0])==120)
+  @assertTrue(multinomial(5,[(0,i=1,10)])==120)
+  @assertTrue(multinomial(5,[5])==1)
+  @assertTrue(multinomial(5,[2,3])==10)
+  @assertTrue(multinomial(10,[2,2,4])==37800)
+end subroutine
+
+@test
+subroutine test_real_multinomial()
+  integer :: i
+  
+  @assertTrue(abs(real_multinomial(0,[integer::])-1)<1e-10_dp)
+  @assertTrue(abs(real_multinomial(5,[integer::])-120)<1e-10_dp)
+  @assertTrue(abs(real_multinomial(5,[0])-120)<1e-10_dp)
+  @assertTrue(abs(real_multinomial(5,[(0,i=1,10)])-120)<1e-10_dp)
+  @assertTrue(abs(real_multinomial(5,[5])-1)<1e-10_dp)
+  @assertTrue(abs(real_multinomial(5,[2,3])-10)<1e-10_dp)
+  @assertTrue(abs(real_multinomial(10,[2,2,4])-37800)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_log_multinomial()
+  integer :: i
+  
+  @assertTrue(abs(log_multinomial(0,[integer::])-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_multinomial(5,[integer::])-log(120.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_multinomial(5,[0])-log(120.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_multinomial(5,[(0,i=1,10)])-log(120.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_multinomial(5,[5])-log(1.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_multinomial(5,[2,3])-log(10.0_dp))<1e-10_dp)
+  @assertTrue(abs(log_multinomial(10,[2,2,4])-log(37800.0_dp))<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_int_sqrt()
+  @assertTrue(int_sqrt(0)==0)
+  @assertTrue(int_sqrt(1)==1)
+  @assertTrue(int_sqrt(100)==10)
+  @assertTrue(int_sqrt(3249)==57)
+end subroutine
+
+@test
+subroutine test_gcd_2()
+  @assertTrue(gcd(0,0)==0)
+  @assertTrue(gcd(5,0)==5)
+  @assertTrue(gcd(0,5)==5)
+  @assertTrue(gcd(5,5)==5)
+  @assertTrue(gcd(3,7)==1)
+  @assertTrue(gcd(6,9)==3)
+  @assertTrue(gcd(144,108)==36)
+end subroutine
+
+@test
+subroutine test_gcd_3()
+  @assertTrue(gcd(0,0,0)==0)
+  @assertTrue(gcd(0,0,5)==5)
+  @assertTrue(gcd(0,5,5)==5)
+  @assertTrue(gcd(5,5,5)==5)
+  @assertTrue(gcd(2,3,5)==1)
+  @assertTrue(gcd(4,6,10)==2)
+  @assertTrue(gcd(144,108,60)==12)
+end subroutine
+
+@test
+subroutine test_gcd_4()
+  @assertTrue(gcd(0,0,0,0)==0)
+  @assertTrue(gcd(0,0,0,5)==5)
+  @assertTrue(gcd(0,0,5,5)==5)
+  @assertTrue(gcd(0,5,5,5)==5)
+  @assertTrue(gcd(5,5,5,5)==5)
+  @assertTrue(gcd(3,5,4,4)==1)
+  @assertTrue(gcd(4,72,18,106)==2)
+end subroutine
+
+@test
+subroutine test_gcd_integers()
+  integer :: i
+  
+  @assertTrue(gcd([integer::])==0)
+  @assertTrue(gcd([0])==0)
+  @assertTrue(gcd([5])==5)
+  @assertTrue(gcd([2,3,5,7,9])==1)
+  @assertTrue(gcd([(2*i,i=1,10)])==2)
+end subroutine
+
+@test
+subroutine test_lcm_2()
+  @assertTrue(lcm(0,0)==0)
+  @assertTrue(lcm(0,5)==0)
+  @assertTrue(lcm(5,0)==0)
+  @assertTrue(lcm(2,3)==6)
+  @assertTrue(lcm(6,15)==30)
+  @assertTrue(lcm(432,204)==7344)
+end subroutine
+
+@test
+subroutine test_lcm_3()
+  @assertTrue(lcm(0,0,0)==0)
+  @assertTrue(lcm(0,0,5)==0)
+  @assertTrue(lcm(0,5,5)==0)
+  @assertTrue(lcm(5,5,5)==5)
+  @assertTrue(lcm(2,3,5)==30)
+  @assertTrue(lcm(4,6,9)==36)
+end subroutine
+
+@test
+subroutine test_lcm_4()
+  @assertTrue(lcm(0,0,0,0)==0)
+  @assertTrue(lcm(0,5,5,5)==0)
+  @assertTrue(lcm(5,5,5,5)==5)
+  @assertTrue(lcm(2,3,5,7)==210)
+  @assertTrue(lcm(4,6,9,10)==180)
+end subroutine
+
+@test
+subroutine test_lcm_integers()
+  integer :: i
+  
+  @assertTrue(lcm([integer::])==1)
+  @assertTrue(lcm([0])==0)
+  @assertTrue(lcm([5])==5)
+  @assertTrue(lcm([(5,i=1,10)])==5)
+  @assertTrue(lcm([1,1,3,5])==15)
+end subroutine
+
+@test
+subroutine test_exp_2pii_real()
+  @assertTrue(abs(exp_2pii(0.0_dp)-(1.0_dp,0.0_dp))<1e-10_dp)
+  @assertTrue(abs(exp_2pii(0.25_dp)-(0.0_dp,1.0_dp))<1e-10_dp)
+  @assertTrue(abs(exp_2pii(0.5_dp)-(-1.0_dp,0.0_dp))<1e-10_dp)
+  @assertTrue(abs(exp_2pii(0.75_dp)-(0.0_dp,-1.0_dp))<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_cos_2pii_real()
+  @assertTrue(abs(cos_2pi(0.0_dp)-1.0_dp)<1e-10_dp)
+  @assertTrue(abs(cos_2pi(0.25_dp)-0.0_dp)<1e-10_dp)
+  @assertTrue(abs(cos_2pi(0.5_dp)+1.0_dp)<1e-10_dp)
+  @assertTrue(abs(cos_2pi(0.75_dp)-0.0_dp)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_sin_2pii_real()
+  @assertTrue(abs(sin_2pi(0.0_dp)-0.0_dp)<1e-10_dp)
+  @assertTrue(abs(sin_2pi(0.25_dp)-1.0_dp)<1e-10_dp)
+  @assertTrue(abs(sin_2pi(0.5_dp)-0.0_dp)<1e-10_dp)
+  @assertTrue(abs(sin_2pi(0.75_dp)+1.0_dp)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_bound()
+  type :: TestCase
+    real(dp) :: inputs(3)
+    real(dp) :: output
+  end type
+  
+  real(dp) :: inputs(3)
+  real(dp) :: output
+  real(dp) :: expected
+  
+  type(String) :: message(3)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase([3.0_dp,1.0_dp,5.0_dp], 3.0_dp),     &
+               & TestCase([-3.0_dp,-5.0_dp,-1.0_dp], -3.0_dp), &
+               & TestCase([-1.0_dp,0.0_dp,3.0_dp], 0.0_dp),    &
+               & TestCase([11.0_dp,3.0_dp,7.0_dp], 7.0_dp),    &
+               & TestCase([0.0_dp,0.0_dp,0.0_dp], 0.0_dp),     &
+               & TestCase([5.0_dp,-1.0_dp,-1.0_dp], -1.0_dp)   ]
+  
+  do i=1,size(test_cases)
+    inputs = test_cases(i)%inputs
+    output = bound(inputs(1),inputs(2),inputs(3))
+    expected = test_cases(i)%output
+    
+    message(1) = 'Inputs   : '//inputs
+    message(2) = 'Output   : '//output
+    message(3) = 'Expected : '//expected
+    
+    @assertTrue(abs(output-expected)<1e-10_dp)
+  enddo
+end subroutine
 end module

@@ -72,7 +72,9 @@ module procedure factorial
   output = factorials(input+1)
 end procedure
 
-module procedure calculate_factorials
+subroutine calculate_factorials(factorials)
+  integer, intent(inout), allocatable :: factorials(:)
+  
   integer :: i,j,ialloc
   
   ! The first time this module procedure is called,
@@ -97,7 +99,7 @@ module procedure calculate_factorials
       factorials(i+1) = factorials(i)*i ! factorials(i+1) = i!.
     enddo
   endif
-end procedure
+end subroutine
 
 module procedure real_factorial
   ! An array of factorials, stored to avoid re-calculating.
@@ -125,7 +127,10 @@ module procedure real_factorial
   output = real_factorials(input+1)
 end procedure
 
-module procedure calculate_real_factorials
+subroutine calculate_real_factorials(real_factorials,input)
+  real(dp), intent(inout), allocatable :: real_factorials(:)
+  integer,  intent(in)                 :: input
+  
   integer  :: i,ialloc
   real(dp) :: j
   
@@ -151,7 +156,7 @@ module procedure calculate_real_factorials
       real_factorials(i+1) = real_factorials(i)*i ! real_factorials(i+1) = i!.
     enddo
   endif
-end procedure
+end subroutine
 
 module procedure log_factorial
   ! An array of ln(n!), stored to avoid re-calculating.
@@ -174,7 +179,12 @@ module procedure log_factorial
   output = log_factorials(input+1)
 end procedure
 
-module procedure calculate_log_factorials
+subroutine calculate_log_factorials(log_factorials,log_factorials_calculated, &
+   & input)
+  real(dp), intent(inout), allocatable :: log_factorials(:)
+  integer,  intent(inout)              :: log_factorials_calculated
+  integer,  intent(in)                 :: input
+  
   real(dp), allocatable :: old_log_factorials(:)
   
   integer :: n,ialloc
@@ -200,7 +210,7 @@ module procedure calculate_log_factorials
     log_factorials(n+1) = log_factorials(n) + log(real(n,dp))
   enddo
   log_factorials_calculated = max(log_factorials_calculated,input)
-end procedure
+end subroutine
 
 module procedure odd_factorial
   ! An array of odd_factorials, stored to avoid re-calculating.
@@ -229,7 +239,9 @@ module procedure odd_factorial
   output = odd_factorials(input+1)
 end procedure
 
-module procedure calculate_odd_factorials
+subroutine calculate_odd_factorials(odd_factorials)
+  integer, intent(inout), allocatable :: odd_factorials(:)
+  
   integer :: i,j,ialloc
   
   ! The first time this module procedure is called,
@@ -255,7 +267,7 @@ module procedure calculate_odd_factorials
       odd_factorials(i+1) = odd_factorials(i)*(2*i-1)
     enddo
   endif
-end procedure
+end subroutine
 
 module procedure real_odd_factorial
   ! An array of odd factorials, stored to avoid re-calculating.
@@ -284,7 +296,10 @@ module procedure real_odd_factorial
   output = real_odd_factorials(input+1)
 end procedure
 
-module procedure calculate_real_odd_factorials
+subroutine calculate_real_odd_factorials(real_odd_factorials,input)
+  real(dp), intent(inout), allocatable :: real_odd_factorials(:)
+  integer,  intent(in)                 :: input
+  
   integer  :: i,ialloc
   real(dp) :: j
   
@@ -311,7 +326,7 @@ module procedure calculate_real_odd_factorials
       real_odd_factorials(i+1) = real_odd_factorials(i)*(2*i-1)
     enddo
   endif
-end procedure
+end subroutine
 
 module procedure log_odd_factorial
   ! An array of ln(f(n)), stored to avoid re-calculating.
@@ -332,7 +347,12 @@ module procedure log_odd_factorial
   output = log_odd_factorials(input+1)
 end procedure
 
-module procedure calculate_log_odd_factorials
+subroutine calculate_log_odd_factorials(log_odd_factorials, &
+   & log_odd_factorials_calculated,input)
+  real(dp), intent(inout), allocatable :: log_odd_factorials(:)
+  integer,  intent(inout)              :: log_odd_factorials_calculated
+  integer,  intent(in)                 :: input
+  
   real(dp), allocatable :: old_log_odd_factorials(:)
   
   integer :: n,ialloc
@@ -360,7 +380,7 @@ module procedure calculate_log_odd_factorials
     log_odd_factorials(n+1) = log_odd_factorials(n) + log(real((2*n-1),dp))
   enddo
   log_odd_factorials_calculated = max(log_odd_factorials_calculated,input)
-end procedure
+end subroutine
 
 module procedure binomial
   integer :: smaller_bottom
@@ -392,7 +412,12 @@ module procedure binomial
   endif
 end procedure
 
-module procedure calculate_binomials
+subroutine calculate_binomials(binomials,binomials_calculated,top,bottom)
+  integer, intent(inout), allocatable :: binomials(:,:)
+  integer, intent(inout), allocatable :: binomials_calculated(:)
+  integer, intent(in)                 :: top
+  integer, intent(in)                 :: bottom
+  
   integer, allocatable :: old_binomials(:,:)
   
   integer :: old_n,old_k
@@ -463,7 +488,7 @@ module procedure calculate_binomials
       binomials_calculated(k) = top-bottom+k
     enddo
   endif
-end procedure
+end subroutine
 
 module procedure real_binomial
   integer :: smaller_bottom
@@ -498,7 +523,13 @@ module procedure real_binomial
   endif
 end procedure
 
-module procedure calculate_real_binomials
+module subroutine calculate_real_binomials(real_binomials, &
+   & real_binomials_calculated,top,bottom)
+  real(dp), intent(inout), allocatable :: real_binomials(:,:)
+  integer,  intent(inout), allocatable :: real_binomials_calculated(:)
+  integer,  intent(in)                 :: top
+  integer,  intent(in)                 :: bottom
+  
   real(dp), allocatable :: old_binomials(:,:)
   
   integer :: old_n,old_k
@@ -570,7 +601,7 @@ module procedure calculate_real_binomials
       real_binomials_calculated(k) = top-bottom+k
     enddo
   endif
-end procedure
+end subroutine
 
 module procedure log_binomial
   output = log_factorial(top)    &
@@ -643,21 +674,24 @@ end procedure
 
 module procedure gcd_integers
   if (size(input)==0) then
-    call print_line(CODE_ERROR//': called gcd on an empty array.')
-    call err()
+    output = 0
   elseif (size(input)==1) then
-    if (input(1)==0) then
-      output = 1
-    else
-      output = abs(input(1))
-    endif
+    output = abs(input(1))
   else
     output = gcd([gcd(input(1),input(2)), input(3:)])
   endif
 end procedure
 
 module procedure lcm_2
-  output = abs(int_1*int_2)/gcd(int_1,int_2)
+  integer :: product
+  
+  product = abs(int_1*int_2)
+  
+  if (product>0) then
+    output = product/gcd(int_1,int_2)
+  else
+    output = 0
+  endif
 end procedure
 
 module procedure lcm_3
@@ -670,8 +704,7 @@ end procedure
 
 module procedure lcm_integers
   if (size(input)==0) then
-    call print_line(CODE_ERROR//': called lcm on an empty array.')
-    call err()
+    output = 1
   elseif (size(input)==1) then
     output = abs(input(1))
   else
