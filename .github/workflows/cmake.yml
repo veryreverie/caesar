@@ -94,7 +94,7 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: |
         pfunit_flags=""
-        for pfunit_lib in PFUNIT GFTL GFTL_SHARED; do
+        for pfunit_lib in PFUNIT GFTL GFTL_SHARED FARGPARSE; do
           pfunit_dir=$(find ${{github.workspace}}/pfunit_install \
             -name "${pfunit_lib}Config.cmake" | xargs -I{} dirname {})
           pfunit_flags="${pfunit_flags} -D${pfunit_lib}_DIR:path=${pfunit_dir}"
