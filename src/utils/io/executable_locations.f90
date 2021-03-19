@@ -1,4 +1,4 @@
-!> Provides the [[executable_location]] and [[pyton_scripts_location]]
+!> Provides the [[executable_location]] and [[python_scripts_location]]
 !>    functions.
 module caesar_executable_locations_module
   use caesar_string_base_module

@@ -162,6 +162,8 @@ html documentation can be generated using Ford <https://github.com/Fortran-FOSS-
 
 documentation will be generated in the doc/ford directory, and can be viewed using any html reader (e.g. a web browser).
 
+N.B. If Ford returns an error regarding `contains` statements in `submodule procedures` then Ford pull request #321 is needed <https://github.com/Fortran-FOSS-Programmers/ford/pull/321>.
+
 ----------------------------------------
 Visualisation
 ----------------------------------------

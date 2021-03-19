@@ -177,7 +177,7 @@ module caesar_algebra_utils_module
       real(dp)            :: output
     end function
 
-    !> Returns the natural log of the [[monomial]] of `(top,bottom)`.
+    !> Returns the natural log of the [[multinomial]] of `(top,bottom)`.
     module function log_multinomial(top,bottom) result(output) 
       integer, intent(in) :: top
       integer, intent(in) :: bottom(:)

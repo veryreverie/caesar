@@ -1,16 +1,19 @@
 project: caesar
+summary: A utility for calculating the vibrational free energy of periodic crystals.
+author: Mark Johnson, Bartomeu Monserrat, Richard Needs et. al.
+email: mj464@cam.ac.uk
+project_github: https://github.com/veryreverie/caesar
 src_dir: ../src
 exclude_dir: ../src/old/old/harmonic/programs
              ../src/old/old/quadratic/programs
              ../src/old/quadratic
              ../src/old/coupled
              ../src/anharmonic/old
+exclude: spglib_dummy.f90
+         spglib_dummy_submodule.f90
 include: ../src/utils/macros
 output_dir: ./ford
 graph_dir: ./ford/graphs
-summary: Caesar anharmonic phonon code.
-author: Mark Johnson, Bartomeu Monserrat, Richard Needs et. al.
-email: mj464@cam.ac.uk
 docmark: !
 predocmark: >
 display: public
