@@ -1,7 +1,4 @@
-! ======================================================================
-! A complex phase, of the form exp(2*pi*i*frac), where frac is an integer
-!    fraction.
-! ======================================================================
+!> Provides the [[PhaseData(type)]] class and related methods.
 module caesar_phase_module
   use caesar_foundations_module
   use caesar_io_module
@@ -18,18 +15,28 @@ module caesar_phase_module
   public :: operator(/=)
   public :: calculate_phase
   
+  !> A complex phase, of the form `exp(2*pi*i*theta)`.
   type, extends(Stringable) :: PhaseData
-    type(IntFraction) :: fraction
+    type(IntFraction), private :: theta_
   contains
+    procedure, public :: theta => theta_PhaseData
+    
     procedure, public :: read  => read_PhaseData
     procedure, public :: write => write_PhaseData
   end type
   
   interface PhaseData
-    ! Constructor.
-    module function new_PhaseData(input) result(this) 
-      type(IntFraction), intent(in) :: input
+    ! Constructor for [[PhaseData(type)]].
+    module function new_PhaseData(theta) result(this) 
+      type(IntFraction), intent(in) :: theta
       type(PhaseData)               :: this
+    end function
+  end interface
+  
+  interface
+    module function theta_PhaseData(this) result(output)
+      class(PhaseData), intent(in) :: this
+      type(IntFraction)            :: output
     end function
   end interface
   
@@ -42,10 +49,12 @@ module caesar_phase_module
   end interface
   
   interface
-    ! Finds the exact phase of a complex number.
-    module function calculate_phase(input,denom) result(output) 
+    !> Calculates the phase of a complex number.
+    !> Stores the phase as an exact fraction, with the given denominator
+    !>    (or a simplified form of this fraction if possible).
+    module function calculate_phase(input,denominator) result(output) 
       complex(dp), intent(in) :: input
-      integer,     intent(in) :: denom
+      integer,     intent(in) :: denominator
       type(PhaseData)         :: output
     end function
   end interface

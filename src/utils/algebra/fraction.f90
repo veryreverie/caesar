@@ -1,6 +1,4 @@
-! ======================================================================
-! Integer fractions in an exact representation.
-! ======================================================================
+!> Provides the [[IntFraction(type)]] class and related methods.
 module caesar_fraction_module
   use caesar_foundations_module
   use caesar_io_module
@@ -28,8 +26,11 @@ module caesar_fraction_module
   public :: modulo
   public :: abs
   
+  !> Stores a fraction in exact representation.
   type, extends(Stringable) :: IntFraction
+    !> The numerator.
     integer, private :: n_
+    !> The denominator.
     integer, private :: d_
   contains
     ! Getters
@@ -45,9 +46,7 @@ module caesar_fraction_module
   end type
   
   interface IntFraction
-    ! ----------------------------------------------------------------------
-    ! Constructor.
-    ! ----------------------------------------------------------------------
+    ! [[IntFraction(type)]] constructor. Simplifies the fraction if possible.
     module function new_IntFraction(numerator,denominator) result(this) 
       integer, intent(in) :: numerator
       integer, intent(in) :: denominator
@@ -56,9 +55,7 @@ module caesar_fraction_module
   end interface
   
   interface
-    ! ----------------------------------------------------------------------
-    ! Getters.
-    ! ----------------------------------------------------------------------
+    !> Returns the numerator of the (simplified) fraction.
     impure elemental module function numerator(this) result(output) 
       class(IntFraction), intent(in) :: this
       integer                        :: output
@@ -66,6 +63,7 @@ module caesar_fraction_module
   end interface
   
   interface
+    !> Returns the denominator of the (simplified) fraction.
     impure elemental module function denominator(this) result(output) 
       class(IntFraction), intent(in) :: this
       integer                        :: output
@@ -73,20 +71,15 @@ module caesar_fraction_module
   end interface
   
   interface
-    ! ----------------------------------------------------------------------
-    ! Simplifies the fraction.
-    ! ----------------------------------------------------------------------
+    !> Simplifies the fraction.
     module subroutine simplify(this) 
       class(IntFraction), intent(inout) :: this
     end subroutine
   end interface
   
   interface int
-    ! ----------------------------------------------------------------------
-    ! Conversions to and from other types.
-    ! ----------------------------------------------------------------------
-    ! Conversion to integer.
-    ! As with int(real), rounds down non-integer fractions.
+    !> Conversion from [[IntFraction(type)]] to `integer`.
+    !> Rounds non-integer fractions towards zero, consistent with `int(real)`.
     impure elemental module function int_IntFraction(this) result(output) 
       type(IntFraction), intent(in) :: this
       integer                       :: output
@@ -94,7 +87,7 @@ module caesar_fraction_module
   end interface
   
   interface dble
-    ! Conversion to real(dp).
+    !> Conversion from [[IntFraction(type)]] to `real(dp)`.
     impure elemental module function dble_IntFraction(this) result(output) 
       type(IntFraction), intent(in) :: this
       real(dp)                      :: output
@@ -102,25 +95,25 @@ module caesar_fraction_module
   end interface
   
   interface frac
-    ! Conversion from character(*).
+    !> Conversion from `character(*)` to [[IntFraction(type)]].
     impure elemental module function frac_character(input) result(output) 
       character(*), intent(in) :: input
       type(IntFraction)        :: output
     end function
   
-    ! Conversion from String.
+    !> Conversion from [[String(type)]] to [[IntFraction(type)]].
     impure elemental module function frac_String(input) result(output) 
       type(String), intent(in) :: input
       type(IntFraction)        :: output
     end function
   
-    ! Conversion from integer.
+    !> Conversion from `integer` to [[IntFraction(type)]].
     impure elemental module function frac_integer(input) result(output) 
       integer, intent(in) :: input
       type(IntFraction)   :: output
     end function
   
-    ! Conversion from numerator and denominator.
+    !> Conversion from numerator and denominator to [[IntFraction(type)]].
     module function frac_integers(numerator,denominator) result(output) 
       integer, intent(in) :: numerator
       integer, intent(in) :: denominator
@@ -129,9 +122,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(==)
-    ! ----------------------------------------------------------------------
-    ! Comparison.
-    ! ----------------------------------------------------------------------
+    !> Equality between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function equality_IntFraction_IntFraction(this, &
        & that) result(output) 
       class(IntFraction), intent(in) :: this
@@ -139,6 +130,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> Equality between [[IntFraction(type)]] and `integer`.
     impure elemental module function equality_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -146,6 +138,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> Equality between [[IntFraction(type)]] and `integer`.
     impure elemental module function equality_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -155,6 +148,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(/=)
+    !> Non-equality between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function non_equality_IntFraction_IntFraction( &
        & this,that) result(output) 
       class(IntFraction), intent(in) :: this
@@ -162,6 +156,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> Non-equality between [[IntFraction(type)]] and `integer`.
     impure elemental module function non_equality_IntFraction_integer(this, &
        & that) result(output) 
       class(IntFraction), intent(in) :: this
@@ -169,6 +164,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> Non-equality between [[IntFraction(type)]] and `integer`.
     impure elemental module function non_equality_integer_IntFraction(this, &
        & that) result(output) 
       integer,            intent(in) :: this
@@ -178,6 +174,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(<)
+    !> `<` comparison between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function lt_IntFraction_IntFraction(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -185,6 +182,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `<` comparison between [[IntFraction(type)]] and `integer`.
     impure elemental module function lt_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -192,6 +190,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `<` comparison between `integer` and [[IntFraction(type)]].
     impure elemental module function lt_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -201,6 +200,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(>)
+    !> `>` comparison between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function gt_IntFraction_IntFraction(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -208,6 +208,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `>` comparison between [[IntFraction(type)]] and `integer`.
     impure elemental module function gt_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -215,6 +216,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `>` comparison between `integer` and [[IntFraction(type)]].
     impure elemental module function gt_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -224,6 +226,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(<=)
+    !> `<=` comparison between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function le_IntFraction_IntFraction(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -231,6 +234,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `<=` comparison between [[IntFraction(type)]] and `integer`.
     impure elemental module function le_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -238,6 +242,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `<=` comparison between `integer` and [[IntFraction(type)]].
     impure elemental module function le_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -247,6 +252,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(>=)
+    !> `>=` comparison between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function ge_IntFraction_IntFraction(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -254,6 +260,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `>=` comparison between [[IntFraction(type)]] and `integer`.
     impure elemental module function ge_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -261,6 +268,7 @@ module caesar_fraction_module
       logical                        :: output
     end function
   
+    !> `>=` comparison between `integer` and [[IntFraction(type)]].
     impure elemental module function ge_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -270,10 +278,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(+)
-    ! ----------------------------------------------------------------------
-    ! Addition.
-    ! ----------------------------------------------------------------------
-    ! a/b + c/d = (ad+bc)/(bd).
+    !> Addition between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function add_IntFraction_IntFraction(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -281,7 +286,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a/b + c = (a+bc)/b.
+    !> Addition between [[IntFraction(type)]] and `integer`.
     impure elemental module function add_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -289,7 +294,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a + b/c = (ac+b)/c.
+    !> Addition between `integer` and [[IntFraction(type)]].
     impure elemental module function add_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -299,10 +304,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(-)
-    ! ----------------------------------------------------------------------
-    ! Subtraction.
-    ! ----------------------------------------------------------------------
-    ! a/b + c/d = (ad-bc)/(bd).
+    !> Subtraction between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function subtract_IntFraction_IntFraction(this, &
        & that) result(output) 
       class(IntFraction), intent(in) :: this
@@ -310,7 +312,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a/b - c = (a-bc)/b.
+    !> Subtraction between [[IntFraction(type)]] and `integer`.
     impure elemental module function subtract_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -318,7 +320,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a - b/c = (ac-b)/c.
+    !> Subtraction between `integer` and [[IntFraction(type)]].
     impure elemental module function subtract_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -328,10 +330,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(*)
-    ! ----------------------------------------------------------------------
-    ! Multiplication.
-    ! ----------------------------------------------------------------------
-    ! a/b * c/d = (ac)/(bd).
+    !> Multiplication between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function multiply_IntFraction_IntFraction(this, &
        & that) result(output) 
       class(IntFraction), intent(in) :: this
@@ -339,7 +338,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a/b * c = ac/b.
+    !> Multiplication between [[IntFraction(type)]] and `integer`.
     impure elemental module function multiply_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -347,7 +346,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a * b/c = ab/c.
+    !> Multiplication between `integer` and [[IntFraction(type)]].
     impure elemental module function multiply_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -357,10 +356,7 @@ module caesar_fraction_module
   end interface
   
   interface operator(/)
-    ! ----------------------------------------------------------------------
-    ! Division.
-    ! ----------------------------------------------------------------------
-    ! a/b / c/d = (ad)/(bc).
+    !> Division between [[IntFraction(type)]] and [[IntFraction(type)]].
     impure elemental module function divide_IntFraction_IntFraction(this, &
        & that) result(output) 
       class(IntFraction), intent(in) :: this
@@ -368,7 +364,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a/b / c = a/(bc).
+    !> Division between [[IntFraction(type)]] and `integer`.
     impure elemental module function divide_IntFraction_integer(this,that) &
        & result(output) 
       class(IntFraction), intent(in) :: this
@@ -376,7 +372,7 @@ module caesar_fraction_module
       type(IntFraction)              :: output
     end function
   
-    ! a / b/c = ac/b.
+    !> Division between `integer` and [[IntFraction(type)]].
     impure elemental module function divide_integer_IntFraction(this,that) &
        & result(output) 
       integer,            intent(in) :: this
@@ -386,10 +382,8 @@ module caesar_fraction_module
   end interface
   
   interface is_int
-    ! ----------------------------------------------------------------------
-    ! Whether or not the IntFraction is an integer.
-    ! ----------------------------------------------------------------------
-    ! Equivalent to whether or not the denominator = 1.
+    !> Returns `true` if the [[IntFraction(type)]] is an integer,
+    !>   and `false` otherwise.
     impure elemental module function is_int_IntFraction(this) result(output) 
       type(IntFraction), intent(in) :: this
       logical                       :: output
@@ -397,21 +391,18 @@ module caesar_fraction_module
   end interface
   
   interface modulo
-    ! ----------------------------------------------------------------------
-    ! A fraction modulo an integer.
-    ! ----------------------------------------------------------------------
-    impure elemental module function modulo_IntFraction_integer(this,that) &
-       & result(output) 
-      type(IntFraction), intent(in) :: this
-      integer,           intent(in) :: that
+    !> Returns `dividend` modulo `divisor`.
+    !> The sign of the output matches the sign of `divisor`.
+    impure elemental module function modulo_IntFraction_integer(dividend, &
+       & divisor) result(output) 
+      type(IntFraction), intent(in) :: dividend
+      integer,           intent(in) :: divisor
       type(IntFraction)             :: output
     end function
   end interface
   
   interface operator(-)
-    ! ----------------------------------------------------------------------
-    ! Negative.
-    ! ----------------------------------------------------------------------
+    !> `-` negative operator for [[IntFraction(type)]].
     impure elemental module function negative_IntFraction(this) result(output) 
       type(IntFraction), intent(in) :: this
       type(IntFraction)             :: output
@@ -419,9 +410,7 @@ module caesar_fraction_module
   end interface
   
   interface abs
-    ! ----------------------------------------------------------------------
-    ! Absolute value.
-    ! ----------------------------------------------------------------------
+    ! Resturns the absolute value of an [[IntFraction(type)]].
     impure elemental module function abs_IntFraction(this) result(output) 
       type(IntFraction), intent(in) :: this
       type(IntFraction)             :: output
@@ -429,9 +418,7 @@ module caesar_fraction_module
   end interface
   
   interface
-    ! ----------------------------------------------------------------------
-    ! I/O.
-    ! ----------------------------------------------------------------------
+    !> Converts a [[String(type)]] to [[IntFraction(type)]].
     module subroutine read_IntFraction(this,input) 
       class(IntFraction), intent(out) :: this
       type(String),       intent(in)  :: input
@@ -439,6 +426,7 @@ module caesar_fraction_module
   end interface
   
   interface
+    !> Converts an [[IntFraction(type)]] to [[String(type)]].
     module function write_IntFraction(this) result(output) 
       class(IntFraction), intent(in) :: this
       type(String)                   :: output
@@ -446,6 +434,7 @@ module caesar_fraction_module
   end interface
   
   interface IntFraction
+    !> Converts a [[String(type)]] to [[IntFraction(type)]].
     impure elemental module function new_IntFraction_String(input) &
        & result(this) 
       type(String), intent(in) :: input

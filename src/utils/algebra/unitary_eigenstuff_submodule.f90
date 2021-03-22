@@ -155,7 +155,7 @@ contains
     logical              :: output
     select type(this); type is(UnitaryEigenstuff)
       select type(that); type is(UnitaryEigenstuff)
-        output = this%eval%fraction < that%eval%fraction
+        output = this%eval%theta() < that%eval%theta()
       end select
     end select
   end function

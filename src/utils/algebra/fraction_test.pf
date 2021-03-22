@@ -4,4 +4,319 @@ module fraction_test
   use caesar_algebra_module
   implicit none
 contains
+
+! Tests IntFraction(), numerator(), denominator(), and simplify().
+@test
+subroutine test_IntFraction()
+  type(IntFraction) :: foo
+  
+  foo = IntFraction(0,1)
+  @assertTrue(foo%numerator()==0)
+  @assertTrue(foo%denominator()==1)
+  
+  foo = IntFraction(1,2)
+  @assertTrue(foo%numerator()==1)
+  @assertTrue(foo%denominator()==2)
+  
+  foo = IntFraction(6,3)
+  @assertTrue(foo%numerator()==2)
+  @assertTrue(foo%denominator()==1)
+  
+  foo = IntFraction(-6,3)
+  @assertTrue(foo%numerator()==-2)
+  @assertTrue(foo%denominator()==1)
+  
+  foo = IntFraction(6,-3)
+  @assertTrue(foo%numerator()==-2)
+  @assertTrue(foo%denominator()==1)
+  
+  foo = IntFraction(-6,-3)
+  @assertTrue(foo%numerator()==2)
+  @assertTrue(foo%denominator()==1)
+end subroutine
+
+@test
+subroutine test_int_IntFraction()
+  type(IntFraction) :: foo
+  
+  foo = IntFraction(1,1)
+  @assertTrue(int(foo)==1)
+  
+  foo = IntFraction(-2,1)
+  @assertTrue(int(foo)==-2)
+  
+  foo = IntFraction(3,2)
+  @assertTrue(int(foo)==1)
+  
+  foo = IntFraction(-3,2)
+  @assertTrue(int(foo)==-1)
+end subroutine
+
+@test
+subroutine test_dble_IntFraction()
+  type(IntFraction) :: foo
+  
+  foo = IntFraction(1,1)
+  @assertTrue(abs(dble(foo)-1.0_dp)<1e-10_dp)
+  
+  foo = IntFraction(3,2)
+  @assertTrue(abs(dble(foo)-1.5_dp)<1e-10_dp)
+  
+  foo = IntFraction(-3,12)
+  @assertTrue(abs(dble(foo)+0.25_dp)<1e-10_dp)
+end subroutine
+
+! Tests frac_character, frac_integer, new_IntFraction and str.
+@test
+subroutine test_character_conversions()
+  type :: TestCase
+    type(String)      :: characters
+    type(IntFraction) :: fraction
+  end type
+  
+  type(testCase), allocatable :: test_cases(:)
+  
+  type(String)      :: characters
+  type(IntFraction) :: fraction
+  
+  type(String) :: message
+  
+  integer :: i
+  
+  test_cases = [ TestCase(str(' 1/2'), IntFraction(1,2)),  &
+               & TestCase(str(' 1'), IntFraction(1,1)),    &
+               & TestCase(str('-1/2'), IntFraction(-1,2)), &
+               & TestCase(str(' 0'), IntFraction(0,1))     ]
+  
+  do i=1,size(test_cases)
+    characters = test_cases(i)%characters
+    fraction = test_cases(i)%fraction
+    
+    message = 'Character representation: '//characters
+    
+    @assertTrue(frac(char(characters))==fraction, char(message))
+    @assertTrue(frac(characters)==fraction, char(message))
+    @assertTrue(IntFraction(characters)==fraction, char(message))
+    @assertTrue(characters==str(fraction), char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_frac_integer()
+  @assertTrue(frac(1)==IntFraction(1,1))
+  @assertTrue(frac(-1)==IntFraction(-1,1))
+  @assertTrue(frac(0)==IntFraction(0,1))
+end subroutine
+
+@test
+subroutine test_frac_integers()
+  @assertTrue(frac(1,1)==IntFraction(1,1))
+  @assertTrue(frac(3,2)==IntFraction(3,2))
+  @assertTrue(frac(0,5)==IntFraction(0,5))
+  @assertTrue(frac(-1,2)==IntFraction(-1,2))
+end subroutine
+
+@test
+subroutine test_IntFraction_IntFraction_comparisons()
+  type :: TestCase
+    type(IntFraction) :: lhs
+    type(IntFraction) :: rhs
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(IntFraction) :: lhs
+  type(IntFraction) :: rhs
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [ TestCase(frac(0,1), frac(1,1)), &
+               & TestCase(frac(1,1), frac(1,1)), &
+               & TestCase(frac(4,3), frac(3,4))  ]
+  
+  do i=1,size(test_cases)
+    lhs = test_cases(i)%lhs
+    rhs = test_cases(i)%rhs
+    
+    message(1) = 'lhs: '//lhs
+    message(2) = 'rhs: '//rhs
+    
+    check = (lhs==rhs) .eqv. (abs(dble(lhs)-dble(rhs))<1e-10_dp)
+    @assertTrue(check, char(message))
+    check = (lhs/=rhs) .eqv. (abs(dble(lhs)-dble(rhs))>1e-10_dp)
+    @assertTrue(check, char(message))
+    check = (lhs<rhs) .eqv. (dble(lhs)<dble(rhs))
+    @assertTrue(check, char(message))
+    check = (lhs>rhs) .eqv. (dble(lhs)>dble(rhs))
+    @assertTrue(check, char(message))
+    check = (lhs<=rhs) .eqv. (dble(lhs)<=dble(rhs))
+    @assertTrue(check, char(message))
+    check = (lhs>=rhs) .eqv. (dble(lhs)>=dble(rhs))
+    @assertTrue(check, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_IntFraction_integer_comparisons()
+  type :: TestCase
+    type(IntFraction) :: fraction
+    integer           :: int
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(IntFraction) :: fraction
+  integer           :: int
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [ TestCase(frac(0,1), 1), &
+               & TestCase(frac(0,1), 0), &
+               & TestCase(frac(1,1), 1), &
+               & TestCase(frac(1,1), 2), &
+               & TestCase(frac(4,3), 1)  ]
+  
+  do i=1,size(test_cases)
+    fraction = test_cases(i)%fraction
+    int = test_cases(i)%int
+    
+    message(1) = 'fraction : '//fraction
+    message(2) = 'integer  : '//int
+    
+    check = (fraction==int) .eqv. (abs(dble(fraction)-int)<1e-10_dp)
+    @assertTrue(check, char(message))
+    check = (int==fraction) .eqv. (abs(int-dble(fraction))<1e-10_dp)
+    @assertTrue(check, char(message))
+    check = (fraction/=int) .eqv. (abs(dble(fraction)-int)>1e-10_dp)
+    @assertTrue(check, char(message))
+    check = (int/=fraction) .eqv. (abs(int-dble(fraction))>1e-10_dp)
+    @assertTrue(check, char(message))
+    check = (fraction<int) .eqv. (dble(fraction)<int)
+    @assertTrue(check, char(message))
+    check = (int<fraction) .eqv. (int<dble(fraction))
+    @assertTrue(check, char(message))
+    check = (fraction>int) .eqv. (dble(fraction)>int)
+    @assertTrue(check, char(message))
+    check = (int>fraction) .eqv. (int>dble(fraction))
+    @assertTrue(check, char(message))
+    check = (fraction<=int) .eqv. (dble(fraction)<=int)
+    @assertTrue(check, char(message))
+    check = (int<=fraction) .eqv. (int<=dble(fraction))
+    @assertTrue(check, char(message))
+    check = (fraction>=int) .eqv. (dble(fraction)>=int)
+    @assertTrue(check, char(message))
+    check = (int>=fraction) .eqv. (int>=dble(fraction))
+    @assertTrue(check, char(message))
+  enddo
+end subroutine
+
+@test
+subroutine test_arithmetic()
+  type(IntFraction), allocatable :: fractions(:)
+  integer,           allocatable :: integers(:)
+  
+  type(IntFraction) :: lhs
+  type(IntFraction) :: rhs
+  
+  type(IntFraction) :: fraction
+  integer           :: int
+  
+  type(String) :: message(2)
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  fractions = [frac(0,1), frac(1,1), frac(-1,1), frac(3,4), frac(4,3)]
+  integers = [0, 1, -1, 5, 74]
+  
+  do i=1,size(fractions)
+    do j=1,size(fractions)
+      lhs = fractions(i)
+      rhs = fractions(j)
+      
+      message = [ 'lhs : '//lhs, &
+                & 'rhs : '//rhs  ]
+      
+      check = abs(dble(lhs+rhs)-(dble(lhs)+dble(rhs)))<1e-10_dp
+      @assertTrue(check, char(message))
+      check = abs(dble(lhs-rhs)-(dble(lhs)-dble(rhs)))<1e-10_dp
+      @assertTrue(check, char(message))
+      check = abs(dble(lhs*rhs)-(dble(lhs)*dble(rhs)))<1e-10_dp
+      @assertTrue(check, char(message))
+      if (abs(rhs)>0) then
+        check = abs(dble(lhs/rhs)-(dble(lhs)/dble(rhs)))<1e-10_dp
+        @assertTrue(check, char(message))
+      endif
+    enddo
+    
+    do j=1,size(integers)
+      fraction = fractions(i)
+      int = integers(j)
+      
+      message = [ 'fraction : '//fraction, &
+                & 'integer  : '//int       ]
+      
+      check = abs(dble(fraction+int)-(dble(fraction)+int))<1e-10_dp
+      @assertTrue(check, char(message))
+      check = abs(dble(int+fraction)-(int+dble(fraction)))<1e-10_dp
+      @assertTrue(check, char(message))
+      check = abs(dble(fraction-int)-(dble(fraction)-int))<1e-10_dp
+      @assertTrue(check, char(message))
+      check = abs(dble(int-fraction)-(int-dble(fraction)))<1e-10_dp
+      @assertTrue(check, char(message))
+      check = abs(dble(fraction*int)-(dble(fraction)*int))<1e-10_dp
+      @assertTrue(check, char(message))
+      check = abs(dble(int*fraction)-(int*dble(fraction)))<1e-10_dp
+      @assertTrue(check, char(message))
+      if (abs(int)>0) then
+        check = abs(dble(fraction/int)-(dble(fraction)/int))<1e-10_dp
+        @assertTrue(check, char(message))
+      endif
+      if (abs(fraction)>0) then
+        check = abs(dble(int/fraction)-(int/dble(fraction)))<1e-10_dp
+        @assertTrue(check, char(message))
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_is_int()
+  @assertTrue(is_int(frac(1,1)))
+  @assertTrue(is_int(frac(4,2)))
+  @assertFalse(is_int(frac(3,4)))
+  @assertFalse(is_int(frac(17,6)))
+end subroutine
+
+@test
+subroutine test_modulo()
+  @assertTrue(modulo(frac(7,3),2)==frac(1,3))
+  @assertTrue(modulo(frac(-7,3),2)==frac(5,3))
+  @assertTrue(modulo(frac(7,3),-2)==frac(-5,3))
+  @assertTrue(modulo(frac(-7,3),-2)==frac(-1,3))
+  @assertTrue(modulo(frac(2,1),2)==frac(0,1))
+end subroutine
+
+@test
+subroutine test_negative()
+  @assertTrue(-frac(0,1)==frac(0,1))
+  @assertTrue(-frac(3,4)==frac(-3,4))
+  @assertTrue(-frac(-3,4)==frac(3,4))
+end subroutine
+
+@test
+subroutine test_abs()
+  @assertTrue(abs(frac(0,1))==frac(0,1))
+  @assertTrue(abs(frac(3,4))==frac(3,4))
+  @assertTrue(abs(frac(-3,4))==frac(3,4))
+end subroutine
 end module

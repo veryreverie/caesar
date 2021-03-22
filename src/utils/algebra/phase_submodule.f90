@@ -3,13 +3,17 @@ submodule (caesar_phase_module) caesar_phase_submodule
 contains
 
 module procedure new_PhaseData
-  this%fraction = input
+  this%theta_ = modulo(theta, 1)
+end procedure
+
+module procedure theta_PhaseData
+  output = this%theta_
 end procedure
 
 module procedure cmplx_PhaseData
   real(dp) :: exponent
   
-  exponent = 2*PI*dble(this%fraction)
+  exponent = 2*PI*dble(this%theta_)
   output = cmplx(cos(exponent),sin(exponent),dp)
 end procedure
 
@@ -18,18 +22,19 @@ module procedure calculate_phase
   type(IntFraction) :: phase_frac
   
   phase_real = atan2(aimag(input), real(input)) / (2*PI)
-  phase_frac = IntFraction(nint(phase_real*denom),denom)
+  phase_frac = IntFraction(nint(phase_real*denominator),denominator)
   if (abs(dble(phase_frac)-phase_real)>0.01_dp) then
     call print_line(ERROR//': Phase incompatible with given denominator.')
-    call print_line('Phase: '//phase_real)
-    call print_line('Denominator: '//denom)
+    call print_line('Input: '//input)
+    call print_line('Phase: 2*pi*'//phase_real)
+    call print_line('Denominator: '//denominator)
     call err()
   endif
   output = PhaseData(phase_frac)
 end procedure
 
 module procedure equality_PhaseData_PhaseData
-  output = this%fraction==that%fraction
+  output = this%theta_==that%theta_
 end procedure
 
 module procedure non_equality_PhaseData_PhaseData
@@ -44,7 +49,7 @@ end procedure
 
 module procedure write_PhaseData
   select type(this); type is(PhaseData)
-    output = 'exp(2pii*'//this%fraction//')'
+    output = 'exp(2pii*'//this%theta_//')'
   end select
 end procedure
 

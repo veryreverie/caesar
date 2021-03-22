@@ -178,7 +178,7 @@ module procedure is_int_IntFraction
 end procedure
 
 module procedure modulo_IntFraction_integer
-  output = IntFraction(modulo(this%n_,this%d_*that), this%d_)
+  output = IntFraction(modulo(dividend%n_,dividend%d_*divisor), dividend%d_)
 end procedure
 
 module procedure negative_IntFraction
