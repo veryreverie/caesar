@@ -1,6 +1,6 @@
 project: caesar
 summary: A utility for calculating the vibrational free energy of periodic crystals.
-author: Mark Johnson, Bartomeu Monserrat, Richard Needs et. al.
+author: Mark Johnson
 email: mj464@cam.ac.uk
 project_github: https://github.com/veryreverie/caesar
 src_dir: ../src

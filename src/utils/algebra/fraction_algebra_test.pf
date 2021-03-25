@@ -4,4 +4,462 @@ module fraction_algebra_test
   use caesar_algebra_module
   implicit none
 contains
+
+! Tests vec() and frac().
+@test
+subroutine test_IntVector()
+  type :: TestCase
+    type(IntFraction), allocatable :: input(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(FractionVector)           :: vector
+  type(IntFraction), allocatable :: output(:)
+  
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  test_cases = [ TestCase([IntFraction::]),     &
+               & TestCase([frac(0,1)]),         &
+               & TestCase([(frac(i,4),i=1,10)]) ]
+  
+  do i=1,size(test_Cases)
+    associate(input => test_cases(i)%input)
+      vector = vec(input)
+      output = frac(vector)
+      
+      message = [ 'input  : '//join(input), &
+                & 'output : '//join(output) ]
+      
+      @assertTrue(size(output)==size(input), char(message))
+      @assertTrue(all(output==input), char(message))
+    end associate
+  enddo
+end subroutine
+
+! Tests mat() and frac().
+@test
+subroutine test_IntMatrix()
+  type :: TestCase
+    type(IntFraction), allocatable :: unshaped_input(:)
+    type(IntFraction), allocatable :: shaped_input(:,:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(IntFraction), allocatable :: unshaped_input(:)
+  type(IntFraction), allocatable :: shaped_input(:,:)
+  
+  type(FractionMatrix)           :: matrix
+  type(IntFraction), allocatable :: output(:,:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i,ialloc
+  
+  test_cases = [TestCase::]
+  
+  unshaped_input = [IntFraction::]
+  allocate(shaped_input(0,0), stat=ialloc); call err(ialloc)
+  test_cases = [test_cases, TestCase(unshaped_input, shaped_input)]
+  deallocate(shaped_input, stat=ialloc); call err(ialloc)
+  
+  unshaped_input = [frac(0,1)]
+  allocate(shaped_input(1,1), stat=ialloc); call err(ialloc)
+  shaped_input(1,:) = [frac(0,1)]
+  test_cases = [test_cases, TestCase(unshaped_input, shaped_input)]
+  deallocate(shaped_input, stat=ialloc); call err(ialloc)
+  
+  unshaped_input = [frac(0,4), frac(1,4), frac(2,4), frac(3,4)]
+  allocate(shaped_input(1,4), stat=ialloc); call err(ialloc)
+  shaped_input(1,:) = [frac(0,4), frac(1,4), frac(2,4), frac(3,4)]
+  test_cases = [test_cases, TestCase(unshaped_input, shaped_input)]
+  deallocate(shaped_input, stat=ialloc); call err(ialloc)
+  
+  unshaped_input = [ frac(0,4), frac(1,4), &
+                   & frac(2,4), frac(3,4)  ]
+  allocate(shaped_input(2,2), stat=ialloc); call err(ialloc)
+  shaped_input(1,:) = [frac(0,4), frac(1,4)]
+  shaped_input(2,:) = [frac(2,4), frac(3,4)]
+  test_cases = [test_cases, TestCase(unshaped_input, shaped_input)]
+  deallocate(shaped_input, stat=ialloc); call err(ialloc)
+  
+  unshaped_input = [ frac(0,4), &
+                   & frac(1,4), &
+                   & frac(2,4), &
+                   & frac(3,4)  ]
+  allocate(shaped_input(4,1), stat=ialloc); call err(ialloc)
+  shaped_input(1,:) = [frac(0,4)]
+  shaped_input(2,:) = [frac(1,4)]
+  shaped_input(3,:) = [frac(2,4)]
+  shaped_input(4,:) = [frac(3,4)]
+  test_cases = [test_cases, TestCase(unshaped_input, shaped_input)]
+  deallocate(shaped_input, stat=ialloc); call err(ialloc)
+  
+  
+  do i=1,size(test_Cases)
+    associate( unshaped_input => test_cases(i)%unshaped_input, &
+             & shaped_input   => test_cases(i)%shaped_input    )
+      
+      matrix = mat(shaped_input)
+      output = frac(matrix)
+      message = [ str('input  : '),                                   &
+                & (str(shaped_input(i,:)),i=1,size(shaped_input,1)),  &
+                & str('output : '),                                   &
+                & (str(output(i,:)),i=1,size(output,1))               ]
+      @assertTrue(all(shape(output)==shape(shaped_input)), char(message))
+      @assertTrue(all(output==shaped_input), char(message))
+      
+      matrix = mat(unshaped_input, shape(shaped_input))
+      output = frac(matrix)
+      message = [ str('input  : '),                                   &
+                & (str(shaped_input(i,:)),i=1,size(shaped_input,1)),  &
+                & str('output : '),                                   &
+                & (str(output(i,:)),i=1,size(output,1))               ]
+      @assertTrue(all(shape(output)==shape(shaped_input)), char(message))
+      @assertTrue(all(output==shaped_input), char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_fracvec_IntVector()
+  integer :: i
+  
+  @assertTrue(fracvec(vec([integer::]))==vec([IntFraction::]))
+  @assertTrue(fracvec(vec([0]))==vec([frac(0,1)]))
+  @assertTrue(fracvec(vec([(i,i=1,10)]))==vec([(frac(i,1),i=1,10)]))
+end subroutine
+
+@test
+subroutine test_fracmat_IntMatrix()
+  integer :: i
+  
+  @assertTrue(fracmat(mat([integer::],[0,0]))==mat([IntFraction::],[0,0]))
+  @assertTrue(fracmat(mat([0],[1,1]))==mat([frac(0,1)],[1,1]))
+  @assertTrue(fracmat(mat([(i,i=1,10)],[2,5]))==mat([(frac(i,1),i=1,10)],[2,5]))
+end subroutine
+
+@test
+subroutine test_intvec_FractionVector()
+  integer :: i
+  
+  @assertTrue(intvec(vec([IntFraction::]))==vec([integer::]))
+  @assertTrue(intvec(vec([frac(0,1)]))==vec([0]))
+  @assertTrue(intvec(vec([frac(1,2)]))==vec([0]))
+  @assertTrue(intvec(vec([(frac(i,1),i=1,10)]))==vec([(i,i=1,10)]))
+end subroutine
+
+@test
+subroutine test_intmat_FractionMatrix()
+  integer :: i
+  
+  @assertTrue(intmat(mat([IntFraction::],[0,0]))==mat([integer::],[0,0]))
+  @assertTrue(intmat(mat([frac(0,1)],[1,1]))==mat([0],[1,1]))
+  @assertTrue(intmat(mat([frac(1,2)],[1,1]))==mat([0],[1,1]))
+  @assertTrue(intmat(mat([(frac(i,1),i=1,10)],[2,5]))==mat([(i,i=1,10)],[2,5]))
+end subroutine
+
+@test
+subroutine test_dblevec_FractionVector()
+  type :: TestCase
+    type(FractionVector) :: input
+    type(RealVector)     :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(RealVector) :: output
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( vec([IntFraction::]),        &
+               &           vec([real(dp)::])     ),     &
+               & TestCase( vec([frac(0,1)]),            &
+               &           vec([0.0_dp])     ),         &
+               & TestCase( vec([frac(1,2)]),            &
+               &           vec([0.5_dp])     ),         &
+               & TestCase( vec([(frac(i,4),i=1,10)]),   &
+               &           vec([(i/4.0_dp,i=1,10)])   ) ]
+  do i=1,size(test_cases)
+    associate( input    => test_cases(i)%input, &
+             & expected => test_cases(i)%output )
+      output = dblevec(input)
+      
+      message = [ str('Input:'),    &
+                & str(input),       &
+                & str('Output:'),   &
+                & str(output),      &
+                & str('Expected:'), &
+                & str(expected)     ]
+      
+      @assertTrue(sum_squares(output-expected)<1e-10_dp, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_dblemat_FractionMatrix()
+  type :: TestCase
+    type(FractionMatrix) :: input
+    type(RealMatrix)     :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(RealMatrix) :: output
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( mat([IntFraction::],[0,0]),        &
+               &           mat([real(dp)::],[0,0])     ),     &
+               & TestCase( mat([frac(0,1)],[1,1]),            &
+               &           mat([0.0_dp],[1,1])     ),         &
+               & TestCase( mat([frac(1,2)],[1,1]),            &
+               &           mat([0.5_dp],[1,1])     ),         &
+               & TestCase( mat([(frac(i,4),i=1,10)],[2,5]),   &
+               &           mat([(i/4.0_dp,i=1,10)],[2,5])   ) ]
+  do i=1,size(test_cases)
+    associate( input    => test_cases(i)%input, &
+             & expected => test_cases(i)%output )
+      output = dblemat(input)
+      
+      message = [ str('Input:'),    &
+                & str(input),       &
+                & str('Output:'),   &
+                & str(output),      &
+                & str('Expected:'), &
+                & str(expected)     ]
+      
+      @assertTrue(sum_squares(output-expected)<1e-10_dp, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_size_FractionVector()
+  integer :: i
+  
+  @assertTrue(size(vec([IntFraction::]))==0)
+  @assertTrue(size(vec([frac(0,1)]))==1)
+  @assertTrue(size(vec([(frac(i,1),i=1,10)]))==10)
+end subroutine
+
+@test
+subroutine test_size_FractionMatrix()
+  type :: TestCase
+    type(IntFraction), allocatable :: contents(:)
+    integer                        :: m
+    integer                        :: n
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(FractionMatrix)      :: matrix
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase([IntFraction::],0,0),       &
+               & TestCase([IntFraction::],0,5),       &
+               & TestCase([IntFraction::],5,0),       &
+               & TestCase([frac(0,1)],1,1),           &
+               & TestCase([(frac(i,1),i=1,10)],1,10), &
+               & TestCase([(frac(i,1),i=1,10)],5,2),  &
+               & TestCase([(frac(i,1),i=1,10)],10,1)  ]
+  
+  do i=1,size(test_cases)
+    associate( contents => test_cases(i)%contents, &
+             & m        => test_cases(i)%m,        &
+             & n        => test_cases(i)%n         )
+      matrix = mat(contents,[m,n])
+      
+      message = [str('Matrix:'), str(matrix)]
+      
+      @assertTrue(size(matrix,1)==m, char(message))
+      @assertTrue(size(matrix,2)==n, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_is_int_FractionVector()
+  integer :: i
+  
+  @assertTrue(is_int(vec([IntFraction::])))
+  @assertTrue(is_int(vec([frac(0,1)])))
+  @assertTrue(is_int(vec([(frac(i,1),i=-10,10)])))
+  @assertFalse(is_int(vec([frac(1,2)])))
+  @assertFalse(is_int(vec([(frac(i,1),i=-10,10),frac(3,4)])))
+end subroutine
+
+@test
+subroutine test_is_int_FractionMatrix()
+  integer :: i
+  
+  @assertTrue(is_int(mat([IntFraction::],[0,0])))
+  @assertTrue(is_int(mat([frac(0,1)],[1,1])))
+  @assertTrue(is_int(mat([(frac(i,1),i=-10,10)],[3,7])))
+  @assertFalse(is_int(mat([frac(1,2)],[1,1])))
+  @assertFalse(is_int(mat([(frac(i,1),i=-10,10),frac(3,4)],[2,11])))
+end subroutine
+
+@test
+subroutine test_comparison_FractionVector()
+  type(FractionVector), allocatable :: frac_vectors(:)
+  type(IntVector),      allocatable :: int_vectors(:)
+  
+  logical, allocatable :: frac_frac_equal(:,:)
+  logical, allocatable :: frac_int_equal(:,:)
+  
+  type(String) :: message
+  
+  integer :: i,j,ialloc
+  
+  frac_vectors = [ vec([IntFraction::]),      &
+                 & vec([frac(0,1)]),          &
+                 & vec([frac(1,2)]),          &
+                 & vec([(frac(i,1),i=1,10)]), &
+                 & vec([(frac(i,5),i=1,10)])  ]
+  
+  int_vectors = [ vec([integer::]),   &
+                & vec([0]),           &
+                & vec([1]),           &
+                & vec([(i,i=1,10)]),  &
+                & vec([(i,i=1,9),11]) ]
+  
+  allocate( frac_frac_equal(size(frac_vectors),size(frac_vectors)), &
+          & frac_int_equal(size(frac_vectors),size(int_vectors)),   &
+          & stat=ialloc); call err(ialloc)
+  frac_frac_equal = .false.
+  frac_int_equal = .false.
+  do i=1,size(frac_vectors)
+    frac_frac_equal(i,i) = .true.
+  enddo
+  frac_int_equal(1,1) = .true.
+  frac_int_equal(2,2) = .true.
+  frac_int_equal(4,4) = .true.
+  
+  do i=1,size(frac_vectors)
+    do j=1,size(frac_vectors)
+      message = 'i='//i//', j='//j
+      
+      if (frac_frac_equal(i,j)) then
+        @assertTrue(frac_vectors(i)==frac_vectors(j), char(message))
+        @assertFalse(frac_vectors(i)/=frac_vectors(j), char(message))
+      else
+        @assertFalse(frac_vectors(i)==frac_vectors(j), char(message))
+        @assertTrue(frac_vectors(i)/=frac_vectors(j), char(message))
+      endif
+    enddo
+    
+    do j=1,size(int_vectors)
+      message = 'i='//i//', j='//j
+      
+      if (frac_int_equal(i,j)) then
+        @assertTrue(frac_vectors(i)==int_vectors(j), char(message))
+        @assertFalse(frac_vectors(i)/=int_vectors(j), char(message))
+        @assertTrue(int_vectors(i)==frac_vectors(j), char(message))
+        @assertFalse(int_vectors(i)/=frac_vectors(j), char(message))
+      else
+        @assertFalse(frac_vectors(i)==int_vectors(j), char(message))
+        @assertTrue(frac_vectors(i)/=int_vectors(j), char(message))
+        @assertFalse(int_vectors(i)==frac_vectors(j), char(message))
+        @assertTrue(int_vectors(i)/=frac_vectors(j), char(message))
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_comparison_FractionMatrix()
+  type(FractionMatrix), allocatable :: frac_matrices(:)
+  type(IntMatrix),      allocatable :: int_matrices(:)
+  
+  logical, allocatable :: frac_frac_equal(:,:)
+  logical, allocatable :: frac_int_equal(:,:)
+  
+  type(String) :: message
+  
+  integer :: i,j,ialloc
+  
+  frac_matrices = [ mat([IntFraction::],[0,0]),       &
+                  & mat([frac(0,1)],[1,1]),           &
+                  & mat([frac(1,2)],[1,1]),           &
+                  & mat([(frac(i,1),i=1,10)],[10,1]), &
+                  & mat([(frac(i,1),i=1,10)],[1,10]), &
+                  & mat([(frac(i,5),i=1,10)],[1,10])  ]
+  
+  int_matrices = [ mat([integer::],[0,0]),    &
+                 & mat([0],[1,1]),            &
+                 & mat([1],[1,1]),            &
+                 & mat([(i,i=1,10)],[10,1]),  &
+                 & mat([(i,i=1,10)],[1,10]),  &
+                 & mat([(i,i=1,9),11],[1,10]) ]
+  
+  allocate( frac_frac_equal(size(frac_matrices),size(frac_matrices)), &
+          & frac_int_equal(size(frac_matrices),size(int_matrices)),   &
+          & stat=ialloc); call err(ialloc)
+  frac_frac_equal = .false.
+  frac_int_equal = .false.
+  do i=1,size(frac_matrices)
+    frac_frac_equal(i,i) = .true.
+  enddo
+  frac_int_equal(1,1) = .true.
+  frac_int_equal(2,2) = .true.
+  frac_int_equal(4,4) = .true.
+  frac_int_equal(5,5) = .true.
+  
+  do i=1,size(frac_matrices)
+    do j=1,size(frac_matrices)
+      message = 'i='//i//', j='//j
+      
+      if (frac_frac_equal(i,j)) then
+        @assertTrue(frac_matrices(i)==frac_matrices(j), char(message))
+        @assertFalse(frac_matrices(i)/=frac_matrices(j), char(message))
+      else
+        @assertFalse(frac_matrices(i)==frac_matrices(j), char(message))
+        @assertTrue(frac_matrices(i)/=frac_matrices(j), char(message))
+      endif
+    enddo
+    
+    do j=1,size(int_matrices)
+      message = 'i='//i//', j='//j
+      
+      if (frac_int_equal(i,j)) then
+        @assertTrue(frac_matrices(i)==int_matrices(j), char(message))
+        @assertFalse(frac_matrices(i)/=int_matrices(j), char(message))
+        @assertTrue(int_matrices(i)==frac_matrices(j), char(message))
+        @assertFalse(int_matrices(i)/=frac_matrices(j), char(message))
+      else
+        @assertFalse(frac_matrices(i)==int_matrices(j), char(message))
+        @assertTrue(frac_matrices(i)/=int_matrices(j), char(message))
+        @assertFalse(int_matrices(i)==frac_matrices(j), char(message))
+        @assertTrue(int_matrices(i)/=frac_matrices(j), char(message))
+      endif
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_transpose()
+  logical :: check
+  integer :: i,j
+  
+  check = transpose(mat([IntFraction::],[0,0]))==mat([IntFraction::],[0,0])
+  @assertTrue(check)
+  check = transpose(mat([IntFraction::],[0,5]))==mat([IntFraction::],[5,0])
+  @assertTrue(check)
+  check = transpose(mat([frac(0,1)],[1,1]))==mat([frac(0,1)],[1,1])
+  @assertTrue(check)
+  check = transpose(mat([(frac(i,1),i=1,10)],[2,5])) &
+     & == mat([((frac(i+5*j,1),j=0,1),i=1,5)],[5,2])
+  @assertTrue(check)
+end subroutine
 end module

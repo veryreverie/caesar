@@ -13,9 +13,9 @@ end procedure
 module procedure mat_IntFractions_shape
   type(IntFraction), allocatable :: contents(:,:)
   
-  !output%contents_ = transpose(reshape(input, [m,n]))
+  !output%contents_ = transpose(reshape(input, shape([2,1])))
   ! WORKAROUND to avoid internal compiler error in ifort 19.1.0.166.
-  contents = reshape(input, [m,n])
+  contents = reshape(input, shape([2,1]))
   output = mat(transpose(contents))
 end procedure
 
@@ -80,27 +80,51 @@ module procedure is_int_FractionMatrix
 end procedure
 
 module procedure equality_FractionVector_FractionVector
-  output = all(frac(this)==frac(that))
+  if (size(this)/=size(that)) then
+    output = .false.
+  else
+    output = all(frac(this)==frac(that))
+  endif
 end procedure
 
 module procedure equality_FractionVector_IntVector
-  output = all(frac(this)==int(that))
+  if (size(this)/=size(that)) then
+    output = .false.
+  else
+    output = all(frac(this)==int(that))
+  endif
 end procedure
 
 module procedure equality_IntVector_FractionVector
-  output = all(int(this)==frac(that))
+  if (size(this)/=size(that)) then
+    output = .false.
+  else
+    output = all(int(this)==frac(that))
+  endif
 end procedure
 
 module procedure equality_FractionMatrix_FractionMatrix
-  output = all(frac(this)==frac(that))
+  if (size(this,1)/=size(that,1) .or. size(this,2)/=size(that,2)) then
+    output = .false.
+  else
+    output = all(frac(this)==frac(that))
+  endif
 end procedure
 
 module procedure equality_FractionMatrix_IntMatrix
-  output = all(frac(this)==int(that))
+  if (size(this,1)/=size(that,1) .or. size(this,2)/=size(that,2)) then
+    output = .false.
+  else
+    output = all(frac(this)==int(that))
+  endif
 end procedure
 
 module procedure equality_IntMatrix_FractionMatrix
-  output = all(int(this)==frac(that))
+  if (size(this,1)/=size(that,1) .or. size(this,2)/=size(that,2)) then
+    output = .false.
+  else
+    output = all(int(this)==frac(that))
+  endif
 end procedure
 
 module procedure non_equality_FractionVector_FractionVector

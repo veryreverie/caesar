@@ -39,9 +39,10 @@ module procedure linear_algebra_test
     call err()
   endif
   
-  im1 = mat( [ 1,  1,  2, &
-             & 2,  1, -3, &
-             & 1, -2, -1  ], 3,3)
+  im1 = mat( [ 1,  1,  2,    &
+           &   2,  1, -3,    &
+           &   1, -2, -1  ], &
+           & [3,3]           )
   
   if (im1*iv1 /= vec([ 3, 10, -3 ])) then
     call err()
@@ -51,30 +52,35 @@ module procedure linear_algebra_test
     call err()
   endif
   
-  im2 = mat( [  2,  2, 4, &
-             &  4, -2, 4, &
-             & -2,  4, 2  ], 3,3)
+  im2 = mat( [  2,  2, 4,    &
+           &    4, -2, 4,    &
+           &   -2,  4, 2  ], &
+           & [3,3]           )
   
-  if (im2/2 /= mat([  1, 1, 2, &
-                   &  2,-1, 2, &
-                   & -1, 2, 1  ],3,3)) then
+  if (im2/2 /= mat( [  1, 1, 2,    &
+                  &    2,-1, 2,    &
+                  &   -1, 2, 1  ], &
+                  & [3,3]          )) then
     call err()
-  elseif (im1*im2 /= mat([   2,   8,  12, &
-                         &  14, -10,   6, &
-                         & - 4,   2, - 6  ], 3,3)) then
+  elseif (im1*im2 /= mat( [   2,   8,  12,    &
+                        &    14, -10,   6,    &
+                        &   - 4,   2, - 6  ], &
+                        & [3,3]               )) then
     im1 = im1*im2
     call err()
   elseif (iv1*im1*iv2 /= -19) then
     call err()
   endif
   
-  rm1 = mat( [ 1.0_dp, 0.0_dp, 1.0_dp, &
-             & 0.0_dp, 2.0_dp, 0.0_dp, &
-             & 0.0_dp, 1.0_dp, 1.0_dp  ], 3,3)
+  rm1 = mat( [ 1.0_dp, 0.0_dp, 1.0_dp,    &
+           &   0.0_dp, 2.0_dp, 0.0_dp,    &
+           &   0.0_dp, 1.0_dp, 1.0_dp  ], &
+           & [3,3]                        )
   
-  rm2 = rm1 * mat( [ 0.0_dp, 1.0_dp, 0.0_dp, &
-                   & 0.5_dp, 0.0_dp, 1.0_dp, &
-                   & 1.0_dp, 0.5_dp, 0.0_dp  ], 3,3)
+  rm2 = rm1 * mat( [ 0.0_dp, 1.0_dp, 0.0_dp,    &
+                 &   0.5_dp, 0.0_dp, 1.0_dp,    &
+                 &   1.0_dp, 0.5_dp, 0.0_dp  ], &
+                 & [3,3]                        )
   
   if ( l2_norm( vec([1,0,0])*rm2 &
             & - vec([1.0_dp,1.5_dp,0.0_dp])) > 1.0e-10_dp ) then
@@ -89,9 +95,10 @@ module procedure linear_algebra_test
   
   rv1 = vec([ 1.0_dp, 0.5_dp, -1.0_dp ])
   rv2 = vec([ 3.0_dp, -0.3_dp, 1.0_dp ])
-  rm2 = outer_product(rv1,rv2) - mat([  3.0_dp,  1.5_dp , -3.0_dp, &
-                                     & -0.3_dp, -0.15_dp,  0.3_dp, &
-                                     &  1.0_dp,  0.5_dp , -1.0_dp  ], 3,3)
+  rm2 = outer_product(rv1,rv2) - mat( [  3.0_dp,  1.5_dp , -3.0_dp,    &
+                                    &   -0.3_dp, -0.15_dp,  0.3_dp,    &
+                                    &    1.0_dp,  0.5_dp , -1.0_dp  ], &
+                                    & [3,3]                            )
   rm2 = outer_product(rv1,rv2)
   if ( l2_norm( vec([1,0,0])*rm2 &
             & - vec([3.0_dp,-0.3_dp,1.0_dp])) > 1.0e-10_dp ) then
@@ -118,9 +125,10 @@ module procedure linear_algebra_test
     call err()
   endif
   
-  matrix = mat([ 1,1,0, &
-               & 0,1,0, &
-               & 0,0,1],3,3)
+  matrix = mat( [ 1, 1, 0,    &
+              &   0, 1, 0,    &
+              &   0, 0, 1  ], &
+              & [3,3]         )
   vector = vec([1,1,1])
   vec_of_vecs = [ vec([1,0,0]), vec([0,1,0]) ]
   

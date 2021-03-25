@@ -549,7 +549,11 @@ impure elemental function equality_IntVector_IntVector(a,b) result(output)
   type(IntVector), intent(in) :: b
   logical                     :: output
   
-  output = all(int(a)==int(b))
+  if (size(a)/=size(b)) then
+    output = .false.
+  else
+    output = all(int(a)==int(b))
+  endif
 end function
 
 impure elemental function equality_IntMatrix_IntMatrix(a,b) result(output)
@@ -559,7 +563,11 @@ impure elemental function equality_IntMatrix_IntMatrix(a,b) result(output)
   type(IntMatrix), intent(in) :: b
   logical                     :: output
   
-  output = all(int(a)==int(b))
+  if (size(a,1)/=size(b,1) .or. size(a,2)/=size(b,2)) then
+    output = .false.
+  else
+    output = all(int(a)==int(b))
+  endif
 end function
 
 ! Non-equality.

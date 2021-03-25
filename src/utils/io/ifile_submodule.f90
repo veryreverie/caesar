@@ -67,11 +67,13 @@ module procedure count_lines
   integer      :: file_unit
   integer      :: iostat
   
+  character(10000) :: line
+  
   file_unit = open_read_file(filename)
   output = 0
   iostat = 0
   do while (iostat==0)
-    read(file_unit, '(a)', iostat=iostat)
+    read(file_unit, '(a)', iostat=iostat) line
     if (iostat==0) then
       output = output+1
     elseif (iostat>0) then

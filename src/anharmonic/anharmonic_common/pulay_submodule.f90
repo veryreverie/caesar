@@ -608,7 +608,7 @@ module procedure example_function
   matrix = mat( [ 1,  0,  0,    &
               &   0,  0,  1,    &
               &   0, -1,  0  ], &
-              & 3, 3            )
+              & [3, 3]          )
   
   output = dble(matrix*vec(input))
 end procedure

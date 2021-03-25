@@ -257,15 +257,14 @@ function MACRO_MAT_MAT(input) result(output)
   output%contents_ = input
 end function
 
-function MACRO_MAT_MAT_SHAPE(input,m,n) result(output)
+function MACRO_MAT_MAT_SHAPE(input,shape) result(output)
   implicit none
   
   MACRO_TYPE_DECLARATION, intent(in) :: input(:)
-  integer,                intent(in) :: m
-  integer,                intent(in) :: n
+  integer,                intent(in) :: shape(2)
   type(MACRO_TYPE_MAT_NAME)          :: output
   
-  output%contents_ = transpose(reshape(input, [m,n]))
+  output%contents_ = transpose(reshape(input, shape([2,1])))
 end function
 
 ! Construct a matrix from vectors.

@@ -71,7 +71,7 @@ module procedure new_HarmonicData_arguments
   large_supercell_matrix = mat( [ grid(1), 0      , 0     ,    &
                               &   0      , grid(2), 0     ,    &
                               &   0      , 0      , grid(3) ], &
-                              & 3,3)
+                              & [3,3]                          )
   large_supercell = construct_supercell( structure,             &
                                        & large_supercell_matrix )
   

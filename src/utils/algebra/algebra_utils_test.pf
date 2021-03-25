@@ -141,21 +141,22 @@ subroutine test_sum_squares_RealMatrix()
   
   integer :: i
   
-  test_cases = [ TestCase( mat([real(dp)::], 0,0),         &
-               &           0.0_dp                  ),      &
-               & TestCase( mat([real(dp)::], 5,0),         &
-               &           0.0_dp                  ),      &
-               & TestCase( mat([real(dp)::], 0,5),         &
-               &           0.0_dp                  ),      &
-               & TestCase( mat([5.0_dp], 1,1),             &
-               &           25.0_dp             ),          &
-               & TestCase( mat([-5.0_dp], 1,1),            &
-               &           25.0_dp              ),         &
-               & TestCase( mat([(5.0_dp,i=1,25)], 5,5),    &
-               &           625.0_dp                     ), &
-               & TestCase( mat([1.0_dp,2.0_dp,             &
-               &                3.0_dp,4.0_dp], 2,2),      &
-               &           30.0_dp                    )    ]
+  test_cases = [ TestCase( mat([real(dp)::], [0,0]),         &
+               &           0.0_dp                    ),      &
+               & TestCase( mat([real(dp)::], [5,0]),         &
+               &           0.0_dp                    ),      &
+               & TestCase( mat([real(dp)::], [0,5]),         &
+               &           0.0_dp                    ),      &
+               & TestCase( mat([5.0_dp], [1,1]),             &
+               &           25.0_dp               ),          &
+               & TestCase( mat([-5.0_dp], [1,1]),            &
+               &           25.0_dp                ),         &
+               & TestCase( mat([(5.0_dp,i=1,25)], [5,5]),    &
+               &           625.0_dp                       ), &
+               & TestCase( mat([1.0_dp,2.0_dp,               &
+               &                3.0_dp,4.0_dp],              &
+               &               [2,2]            ),           &
+               &           30.0_dp                 )         ]
   
   do i=1,size(test_cases)
     input = test_cases(i)%input
@@ -230,25 +231,26 @@ subroutine test_sum_squares_ComplexMatrix()
   
   integer :: i
   
-  test_cases = [ TestCase( mat([complex(dp)::], 0,0),                      &
-               &           0.0_dp                    ),                    &
-               & TestCase( mat([complex(dp)::], 5,0),                      &
-               &           0.0_dp                    ),                    &
-               & TestCase( mat([complex(dp)::], 0,5),                      &
-               &           0.0_dp                    ),                    &
-               & TestCase( mat([(5.0_dp,0.0_dp)], 1,1),                    &
-               &           25.0_dp               ),                        &
-               & TestCase( mat([(-5.0_dp,0.0_dp)], 1,1),                   &
-               &           25.0_dp                ),                       &
-               & TestCase( mat([(0.0_dp,5.0_dp)], 1,1),                    &
-               &           25.0_dp               ),                        &
-               & TestCase( mat([(0.0_dp,-5.0_dp)], 1,1),                   &
-               &           25.0_dp                ),                       &
-               & TestCase( mat([((5.0_dp,5.0_dp),i=1,25)], 5,5),           &
-               &           1250.0_dp                       ),              &
-               & TestCase( mat([(1.0_dp,2.0_dp), (3.0_dp,4.0_dp),          &
-               &                (5.0_dp,6.0_dp), (7.0_dp,8.0_dp)], 2,2),   &
-               &           204.0_dp                                      ) ]
+  test_cases = [ TestCase( mat([complex(dp)::], [0,0]),                 &
+               &           0.0_dp                       ),              &
+               & TestCase( mat([complex(dp)::], [5,0]),                 &
+               &           0.0_dp                       ),              &
+               & TestCase( mat([complex(dp)::], [0,5]),                 &
+               &           0.0_dp                       ),              &
+               & TestCase( mat([(5.0_dp,0.0_dp)], [1,1]),               &
+               &           25.0_dp                        ),            &
+               & TestCase( mat([(-5.0_dp,0.0_dp)], [1,1]),              &
+               &           25.0_dp                         ),           &
+               & TestCase( mat([(0.0_dp,5.0_dp)], [1,1]),               &
+               &           25.0_dp                        ),            &
+               & TestCase( mat([(0.0_dp,-5.0_dp)], [1,1]),              &
+               &           25.0_dp                         ),           &
+               & TestCase( mat([((5.0_dp,5.0_dp),i=1,25)], [5,5]),      &
+               &           1250.0_dp                               ),   &
+               & TestCase( mat([(1.0_dp,2.0_dp), (3.0_dp,4.0_dp),       &
+               &                (5.0_dp,6.0_dp), (7.0_dp,8.0_dp)],      &
+               &               [2,2]                               ),   &
+               &           204.0_dp                                   ) ]
   
   do i=1,size(test_cases)
     input = test_cases(i)%input

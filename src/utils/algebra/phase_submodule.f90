@@ -49,7 +49,7 @@ end procedure
 
 module procedure write_PhaseData
   select type(this); type is(PhaseData)
-    output = 'exp(2pii*'//this%theta_//')'
+    output = 'exp(2pii*'//trim(str(this%theta_))//')'
   end select
 end procedure
 

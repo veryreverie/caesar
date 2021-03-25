@@ -1,6 +1,5 @@
-! ======================================================================
-! Vectors and Matrices of type IntFraction.
-! ======================================================================
+!> Provides the [[FractionVector(type)]] and [[FractionMatrix(type)]] classes
+!>    and related methods.
 module caesar_fraction_algebra_module
   use caesar_foundations_module
   use caesar_io_module
@@ -38,6 +37,7 @@ module caesar_fraction_algebra_module
   public :: cos_2pi
   public :: sin_2pi
   
+  !> A vector whose elements are of type [[IntFraction(type)]].
   type, extends(Stringable) :: FractionVector
     type(IntFraction), allocatable, private :: contents_(:)
   contains
@@ -45,6 +45,7 @@ module caesar_fraction_algebra_module
     procedure, public :: write => write_FractionVector
   end type
   
+  !> A matrix whose elements are of type [[IntFraction(type)]].
   type, extends(Stringsable) :: FractionMatrix
     type(IntFraction), allocatable, private :: contents_(:,:)
   contains
@@ -53,11 +54,7 @@ module caesar_fraction_algebra_module
   end type
   
   interface vec
-    ! ----------------------------------------------------------------------
-    ! Procedures involving contents_
-    ! ----------------------------------------------------------------------
-    
-    ! Conversion to and from vector and matrix types.
+    !> Conversion from [[IntFraction(type)]] array to [[FractionVector(type)]].
     module function vec_IntFractions(input) result(output) 
       type(IntFraction), intent(in) :: input(:)
       type(FractionVector)          :: output
@@ -65,26 +62,33 @@ module caesar_fraction_algebra_module
   end interface
   
   interface mat
+    !> Conversion from a 2D [[IntFraction(type)]] array to
+    !>    [[FractionMatrix(type)]].
     module function mat_IntFractions(input) result(output) 
       type(IntFraction), intent(in) :: input(:,:)
       type(FractionMatrix)          :: output
     end function
   
-    module function mat_IntFractions_shape(input,m,n) result(output) 
+    !> Conversion from an array of [[IntFraction(type)]] matrix elements,
+    !>    and the matrix `shape` to a [[FractionMatrix(type)]].
+    !> N.B. `input` should be in row-major order.
+    module function mat_IntFractions_shape(input,shape) result(output) 
       type(IntFraction), intent(in) :: input(:)
-      integer,           intent(in) :: m
-      integer,           intent(in) :: n
+      integer,           intent(in) :: shape(2)
       type(FractionMatrix)          :: output
     end function
   end interface
   
   interface frac
-    ! Conversion to fraction(:). Effectively getters for contents_.
+    !> Conversion from [[FractionVector(type)]] to an array of
+    !>    [[IntFraction(type)]].
     module function frac_FractionVector(input) result(output) 
       type(FractionVector), intent(in) :: input
       type(IntFraction), allocatable   :: output(:)
     end function
   
+    !> Conversion from [[FractionMatrix(type)]] to an array of
+    !>    [[IntFraction(type)]].
     module function frac_FractionMatrix(input) result(output) 
       type(FractionMatrix), intent(in) :: input
       type(IntFraction), allocatable   :: output(:,:)
@@ -92,16 +96,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface fracvec
-    ! ----------------------------------------------------------------------
-    ! Procedures not involving contents_
-    ! ----------------------------------------------------------------------
-    ! N.B. the number of procedures accessing contents_ directly is intentionally
-    !    limited for stability reasons.
-    ! The above procedures behave well if contents_ has not been allocated,
-    !    and this good behaviour is automatically passed to the procedures below.
-    
-    ! Conversion to and from vector and matrix types.
-    
+    !> Conversion from [[IntVector(type)]] to [[FractionVector(type)]].
     impure elemental module function fracvec_IntVector(input) result(output) 
       type(IntVector), intent(in) :: input
       type(FractionVector)        :: output
@@ -109,6 +104,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface fracmat
+    !> Conversion from [[IntMatrix(type)]] to [[FractionMatrix(type)]].
     impure elemental module function fracmat_IntMatrix(input) result(output) 
       type(IntMatrix), intent(in)    :: input
       type(FractionMatrix)           :: output
@@ -116,6 +112,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface intvec
+    !> Conversion from [[FractionVector(type)]] to [[IntVector(type)]].
     impure elemental module function intvec_FractionVector(input) &
        & result(output) 
       type(FractionVector), intent(in) :: input
@@ -124,6 +121,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface intmat
+    !> Conversion from [[FractionMatrix(type)]] to [[IntMatrix(type)]].
     impure elemental module function intmat_FractionMatrix(input) &
        & result(output) 
       type(FractionMatrix), intent(in) :: input
@@ -132,6 +130,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface dblevec
+    !> Conversion from [[FractionVector(type)]] to [[RealVector(type)]].
     impure elemental module function dblevec_FractionVector(input) &
        & result(output) 
       type(FractionVector), intent(in) :: input
@@ -140,6 +139,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface dblemat
+    !> Conversion from [[FractionMatrix(type)]] to [[RealMatrix(type)]].
     impure elemental module function dblemat_FractionMatrix(input) &
        & result(output) 
       type(FractionMatrix), intent(in) :: input
@@ -148,12 +148,14 @@ module caesar_fraction_algebra_module
   end interface
   
   interface size
-    ! Properties of the vectors and matrices.
+    !> Returns the number of elements of a [[FractionVector(type)]].
     module function size_FractionVector(this) result(output) 
       type(FractionVector), intent(in) :: this
       integer                          :: output
     end function
   
+    !> Returns the number of elements of a [[FractionMatrix(type)]]
+    !>    along the given `dim`.
     module function size_FractionMatrix(this,dim) result(output) 
       type(FractionMatrix), intent(in) :: this
       integer,              intent(in) :: dim
@@ -162,12 +164,14 @@ module caesar_fraction_algebra_module
   end interface
   
   interface is_int
+    !> Returns whether or not every element of `this` is an integer.
     impure elemental module function is_int_FractionVector(this) &
        & result(output) 
       type(FractionVector), intent(in) :: this
       logical                          :: output
     end function
   
+    !> Returns whether or not every element of `this` is an integer.
     impure elemental module function is_int_FractionMatrix(this) &
        & result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -176,13 +180,17 @@ module caesar_fraction_algebra_module
   end interface
   
   interface operator(==)
-    ! Comparisons.
-    impure elemental module function equality_FractionVector_FractionVector(this,that) result(output) 
+    !> Equality comparison between [[FractionVector(type)]] and
+    !>    [[FractionVector(type)]].
+    impure elemental module function equality_FractionVector_FractionVector( &
+       & this,that) result(output) 
       type(FractionVector), intent(in) :: this
       type(FractionVector), intent(in) :: that
       logical                          :: output
     end function
   
+    !> Equality comparison between [[FractionVector(type)]] and
+    !>    [[IntVector(type)]].
     impure elemental module function equality_FractionVector_IntVector(this, &
        & that) result(output) 
       type(FractionVector), intent(in) :: this
@@ -190,6 +198,8 @@ module caesar_fraction_algebra_module
       logical                          :: output
     end function
   
+    !> Equality comparison between [[IntVector(type)]] and
+    !>    [[FractionVector(type)]].
     impure elemental module function equality_IntVector_FractionVector(this, &
        & that) result(output) 
       type(IntVector),      intent(in) :: this
@@ -197,12 +207,17 @@ module caesar_fraction_algebra_module
       logical                          :: output
     end function
   
-    impure elemental module function equality_FractionMatrix_FractionMatrix(this,that) result(output) 
+    !> Equality comparison between [[FractionMatrix(type)]] and
+    !>    [[FractionMatrix(type)]].
+    impure elemental module function equality_FractionMatrix_FractionMatrix( &
+       & this,that) result(output) 
       type(FractionMatrix), intent(in) :: this
       type(FractionMatrix), intent(in) :: that
       logical                          :: output
     end function
   
+    !> Equality comparison between [[FractionMatrix(type)]] and
+    !>    [[IntMatrix(type)]].
     impure elemental module function equality_FractionMatrix_IntMatrix(this, &
        & that) result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -210,6 +225,8 @@ module caesar_fraction_algebra_module
       logical                          :: output
     end function
   
+    !> Equality comparison between [[IntMatrix(type)]] and
+    !>    [[FractionMatrix(type)]].
     impure elemental module function equality_IntMatrix_FractionMatrix(this, &
        & that) result(output) 
       type(IntMatrix),      intent(in) :: this
@@ -219,37 +236,55 @@ module caesar_fraction_algebra_module
   end interface
   
   interface operator(/=)
-    impure elemental module function non_equality_FractionVector_FractionVector(this,that) result(output) 
+    !> Non-equality comparison between [[FractionVector(type)]] and
+    !>    [[FractionVector(type)]].
+    impure elemental module function &
+       & non_equality_FractionVector_FractionVector(this,that) result(output) 
       type(FractionVector), intent(in) :: this
       type(FractionVector), intent(in) :: that
       logical                          :: output
     end function
   
-    impure elemental module function non_equality_FractionVector_IntVector(this,that) result(output) 
+    !> Non-equality comparison between [[FractionVector(type)]] and
+    !>    [[IntVector(type)]].
+    impure elemental module function non_equality_FractionVector_IntVector( &
+       & this,that) result(output) 
       type(FractionVector), intent(in) :: this
       type(IntVector),      intent(in) :: that
       logical                          :: output
     end function
   
-    impure elemental module function non_equality_IntVector_FractionVector(this,that) result(output) 
+    !> Non-equality comparison between [[IntVector(type)]] and
+    !>    [[FractionVector(type)]].
+    impure elemental module function non_equality_IntVector_FractionVector( &
+       & this,that) result(output) 
       type(IntVector),      intent(in) :: this
       type(FractionVector), intent(in) :: that
       logical                          :: output
     end function
   
-    impure elemental module function non_equality_FractionMatrix_FractionMatrix(this,that) result(output) 
+    !> Non-equality comparison between [[FractionMatrix(type)]] and
+    !>    [[FractionMatrix(type)]].
+    impure elemental module function &
+       & non_equality_FractionMatrix_FractionMatrix(this,that) result(output) 
       type(FractionMatrix), intent(in) :: this
       type(FractionMatrix), intent(in) :: that
       logical                          :: output
     end function
   
-    impure elemental module function non_equality_FractionMatrix_IntMatrix(this,that) result(output) 
+    !> Non-equality comparison between [[FractionMatrix(type)]] and
+    !>    [[IntMatrix(type)]].
+    impure elemental module function &
+       & non_equality_FractionMatrix_IntMatrix(this,that) result(output) 
       type(FractionMatrix), intent(in) :: this
       type(IntMatrix),      intent(in) :: that
       logical                          :: output
     end function
   
-    impure elemental module function non_equality_IntMatrix_FractionMatrix(this,that) result(output) 
+    !> Non-equality comparison between [[IntMatrix(type)]] and
+    !>    [[FractionMatrix(type)]].
+    impure elemental module function &
+       & non_equality_IntMatrix_FractionMatrix(this,that) result(output) 
       type(IntMatrix),      intent(in) :: this
       type(FractionMatrix), intent(in) :: that
       logical                          :: output
@@ -257,7 +292,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface transpose
-    ! Matrix transpose.
+    !> Returns the matrix transpose of a [[FractionMatrix(type)]].
     module function transpose_FractionMatrix(this) result(output) 
       type(FractionMatrix), intent(in) :: this
       type(FractionMatrix)             :: output

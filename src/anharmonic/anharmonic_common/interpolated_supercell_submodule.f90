@@ -29,7 +29,7 @@ module procedure new_InterpolatedSupercell_interpolated
      & mat([ qpoint_grid(1), 0             , 0            ,    &
      &       0             , qpoint_grid(2), 0            ,    &
      &       0             , 0             , qpoint_grid(3) ], &
-     & 3,3)
+     &     [3,3]                                               )
   supercell = construct_supercell( structure,       &
                                  & supercell_matrix )
   qpoints = generate_qpoints(supercell)

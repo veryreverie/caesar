@@ -4,4 +4,109 @@ module phase_test
   use caesar_algebra_module
   implicit none
 contains
+
+! Tests constructor and theta().
+@test
+subroutine test_PhaseData()
+  type(PhaseData) :: foo
+  
+  foo = PhaseData(frac(0,1))
+  @assertTrue(foo%theta()==frac(0,1))
+  
+  foo = PhaseData(frac(1,2))
+  @assertTrue(foo%theta()==frac(1,2))
+  
+  foo = PhaseData(frac(-1,4))
+  @assertTrue(foo%theta()==frac(3,4))
+  
+  foo = PhaseData(frac(5,4))
+  @assertTrue(foo%theta()==frac(1,4))
+end subroutine
+
+@test
+subroutine test_cmplx()
+  type(PhaseData) :: foo
+  
+  foo = PhaseData(frac(0,1))
+  @assertTrue(abs(cmplx(foo)-(1.0_dp,0.0_dp))<1e-10_dp)
+  foo = PhaseData(frac(1,2))
+  @assertTrue(abs(cmplx(foo)-(-1.0_dp,0.0_dp))<1e-10_dp)
+  foo = PhaseData(frac(1,4))
+  @assertTrue(abs(cmplx(foo)-(0.0_dp,1.0_dp))<1e-10_dp)
+  foo = PhaseData(frac(3,4))
+  @assertTrue(abs(cmplx(foo)-(0.0_dp,-1.0_dp))<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_calculate_phase()
+  type :: TestCase
+    complex(dp)       :: input
+    integer           :: denominator
+    type(IntFraction) :: theta
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(PhaseData) :: output
+  
+  type(String) :: message(3)
+  
+  integer :: i
+  
+  test_cases = [ TestCase((1.0_dp,0.0_dp), 1, frac(0,1)), &
+               & TestCase((2.0_dp,0.0_dp), 1, frac(0,1)), &
+               & TestCase((0.0_dp,0.1_dp), 4, frac(1,4)), &
+               & TestCase((0.0_dp,0.1_dp), 8, frac(1,4)), &
+               & TestCase((0.1_dp,0.1_dp), 8, frac(1,8))  ]
+  
+  do i=1,size(test_cases)
+    associate( input       => test_cases(i)%input,       &
+             & denominator => test_cases(i)%denominator, &
+             & theta       => test_cases(i)%theta        )
+      output = calculate_phase(input, denominator)
+      
+      message = [ 'input       : '//input,       &
+                & 'denominator : '//denominator, &
+                & 'output      : '//output       ]
+      
+      @assertTrue(output%theta()==theta, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_comparison()
+  @assertTrue(PhaseData(frac(0,1))==PhaseData(frac(0,1)))
+  @assertFalse(PhaseData(frac(0,1))/=PhaseData(frac(0,1)))
+  @assertTrue(PhaseData(frac(1,2))==PhaseData(frac(1,2)))
+  @assertFalse(PhaseData(frac(1,2))/=PhaseData(frac(1,2)))
+  @assertFalse(PhaseData(frac(1,2))==PhaseData(frac(3,4)))
+  @assertTrue(PhaseData(frac(1,2))/=PhaseData(frac(3,4)))
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(String)    :: line
+    type(PhaseData) :: phase
+  end type
+  
+  type(testCase), allocatable :: test_cases(:)
+  
+  type(String) :: message
+  
+  integer :: i
+  
+  test_cases = [ TestCase(str('exp(2pii*0)'), PhaseData(frac(0,1)))]
+  
+  do i=1,size(test_cases)
+    associate( line  => test_cases(i)%line, &
+             & phase => test_cases(i)%phase )
+      message = 'phase : '//phase
+      
+      @assertTrue(str(phase)==line, char(message))
+      @assertTrue(PhaseData(line)==phase, char(message))
+    end associate
+  enddo
+end subroutine
 end module

@@ -679,7 +679,7 @@ module procedure read_ThermodynamicData
     entropy = dble(line(4))
     
     if (size(line)>4) then
-      stress = mat(dble(line(5:13)),3,3)
+      stress = mat(dble(line(5:13)),[3,3])
       primitive_volume = dble(line(14))
       enthalpy = dble(line(15))
       gibbs = dble(line(16))

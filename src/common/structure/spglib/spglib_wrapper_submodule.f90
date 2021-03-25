@@ -300,7 +300,7 @@ module procedure standardize_lattice
   output = mat( [ ax, 0.0_dp, 0.0_dp,    &
               &   bx, by    , 0.0_dp,    &
               &   cx, cy    , cz      ], &
-              & 3,3                      )
+              & [3,3]                    )
 end procedure
 
 module procedure calculate_spglib_atom_types
