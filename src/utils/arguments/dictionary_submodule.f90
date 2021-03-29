@@ -326,6 +326,11 @@ module procedure is_set_Dictionary_character
 end procedure
 
 module procedure is_set_Dictionary_String
+  ! WORKAROUND: if BUGFIX_STRING is removed, the code segfaults under
+  !    gfortran 9.
+  type(String) :: BUGFIX_STRING
+  BUGFIX_STRING = keyword
+  
   output = this%is_set(char(keyword))
 end procedure
 
