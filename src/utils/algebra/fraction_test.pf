@@ -319,4 +319,28 @@ subroutine test_abs()
   @assertTrue(abs(frac(3,4))==frac(3,4))
   @assertTrue(abs(frac(-3,4))==frac(3,4))
 end subroutine
+
+@test
+subroutine test_exp_2pii()
+  @assertTrue(abs(exp_2pii(frac(0,1))-(1.0_dp,0.0_dp))<1e-10_dp)
+  @assertTrue(abs(exp_2pii(frac(1,4))-(0.0_dp,1.0_dp))<1e-10_dp)
+  @assertTrue(abs(exp_2pii(frac(1,2))-(-1.0_dp,0.0_dp))<1e-10_dp)
+  @assertTrue(abs(exp_2pii(frac(3,4))-(0.0_dp,-1.0_dp))<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_cos_2pi()
+  @assertTrue(abs(cos_2pi(frac(0,1))-1.0_dp)<1e-10_dp)
+  @assertTrue(abs(cos_2pi(frac(1,4))-0.0_dp)<1e-10_dp)
+  @assertTrue(abs(cos_2pi(frac(1,2))+1.0_dp)<1e-10_dp)
+  @assertTrue(abs(cos_2pi(frac(3,4))-0.0_dp)<1e-10_dp)
+end subroutine
+
+@test
+subroutine test_sin_spi()
+  @assertTrue(abs(sin_2pi(frac(0,1))-0.0_dp)<1e-10_dp)
+  @assertTrue(abs(sin_2pi(frac(1,4))-1.0_dp)<1e-10_dp)
+  @assertTrue(abs(sin_2pi(frac(1,2))-0.0_dp)<1e-10_dp)
+  @assertTrue(abs(sin_2pi(frac(3,4))+1.0_dp)<1e-10_dp)
+end subroutine
 end module

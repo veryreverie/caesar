@@ -25,6 +25,9 @@ module caesar_fraction_module
   public :: is_int
   public :: modulo
   public :: abs
+  public :: exp_2pii
+  public :: cos_2pi
+  public :: sin_2pi
   
   !> Stores a fraction in exact representation.
   type, extends(Stringable) :: IntFraction
@@ -414,6 +417,31 @@ module caesar_fraction_module
     impure elemental module function abs_IntFraction(this) result(output) 
       type(IntFraction), intent(in) :: this
       type(IntFraction)             :: output
+    end function
+  end interface
+  
+  interface exp_2pii
+    !> Returns `exp(2*pi*i*input)`.
+    impure elemental module function exp_2pii_IntFraction(input) &
+       & result(output) 
+      type(IntFraction), intent(in) :: input
+      complex(dp)                   :: output
+    end function
+  end interface
+  
+  interface cos_2pi
+    !> Returns `cos(2*pi*input)`.
+    impure elemental module function cos_2pi_IntFraction(input) result(output) 
+      type(IntFraction), intent(in) :: input
+      real(dp)                      :: output
+    end function
+  end interface
+  
+  interface sin_2pi
+    !> Returns `sin(2*pi*input)`.
+    impure elemental module function sin_2pi_IntFraction(input) result(output) 
+      type(IntFraction), intent(in) :: input
+      real(dp)                      :: output
     end function
   end interface
   

@@ -462,4 +462,398 @@ subroutine test_transpose()
      & == mat([((frac(i+5*j,1),j=0,1),i=1,5)],[5,2])
   @assertTrue(check)
 end subroutine
+
+@test
+subroutine test_invert()
+  type :: TestCase
+    type(IntMatrix)      :: input
+    type(FractionMatrix) :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(FractionMatrix) :: output
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( mat( [1,0,0,                               &
+               &                 0,1,0,                               &
+               &                 0,0,1],                              &
+               &                [3,3]    ),                           &
+               &           mat( [frac(1,1),frac(0,1),frac(0,1),       &
+               &                 frac(0,1),frac(1,1),frac(0,1),       &
+               &                 frac(0,1),frac(0,1),frac(1,1)],      &
+               &                [3,3]                            ) ), &
+               & TestCase( mat( [0,2,3,                              &
+               &                 -1,0,1,                             &
+               &                 4,0,0],                             &
+               &                [3,3]    ),                          &
+               &           mat( [frac(0,1),frac(0,1),frac(1,4),      &
+               &                 frac(1,2),frac(-3,2),frac(-3,8),    &
+               &                 frac(0,1),frac(1,1),frac(1,4)],     &
+               &                [3,3]                            ) ) ]
+  
+  do i=1,size(test_cases)
+    associate( input    => test_cases(i)%input, &
+             & expected => test_cases(i)%output )
+      output = mat(invert(int(input)))
+      message = [ str('Input:'),    &
+                & str(input),       &
+                & str('Output:'),   &
+                & str(output),      &
+                & str('Expected:'), &
+                & str(expected)     ]
+      @assertTrue(output==expected, char(message))
+      
+      output = invert(input)
+      message = [ str('Input:'),    &
+                & str(input),       &
+                & str('Output:'),   &
+                & str(output),      &
+                & str('Expected:'), &
+                & str(expected)     ]
+      @assertTrue(output==expected, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_algebra()
+  type(IntFraction),    allocatable :: scalars(:)
+  type(FractionVector), allocatable :: vectors(:)
+  type(FractionMatrix), allocatable :: matrices(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  scalars = [ frac(0,1), &
+            & frac(1,1), &
+            & frac(3,2), &
+            & frac(-4,5) ]
+  
+  vectors = [ vec([IntFraction::]),                  &
+            & vec([frac(0,1)]),                      &
+            & vec([frac(3,2)]),                      &
+            & vec([frac(1,2),frac(3,4),frac(-5,2)]), &
+            & vec([frac(0,1),frac(-1,2),frac(10,1)]) ]
+  
+  matrices = [ mat( [IntFraction::],                     &
+             &      [0,0]            ),                  &
+             & mat( [IntFraction::],                     &
+             &      [3,0]            ),                  &
+             & mat( [IntFraction::],                     &
+             &      [0,3]            ),                  &
+             & mat( [frac(0,1)],                         &
+             &      [1,1]        ),                      &
+             & mat( [frac(2,5)],                         &
+             &      [1,1]        ),                      &
+             & mat( [frac(0,1),frac(5,1),frac(-3,7)],    &
+             &      [1,3]                             ), &
+             & mat( [frac(3,2),                          &
+             &       frac(1,4),                          &
+             &       frac(-9,7)],                        &
+             &      [3,1]         ),                     &
+             & mat( [frac(2,7),frac(-8,3),frac(0,1),     &
+             &       frac(2,5),frac(0,1),frac(-3,7),     &
+             &       frac(-5,7),frac(4,7),frac(3,2)],    &
+             &      [3,3]                             )  ]
+  
+  do i=1,size(vectors)
+    message = [ str('Vector:'), &
+              & str(vectors(i)) ]
+    check = sum_squares(dblevec(-vectors(i)+vectors(i)))<1e-10_dp
+    @assertTrue(check, char(message))
+    
+    do j=1,size(scalars)
+      associate( vector => vectors(i), &
+               & scalar => scalars(j)  )
+        message = [ str('Vector:'), &
+                  & str(vector),    &
+                  & str('Scalar:'), &
+                  & str(scalar)     ]
+        
+        check = sum_squares( dblevec(vector*scalar)       &
+                         & - dblevec(vector)*dble(scalar) )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = sum_squares( dblevec(vector*int(scalar))       &
+                         & - dblevec(vector)*dble(int(scalar)) )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = sum_squares( dblevec(scalar*vector)       &
+                         & - dble(scalar)*dblevec(vector) )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = sum_squares( dblevec(int(scalar)*vector)       &
+                         & - dble(int(scalar))*dblevec(vector) )<1e-10_dp
+        @assertTrue(check, char(message))
+      end associate
+    enddo
+    
+    do j=1,size(vectors)
+      associate( lhs => vectors(i), &
+               & rhs => vectors(j)  )
+        message = [ str('lhs:'), &
+                  & str(lhs),    &
+                  & str('rhs:'), &
+                  & str(rhs)     ]
+        
+        if (size(lhs)==size(rhs)) then
+          check = sum_squares( dblevec(lhs+rhs)            &
+                           & - (dblevec(lhs)+dblevec(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(lhs+intvec(rhs))    &
+                           & - (dblevec(lhs)+intvec(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(intvec(lhs)+rhs)   &
+                           & - (intvec(lhs)+dblevec(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(lhs-rhs)            &
+                           & - (dblevec(lhs)-dblevec(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(lhs-intvec(rhs))    &
+                           & - (dblevec(lhs)-intvec(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(intvec(lhs)-rhs)   &
+                           & - (intvec(lhs)-dblevec(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = dble(lhs*rhs)               &
+              & - (dblevec(lhs)*dblevec(rhs)) &
+              & < 1e-10_dp
+          @assertTrue(check, char(message))
+          check = dble(lhs*intvec(rhs))      &
+              & - (dblevec(lhs)*intvec(rhs)) &
+              & < 1e-10_dp
+          @assertTrue(check, char(message))
+          check = dble(intvec(lhs)*rhs)      &
+              & - (intvec(lhs)*dblevec(rhs)) &
+              & < 1e-10_dp
+          @assertTrue(check, char(message))
+        endif
+      end associate
+    enddo
+    
+    do j=1,size(matrices)
+      associate( vector => vectors(i), &
+               & matrix => matrices(j) )
+        message = [ str('Vector:'), &
+                  & str(vector),    &
+                  & str('Matrix:'), &
+                  & str(matrix)     ]
+          
+        if (size(vector)==size(matrix,1)) then
+          check = sum_squares( dblevec(vector*matrix)            &
+                           & - (dblevec(vector)*dblemat(matrix)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(vector*intmat(matrix))    &
+                           & - (dblevec(vector)*intmat(matrix)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(intvec(vector)*matrix)   &
+                           & - (intvec(vector)*dblemat(matrix)) )<1e-10_dp
+          @assertTrue(check, char(message))
+        endif
+        
+        if (size(matrix,2)==size(vector)) then
+          check = sum_squares( dblevec(matrix*vector)            &
+                           & - (dblemat(matrix)*dblevec(vector)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(matrix*intvec(vector))    &
+                           & - (dblemat(matrix)*intvec(vector)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblevec(intmat(matrix)*vector)   &
+                           & - (intmat(matrix)*dblevec(vector)) )<1e-10_dp
+          @assertTrue(check, char(message))
+        endif
+      end associate
+    enddo
+  enddo
+  
+  do i=1,size(matrices)
+    message = [ str('Matrix:'),  &
+              & str(matrices(i)) ]
+    check = sum_squares(dblemat(-matrices(i)+matrices(i)))<1e-10_dp
+    @assertTrue(check, char(message))
+    
+    do j=1,size(scalars)
+      associate( matrix => matrices(i), &
+               & scalar => scalars(j)   )
+        message = [ str('Matrix:'), &
+                  & str(matrix),    &
+                  & str('Scalar:'), &
+                  & str(scalar)     ]
+        
+        check = sum_squares( dblemat(matrix*scalar)       &
+                         & - dblemat(matrix)*dble(scalar) )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = sum_squares( dblemat(matrix*int(scalar))       &
+                         & - dblemat(matrix)*dble(int(scalar)) )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = sum_squares( dblemat(scalar*matrix)       &
+                         & - dble(scalar)*dblemat(matrix) )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = sum_squares( dblemat(int(scalar)*matrix)       &
+                         & - dble(int(scalar))*dblemat(matrix) )<1e-10_dp
+        @assertTrue(check, char(message))
+      end associate
+    enddo
+    
+    do j=1,size(matrices)
+      associate( lhs => matrices(i), &
+               & rhs => matrices(j)  )
+        message = [ str('lhs:'), &
+                  & str(lhs),    &
+                  & str('rhs:'), &
+                  & str(rhs)     ]
+        
+        if (size(lhs,1)==size(rhs,1) .and. size(lhs,2)==size(rhs,2)) then
+          check = sum_squares( dblemat(lhs+rhs)            &
+                           & - (dblemat(lhs)+dblemat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblemat(lhs+intmat(rhs))    &
+                           & - (dblemat(lhs)+intmat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblemat(intmat(lhs)+rhs)   &
+                           & - (intmat(lhs)+dblemat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblemat(lhs-rhs)            &
+                           & - (dblemat(lhs)-dblemat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblemat(lhs-intmat(rhs))    &
+                           & - (dblemat(lhs)-intmat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblemat(intmat(lhs)-rhs)   &
+                           & - (intmat(lhs)-dblemat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+        endif
+        
+        if (size(lhs,2)==size(rhs,1)) then
+          check = sum_squares( dblemat(lhs*rhs)            &
+                           & - (dblemat(lhs)*dblemat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblemat(lhs*intmat(rhs))    &
+                           & - (dblemat(lhs)*intmat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+          check = sum_squares( dblemat(intmat(lhs)*rhs)   &
+                           & - (intmat(lhs)*dblemat(rhs)) )<1e-10_dp
+          @assertTrue(check, char(message))
+        endif
+      end associate
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_sum_FractionVector()
+  logical :: check
+  
+  check = sum([vec([IntFraction::])])==vec([IntFraction::])
+  @assertTrue(check)
+  check = sum([vec([frac(0,1)])])==vec([frac(0,1)])
+  @assertTrue(check)
+  check = sum([vec([frac(1,1)]),vec([frac(2,1)]),vec([frac(3,1)])]) &
+     & == vec([frac(6,1)])
+  @assertTrue(check)
+  check = sum([vec([frac(1,3),frac(2,3)]),vec([frac(1,2),frac(-1,3)])]) &
+     & == vec([frac(5,6),frac(1,3)])
+  @assertTrue(check)
+end subroutine
+
+@test
+subroutine test_sum_FractionMatrix()
+  logical :: check
+  integer :: i
+  
+  @assertTrue(sum([mat([IntFraction::],[0,0])])==mat([IntFraction::],[0,0]))
+  @assertTrue(sum([mat([frac(0,1)],[1,1])])==mat([frac(0,1)],[1,1]))
+  check = sum([(mat([frac(i,1),frac(0,1),              &
+     &               frac(i,2),frac(-1,i)],            &
+     &              [2,2]                   ),i=1,3)]) &
+     & == mat([frac(6,1),frac(0,1),                    &
+     &         frac(3,1),frac(-11,6)],                 &
+     &        [2,2]                    )
+  @assertTrue(check)
+end subroutine
+
+! Tests conversions to and from string.
+@test
+subroutine test_io_FractionVector()
+  type :: TestCase
+    type(FractionVector) :: vector
+    type(String)         :: line
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String) :: message
+  
+  integer :: i
+  
+  test_cases = [ TestCase( vec([IntFraction::]),          &
+               &           str('')               ),       &
+               & TestCase( vec([frac(0,1)]),              &
+               &           str(' 0')         ),           &
+               & TestCase( vec([frac(-2,3)]),             &
+               &           str('-2/3')        ),          &
+               & TestCase( vec([frac(1,2),frac(0,1)]),    &
+               &           str(' 1/2  0')              ), &
+               & TestCase( vec([frac(3,2),frac(-1,6)]),   &
+               &           str(' 3/2 -1/6')             ) ]
+  
+  do i=1,size(test_cases)
+    associate( vector => test_cases(i)%vector, &
+             & line   => test_cases(i)%line    )
+      message = 'Vector: '//line
+      
+      @assertTrue(FractionVector(line)==vector, char(message))
+      @assertTrue(str(vector)==line, char(message))
+    end associate
+  enddo
+end subroutine
+
+! Tests conversions to and from string.
+@test
+subroutine test_io_FractionMatrix()
+  type :: TestCase
+    type(FractionMatrix)       :: matrix
+    type(String), allocatable  :: lines(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: output(:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( mat( [IntFraction::],             &
+               &                [0,0]            ),          &
+               &           [String::]               ),       &
+               & TestCase( mat( [frac(0,1)],                 &
+               &                [1,1]        ),              &
+               &           [str(' 0')]          ),           &
+               & TestCase( mat( [frac(-1,2)],                &
+               &                [1,1]        ),              &
+               &           [str('-1/2')]          ),         &
+               & TestCase( mat( [frac(0,1),frac(1,2),        &
+               &                 frac(5,3),frac(-3,7)],      &
+               &                [2,2]                   ),   &
+               &           [ str(' 0  1/2'),                 &
+               &             str(' 5/3 -3/7')]             ) ]
+  
+  do i=1,size(test_cases)
+    associate( matrix => test_cases(i)%matrix, &
+             & lines  => test_cases(i)%lines   )
+      message = [ str('Matrix: '), &
+                & lines            ]
+      
+      @assertTrue(FractionMatrix(lines)==matrix, char(message))
+      output = str(matrix)
+      @assertTrue(size(output)==size(lines), char(message))
+      @assertTrue(all(output==lines), char(message))
+    end associate
+  enddo
+end subroutine
 end module

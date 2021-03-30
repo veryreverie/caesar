@@ -603,18 +603,6 @@ module procedure sum_FractionMatrix
   enddo
 end procedure
 
-module procedure exp_2pii_IntFraction
-  output = exp_2pii(dble(input))
-end procedure
-
-module procedure cos_2pi_IntFraction
-  output = cos_2pi(dble(input))
-end procedure
-
-module procedure sin_2pi_IntFraction
-  output = sin_2pi(dble(input))
-end procedure
-
 module procedure read_FractionVector
   select type(this); type is(FractionVector)
     this = vec(frac(split_line(input)))

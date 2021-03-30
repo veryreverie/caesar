@@ -5,7 +5,9 @@ contains
 module procedure setup_anharmonic_mode
   output%mode_name = 'setup_anharmonic'
   output%description = 'Sets up anharmonic calculations. Should be run after &
-     &calculate_normal_modes.'
+     &calculate_normal_modes. Several arguments are dependent on the details &
+     &of the vibrational potential; this potential can be investigated using &
+     &map_potential.'
   output%keywords = [                                                         &
   & KeywordData( 'harmonic_path',                                             &
   &              'harmonic_path is the path to the directory where harmonic &
@@ -24,38 +26,49 @@ module procedure setup_anharmonic_mode
   &              default_value='polynomial'),                                 &
   & KeywordData( 'maximum_coupling_order',                                    &
   &              'maximum_coupling_order is the maximum number of degenerate &
-  &subspaces which may be coupled together. Must be at least 1.'),            &
+  &subspaces which may be coupled together. Must be at least 1. This &
+  &parameter should be converged, although 1 will often be sufficient.', &
+  &              default_value='1'),                                          &
   & KeywordData( 'potential_expansion_order',                                 &
   &              'potential_expansion_order is the order up to which the &
   &potential is expanded. e.g. if potential_expansion_order=4 then terms up &
   &to and including u^4 are included. Must be at least 2, and at least as &
-  &large as maximum_coupling_order.'),                                        &
+  &large as maximum_coupling_order. This parameter should be converged, &
+  &although 4 will often be sufficient.',                                     &
+  &              default_value='4'),                                          &
   & KeywordData( 'vscf_basis_functions_only',                                 &
   &              'vscf_basis_functions_only specifies that the potential will &
-  &only be expanded in terms of basis functions which are relevant to vscf.', &
+  &only be expanded in terms of basis functions which are relevant to vscf. &
+  &Non-vscf basis functions only affect anharmonic interpolation, and should &
+  &usually be safe to neglect without overly affecting accuracy.',            &
   &              default_value='true'),                                       &
-  & KeywordData( 'maximum_displacement',                                      &
-  &              'maximum_displacement, u_max, is the largest distance any &
-  &sampling point will be from the equilibrium position. maximum_displacement &
-  &should be given in Bohr. Due to the use of mass-reduced co-ordinates, in &
-  &systems containing different elements modes with higher contributions from &
-  &heavier atoms will be displaced less far than this, by a factor of &
-  &sqrt(m_min/m), where m is the mass of the element and m_min is the minimum &
-  &atomic mass in the structure.'),                                           &
   & KeywordData( 'max_energy_of_displacement',                                &
-  &              'max_energy_of_displacement, E_max is the energy of the &
-  &harmonic potential up to which the anharmonic potential is sampled. A mode &
-  &with harmonic frequency w and effective mass m will be displaced up to &
-  &0.5*m*(wu)^2=E_max, unless this would lead to u>u_max. This is equivalent &
-  &to E_max = 0.5 * m_min * (w_max*u_max)^2. E_max should be given in &
+  &              'max_energy_of_displacement, E_max, and &
+  &maximum_displacement, u_max, define how far the system is displaced along &
+  &each mode when sampling the anharmonic potential. The displacement u along &
+  &each mode is bounded by u<u_max and V(u)<E_max, where V is the harmonic &
+  &potential, V(u)=0.5*m*(wu)^2, where w is the harmonic frequency of the &
+  &mode and m is the effective mass of the mode. E_max and u_max should be &
+  &chosen such that the potential is a bounded well, where the boundary &
+  &height (the difference between the potential energy at the boundary and &
+  &the minimum of the potential) is significantly larger than the maximum &
+  &temperature plus the zero-point energy per mode. E_max should be given in &
   &Hartree.',                                                                 &
   &              exclusive_with=[str('frequency_of_max_displacement')]),      &
+  & KeywordData( 'maximum_displacement',                                      &
+  &              'maximum_displacement, u_max, and &
+  &max_energy_of_displacement, E_max, define how far the system is displaced &
+  &along each mode when sampling the anharmonic potential. The displacement u &
+  &along each mode is bounded by u<u_max and V(u)<E_max, where V is the &
+  &harmonic potential, V(u)=0.5*m*(wu)^2, where w is the harmonic frequency &
+  &of the mode and m is the effective mass of the mode. E_max and u_max &
+  &should be chosen such that the potential is a bounded well, where the &
+  &boundary height (the difference between the potential energy at the &
+  &boundary and the minimum of the potential) is significantly larger than &
+  &the maximum temperature plus the zero-point energy per mode. u_max should &
+  &be given in Bohr.'),                                                       &
   & KeywordData( 'frequency_of_max_displacement',                             &
-  &              'frequency_of_max_displacement is the frequency, w_min, at &
-  &which maximum displacement happens. Displacement along modes with w>w_min &
-  &is scaled by sqrt(w_min/w), and displacement along modes with w<w_min &
-  &is unscaled. This is equivalent to E_max = 0.5 * m_min * (w_max*u_max)^2. &
-  &w_min should be given in Hartree.',                                        &
+  &              'frequency_of_max_displacement is deprecated.',              &
   &              exclusive_with=[str('max_energy_of_displacement')]),         &
   & KeywordData( 'use_forces',                                                &
   &              'use_forces specifies whether or not each single-point &
@@ -71,7 +84,10 @@ module procedure setup_anharmonic_mode
   &mass-weighted co-ordinates, in systems containing different elements &
   &forces along modes with higher contributions from heavier elements will &
   &be weighted less than this. Increasing energy_to_force_ratio causes the &
-  &fit to focus more on the forces and less on the energies.'),               &
+  &fit to focus more on the forces and less on the energies. If the potential &
+  &fit is good, changing the value of energy_to_force_ratio should have &
+  &little impact on the potential fit.',                                      &
+  &              default_value='1'),                                          &
   & KeywordData( 'use_hessians',                                              &
   &              'use_hessians specifies whether or not each single-point &
   &calculation will produce a Hessian (the second derivatives of the &

@@ -33,9 +33,6 @@ module caesar_fraction_algebra_module
   public :: operator(*)
   public :: operator(/)
   public :: sum
-  public :: exp_2pii
-  public :: cos_2pi
-  public :: sin_2pi
   
   !> A vector whose elements are of type [[IntFraction(type)]].
   type, extends(Stringable) :: FractionVector
@@ -300,12 +297,15 @@ module caesar_fraction_algebra_module
   end interface
   
   interface invert
-    ! Inversion of a 3x3 integer matrix.
+    !> Returns the inverse of a 3x3 `integer` matrix,
+    !>    as a 3x3 [[IntFraction(type)]] matrix.
     module function invert_integers(input) result(output) 
       integer, intent(in) :: input(:,:)
       type(IntFraction)   :: output(3,3)
     end function
   
+    !> Returns the inverse of a 3x3 [[IntMatrix(type)]],
+    !>    as a 3x3 [[FractionMatrix(type)]].
     module function invert_IntMatrix(input) result(output) 
       type(IntMatrix), intent(in) :: input
       type(FractionMatrix)        :: output
@@ -313,7 +313,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface operator(+)
-    ! Linear algebra.
+    !> Vector addition.
     impure elemental module function add_FractionVector_FractionVector(this, &
        & that) result(output) 
       type(FractionVector), intent(in) :: this
@@ -321,6 +321,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Vector addition.
     impure elemental module function add_FractionVector_IntVector(this,that) &
        & result(output) 
       type(IntVector),      intent(in) :: this
@@ -328,6 +329,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Vector addition.
     impure elemental module function add_IntVector_FractionVector(this,that) &
        & result(output) 
       type(FractionVector), intent(in) :: this
@@ -335,6 +337,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Matrix addition.
     impure elemental module function add_FractionMatrix_FractionMatrix(this, &
        & that) result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -342,6 +345,7 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
+    !> Matrix addition.
     impure elemental module function add_FractionMatrix_IntMatrix(this,that) &
        & result(output) 
       type(IntMatrix),      intent(in) :: this
@@ -349,6 +353,7 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
+    !> Matrix addition.
     impure elemental module function add_IntMatrix_FractionMatrix(this,that) &
        & result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -358,24 +363,29 @@ module caesar_fraction_algebra_module
   end interface
   
   interface operator(-)
+    !> Negative of a vector.
     impure elemental module function negative_FractionVector(this) &
        & result(output) 
       type(FractionVector), intent(in) :: this
       type(FractionVector)             :: output
     end function
   
+    !> Negative of a matrix.
     impure elemental module function negative_FractionMatrix(this) &
        & result(output) 
       type(FractionMatrix), intent(in) :: this
       type(FractionMatrix)             :: output
     end function
   
-    impure elemental module function subtract_FractionVector_FractionVector(this,that) result(output) 
+    !> Vector subtraction.
+    impure elemental module function subtract_FractionVector_FractionVector( &
+       & this,that) result(output) 
       type(FractionVector), intent(in) :: this
       type(FractionVector), intent(in) :: that
       type(FractionVector)             :: output
     end function
   
+    !> Vector subtraction.
     impure elemental module function subtract_FractionVector_IntVector(this, &
        & that) result(output) 
       type(FractionVector), intent(in) :: this
@@ -383,6 +393,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Vector subtraction.
     impure elemental module function subtract_IntVector_FractionVector(this, &
        & that) result(output) 
       type(IntVector),      intent(in) :: this
@@ -390,12 +401,15 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
-    impure elemental module function subtract_FractionMatrix_FractionMatrix(this,that) result(output) 
+    !> Matrix subtraction.
+    impure elemental module function subtract_FractionMatrix_FractionMatrix( &
+       & this,that) result(output) 
       type(FractionMatrix), intent(in) :: this
       type(FractionMatrix), intent(in) :: that
       type(FractionMatrix)             :: output
     end function
   
+    !> Matrix subtraction.
     impure elemental module function subtract_FractionMatrix_IntMatrix(this, &
        & that) result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -403,6 +417,7 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
+    !> Matrix subtraction.
     impure elemental module function subtract_IntMatrix_FractionMatrix(this, &
        & that) result(output) 
       type(IntMatrix),      intent(in) :: this
@@ -412,6 +427,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface operator(*)
+    !> Multiplication of a vector by a scalar.
     impure elemental module function multiply_FractionVector_integer(this, &
        & that) result(output) 
       type(FractionVector), intent(in) :: this
@@ -419,6 +435,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Multiplication of a vector by a scalar.
     impure elemental module function multiply_integer_FractionVector(this, &
        & that) result(output) 
       integer,              intent(in) :: this
@@ -426,18 +443,23 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
-    impure elemental module function multiply_FractionVector_IntFraction(this,that) result(output) 
+    !> Multiplication of a vector by a scalar.
+    impure elemental module function multiply_FractionVector_IntFraction( &
+       & this,that) result(output) 
       type(FractionVector), intent(in) :: this
       type(IntFraction),    intent(in) :: that
       type(FractionVector)             :: output
     end function
   
-    impure elemental module function multiply_IntFraction_FractionVector(this,that) result(output) 
+    !> Multiplication of a vector by a scalar.
+    impure elemental module function multiply_IntFraction_FractionVector( &
+       & this,that) result(output) 
       type(IntFraction),    intent(in) :: this
       type(FractionVector), intent(in) :: that
       type(FractionVector)             :: output
     end function
   
+    !> Multiplication of a matrix by a scalar.
     impure elemental module function multiply_FractionMatrix_integer(this, &
        & that) result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -445,6 +467,7 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
+    !> Multiplication of a matrix by a scalar.
     impure elemental module function multiply_integer_FractionMatrix(this, &
        & that) result(output) 
       integer,              intent(in) :: this
@@ -452,18 +475,23 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
-    impure elemental module function multiply_FractionMatrix_IntFraction(this,that) result(output) 
+    !> Multiplication of a matrix by a scalar.
+    impure elemental module function multiply_FractionMatrix_IntFraction( &
+       & this,that) result(output) 
       type(FractionMatrix), intent(in) :: this
       type(IntFraction),    intent(in) :: that
       type(FractionMatrix)             :: output
     end function
   
-    impure elemental module function multiply_IntFraction_FractionMatrix(this,that) result(output) 
+    !> Multiplication of a matrix by a scalar.
+    impure elemental module function multiply_IntFraction_FractionMatrix( &
+       & this,that) result(output) 
       type(IntFraction),    intent(in) :: this
       type(FractionMatrix), intent(in) :: that
       type(FractionMatrix)             :: output
     end function
   
+    !> Vector-vector dot product.
     impure elemental module function dot_FractionVector_FractionVector(this, &
        & that) result(output) 
       type(FractionVector), intent(in) :: this
@@ -471,6 +499,7 @@ module caesar_fraction_algebra_module
       type(IntFraction)                :: output
     end function
   
+    !> Vector-vector dot product.
     impure elemental module function dot_FractionVector_IntVector(this,that) &
        & result(output) 
       type(FractionVector), intent(in) :: this
@@ -478,6 +507,7 @@ module caesar_fraction_algebra_module
       type(IntFraction)                :: output
     end function
   
+    !> Vector-vector dot product.
     impure elemental module function dot_IntVector_FractionVector(this,that) &
        & result(output) 
       type(IntVector),      intent(in) :: this
@@ -485,6 +515,7 @@ module caesar_fraction_algebra_module
       type(IntFraction)                :: output
     end function
   
+    !> Matrix-vector dot product.
     impure elemental module function dot_FractionMatrix_FractionVector(this, &
        & that) result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -492,6 +523,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Matrix-vector dot product.
     impure elemental module function dot_FractionMatrix_IntVector(this,that) &
        & result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -499,6 +531,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Matrix-vector dot product.
     impure elemental module function dot_IntMatrix_FractionVector(this,that) &
        & result(output) 
       type(IntMatrix),      intent(in) :: this
@@ -506,6 +539,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Vector-matrix dot product.
     impure elemental module function dot_FractionVector_FractionMatrix(this, &
        & that) result(output) 
       type(FractionVector), intent(in) :: this
@@ -513,6 +547,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Vector-matrix dot product.
     impure elemental module function dot_FractionVector_IntMatrix(this,that) &
        & result(output) 
       type(FractionVector), intent(in) :: this
@@ -520,6 +555,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Vector-matrix dot product.
     impure elemental module function dot_IntVector_FractionMatrix(this,that) &
        & result(output) 
       type(IntVector),      intent(in) :: this
@@ -527,6 +563,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Matrix-matrix dot product.
     impure elemental module function dot_FractionMatrix_FractionMatrix(this, &
        & that) result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -534,6 +571,7 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
+    !> Matrix-matrix dot product.
     impure elemental module function dot_FractionMatrix_IntMatrix(this,that) &
        & result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -541,6 +579,7 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
+    !> Matrix-matrix dot product.
     impure elemental module function dot_IntMatrix_FractionMatrix(this,that) &
        & result(output) 
       type(IntMatrix),      intent(in) :: this
@@ -550,6 +589,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface operator(/)
+    !> Division of a vector by a scalar.
     impure elemental module function divide_FractionVector_integer(this,that) &
        & result(output) 
       type(FractionVector), intent(in) :: this
@@ -557,6 +597,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Division of a vector by a scalar.
     impure elemental module function divide_FractionVector_IntFraction(this, &
        & that) result(output) 
       type(FractionVector), intent(in) :: this
@@ -564,6 +605,7 @@ module caesar_fraction_algebra_module
       type(FractionVector)             :: output
     end function
   
+    !> Division of a matrix by a scalar.
     impure elemental module function divide_FractionMatrix_integer(this,that) &
        & result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -571,6 +613,7 @@ module caesar_fraction_algebra_module
       type(FractionMatrix)             :: output
     end function
   
+    !> Division of a matrix by a scalar.
     impure elemental module function divide_FractionMatrix_IntFraction(this, &
        & that) result(output) 
       type(FractionMatrix), intent(in) :: this
@@ -580,49 +623,21 @@ module caesar_fraction_algebra_module
   end interface
   
   interface sum
-    ! ----------------------------------------------------------------------
-    ! Sum.
-    ! ----------------------------------------------------------------------
+    !> Returns the sum of a [[FractionVector(type)]] array.
     module function sum_FractionVector(input) result(output) 
       type(FractionVector), intent(in) :: input(:)
       type(FractionVector)             :: output
     end function
   
+    !> Returns the sum of a [[FractionMatrix(type)]] array.
     module function sum_FractionMatrix(input) result(output) 
       type(FractionMatrix), intent(in) :: input(:)
       type(FractionMatrix)             :: output
     end function
   end interface
   
-  interface exp_2pii
-    ! ----------------------------------------------------------------------
-    ! exp(2*pi*i*input), cos(2*pi*input) and sin(2*pi*input).
-    ! ----------------------------------------------------------------------
-    impure elemental module function exp_2pii_IntFraction(input) &
-       & result(output) 
-      type(IntFraction), intent(in) :: input
-      complex(dp)                   :: output
-    end function
-  end interface
-  
-  interface cos_2pi
-    impure elemental module function cos_2pi_IntFraction(input) result(output) 
-      type(IntFraction), intent(in) :: input
-      real(dp)                      :: output
-    end function
-  end interface
-  
-  interface sin_2pi
-    impure elemental module function sin_2pi_IntFraction(input) result(output) 
-      type(IntFraction), intent(in) :: input
-      real(dp)                      :: output
-    end function
-  end interface
-  
   interface
-    ! ----------------------------------------------------------------------
-    ! I/O.
-    ! ----------------------------------------------------------------------
+    !> Conversion from [[String(type)]] to [[FractionVector(type)]].
     module subroutine read_FractionVector(this,input) 
       class(FractionVector), intent(out) :: this
       type(String),          intent(in)  :: input
@@ -630,6 +645,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface
+    !> Conversion from [[FractionVector(type)]] to [[String(type)]].
     module function write_FractionVector(this) result(output) 
       class(FractionVector), intent(in) :: this
       type(String)                      :: output
@@ -637,6 +653,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface FractionVector
+    !> Conversion from [[String(type)]] to [[FractionVector(type)]].
     impure elemental module function new_FractionVector_String(input) &
        & result(this) 
       type(String), intent(in) :: input
@@ -645,6 +662,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface
+    !> Conversion from [[String(type)]] array to [[FractionVector(type)]].
     module subroutine read_FractionMatrix(this,input) 
       class(FractionMatrix), intent(out) :: this
       type(String),          intent(in)  :: input(:)
@@ -652,6 +670,7 @@ module caesar_fraction_algebra_module
   end interface
   
   interface
+    !> Conversion from [[FractionVector(type)]] to [[String(type)]] array.
     module function write_FractionMatrix(this) result(output) 
       class(FractionMatrix), intent(in) :: this
       type(String), allocatable         :: output(:)
@@ -659,11 +678,13 @@ module caesar_fraction_algebra_module
   end interface
   
   interface FractionMatrix
+    !> Conversion from [[String(type)]] array to [[FractionVector(type)]].
     module function new_FractionMatrix_Strings(input) result(this) 
       type(String), intent(in) :: input(:)
       type(FractionMatrix)     :: this
     end function
   
+    !> Conversion from [[StringArray(type)]] to [[FractionVector(type)]].
     impure elemental module function new_FractionMatrix_StringArray(input) &
        & result(this) 
       type(StringArray), intent(in) :: input

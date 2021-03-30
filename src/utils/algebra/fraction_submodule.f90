@@ -3,6 +3,12 @@ submodule (caesar_fraction_module) caesar_fraction_submodule
 contains
 
 module procedure new_IntFraction
+  if (denominator==0) then
+    call print_line(ERROR//': Trying to construct a fraction with a &
+       &denominator of 0.')
+    call err()
+  endif
+  
   this%n_ = numerator
   this%d_ = denominator
   call this%simplify()
@@ -187,6 +193,18 @@ end procedure
 
 module procedure abs_IntFraction
   output = IntFraction(abs(this%n_), this%d_)
+end procedure
+
+module procedure exp_2pii_IntFraction
+  output = exp_2pii(dble(input))
+end procedure
+
+module procedure cos_2pi_IntFraction
+  output = cos_2pi(dble(input))
+end procedure
+
+module procedure sin_2pi_IntFraction
+  output = sin_2pi(dble(input))
 end procedure
 
 module procedure read_IntFraction
