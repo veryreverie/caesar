@@ -4,4 +4,139 @@ module qr_decomposition_test
   use caesar_algebra_module
   implicit none
 contains
+
+@test
+subroutine test_qr_real()
+  type(RealMatrix), allocatable :: inputs(:)
+  
+  type(RealQRDecomposition) :: output
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l
+  
+  inputs = [ mat([real(dp)::],[0,0]),          &
+           & mat([real(dp)::],[0,5]),          &
+           & mat([real(dp)::],[5,0]),          &
+           & mat([0.0_dp],[1,1]),              &
+           & mat([1.0_dp],[1,1]),              &
+           & mat([(1.0_dp*i,i=1,5)],[1,5]),    &
+           & mat([(1.0_dp*i,i=1,5)],[5,1]),    &
+           & dblemat(make_identity_matrix(3)), &
+           & dblemat(make_identity_matrix(5)), &
+           & mat([1.0_dp,-3.0_dp,              &
+           &      2.0_dp,4.0_dp],              &
+           &     [2,2]            ),           &
+           & mat([1.0_dp,-3.0_dp,              &
+           &      1.0_dp,-3.0_dp],             &
+           &     [2,2]             ),          &
+           & mat([1.0_dp,-3.0_dp,              &
+           &      1.0_dp,-3.01_dp],            &
+           &     [2,2]              )          ]
+  
+  do i=1,size(inputs)
+    associate(input=>inputs(i))
+      do j=1,2
+        if (j==1) then
+          output = qr_decomposition(inputs(i))
+        elseif (j==2) then
+          output = qr_decomposition(dble(inputs(i)))
+        endif
+        
+        message = [ str('Input:'),      &
+                  & str(input),         &
+                  & str('Q:'),          &
+                  & str(mat(output%q)), &
+                  & str('R:'),          &
+                  & str(mat(output%r))  ]
+        
+        ! Check that Q.R=input.
+        check = sum_squares(mat(output%q)*mat(output%r)-input)<1e-10_dp
+        @assertTrue(check, char(message))
+        ! Check that Q is orthogonal.
+        check = sum_squares( mat(output%q)*transpose(mat(output%q))   &
+            &              - make_identity_matrix(size(output%q,1)) ) &
+            & < 1e-10_dp
+        @assertTrue(check, char(message))
+        ! Check that R is upper triangular.
+        do k=1,size(output%r,2)
+          do l=k+1,size(output%r,1)
+            check = abs(output%r(l,k))<1e-10_dp
+            @assertTrue(check, char(message))
+          enddo
+        enddo
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_qr_complex()
+  type(ComplexMatrix), allocatable :: inputs(:)
+  
+  type(ComplexQRDecomposition) :: output
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l
+  
+  inputs = [ mat([complex(dp)::],[0,0]),                &
+           & mat([complex(dp)::],[0,5]),                &
+           & mat([complex(dp)::],[5,0]),                &
+           & mat([(0.0_dp,0.0_dp)],[1,1]),              &
+           & mat([(1.0_dp,0.0_dp)],[1,1]),              &
+           & mat([(0.0_dp,1.0_dp)],[1,1]),              &
+           & mat([((1.0_dp,0.0_dp)*i,i=1,5)],[1,5]),    &
+           & mat([((1.0_dp,0.0_dp)*i,i=1,5)],[5,1]),    &
+           & cmplxmat(make_identity_matrix(3)),         &
+           & cmplxmat(make_identity_matrix(5)),         &
+           & mat([(1.0_dp,0.0_dp),(-3.0_dp,2.0_dp),     &
+           &      (2.0_dp,4.0_dp),(4.0_dp,-1.0_dp)],    &
+           &     [2,2]                               ), &
+           & mat([(1.0_dp,0.0_dp),(-3.0_dp,2.0_dp),     &
+           &      (1.0_dp,0.0_dp),(-3.0_dp,2.0_dp)],    &
+           &     [2,2]                               ), &
+           & mat([(1.0_dp,0.0_dp),(-3.0_dp,2.0_dp),     &
+           &      (1.0_dp,0.0_dp),(-3.01_dp,2.0_dp)],   &
+           &     [2,2]                                ) ]
+  
+  do i=1,size(inputs)
+    associate(input=>inputs(i))
+      do j=1,2
+        if (j==1) then
+          output = qr_decomposition(inputs(i))
+        elseif (j==2) then
+          output = qr_decomposition(cmplx(inputs(i)))
+        endif
+        
+        message = [ str('Input:'),      &
+                  & str(input),         &
+                  & str('Q:'),          &
+                  & str(mat(output%q)), &
+                  & str('R:'),          &
+                  & str(mat(output%r))  ]
+        
+        ! Check that Q.R=input.
+        check = sum_squares(mat(output%q)*mat(output%r)-input)<1e-10_dp
+        @assertTrue(check, char(message))
+        ! Check that Q is unitary.
+        check = sum_squares( mat(output%q)*hermitian(mat(output%q))   &
+            &              - make_identity_matrix(size(output%q,1)) ) &
+            & < 1e-10_dp
+        @assertTrue(check, char(message))
+        ! Check that R is upper triangular.
+        do k=1,size(output%r,2)
+          do l=k+1,size(output%r,1)
+            check = abs(output%r(l,k))<1e-10_dp
+            @assertTrue(check, char(message))
+          enddo
+        enddo
+      enddo
+    end associate
+  enddo
+end subroutine
 end module

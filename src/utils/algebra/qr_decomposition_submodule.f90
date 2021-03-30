@@ -21,6 +21,13 @@ module procedure qr_decomposition_reals
   
   m = size(input,1)
   n = size(input,2)
+  
+  if (m==0 .or. n==0) then
+    output%q = int(make_identity_matrix(m))
+    allocate(output%r(m,n), stat=ialloc); call err(ialloc)
+    return
+  endif
+  
   k = min(m,n)
   a = input
   lwork = max(1,n)
@@ -38,7 +45,7 @@ module procedure qr_decomposition_reals
              & lwork = -1,   &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: dgeqrf error code: '//info)
+    call print_line(ERROR//' in QR decomposition: dgeqrf error code: '//info)
     call err()
   endif
   lwork = nint(real(work(1)))
@@ -55,7 +62,7 @@ module procedure qr_decomposition_reals
              & lwork = lwork, &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: dgeqrf error code: '//info)
+    call print_line(ERROR//' in QR decomposition: dgeqrf error code: '//info)
     call err()
   endif
   
@@ -93,7 +100,7 @@ module procedure qr_decomposition_reals
              & lwork = -1,   &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: dorgqr error code: '//info)
+    call print_line(ERROR//' in QR decomposition: dorgqr error code: '//info)
     call err()
   endif
   lwork = nint(real(work(1)))
@@ -111,7 +118,7 @@ module procedure qr_decomposition_reals
              & lwork = lwork, &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: dorgqr error code: '//info)
+    call print_line(ERROR//' in QR decomposition: dorgqr error code: '//info)
     call err()
   endif
   
@@ -143,6 +150,13 @@ module procedure qr_decomposition_complexes
   
   m = size(input,1)
   n = size(input,2)
+  
+  if (m==0 .or. n==0) then
+    output%q = int(make_identity_matrix(m))
+    allocate(output%r(m,n), stat=ialloc); call err(ialloc)
+    return
+  endif
+  
   k = min(m,n)
   a = input
   lwork = max(1,n)
@@ -160,7 +174,7 @@ module procedure qr_decomposition_complexes
              & lwork = -1,   &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: zgeqrf error code: '//info)
+    call print_line(ERROR//' in QR decomposition: zgeqrf error code: '//info)
     call err()
   endif
   lwork = nint(real(work(1)))
@@ -177,7 +191,7 @@ module procedure qr_decomposition_complexes
              & lwork = lwork, &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: zgeqrf error code: '//info)
+    call print_line(ERROR//' in QR decomposition: zgeqrf error code: '//info)
     call err()
   endif
   
@@ -215,7 +229,7 @@ module procedure qr_decomposition_complexes
              & lwork = -1,   &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: zungqr error code: '//info)
+    call print_line(ERROR//' in QR decomposition: zungqr error code: '//info)
     call err()
   endif
   lwork = nint(real(work(1)))
@@ -233,7 +247,7 @@ module procedure qr_decomposition_complexes
              & lwork = lwork, &
              & info  = info)
   if (info /= 0) then
-    call print_line(ERROR//'in QR decomposition: zungqr error code: '//info)
+    call print_line(ERROR//' in QR decomposition: zungqr error code: '//info)
     call err()
   endif
   
@@ -244,29 +258,5 @@ end procedure
 
 module procedure qr_decomposition_ComplexMatrix
   output = qr_decomposition(cmplx(input))
-end procedure
-
-module procedure determinant_qr_reals
-  type(RealQRDecomposition) :: qr
-  
-  integer :: i
-  
-  if (size(input,1)/=size(input,2)) then
-    call print_line(ERROR//': trying to calculate the determinant of a &
-       &non-square matrix.')
-    call err()
-  endif
-  
-  qr = qr_decomposition(input)
-  
-  ! If matrix A is QR decomposed as A=QR, then the determinant of A is simply
-  !    the determinant of R (Q has determinant 1).
-  ! Since R is upper triangular, the determinant of R is just the product of
-  !    the entries on its leading diagonal.
-  output = product([(qr%r(i,i), i=1, size(qr%r,1))])
-end procedure
-
-module procedure determinant_qr_RealMatrix
-  output = determinant_qr(dble(input))
 end procedure
 end submodule
