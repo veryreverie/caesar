@@ -15,6 +15,13 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ----------------------------------------
+Purpose
+----------------------------------------
+Caesar calculates the vibrational free energy of periodic crystals, using the vibrational self-consistent field approximation.
+
+A description of what Caesar does and what it is for can be found at <https://e-cam.readthedocs.io/en/latest/Electronic-Structure-Modules/modules/caesar/readme.html>.
+
+----------------------------------------
 Installation
 ----------------------------------------
 To install Caesar, run:
@@ -71,30 +78,16 @@ For build systems where BLAS/LAPACK are bundled with the compiler and do not nee
    -DFIND_LAPACK:LOGICAL=false
 
 ----------------------------------------
-ARPACK
-----------------------------------------
-If requested, Caesar will look for libarpack.a (or libarpack.so etc.) on LIB.
-
-If multiple distributions are present, the first found on LIB will be used.
-
-This is deprecated functionality, as Caesar does not currently use ARPACK for anything.
-
-----------------------------------------
 Compiling without Spglib and BLAS/LAPACK
 ----------------------------------------
-It is possible to suppress the requirement for any of Spglib, BLAS/LAPACK and ARPACK, by setting LINK_TO_SPGLIB, LINK_TO_LAPACK or LINK_TO_ARPACK respectively to false, e.g. with the CMake command line arguments
+It is possible to suppress the dependency on Spglib or BLAS/LAPACK, by setting LINK_TO_SPGLIB or LINK_TO_LAPACK respectively to false, e.g. with the CMake command line arguments
 
    -DLINK_TO_SPGLIB:LOGICAL=false
    -DLINK_TO_LAPACK:LOGICAL=false
-   -DLINK_TO_ARPACK:LOGICAL=false
-
-N.B. ARPACK requires BLAS/LAPACK, so if LINK_TO_LAPACK is set to false then LINK_TO_ARPACK must also be set to false.
 
 Disabling spglib will disable symmetry finding, which is required for setup_harmonic.
 
 Disabling BLAS/LAPACK will disable linear algebra, which is required for most Caesar modes which are not prefixed with run_ or plot_.
-
-Disabling ARPACK will disable the Lanczos algorithm, which is not currently used by Caesar.
 
 The 'run' modes, run_harmonic and run_anharmonic, do not require spglib or BLAS/LAPACK, so not linking to either can be useful if compiling Caesar on a cluster where they are not available, with the intention of running setup and processing steps elsewhere.
 

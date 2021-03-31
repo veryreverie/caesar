@@ -1,7 +1,5 @@
-! ======================================================================
-! Routines for finding the eigenvalues and eigenvectors of Hermitian,
-!    symmetric and general matrices.
-! ======================================================================
+!> Provides routines for finding the eigenvalues and eigenvectors of Hermitian,
+!>    symmetric and general matrices.
 module caesar_hermitian_eigenstuff_module
   use caesar_foundations_module
   use caesar_io_module
@@ -24,19 +22,19 @@ module caesar_hermitian_eigenstuff_module
   public :: diagonalise_hermitian
   public :: diagonalise_complex
   
-  ! --------------------------------------------------
-  ! The eigen(values and vectors) of a matrix.
-  ! --------------------------------------------------
+  !> The eigenvalues and eigenvectors of a real symmetric matrix.
   type SymmetricEigenstuff
     real(dp)              :: eval
     real(dp), allocatable :: evec(:)
   end type
   
+  !> The eigenvalues and eigenvectors of a complex Hermitian matrix.
   type HermitianEigenstuff
     real(dp)                 :: eval
     complex(dp), allocatable :: evec(:)
   end type
   
+  !> The eigenvalues and eigenvectors of a general square complex matrix.
   type ComplexEigenstuff
     complex(dp)              :: eval
     complex(dp), allocatable :: left_evec(:)
@@ -44,15 +42,14 @@ module caesar_hermitian_eigenstuff_module
   end type
   
   interface diagonalise_symmetric
-    ! --------------------------------------------------
-    ! Calculates the eigenvalues and eigenvectors of a real, symmetric matrix.
-    ! --------------------------------------------------
+    !> Calculates the eigenvalues and eigenvectors of a real symmetric matrix.
     module function diagonalise_symmetric_reals(input,basis) result(output) 
       real(dp),         intent(in)           :: input(:,:)
       type(RealVector), intent(in), optional :: basis(:)
       type(SymmetricEigenstuff), allocatable :: output(:)
     end function
   
+    !> Calculates the eigenvalues and eigenvectors of a real symmetric matrix.
     module function diagonalise_symmetric_RealMatrix(input,basis) &
        & result(output) 
       type(RealMatrix), intent(in)           :: input
@@ -62,9 +59,8 @@ module caesar_hermitian_eigenstuff_module
   end interface
   
   interface diagonalise_hermitian
-    ! --------------------------------------------------
-    ! Calculates the eigenvalues and eigenvectors of a complex, Hermitian matrix.
-    ! --------------------------------------------------
+    !> Calculates the eigenvalues and eigenvectors of
+    !>    a complex Hermitian matrix.
     module function diagonalise_hermitian_complexes(input,basis) &
        & result(output) 
       complex(dp),         intent(in)           :: input(:,:)
@@ -72,6 +68,8 @@ module caesar_hermitian_eigenstuff_module
       type(HermitianEigenstuff), allocatable    :: output(:)
     end function
   
+    !> Calculates the eigenvalues and eigenvectors of
+    !>    a complex Hermitian matrix.
     module function diagonalise_hermitian_ComplexMatrix(input,basis) &
        & result(output) 
       type(ComplexMatrix), intent(in)           :: input
@@ -81,16 +79,16 @@ module caesar_hermitian_eigenstuff_module
   end interface
   
   interface diagonalise_complex
-    ! --------------------------------------------------
-    ! Calculates the eigenvalues and eigenvectors of
-    !    a general square complex matrix.
-    ! --------------------------------------------------
+    !> Calculates the eigenvalues and eigenvectors of
+    !>    a general square complex matrix.
     module function diagonalise_complex_complexes(input,basis) result(output) 
       complex(dp),         intent(in)           :: input(:,:)
       type(ComplexVector), intent(in), optional :: basis(:)
       type(ComplexEigenstuff), allocatable      :: output(:)
     end function
   
+    !> Calculates the eigenvalues and eigenvectors of
+    !>    a general square complex matrix.
     module function diagonalise_complex_ComplexMatrix(input,basis) &
        & result(output) 
       type(ComplexMatrix), intent(in)           :: input

@@ -4,4 +4,225 @@ module hermitian_eigenstuff_test
   use caesar_algebra_module
   implicit none
 contains
+
+@test
+subroutine test_diagonalise_symmetric()
+  type(RealMatrix), allocatable :: matrices(:)
+  
+  type(SymmetricEigenstuff), allocatable :: estuff(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l
+  
+  matrices = [ mat([real(dp)::],[0,0]) ,         &
+             & dblemat(zeroes(1,1)),             &
+             & dblemat(zeroes(3,3)),             &
+             & dblemat(make_identity_matrix(1)), &
+             & dblemat(make_identity_matrix(3)), &
+             & mat( [1.0_dp,1.0_dp,              &
+             &       1.0_dp,1.0_dp],             &
+             &      [2,2]            ),          &
+             & mat( [1.0_dp,1.1_dp,              &
+             &       1.1_dp,1.0_dp],             &
+             &      [2,2]            )           ]
+  
+  do i=1,size(matrices)
+    associate(matrix => matrices(i))
+      do j=1,2
+        if (j==1) then
+          estuff = diagonalise_symmetric(matrix)
+        else
+          estuff = diagonalise_symmetric(dble(matrix))
+        endif
+        
+        message = [ str('Matrix:'),    &
+                  & str(matrix),       &
+                  & str('Eigenstuff:') ]
+        do k=1,size(estuff)
+          message = [ message,                          &
+                    & 'Eigenvalue  : '//estuff(k)%eval, &
+                    & 'Eigenvector : '//estuff(k)%evec  ]
+        enddo
+        
+        ! Check the number of eigenvectors matches the size of the matrix.
+        @assertTrue(size(estuff)==size(matrix,1), char(message))
+        do k=1,size(estuff)
+          ! Check each eigenvector is normalised.
+          check = abs(l2_norm(estuff(k)%evec)-1)<1e-10_dp
+          @assertTrue(check, char(message))
+          ! Check each eigenvector is an eigenvector.
+          check = l2_norm( matrix*vec(estuff(k)%evec)           &
+              &          - estuff(k)%eval*vec(estuff(k)%evec) ) &
+              & < 1e-10_dp
+          @assertTrue(check, char(message))
+          do l=1,k-1
+            ! Check the eigenvectors are orthogonal.
+            check = abs(vec(estuff(k)%evec)*vec(estuff(l)%evec))<1e-10_dp
+            @assertTrue(check, char(message))
+          enddo
+        enddo
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_diagonalise_hermitian()
+  type(ComplexMatrix), allocatable :: matrices(:)
+  
+  type(HermitianEigenstuff), allocatable :: estuff(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l
+  
+  matrices = [ mat([complex(dp)::],[0,0]) ,               &
+             & cmplxmat(zeroes(1,1)),                     &
+             & cmplxmat(zeroes(3,3)),                     &
+             & cmplxmat(make_identity_matrix(1)),         &
+             & cmplxmat(make_identity_matrix(3)),         &
+             & mat( [(1.0_dp,0.0_dp),(1.0_dp,0.0_dp),     &
+             &       (1.0_dp,0.0_dp),(1.0_dp,0.0_dp)],    &
+             &      [2,2]                              ), &
+             & mat( [(1.0_dp,0.0_dp),(1.1_dp,0.0_dp),     &
+             &       (1.1_dp,0.0_dp),(1.0_dp,0.0_dp)],    &
+             &      [2,2]                              ), &
+             & mat( [(0.0_dp,0.0_dp),(0.0_dp,1.0_dp),     &
+             &       (0.0_dp,-1.0_dp),(0.0_dp,0.0_dp)],   &
+             &      [2,2]                              ), &
+             & mat( [(0.0_dp,0.0_dp),(1.0_dp,1.0_dp),     &
+             &       (1.0_dp,-1.0_dp),(0.0_dp,0.0_dp)],   &
+             &      [2,2]                              )  ]
+  
+  do i=1,size(matrices)
+    associate(matrix => matrices(i))
+      do j=1,2
+        if (j==1) then
+          estuff = diagonalise_hermitian(matrix)
+        else
+          estuff = diagonalise_hermitian(cmplx(matrix))
+        endif
+        
+        message = [ str('Matrix:'),    &
+                  & str(matrix),       &
+                  & str('Eigenstuff:') ]
+        do k=1,size(estuff)
+          message = [ message,                          &
+                    & 'Eigenvalue  : '//estuff(k)%eval, &
+                    & 'Eigenvector : '//estuff(k)%evec  ]
+        enddo
+        
+        ! Check the number of eigenvectors matches the size of the matrix.
+        @assertTrue(size(estuff)==size(matrix,1), char(message))
+        do k=1,size(estuff)
+          ! Check each eigenvector is normalised.
+          check = abs(l2_norm(estuff(k)%evec)-1)<1e-10_dp
+          @assertTrue(check, char(message))
+          ! Check each eigenvector is an eigenvector.
+          check = l2_norm( matrix*vec(estuff(k)%evec)           &
+              &          - estuff(k)%eval*vec(estuff(k)%evec) ) &
+              & < 1e-10_dp
+          @assertTrue(check, char(message))
+          do l=1,k-1
+            ! Check the eigenvectors are orthogonal.
+            check = abs(vec(estuff(k)%evec)*conjg(vec(estuff(l)%evec))) &
+                & < 1e-10_dp
+            @assertTrue(check, char(message))
+          enddo
+        enddo
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_diagonalise_complex()
+  type(ComplexMatrix), allocatable :: matrices(:)
+  
+  type(ComplexEigenstuff), allocatable :: estuff(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,k,l
+  
+  matrices = [ mat([complex(dp)::],[0,0]) ,               &
+             & cmplxmat(zeroes(1,1)),                     &
+             & cmplxmat(zeroes(3,3)),                     &
+             & cmplxmat(make_identity_matrix(1)),         &
+             & cmplxmat(make_identity_matrix(3)),         &
+             & mat( [(1.0_dp,0.0_dp),(1.0_dp,0.0_dp),     &
+             &       (1.0_dp,0.0_dp),(1.0_dp,0.0_dp)],    &
+             &      [2,2]                              ), &
+             & mat( [(1.0_dp,0.0_dp),(1.1_dp,0.0_dp),     &
+             &       (1.1_dp,0.0_dp),(1.0_dp,0.0_dp)],    &
+             &      [2,2]                              ), &
+             & mat( [(0.0_dp,0.0_dp),(0.0_dp,1.0_dp),     &
+             &       (0.0_dp,-1.0_dp),(0.0_dp,0.0_dp)],   &
+             &      [2,2]                              ), &
+             & mat( [(0.0_dp,0.0_dp),(1.0_dp,1.0_dp),     &
+             &       (1.0_dp,-1.0_dp),(0.0_dp,0.0_dp)],   &
+             &      [2,2]                              ), &
+             & mat( [(1.0_dp,2.0_dp),(3.0_dp,4.0_dp),     &
+             &       (5.0_dp,6.0_dp),(7.0_dp,8.0_dp)],    &
+             &      [2,2]                              )  ]
+  
+  do i=1,size(matrices)
+    associate(matrix => matrices(i))
+      do j=1,2
+        if (j==1) then
+          estuff = diagonalise_complex(matrix)
+        else
+          estuff = diagonalise_complex(cmplx(matrix))
+        endif
+        
+        message = [ str('Matrix:'),    &
+                  & str(matrix),       &
+                  & str('Eigenstuff:') ]
+        do k=1,size(estuff)
+          message = [ message,                                     &
+                    & 'Eigenvalue        : '//estuff(k)%eval,      &
+                    & 'Left Eigenvector  : '//estuff(k)%left_evec, &
+                    & 'Right Eigenvector : '//estuff(k)%right_evec ]
+        enddo
+        
+        ! Check the number of eigenvectors matches the size of the matrix.
+        @assertTrue(size(estuff)==size(matrix,1), char(message))
+        do k=1,size(estuff)
+          ! Check each eigenvector is normalised.
+          check = abs(l2_norm(estuff(k)%right_evec)-1)<1e-10_dp
+          @assertTrue(check, char(message))
+          check = abs(l2_norm(estuff(k)%left_evec)-1)<1e-10_dp
+          @assertTrue(check, char(message))
+          ! Check each eigenvector is an eigenvector.
+          check = l2_norm( matrix*vec(estuff(k)%right_evec)           &
+              &          - estuff(k)%eval*vec(estuff(k)%right_evec) ) &
+              & < 1e-10_dp
+          @assertTrue(check, char(message))
+          check = l2_norm( conjg(vec(estuff(k)%left_evec))*matrix           &
+              &          - conjg(vec(estuff(k)%left_evec))*estuff(k)%eval ) &
+              & < 1e-10_dp
+          @assertTrue(check, char(message))
+          do l=1,k-1
+            ! Check the eigenvectors are orthogonal.
+            check = abs( vec(estuff(k)%left_evec)           &
+                &      * conjg(vec(estuff(l)%right_evec)) ) &
+                & < 1e-10_dp
+            @assertTrue(check, char(message))
+            check = abs( vec(estuff(k)%right_evec)         &
+                &      * conjg(vec(estuff(l)%left_evec)) ) &
+                & < 1e-10_dp
+            @assertTrue(check, char(message))
+          enddo
+        enddo
+      enddo
+    end associate
+  enddo
+end subroutine
 end module
