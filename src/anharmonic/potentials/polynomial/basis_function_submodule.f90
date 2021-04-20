@@ -44,6 +44,7 @@ module procedure generate_basis_functions_SubspaceMonomial
   !    with coefficients such that symmetries are unitary.
   complex_monomials = generate_complex_monomials(            &
       & subspace_monomial,                                   &
+      & maximum_coupling_order,                              &
       & subspaces,                                           &
       & complex_modes,                                       &
       & qpoints,                                             &
@@ -248,6 +249,7 @@ module procedure optimise_BasisFunctions
                                           & powers = [i]            )
       complex_monomials = generate_complex_monomials( &
           & subspace_monomial,                        &
+          & anharmonic_data%maximum_coupling_order,   &
           & [subspace],                               &
           & anharmonic_data%complex_modes,            &
           & anharmonic_data%qpoints,                  &

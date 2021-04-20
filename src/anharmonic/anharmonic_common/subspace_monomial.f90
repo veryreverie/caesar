@@ -155,9 +155,11 @@ module caesar_subspace_monomial_module
     ! ----------------------------------------------------------------------
     ! The coefficients are chosen such that symmetry operations are unitary
     !    in the basis of monomials.
-    module function generate_complex_monomials(this,subspaces,modes,qpoints, &
-       & conserve_momentum,conserve_subspace_momentum) result(output) 
+    module function generate_complex_monomials(this,maximum_coupling_order, &
+       & subspaces,modes,qpoints,conserve_momentum,                         &
+       & conserve_subspace_momentum) result(output) 
       type(SubspaceMonomial),   intent(in) :: this
+      integer,                  intent(in) :: maximum_coupling_order
       type(DegenerateSubspace), intent(in) :: subspaces(:)
       type(ComplexMode),        intent(in) :: modes(:)
       type(QpointData),         intent(in) :: qpoints(:)
@@ -168,9 +170,11 @@ module caesar_subspace_monomial_module
   end interface
   
   interface
-    module function generate_paired_monomials(this,subspaces,modes,qpoints, &
-       & conserve_momentum,conserve_subspace_momentum) result(output) 
+    module function generate_paired_monomials(this,maximum_coupling_order, &
+       & subspaces,modes,qpoints,conserve_momentum,                        &
+       & conserve_subspace_momentum) result(output) 
       type(SubspaceMonomial),   intent(in) :: this
+      integer,                  intent(in) :: maximum_coupling_order
       type(DegenerateSubspace), intent(in) :: subspaces(:)
       type(ComplexMode),        intent(in) :: modes(:)
       type(QpointData),         intent(in) :: qpoints(:)

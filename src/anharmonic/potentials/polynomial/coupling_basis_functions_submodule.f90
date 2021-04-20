@@ -197,6 +197,7 @@ module procedure generate_basis_functions_SubspaceCoupling
   do i=1,size(subspace_monomials)
     ! Generate all basis functions for the subspace monomial.
     basis_functions(i) = generate_basis_functions( subspace_monomials(i),     &
+                                                 & maximum_coupling_order,    &
                                                  & structure,                 &
                                                  & complex_modes,             &
                                                  & qpoints,                   &

@@ -38,9 +38,9 @@ module caesar_anharmonic_data_module
     module function new_AnharmonicData(structure,anharmonic_supercell,    &
        & qpoints,complex_modes,real_modes,degenerate_subspaces,           &
        & degenerate_symmetries,subspace_couplings,maximum_coupling_order, &
-        potential_expansion_order,vscf_basis_functions_only,             &
-          & maximum_weighted_displacement,frequency_of_max_displacement) &
-          & result(this) 
+       & potential_expansion_order,vscf_basis_functions_only,             &
+       & maximum_weighted_displacement,frequency_of_max_displacement)     &
+       & result(this) 
       type(StructureData),      intent(in) :: structure
       type(StructureData),      intent(in) :: anharmonic_supercell
       type(QpointData),         intent(in) :: qpoints(:)
@@ -51,7 +51,7 @@ module caesar_anharmonic_data_module
       type(SubspaceCoupling),   intent(in) :: subspace_couplings(:)
       integer,                  intent(in) :: maximum_coupling_order
       integer,                  intent(in) :: potential_expansion_order
-      logical,intent(in) :: vscf_basis_functions_only
+      logical,                  intent(in) :: vscf_basis_functions_only
       real(dp),                 intent(in) :: maximum_weighted_displacement
       real(dp),                 intent(in) :: frequency_of_max_displacement
       type(AnharmonicData)                 :: this
@@ -59,14 +59,14 @@ module caesar_anharmonic_data_module
   
     module function new_AnharmonicData_data(structure,                      &
        & interpolated_supercell,max_displacement,potential_expansion_order, &
-        maximum_coupling_order,vscf_basis_functions_only, &
-          & energy_to_force_ratio) result(this) 
+       & maximum_coupling_order,vscf_basis_functions_only,                  &
+       & energy_to_force_ratio) result(this) 
       type(StructureData),         intent(in) :: structure
       type(InterpolatedSupercell), intent(in) :: interpolated_supercell
       type(MaxDisplacement),       intent(in) :: max_displacement
       integer,                     intent(in) :: potential_expansion_order
       integer,                     intent(in) :: maximum_coupling_order
-      logical,intent(in) :: vscf_basis_functions_only
+      logical,                     intent(in) :: vscf_basis_functions_only
       real(dp),                    intent(in) :: energy_to_force_ratio
       type(AnharmonicData)                    :: this
     end function

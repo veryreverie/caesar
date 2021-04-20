@@ -217,7 +217,8 @@ module caesar_coupling_basis_functions_module
   end interface
   
   interface
-    module function potential_energy_SubspaceBraKet_CouplingBasisFunctions(this,braket,anharmonic_data) result(output) 
+    module function potential_energy_SubspaceBraKet_CouplingBasisFunctions( &
+       & this,braket,anharmonic_data) result(output) 
       class(CouplingBasisFunctions), intent(in) :: this
       class(SubspaceBraKet),         intent(in) :: braket
       type(AnharmonicData),          intent(in) :: anharmonic_data
@@ -239,19 +240,20 @@ module caesar_coupling_basis_functions_module
   end interface
   
   interface generate_basis_functions
-    module function generate_basis_functions_SubspaceCoupling(coupling,     &
-       & potential_expansion_order,structure,complex_modes,real_modes,      &
-        qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only, &
-          & logfile) result(output) 
+    module function generate_basis_functions_SubspaceCoupling(coupling,    &
+       & potential_expansion_order,maximum_coupling_order,structure,       &
+       & complex_modes,real_modes,qpoints,subspaces,degenerate_symmetries, &
+       & vscf_basis_functions_only,logfile) result(output) 
       type(SubspaceCoupling),   intent(in)    :: coupling
       integer,                  intent(in)    :: potential_expansion_order
+      integer,                  intent(in)    :: maximum_coupling_order
       type(StructureData),      intent(in)    :: structure
       type(ComplexMode),        intent(in)    :: complex_modes(:)
       type(RealMode),           intent(in)    :: real_modes(:)
       type(QpointData),         intent(in)    :: qpoints(:)
       type(DegenerateSubspace), intent(in)    :: subspaces(:)
       type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
-      logical,intent(in) :: vscf_basis_functions_only
+      logical,                  intent(in)    :: vscf_basis_functions_only
       type(OFile),              intent(inout) :: logfile
       type(CouplingBasisFunctions)            :: output
     end function
@@ -259,20 +261,23 @@ module caesar_coupling_basis_functions_module
   
   interface
     ! Return the energy at zero displacement.
-    impure elemental module function undisplaced_energy_CouplingBasisFunctions(this) result(output) 
+    impure elemental module function &
+       & undisplaced_energy_CouplingBasisFunctions(this) result(output) 
       class(CouplingBasisFunctions), intent(in) :: this
       real(dp)                                  :: output
     end function
   end interface
   
   interface
-    impure elemental module subroutine zero_energy_CouplingBasisFunctions(this) 
+    impure elemental module subroutine zero_energy_CouplingBasisFunctions( &
+       & this) 
       class(CouplingBasisFunctions), intent(inout) :: this
     end subroutine
   end interface
   
   interface
-    impure elemental module subroutine add_constant_CouplingBasisFunctions(this,input) 
+    impure elemental module subroutine add_constant_CouplingBasisFunctions( &
+       & this,input)
       class(CouplingBasisFunctions), intent(inout) :: this
       real(dp),                      intent(in)    :: input
     end subroutine
@@ -293,7 +298,8 @@ module caesar_coupling_basis_functions_module
   
   interface
     ! Get and set basis function coefficients.
-    impure elemental module function no_coefficients_CouplingBasisFunctions(this,maximum_power) result(output) 
+    impure elemental module function no_coefficients_CouplingBasisFunctions( &
+       & this,maximum_power) result(output) 
       class(CouplingBasisFunctions), intent(in) :: this
       integer,                       intent(in) :: maximum_power
       integer                                   :: output
@@ -352,7 +358,9 @@ module caesar_coupling_basis_functions_module
   interface
     ! Calculate the contribution to a given monomial from the interpolation of
     !    this basis function.
-    impure elemental module function interpolate_coefficient_CouplingBasisFunctions(   this,monomial,interpolator) result(output) 
+    impure elemental module function                                   &
+       & interpolate_coefficient_CouplingBasisFunctions(this,monomial, &
+       & interpolator) result(output) 
       class(CouplingBasisFunctions), intent(in) :: this
       type(ComplexMonomial),         intent(in) :: monomial
       type(PolynomialInterpolator),  intent(in) :: interpolator
@@ -364,7 +372,8 @@ module caesar_coupling_basis_functions_module
     ! Calculate the contribution to this basis function from another
     !    basis function,
     !    and add this to this basis function's coefficients.
-    module subroutine add_interpolated_contribution_CouplingBasisFunctions(this,basis_function,interpolator) 
+    module subroutine add_interpolated_contribution_CouplingBasisFunctions( &
+       & this,basis_function,interpolator) 
       class(CouplingBasisFunctions), intent(inout) :: this
       type(CouplingBasisFunctions),  intent(in)    :: basis_function
       type(PolynomialInterpolator),  intent(in)    :: interpolator
@@ -384,8 +393,8 @@ module caesar_coupling_basis_functions_module
   
   interface
     ! Calculate this basis function's contribution to the effective dynamical
-    !    matrix from which the potential can be interpolated in the large-supercell
-    !    limit.
+    !    matrix from which the potential can be interpolated in the
+    !    large-supercell limit.
     module function calculate_dynamical_matrices_CouplingBasisFunctions(this, &
        & qpoints,thermal_energy,subspaces,subspace_bases,subspace_states,     &
        & anharmonic_data) result(output) 

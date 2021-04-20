@@ -226,6 +226,7 @@ module procedure generate_paired_monomials
   type(ComplexMonomial), allocatable :: complex_monomials(:)
   
   complex_monomials = generate_complex_monomials( this,                      &
+                                                & maximum_coupling_order,    &
                                                 & subspaces,                 &
                                                 & modes,                     &
                                                 & qpoints,                   &

@@ -175,6 +175,7 @@ module procedure generate_stress_basis_functions_SubspaceCoupling
   do i=1,size(subspace_monomials)
     monomial_basis_functions = generate_stress_basis_functions( &
                                    & subspace_monomials(i),     &
+                                   & maximum_coupling_order,    &
                                    & structure,                 &
                                    & complex_modes,             &
                                    & qpoints,                   &

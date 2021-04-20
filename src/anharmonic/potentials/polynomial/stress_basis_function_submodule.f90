@@ -53,6 +53,7 @@ module procedure generate_stress_basis_functions_SubspaceMonomial
   !    with coefficients such that symmetries are unitary.
   complex_monomials = generate_complex_monomials(            &
       & subspace_monomial,                                   &
+      & maximum_coupling_order,                              &
       & subspaces,                                           &
       & complex_modes,                                       &
       & qpoints,                                             &

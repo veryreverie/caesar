@@ -84,8 +84,12 @@ module caesar_stress_basis_function_module
   
   interface generate_stress_basis_functions
     ! Generate basis functions.
-    module function generate_stress_basis_functions_SubspaceMonomial(subspace_monomial,structure,complex_modes,qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only,logfile) result(output) 
+    module function generate_stress_basis_functions_SubspaceMonomial(       &
+       & subspace_monomial,maximum_coupling_order,structure,complex_modes,  &
+       & qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only, &
+       & logfile) result(output) 
       type(SubspaceMonomial),   intent(in)    :: subspace_monomial
+      integer,                  intent(in)    :: maximum_coupling_order
       type(StructureData),      intent(in)    :: structure
       type(ComplexMode),        intent(in)    :: complex_modes(:)
       type(QpointData),         intent(in)    :: qpoints(:)

@@ -47,8 +47,8 @@ module procedure new_AnharmonicData_data
   
   ! Generate all sets of coupled subspaces, up to maximum_coupling_order.
   call print_line('Generating couplings between subspaces.')
-  subspace_couplings = generate_coupled_subspaces( degenerate_subspaces, &
-                                                 & maximum_coupling_order)
+  subspace_couplings = generate_coupled_subspaces( degenerate_subspaces,  &
+                                                 & maximum_coupling_order )
   
   ! Load anharmonic data into container.
   this = AnharmonicData( structure,                                      &

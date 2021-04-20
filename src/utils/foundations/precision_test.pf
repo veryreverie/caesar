@@ -1,7 +1,7 @@
 module precision_test
   use funit
   
-  use caesar_precision_module
+  use caesar_foundations_module
   implicit none
 contains
 

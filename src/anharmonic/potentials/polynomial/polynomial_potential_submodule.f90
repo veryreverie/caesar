@@ -85,6 +85,7 @@ module procedure generate_sampling_points_PolynomialPotential
     basis_functions(i) = generate_basis_functions(  &
        & anharmonic_data%subspace_couplings(i),     &
        & this%potential_expansion_order_,           &
+       & anharmonic_data%maximum_coupling_order,    &
        & anharmonic_data%structure,                 &
        & anharmonic_data%complex_modes,             &
        & anharmonic_data%real_modes,                &
@@ -296,15 +297,16 @@ module procedure generate_stress_PolynomialPotential
        &size(stress_subspace_coupling)//', containing &
        &subspaces '//stress_subspace_coupling(i)%ids//'.')
     basis_functions(i) = generate_stress_basis_functions( &
-                 & stress_subspace_coupling(i),           &
-                 & stress_expansion_order,                &
-                 & anharmonic_data%structure,             &
-                 & anharmonic_data%complex_modes,         &
-                 & anharmonic_data%qpoints,               &
-                 & anharmonic_data%degenerate_subspaces,  &
-                 & anharmonic_data%degenerate_symmetries, &
-                 & vscf_basis_functions_only,             &
-                 & logfile                                )
+                & stress_subspace_coupling(i),            &
+                & stress_expansion_order,                 &
+                & anharmonic_data%maximum_coupling_order, &
+                & anharmonic_data%structure,              &
+                & anharmonic_data%complex_modes,          &
+                & anharmonic_data%qpoints,                &
+                & anharmonic_data%degenerate_subspaces,   &
+                & anharmonic_data%degenerate_symmetries,  &
+                & vscf_basis_functions_only,              &
+                & logfile                                 )
     
     j = first(anharmonic_data%subspace_couplings==stress_subspace_coupling(i))
     coupling_directory = sampling_points_dir//'/coupling_'//left_pad( &
@@ -704,6 +706,7 @@ module procedure interpolate_potential_PolynomialPotential
     this%basis_functions_(i) = generate_basis_functions(         &
        & interpolated_anharmonic_data%subspace_couplings(i),     &
        & this%potential_expansion_order_,                        &
+       & interpolated_anharmonic_data%maximum_coupling_order,    &
        & interpolated_anharmonic_data%structure,                 &
        & interpolated_anharmonic_data%complex_modes,             &
        & interpolated_anharmonic_data%real_modes,                &

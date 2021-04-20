@@ -194,9 +194,13 @@ module caesar_coupling_stress_basis_functions_module
   
   interface generate_stress_basis_functions
     ! Generate stress basis functions.
-    module function generate_stress_basis_functions_SubspaceCoupling(coupling,stress_expansion_order,structure,complex_modes,qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only,logfile) result(output) 
+    module function generate_stress_basis_functions_SubspaceCoupling(      &
+       & coupling,stress_expansion_order,maximum_coupling_order,structure, &
+       & complex_modes,qpoints,subspaces,degenerate_symmetries,            &
+       & vscf_basis_functions_only,logfile) result(output) 
       type(SubspaceCoupling),   intent(in)    :: coupling
       integer,                  intent(in)    :: stress_expansion_order
+      integer,                  intent(in)    :: maximum_coupling_order
       type(StructureData),      intent(in)    :: structure
       type(ComplexMode),        intent(in)    :: complex_modes(:)
       type(QpointData),         intent(in)    :: qpoints(:)
