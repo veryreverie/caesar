@@ -167,7 +167,7 @@ The harmonic calculation produces a castep .phonon file, which can be viewed usi
 ----------------------------------------
 Unit tests
 ----------------------------------------
-Unit tests are compiled by default. This requires the pFUnit library <https://github.com/Goddard-Fortran-Ecosystem/pFUnit>. The /bin directory of pFUnit (and its subsidiaries GFTL, GFTL_SHARED and FARGPARSE if present) must be on PATH. To suppress compilation of tests (and remove the dependency on pFUnit), set ENABLE_TESTS to false when running CMake, e.g. using
+Unit tests are compiled by default. This requires version 4.2.0 of the pFUnit library <https://github.com/Goddard-Fortran-Ecosystem/pFUnit>. The /bin directory of pFUnit (and its subsidiaries GFTL, GFTL_SHARED and FARGPARSE if present) must be on PATH. To suppress compilation of tests (and remove the dependency on pFUnit), set ENABLE_TESTS to false when running CMake, e.g. using
 
   -DENABLE_TESTS:LOGICAL=false
 
