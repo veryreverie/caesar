@@ -387,9 +387,9 @@ module procedure map_modes_subroutine
                               & real_modes,             &
                               & qpoints                 )
         l2_cartesian_displacements(j) =                  &
-           & sqrt(sum( cartesian_displacement%vectors    &
-           &         * cartesian_displacement%vectors )) &
-           & / large_supercell%sc_size
+           & sqrt( sum( cartesian_displacement%vectors   &
+           &          * cartesian_displacement%vectors ) &
+           &     / large_supercell%sc_size               )
       enddo
       l2_cartesian_displacements(:no_single_mode_samples) = &
          & -l2_cartesian_displacements(:no_single_mode_samples)

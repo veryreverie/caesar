@@ -1,0 +1,78 @@
+module qpoint_power_test
+  use funit
+
+  use caesar_anharmonic_common_module
+  implicit none
+contains
+
+! Tests constructor and getters.
+@test
+subroutine test_QpointPower()
+  type(QpointPower) :: foo
+  
+  foo = QpointPower(1,2)
+  @assertTrue(foo%id()==1)
+  @assertTrue(foo%power()==2)
+  @assertTrue(foo%paired_id()==1)
+  @assertTrue(foo%paired_power()==2)
+  
+  foo = QpointPower(1,2,1,2)
+  @assertTrue(foo%id()==1)
+  @assertTrue(foo%power()==2)
+  @assertTrue(foo%paired_id()==1)
+  @assertTrue(foo%paired_power()==2)
+  
+  foo = QpointPower(3,4,5,6)
+  @assertTrue(foo%id()==3)
+  @assertTrue(foo%power()==4)
+  @assertTrue(foo%paired_id()==5)
+  @assertTrue(foo%paired_power()==6)
+  
+  foo = QpointPower(3,4,1,2)
+  @assertTrue(foo%id()==1)
+  @assertTrue(foo%power()==2)
+  @assertTrue(foo%paired_id()==3)
+  @assertTrue(foo%paired_power()==4)
+end subroutine
+
+@test
+subroutine test_comparison()
+  type(QpointPower), allocatable :: cases(:)
+  
+  type(String) :: message(2)
+  
+  integer :: i,j
+  
+  cases = [ QpointPower(1,2),     &
+          & QpointPower(1,3),     &
+          & QpointPower(3,2),     &
+          & QpointPower(1,2,3,4), &
+          & QpointPower(1,2,5,4), &
+          & QpointPower(1,2,3,5)  ]
+  
+  do i=1,size(cases)
+    do j=1,size(cases)
+      associate( lhs=>cases(i), &
+               & rhs=>cases(j)  )
+        message = [ 'lhs: '//lhs, &
+                  & 'rhs: '//rhs  ]
+        if (i==j) then
+          @assertTrue(lhs==rhs, char(message))
+          @assertFalse(lhs/=rhs, char(message))
+        else
+          @assertFalse(lhs==rhs, char(message))
+          @assertTrue(lhs/=rhs, char(message))
+        endif
+      end associate
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_io()
+  @assertTrue(QpointPower(str('(q1^2)'))==QpointPower(1,2))
+  @assertTrue(str(QpointPower(1,2))=='(q1^2)')
+  @assertTrue(QpointPower(str('(q1^2*q3^4)'))==QpointPower(1,2,3,4))
+  @assertTrue(str(QpointPower(1,2,3,4))=='(q1^2*q3^4)')
+end subroutine
+end module

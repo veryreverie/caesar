@@ -1,0 +1,157 @@
+module qpoint_star_test
+  use funit
+  
+  use caesar_anharmonic_common_module
+  implicit none
+contains
+
+! Tests constructor and getter.
+@test
+subroutine test_QpointStar()
+  type :: TestCase
+    type(QpointCombination), allocatable :: input(:)
+    type(QpointCombination), allocatable :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(QpointStar)                     :: star
+  type(QpointCombination), allocatable :: output(:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [                                                       &
+     & TestCase( [ QpointCombination([ QpointPower:: ]) ],             &
+     &           [ QpointCombination([ QpointPower:: ]) ]  ),          &
+     & TestCase( [ QpointCombination([ QpointPower(1,2,3,4) ]) ],      &
+     &           [ QpointCombination([ QpointPower(1,2,3,4) ]) ]  ),   &
+     & TestCase( [ QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,8)  ])  ],    &
+     &           [ QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,8)  ])  ]  ), &
+     & TestCase( [ QpointCombination([ QpointPower(1,2,3,4) ]),        &
+     &             QpointCombination([ QpointPower(5,6,7,8) ])  ],     &
+     &           [ QpointCombination([ QpointPower(1,2,3,4) ]),        &
+     &             QpointCombination([ QpointPower(5,6,7,8) ])  ] ),   &
+     & TestCase( [ QpointCombination([ QpointPower(5,6,7,8) ]),        &
+     &             QpointCombination([ QpointPower(1,2,3,4) ])  ],     &
+     &           [ QpointCombination([ QpointPower(1,2,3,4) ]),        &
+     &             QpointCombination([ QpointPower(5,6,7,8) ])  ] ),   &
+     & TestCase( [ QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,8)  ]),       &
+     &             QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,5,7,8)  ])  ],    &
+     &           [ QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,5,7,8)  ]),       &
+     &             QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,8)  ])  ]  ), &
+     & TestCase( [ QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,8)  ]),       &
+     &             QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,7)  ])  ],    &
+     &           [ QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,7)  ]),       &
+     &             QpointCombination([ QpointPower(1,2,3,4),           &
+     &                                 QpointPower(5,6,7,8)  ])  ]  )  ]
+  
+  do i=1,size(test_cases)
+    associate( input    => test_cases(i)%input, &
+             & expected => test_cases(i)%output )
+      star = QpointStar(input)
+      output = star%combinations()
+      
+      message = [ str('Input:'),    &
+                & str(input),       &
+                & str('Output:'),   &
+                & str(output),      &
+                & str('Expected:'), &
+                & str(expected)     ]
+      
+      @assertTrue(size(output)==size(expected), char(message))
+      @assertTrue(all(output==expected), char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_comparison()
+  type :: TestCase
+    type(QpointCombination), allocatable :: combinations(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: message(:)
+  logical                   :: check
+  
+  integer :: i,j
+  
+  test_cases = [                                                        &
+     & TestCase([ QpointCombination(str('')) ]),                        &
+     & TestCase([ QpointCombination(str('(q1^2*q3^4)')) ]),             &
+     & TestCase([ QpointCombination(str('(q1^2*q3^5)')) ]),             &
+     & TestCase([ QpointCombination(str('(q1^2*q5^4)')) ]),             &
+     & TestCase([ QpointCombination(str('(q1^5*q3^4)')) ]),             &
+     & TestCase([ QpointCombination(str('(q2^2*q3^4)')) ]),             &
+     & TestCase([ QpointCombination(str('(q1^2*q3^4)*(q5^6*q7^8)')) ]), &
+     & TestCase([ QpointCombination(str('(q1^2*q3^4)*(q5^6*q7^9)')) ]), &
+     & TestCase([ QpointCombination(str('(q1^2*q3^4)')),                &
+     &            QpointCombination(str('(q5^6*q7^8)'))  ]),            &
+     & TestCase([ QpointCombination(str('(q1^2*q3^5)')),                &
+     &            QpointCombination(str('(q5^6*q7^8)'))  ])             ]
+  do i=1,size(test_cases)
+    do j=1,size(test_cases)
+      associate( lhs=>test_cases(i)%combinations, &
+               & rhs=>test_cases(j)%combinations  )
+        message = [ str('lhs:'), &
+                  & str(lhs),    &
+                  & str('rhs:'), &
+                  & str(rhs)     ]
+        check  = QpointStar(lhs)==QpointStar(rhs) &
+         & .eqv. lhs(1)==rhs(1)
+        @assertTrue(check, char(message))
+        check  = QpointStar(lhs)/=QpointStar(rhs) &
+         & .eqv. lhs(1)/=rhs(1)
+        @assertTrue(check, char(message))
+      end associate
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(String), allocatable :: lines(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(QpointStar)                     :: star
+  type(QpointCombination), allocatable :: combinations(:)
+  type(String),            allocatable :: output(:)
+  
+  integer :: i
+  
+  test_cases = [                                     &
+     & TestCase([ str('') ]),                        &
+     & TestCase([ str('(q1^2)') ]),                  &
+     & TestCase([ str('(q1^2*q3^4)*(q5^6*q7^8)') ]), &
+     & TestCase([ str('(q1^2*q3^4)*(q5^6*q7^8)'),    &
+     &            str('(q1^2*q3^4)*(q5^6*q7^9)')  ]) ]
+  
+  do i=1,size(test_cases)
+    associate(lines=>test_cases(i)%lines)
+      star = QpointStar(lines)
+      combinations = star%combinations()
+      @assertTrue(size(combinations)==size(lines), char(lines))
+      @assertTrue(all(combinations==QpointCombination(lines)), char(lines))
+      
+      output = str(QpointStar(QpointCombination(lines)))
+      @assertTrue(size(output)==size(lines), char(lines))
+      @assertTrue(all(output==lines), char(lines))
+    end associate
+  enddo
+end subroutine
+end module

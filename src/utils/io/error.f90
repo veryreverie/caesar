@@ -39,11 +39,11 @@ module caesar_error_module
   !> The string `Code Error`, with or without terminal escape characters for
   !>    colour as defined by [[set_error_strings_coloured]] and
   !>    [[set_error_strings_uncoloured]].
-  character(:), pointer, protected :: CODE_ERROR => CODE_ERROR_UNCOLOURED
+  character(:), pointer, protected :: CODE_ERROR => CODE_ERROR_COLOURED
   !> The string `Warning`, with or without terminal escape characters for
   !>    colour as defined by [[set_error_strings_coloured]] and
   !>    [[set_error_strings_uncoloured]].
-  character(:), pointer, protected :: WARNING => WARNING_UNCOLOURED
+  character(:), pointer, protected :: WARNING => WARNING_COLOURED
   
   interface
     !> Aborts without a stacktrace.

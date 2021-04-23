@@ -1,0 +1,110 @@
+module qpoint_combination_test
+  use funit
+
+  use caesar_anharmonic_common_module
+  implicit none
+contains
+
+! Tests constructor and getter.
+@test
+subroutine test_QpointCombination()
+  type :: TestCase
+    type(QpointPower), allocatable :: qpoints(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(QpointCombination) :: combination
+  
+  type(String) :: message
+  
+  integer :: i
+  
+  test_cases = [ TestCase([QpointPower::]),                    &
+               & TestCase([QpointPower(1,2)]),                 &
+               & TestCase([QpointPower(1,2),QpointPower(3,4)]) ]
+  
+  do i=1,size(test_cases)
+    associate(qpoints=>test_cases(i)%qpoints)
+      message = 'Qpoint powers: '//join(qpoints)
+      combination = QpointCombination(qpoints)
+      @assertTrue(size(combination%qpoints())==size(qpoints), char(message))
+      @assertTrue(all(combination%qpoints()==qpoints), char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_comparison
+  type(QpointCombination), allocatable :: combinations(:)
+  
+  type(String) :: message(2)
+  
+  integer :: i,j
+  
+  combinations = [ QpointCombination([QpointPower::]),                     &
+                 & QpointCombination([QpointPower(1,2)]),                  &
+                 & QpointCombination([QpointPower(3,4)]),                  &
+                 & QpointCombination([QpointPower(1,2),QpointPower(3,4)]), &
+                 & QpointCombination([QpointPower(1,2),QpointPower(5,6)])  ]
+  do i=1,size(combinations)
+    do j=1,size(combinations)
+      associate( lhs=>combinations(i), &
+               & rhs=>combinations(j)  )
+        message = [ 'lhs: '//lhs, &
+                  & 'rhs: '//rhs  ]
+        if (i==j) then
+          @assertTrue(lhs==rhs, char(message))
+          @assertFalse(lhs/=rhs, char(message))
+        else
+          @assertFalse(lhs==rhs, char(message))
+          @assertTrue(lhs/=rhs, char(message))
+        endif
+      end associate
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(QpointCombination) :: combination
+    type(String)            :: line
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String) :: message(2)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( QpointCombination([QpointPower::]),              &
+               &           str('')                             ),           &
+               & TestCase( QpointCombination([QpointPower(1,2)]),           &
+               &           str('(q1^2)')                          ),        &
+               & TestCase( QpointCombination([QpointPower(1,2,3,4)]),       &
+               &           str('(q1^2*q3^4)')                         ),    &
+               & TestCase( QpointCombination([ QpointPower(1,2),            &
+               &                               QpointPower(3,4)  ]),        &
+               &           str('(q1^2)*(q3^4)')                      ),     &
+               & TestCase( QpointCombination([ QpointPower(1,2,3,4),        &
+               &                               QpointPower(5,6)      ]),    &
+               &           str('(q1^2*q3^4)*(q5^6)')                     ), &
+               & TestCase( QpointCombination([ QpointPower(1,2),            &
+               &                               QpointPower(3,4,5,6) ]),     &
+               &           str('(q1^2)*(q3^4*q5^6)')                    ),  &
+               & TestCase( QpointCombination([ QpointPower(1,2,3,4),        &
+               &                               QpointPower(5,6,7,8)  ]),    &
+               &           str('(q1^2*q3^4)*(q5^6*q7^8)')                )  ]
+  
+  do i=1,size(test_cases)
+    associate( combination=>test_cases(i)%combination, &
+             & line=>test_cases(i)%line)
+      message = [ 'Combination : '//combination, &
+                & 'Line        : '//line         ]
+      @assertTrue(str(combination)==line, char(message))
+      @assertTrue(QpointCombination(line)==combination, char(message))
+    end associate
+  enddo
+end subroutine
+end module

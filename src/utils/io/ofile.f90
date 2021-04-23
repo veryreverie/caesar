@@ -251,11 +251,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_StringWriteables_character(this,input, &
+    module subroutine print_lines_StringWriteables_String(this,input, &
        & separating_line,settings) 
       class(OFile),           intent(inout)        :: this
       class(StringWriteable), intent(in)           :: input(:)
-      character(*),           intent(in), optional :: separating_line
+      type(String),           intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings),    intent(in), optional :: settings
     end subroutine
@@ -263,11 +263,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_StringWriteables_String(this,input, &
+    module subroutine print_lines_StringWriteables_character(this,input, &
        & separating_line,settings) 
       class(OFile),           intent(inout)        :: this
       class(StringWriteable), intent(in)           :: input(:)
-      type(String),           intent(in)           :: separating_line
+      character(*),           intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings),    intent(in), optional :: settings
     end subroutine

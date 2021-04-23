@@ -113,11 +113,11 @@ module procedure print_lines_Strings_String
   call this%print_lines(input,char(separating_line),settings)
 end procedure
 
-module procedure print_lines_StringWriteables_character
+module procedure print_lines_StringWriteables_String
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
-module procedure print_lines_StringWriteables_String
+module procedure print_lines_StringWriteables_character
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
