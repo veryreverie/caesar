@@ -35,6 +35,20 @@ subroutine test_QpointCombination()
 end subroutine
 
 @test
+subroutine test_total_power()
+  type(QpointCombination) :: foo
+  
+  foo = QpointCombination(str(''))
+  @assertTrue(foo%total_power()==0)
+  
+  foo = QpointCombination(str('(q1^2)'))
+  @assertTrue(foo%total_power()==2)
+  
+  foo = QpointCombination(str('(q2^3*q4^5)*(q6^7)'))
+  @assertTrue(foo%total_power()==15)
+end subroutine
+
+@test
 subroutine test_comparison
   type(QpointCombination), allocatable :: combinations(:)
   
@@ -42,23 +56,45 @@ subroutine test_comparison
   
   integer :: i,j
   
-  combinations = [ QpointCombination([QpointPower::]),                     &
-                 & QpointCombination([QpointPower(1,2)]),                  &
-                 & QpointCombination([QpointPower(3,4)]),                  &
-                 & QpointCombination([QpointPower(1,2),QpointPower(3,4)]), &
-                 & QpointCombination([QpointPower(1,2),QpointPower(5,6)])  ]
+  ! An array of q-point combinations in ascending order.
+  combinations = [ QpointCombination(str('')),                   &
+                 & QpointCombination(str('(q1^1)')),             &
+                 & QpointCombination(str('(q2^1*q3^0)')),        &
+                 & QpointCombination(str('(q2^0*q3^1)')),        &
+                 & QpointCombination(str('(q1^2)')),             &
+                 & QpointCombination(str('(q1^1)*(q2^1*q3^0)')), &
+                 & QpointCombination(str('(q1^1)*(q2^0*q3^1)')), &
+                 & QpointCombination(str('(q2^2*q3^0)')),        &
+                 & QpointCombination(str('(q2^1*q3^1)')),        &
+                 & QpointCombination(str('(q2^0*q3^2)'))         ]
+  
   do i=1,size(combinations)
     do j=1,size(combinations)
       associate( lhs=>combinations(i), &
                & rhs=>combinations(j)  )
         message = [ 'lhs: '//lhs, &
                   & 'rhs: '//rhs  ]
-        if (i==j) then
-          @assertTrue(lhs==rhs, char(message))
-          @assertFalse(lhs/=rhs, char(message))
-        else
+        if (i<j) then
           @assertFalse(lhs==rhs, char(message))
           @assertTrue(lhs/=rhs, char(message))
+          @assertTrue(lhs<rhs, char(message))
+          @assertTrue(lhs<=rhs, char(message))
+          @assertFalse(lhs>rhs, char(message))
+          @assertFalse(lhs>=rhs, char(message))
+        elseif (i==j) then
+          @assertTrue(lhs==rhs, char(message))
+          @assertFalse(lhs/=rhs, char(message))
+          @assertFalse(lhs<rhs, char(message))
+          @assertTrue(lhs<=rhs, char(message))
+          @assertFalse(lhs>rhs, char(message))
+          @assertTrue(lhs>=rhs, char(message))
+        elseif (i>j) then
+          @assertFalse(lhs==rhs, char(message))
+          @assertTrue(lhs/=rhs, char(message))
+          @assertFalse(lhs<rhs, char(message))
+          @assertFalse(lhs<=rhs, char(message))
+          @assertTrue(lhs>rhs, char(message))
+          @assertTrue(lhs>=rhs, char(message))
         endif
       end associate
     enddo
@@ -104,6 +140,155 @@ subroutine test_io()
                 & 'Line        : '//line         ]
       @assertTrue(str(combination)==line, char(message))
       @assertTrue(QpointCombination(line)==combination, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_conjg()
+  logical :: check
+  
+  check = conjg(QpointCombination(str(''))) &
+     & == QpointCombination(str(''))
+  @assertTrue(check)
+  
+  check = conjg(QpointCombination(str('(q1^2)'))) &
+     & == QpointCombination(str('(q1^2)'))
+  @assertTrue(check)
+  
+  check = conjg(QpointCombination(str('(q1^2*q2^3)'))) &
+     & == QpointCombination(str('(q1^3*q2^2)'))
+  @assertTrue(check)
+  
+  check = conjg(QpointCombination(str('(q1^2*q2^3)*(q3^1*q4^2)'))) &
+     & == QpointCombination(str('(q1^3*q2^2)*(q3^2*q4^1)'))
+  @assertTrue(check)
+end subroutine
+
+@test
+subroutine test_operate()
+  logical :: check
+  
+  check = Group([integer::]) * QpointCombination(str('')) &
+     & == QpointCombination(str(''))
+  @assertTrue(check)
+  
+  check = Group([1,2,3]) * QpointCombination(str('')) &
+     & == QpointCombination(str(''))
+  @assertTrue(check)
+  
+  check = Group([1]) * QpointCombination(str('(q1^2)')) &
+     & == QpointCombination(str('(q1^2)'))
+  @assertTrue(check)
+  
+  check = Group([2,1]) * QpointCombination(str('(q1^3)')) &
+     & == QpointCombination(str('(q2^3)'))
+  @assertTrue(check)
+  
+  check = Group([1,2]) * QpointCombination(str('(q1^3)*(q2^4)')) &
+     & == QpointCombination(str('(q1^3)*(q2^4)'))
+  @assertTrue(check)
+  
+  check = Group([2,1]) * QpointCombination(str('(q1^3)*(q2^4)')) &
+     & == QpointCombination(str('(q1^4)*(q2^3)'))
+  @assertTrue(check)
+  
+  check = Group([3,4,2,1])                                  &
+     &  * QpointCombination(str('(q1^1*q2^2)*(q3^3*q4^4)')) &
+     & == QpointCombination(str('(q1^4*q2^3)*(q3^1*q4^2)'))
+end subroutine
+
+@test
+subroutine test_generate_qpoint_combinations()
+  type :: TestCase
+    type(QpointData),        allocatable :: qpoints(:)
+    integer                              :: power
+    logical,                 allocatable :: conserve_momentum
+    type(QpointCombination), allocatable :: output(:)
+  end type
+  
+  type(QpointData), allocatable :: qpoints(:)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(QpointCombination), allocatable :: combinations(:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i,j
+  
+  qpoints = [ QpointData( FractionVector(str('   0    0    0')), 1, 1), &
+            & QpointData( FractionVector(str(' 1/2    0    0')), 2, 2), &
+            & QpointData( FractionVector(str('   0  1/2    0')), 3, 3), &
+            & QpointData( FractionVector(str('   0    0  1/3')), 4, 5), &
+            & QpointData( FractionVector(str('   0    0 -1/3')), 5, 4)  ]
+  
+  test_cases = [                                                           &
+     & TestCase(                                                           &
+     &    qpoints           = [ QpointData:: ],                            &
+     &    power             = 0,                                           &
+     &    output            = [ QpointCombination(str('')) ]               &
+     & ),                                                                  &
+     & TestCase(                                                           &
+     &    qpoints           = [ QpointData:: ],                            &
+     &    power             = 1,                                           &
+     &    output            = [ QpointCombination:: ]                      &
+     & ),                                                                  &
+     & TestCase(                                                           &
+     &    qpoints           = qpoints([1]),                                &
+     &    power             = 0,                                           &
+     &    output            = [ QpointCombination(str('')) ]               &
+     & ),                                                                  &
+     & TestCase(                                                           &
+     &    qpoints           = qpoints([1]),                                &
+     &    power             = 1,                                           &
+     &    output            = [ QpointCombination(str('(q1^1)')) ]         &
+     & ),                                                                  &
+     & TestCase(                                                           &
+     &    qpoints           = qpoints([1]),                                &
+     &    power             = 2,                                           &
+     &    output            = [ QpointCombination(str('(q1^2)')) ]         &
+     & ),                                                                  &
+     & TestCase(                                                           &
+     &    qpoints           = qpoints([2,3]),                              &
+     &    power             = 2,                                           &
+     &    output            = [ QpointCombination(str('(q2^2)')),          &
+     &                          QpointCombination(str('(q2^1)*(q3^1)')),   &
+     &                          QpointCombination(str('(q3^2)'))         ] &
+     & ),                                                                  &
+     & TestCase(                                                           &
+     &    qpoints           = qpoints([2,3]),                              &
+     &    power             = 2,                                           &
+     &    conserve_momentum = .true.,                                      &
+     &    output            = [ QpointCombination(str('(q2^2)')),          &
+     &                          QpointCombination(str('(q3^2)'))  ]        &
+     & )                                                                   ]
+  
+  do i=1,size(test_cases)
+    associate( qpoints               => test_cases(i)%qpoints,           &
+             & power                 => test_cases(i)%power,             &
+             & conserve_momentum     => test_cases(i)%conserve_momentum, &
+             & expected_combinations => test_cases(i)%output             )
+      
+      combinations = generate_qpoint_combinations( qpoints,          &
+                                                 & power,            &
+                                                 & conserve_momentum )
+      
+      message =  [ str('q-points:'),              &
+                 & str(qpoints),                  &
+                 & str('Power:'),                 &
+                 & str(power),                    &
+                 & str('Combinations:'),          &
+                 & str(combinations),             &
+                 & str('Expected combinations:'), &
+                 & str(expected_combinations)     ]
+      
+      @assertTrue(size(combinations)==size(expected_combinations), char(message))
+      @assertTrue(all(combinations==expected_combinations), char(message))
+      
+      do j=1,size(combinations)-1
+        @assertTrue(combinations(j)<combinations(j+1), char([message, str('j:'), str(j)]))
+      enddo
     end associate
   enddo
 end subroutine

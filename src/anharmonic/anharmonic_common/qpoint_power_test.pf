@@ -36,32 +36,60 @@ subroutine test_QpointPower()
 end subroutine
 
 @test
+subroutine test_total_power()
+  type(QpointPower) :: foo
+  
+  foo = QpointPower(1,2)
+  @assertTrue(foo%total_power()==2)
+  
+  foo = QpointPower(1,2,3,4)
+  @assertTrue(foo%total_power()==6)
+end subroutine
+
+@test
 subroutine test_comparison()
-  type(QpointPower), allocatable :: cases(:)
+  type(QpointPower), allocatable :: powers(:)
   
   type(String) :: message(2)
   
   integer :: i,j
   
-  cases = [ QpointPower(1,2),     &
-          & QpointPower(1,3),     &
-          & QpointPower(3,2),     &
-          & QpointPower(1,2,3,4), &
-          & QpointPower(1,2,5,4), &
-          & QpointPower(1,2,3,5)  ]
+  ! An array of q-point powers in ascending order.
+  powers = [ QpointPower(str('(q1^2)')),      &
+           & QpointPower(str('(q1^1)')),      &
+           & QpointPower(str('(q2^2*q3^0)')), &
+           & QpointPower(str('(q2^1*q3^1)')), &
+           & QpointPower(str('(q2^0*q3^2)')), &
+           & QpointPower(str('(q2^1*q3^0)')), &
+           & QpointPower(str('(q2^0*q3^1)'))  ]
   
-  do i=1,size(cases)
-    do j=1,size(cases)
-      associate( lhs=>cases(i), &
-               & rhs=>cases(j)  )
+  do i=1,size(powers)
+    do j=1,size(powers)
+      associate( lhs=>powers(i), &
+               & rhs=>powers(j)  )
         message = [ 'lhs: '//lhs, &
                   & 'rhs: '//rhs  ]
-        if (i==j) then
-          @assertTrue(lhs==rhs, char(message))
-          @assertFalse(lhs/=rhs, char(message))
-        else
+        if (i<j) then
           @assertFalse(lhs==rhs, char(message))
           @assertTrue(lhs/=rhs, char(message))
+          @assertTrue(lhs<rhs, char(message))
+          @assertTrue(lhs<=rhs, char(message))
+          @assertFalse(lhs>rhs, char(message))
+          @assertFalse(lhs>=rhs, char(message))
+        elseif (i==j) then
+          @assertTrue(lhs==rhs, char(message))
+          @assertFalse(lhs/=rhs, char(message))
+          @assertFalse(lhs<rhs, char(message))
+          @assertTrue(lhs<=rhs, char(message))
+          @assertFalse(lhs>rhs, char(message))
+          @assertTrue(lhs>=rhs, char(message))
+        elseif (i>j) then
+          @assertFalse(lhs==rhs, char(message))
+          @assertTrue(lhs/=rhs, char(message))
+          @assertFalse(lhs<rhs, char(message))
+          @assertFalse(lhs<=rhs, char(message))
+          @assertTrue(lhs>rhs, char(message))
+          @assertTrue(lhs>=rhs, char(message))
         endif
       end associate
     enddo
@@ -74,5 +102,108 @@ subroutine test_io()
   @assertTrue(str(QpointPower(1,2))=='(q1^2)')
   @assertTrue(QpointPower(str('(q1^2*q3^4)'))==QpointPower(1,2,3,4))
   @assertTrue(str(QpointPower(1,2,3,4))=='(q1^2*q3^4)')
+end subroutine
+
+@test
+subroutine test_conjg()
+  logical :: check
+  
+  check = conjg(QpointPower(str('(q1^2)'))) &
+     & == QpointPower(str('(q1^2'))
+  @assertTrue(check)
+  
+  check = conjg(QpointPower(str('(q1^2*q2^2)'))) &
+     & ==QpointPower(str('(q1^2*q2^2)'))
+  @assertTrue(check)
+  
+  check = conjg(QpointPower(str('(q1^2*q2^3)'))) &
+     & ==QpointPower(str('(q1^3*q2^2)'))
+  @assertTrue(check)
+end subroutine
+
+@test
+subroutine test_operate()
+  logical :: check
+  
+  check = Group([1]) * QpointPower(str('(q1^2)')) &
+     & == QpointPower(str('(q1^2)'))
+  @assertTrue(check)
+  
+  check = Group([2,1]) * QpointPower(str('(q1^3)')) &
+     & == QpointPower(str('(q2^3)'))
+  @assertTrue(check)
+  
+  check = Group([1,3,2]) * QpointPower(str('(q2^4*q3^5)')) &
+     & == QpointPower(str('(q2^5*q3^4)'))
+  @assertTrue(check)
+end subroutine
+
+@test
+subroutine test_generate_qpoint_powers()
+  type :: TestCase
+    type(QpointData)               :: qpoint
+    integer                        :: max_power
+    type(QpointPower), allocatable :: output(:)
+  end type
+  
+  type(QpointData), allocatable :: qpoints(:)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(QpointPower), allocatable :: output(:)
+  type(String),      allocatable :: message(:)
+  
+  integer :: i,j
+  
+  qpoints = [ QpointData(FractionVector(str('   0 0 0')), 1, 1), &
+            & QpointData(FractionVector(str(' 1/3 0 0')), 2, 3), &
+            & QpointData(FractionVector(str('-1/3 0 0')), 3, 2)  ]
+  
+  test_cases = [                                                     &
+     & TestCase( qpoint    = qpoints(1),                             &
+     &           max_power = 0,                                      &
+     &           output    = [QpointPower::] ),                      &
+     & TestCase( qpoint    = qpoints(1),                             &
+     &           max_power = 1,                                      &
+     &           output    = QpointPower([str('(q1^1)')]) ),         &
+     & TestCase( qpoint    = qpoints(1),                             &
+     &           max_power = 2,                                      &
+     &           output    = QpointPower([ str('(q1^1)'),            &
+     &                                     str('(q1^2)')  ]) ),      &
+     & TestCase( qpoint    = qpoints(2),                             &
+     &           max_power = 1,                                      &
+     &           output    = QpointPower([ str('(q2^0*q3^1)'),       &
+     &                                     str('(q2^1*q3^0)')  ]) ), &
+     & TestCase( qpoint    = qpoints(2),                             &
+     &           max_power = 2,                                      &
+     &           output    = QpointPower([ str('(q2^0*q3^1)'),       &
+     &                                     str('(q2^1*q3^0)'),       &
+     &                                     str('(q2^0*q3^2)'),       &
+     &                                     str('(q2^1*q3^1)'),       &
+     &                                     str('(q2^2*q3^0)')  ]) )  ]
+  
+  do i=1,size(test_cases)
+    associate( qpoint    => test_cases(i)%qpoint,    &
+             & max_power => test_cases(i)%max_power, &
+             & expected  => test_cases(i)%output     )
+      output = generate_qpoint_powers(qpoint,max_power)
+      
+      message = [ str('q-point:'),   &
+                & str(qpoint),       &
+                & str('max power:'), &
+                & str(max_power),    &
+                & str('output:'),    &
+                & str(output),       &
+                & str('expected:'),  &
+                & str(expected)      ]
+      
+      @assertTrue(size(output)==size(expected), char(message))
+      @assertTrue(all(output==expected), char(message))
+      
+      do j=1,size(output)-1
+        @assertTrue(output(j)>output(j+1), char([message, str('j:'), str(j)]))
+      enddo
+    end associate
+  enddo
 end subroutine
 end module

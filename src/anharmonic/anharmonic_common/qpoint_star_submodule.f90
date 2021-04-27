@@ -15,47 +15,9 @@ contains
     class(*), intent(in) :: that
     logical              :: output
     
-    type(QpointPower), allocatable :: lhs(:)
-    type(QpointPower), allocatable :: rhs(:)
-    
-    integer :: i
-    
     select type(this); type is(QpointCombination)
       select type(that); type is(QpointCombination)
-        lhs = this%qpoints()
-        rhs = that%qpoints()
-        
-        if (size(lhs)/=size(rhs)) then
-          call print_line(ERROR//': A QpointStar may not contain &
-             &QpointCombinations containing different numbers of q-points.')
-          call err()
-        endif
-        
-        do i=1,size(lhs)
-          if (lhs(i)%id()<rhs(i)%id()) then
-            output = .true.
-            return
-          elseif (lhs(i)%id()>rhs(i)%id()) then
-            output = .false.
-            return
-          elseif (lhs(i)%power()<rhs(i)%power()) then
-            output = .true.
-            return
-          elseif (lhs(i)%power()>rhs(i)%power()) then
-            output = .false.
-            return
-          elseif (lhs(i)%paired_power()<rhs(i)%paired_power()) then
-            output = .true.
-            return
-          elseif (lhs(i)%paired_power()>rhs(i)%paired_power()) then
-            output = .false.
-            return
-          endif
-        enddo
-        
-        call print_line(ERROR//': A QpointStar may not contain duplicate &
-           &QpointCombinations.')
-        call err()
+        output = this<that
       end select
     end select
   end function
@@ -63,6 +25,10 @@ end procedure
 
 module procedure combinations_QpointStar
   output = this%combinations_
+end procedure
+
+module procedure total_power_QpointStar
+  output = this%combinations_(1)%total_power()
 end procedure
 
 module procedure equality_QpointStar_QpointStar
@@ -98,5 +64,85 @@ end procedure
 
 module procedure new_QpointStar_StringArray
   call this%read(str(input))
+end procedure
+
+module procedure generate_qpoint_stars
+  type(QpointCombination), allocatable :: combinations(:)
+  
+  integer              :: no_stars
+  integer, allocatable :: star_sizes(:)
+  
+  integer, allocatable :: star_id(:)
+  integer, allocatable :: id_in_star(:)
+  
+  type(QpointCombination) :: combination
+  
+  integer :: i,j,k,ialloc
+  
+  ! Generate the q-point combinations.
+  combinations = generate_qpoint_combinations(qpoints,power,conserve_momentum)
+  
+  if (size(combinations)==0) then
+    output = [QpointStar::]
+    return
+  endif
+  
+  ! Process the combinations to identify the q-point stars.
+  !  - There are `no_stars` stars.
+  !  - The star with id `i` contains `star_sizes(i)` combinations.
+  !  - Combination `combinations(i)` is the `id_in_star(i)` combination
+  !       in the star with id `star_id(i)`.
+  allocate( star_sizes(size(combinations)), &
+          & star_id(size(combinations)),    &
+          & id_in_star(size(combinations)), &
+          & stat=ialloc); call err(ialloc)
+  star_id = 0
+  
+  ! Process the first combination.
+  no_stars = 1
+  star_sizes(1) = 1
+  star_id(1) = 1
+  id_in_star(1) = 1
+  
+  ! Process each combination (after the first) in order.
+  do i=2,size(combinations)
+    do j=0,size(qpoint_groups)
+      ! Construct a combination which is equivalent to `combinations(i)`,
+      !    either by conjugation or by a q-point group.
+      if (j==0) then
+        combination = conjg(combinations(i))
+      else
+        combination = qpoint_groups(j) * combinations(i)
+      endif
+      
+      ! If `combinations(i)` is in an existing star, find that star and add
+      !    the combination to it.
+      if (combination<combinations(i)) then
+        k = first(combination==combinations(:i))
+        star_sizes(star_id(k)) = star_sizes(star_id(k)) + 1
+        star_id(i) = star_id(k)
+        id_in_star(i) = star_sizes(star_id(i))
+        exit
+      endif
+    enddo
+    
+    ! If `combinations(i)` is not in an existing star. Create a new star.
+    if (star_id(i)==0) then
+      no_stars = no_stars + 1
+      star_sizes(no_stars) = 1
+      star_id(i) = no_stars
+      id_in_star(i) = 1
+    endif
+  enddo
+  
+  ! Construct the actual q-point stars from the processed q-point combinations.
+  allocate(output(no_stars), stat=ialloc); call err(ialloc)
+  do i=1,no_stars
+    allocate( output(i)%combinations_(star_sizes(i)), &
+            & stat=ialloc); call err(ialloc)
+  enddo
+  do i=1,size(combinations)
+    output(star_id(i))%combinations_(id_in_star(i)) = combinations(i)
+  enddo
 end procedure
 end submodule

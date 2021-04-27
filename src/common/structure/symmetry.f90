@@ -53,6 +53,8 @@ module caesar_symmetry_module
   contains
     procedure, public :: inverse_transform
     
+    procedure, public :: qpoint_symmetry_group
+    
     procedure, public :: symmetry_order
   end type
   
@@ -173,6 +175,17 @@ module caesar_symmetry_module
       class(SymmetryOperator), intent(in) :: this
       type(QpointData),        intent(in) :: qpoint
       type(QpointData)                    :: output
+    end function
+  end interface
+  
+  interface
+    !> Constructs the group action of this symmetry on an array of q-points.
+    !> N.B. the group `output` is defined in terms of the positions of the
+    !>    q-points in the array `qpoints` rather than their ids.
+    module function qpoint_symmetry_group(this,qpoints) result(output)
+      class(SymmetryOperator), intent(in) :: this
+      type(QpointData),        intent(in) :: qpoints(:)
+      type(Group)                         :: output
     end function
   end interface
   

@@ -11,12 +11,15 @@ module caesar_qpoint_star_module
   public :: QpointStar
   public :: operator(==)
   public :: operator(/=)
+  public :: generate_qpoint_stars
   
   !> Records the total power of modes at a combination of q-points.
   type, extends(Stringsable) :: QpointStar
     type(QpointCombination), allocatable, private :: combinations_(:)
   contains
     procedure, public :: combinations => combinations_QpointStar
+    
+    procedure, public :: total_power => total_power_QpointStar
     
     procedure, public :: read  => read_QpointStar
     procedure, public :: write => write_QpointStar
@@ -38,6 +41,16 @@ module caesar_qpoint_star_module
     module function combinations_QpointStar(this) result(output)
       class(QpointStar), intent(in)        :: this
       type(QpointCombination), allocatable :: output(:)
+    end function
+  end interface
+  
+  interface
+    !> Returns the total power of modes at each combination in the star.
+    !> Assumes that the total power is the same for all combinations.
+    impure elemental module function total_power_QpointStar(this) &
+       & result(output)
+      class(QpointStar), intent(in) :: this
+      integer                       :: output
     end function
   end interface
   
@@ -95,6 +108,23 @@ module caesar_qpoint_star_module
       & result(this)
       type(StringArray), intent(in) :: input
       type(QpointStar)              :: this
+    end function
+  end interface
+  
+  interface
+    !> Generates the set of q-point stars with a given `power` from a given set
+    !>    of `qpoints`, based on how these q-points transform under symmetry,
+    !>    as described by `qpoint_groups`.
+    !> If `conserve_momentum` is `true` then only stars of q-point combinations
+    !>    which conserve momentum (i.e. sum q = G) are returned.
+    !> `conserve_momentum` defaults to `false`.
+    module function generate_qpoint_stars(qpoints,qpoint_groups,power, &
+       & conserve_momentum) result(output)
+      type(QpointData),       intent(in)           :: qpoints(:)
+      type(Group),            intent(in)           :: qpoint_groups(:)
+      integer,                intent(in)           :: power
+      logical,                intent(in), optional :: conserve_momentum
+      type(QpointStar), allocatable                :: output(:)
     end function
   end interface
 end module

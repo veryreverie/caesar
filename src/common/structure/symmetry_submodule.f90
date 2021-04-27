@@ -248,6 +248,12 @@ module procedure inverse_transform
   call output%translate_to_primitive()
 end procedure
 
+module procedure qpoint_symmetry_group
+  integer :: i
+  
+  output = Group([(first(this*qpoints(i)==qpoints), i=1, size(qpoints))])
+end procedure
+
 module procedure symmetry_order
   type(IntMatrix)   :: identity ! The identity matrix, I.
   type(IntMatrix)   :: tensor   ! The tensor after n operations.
