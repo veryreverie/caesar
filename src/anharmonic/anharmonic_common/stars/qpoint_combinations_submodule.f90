@@ -1,116 +1,42 @@
+!> Provides the implementation of the [[QpointCombinations(type)]] methods.
 submodule (caesar_qpoint_combination_module) &
-   & caesar_qpoint_combination_submodule
-  use caesar_anharmonic_common_module
+   & caesar_qpoint_combinations_submodule
+  use caesar_stars_module
 contains
 
-module procedure new_QpointCombination
-  this%qpoints_ = qpoints(sort(qpoints%id()))
+module procedure new_QpointCombinations
+  this%power = power
+  this%combinations = combinations
 end procedure
 
-module procedure qpoints_QpointCombination
-  output = this%qpoints_
-end procedure
-
-module procedure total_power_QpointCombination
-  output = sum(this%qpoints_%total_power())
-end procedure
-
-module procedure equality_QpointCombination_QpointCombination
-  if (size(this%qpoints_)==size(that%qpoints_)) then
-    output = all(this%qpoints_==that%qpoints_)
-  else
-    output = .false.
-  endif
-end procedure
-
-module procedure non_equality_QpointCombination_QpointCombination
-  output = .not. this==that
-end procedure
-
-module procedure lt_QpointCombination_QpointCombination
-  integer :: i
+module procedure read_QpointCombinations
+  integer                              :: power
+  type(QpointCombination), allocatable :: combinations(:)
   
-  if (this%total_power()<that%total_power()) then
-    output = .true.
-  elseif (this%total_power()>that%total_power()) then
-    output = .false.
-  else
-    do i=1,min(size(this%qpoints_),size(that%qpoints_))
-      if (this%qpoints_(i)<that%qpoints_(i)) then
-        output = .true.
-        return
-      elseif (this%qpoints_(i)>that%qpoints_(i)) then
-        output = .false.
-        return
-      endif
-      
-      output = .false.
-    enddo
-  endif
-end procedure
-
-module procedure le_QpointCombination_QpointCombination
-  output = this==that .or. this<that
-end procedure
-
-module procedure gt_QpointCombination_QpointCombination
-  output = .not. this<=that
-end procedure
-
-module procedure ge_QpointCombination_QpointCombination
-  output = .not. this<that
-end procedure
-
-module procedure read_QpointCombination
-  type(String),      allocatable :: line(:)
-  type(QpointPower), allocatable :: qpoints(:)
-  
-  integer :: i,ialloc
-  
-  select type(this); type is(QpointCombination)
-    ! Splitting the input by '*' separates the q-points,
-    !    but also splits q-point pairs in two.
-    line = split_line(input,delimiter='*')
-    
-    allocate(qpoints(0), stat=ialloc); call err(ialloc)
-    i = 1
-    do while (i<=size(line))
-      ! Check if line(i) ends in a bracket.
-      if (slice(line(i),len(line(i)),len(line(i)))==')') then
-        ! line(i) is a q-point on its own.
-        qpoints = [qpoints, QpointPower(line(i))]
-        i = i+1
-      else
-        ! line(i) and line(i+1) together make a q-point pair.
-        qpoints = [qpoints, QpointPower(line(i)//'*'//line(i+1))]
-        i = i+2
-      endif
-    enddo
-    
-    this = QpointCombination(qpoints)
+  select type(this); type is(QpointCombinations)
+    power = int(token(input(1), 6))
+    combinations = QpointCombination(input(2:))
+    this = QpointCombinations(power, combinations)
   class default
     call err()
   end select
 end procedure
 
-module procedure write_QpointCombination
-  select type(this); type is(QpointCombination)
-    output = join(this%qpoints_, delimiter='*')
+module procedure write_QpointCombinations
+  select type(this); type is(QpointCombinations)
+    output = [ 'q-point combinations with power = '//this%power//' :', &
+             & str(this%combinations)                                  ]
   class default
     call err()
   end select
 end procedure
 
-module procedure new_QpointCombination_String
+module procedure new_QpointCombinations_Strings
   call this%read(input)
 end procedure
 
-module procedure conjg_QpointCombination
-  output%qpoints_ = conjg(this%qpoints_)
-end procedure
-
-module procedure operate_Group_QpointCombination
-  output = QpointCombination(qpoint_group*this%qpoints_)
+module procedure new_QpointCombinations_StringArray
+  call this%read(str(input))
 end procedure
 
 module procedure generate_qpoint_combinations

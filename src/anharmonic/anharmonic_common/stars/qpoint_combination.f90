@@ -1,4 +1,5 @@
-!> Provides the [[QpointCombination(type)]] class, and related methods.
+!> Provides the [[QpointCombination(type)]] and [[QpointCombinations(type)]]
+!>    classes, and related methods.
 module caesar_qpoint_combination_module
   use caesar_common_module
   
@@ -16,6 +17,7 @@ module caesar_qpoint_combination_module
   public :: operator(>=)
   public :: conjg
   public :: operator(*)
+  public :: QpointCombinations
   public :: generate_qpoint_combinations
   
   !> Records the total power of modes at a combination of q-points.
@@ -170,6 +172,56 @@ module caesar_qpoint_combination_module
       type(Group),             intent(in) :: qpoint_group
       type(QpointCombination), intent(in) :: this
       type(QpointCombination)             :: output
+    end function
+  end interface
+  
+  !> An array of [[QpointCombination(type)]]s with a single `total_power`.
+  type, extends(Stringsable) :: QpointCombinations
+    integer                              :: power
+    type(QpointCombination), allocatable :: combinations(:)
+  contains
+    procedure, public :: read  => read_QpointCombinations
+    procedure, public :: write => write_QpointCombinations
+  end type
+  
+  interface QpointCombinations
+    !> Constructor for [[QpointCombinations(type)]] objects.
+    module function new_QpointCombinations(power,combinations) result(this)
+      integer,                 intent(in) :: power
+      type(QpointCombination), intent(in) :: combinations(:)
+      type(QpointCombinations)            :: this
+    end function
+  end interface
+  
+  interface
+    !> Convert a [[String(type)]] array to a [[QpointCombinations(type)]].
+    module subroutine read_QpointCombinations(this,input)
+      class(QpointCombinations), intent(out) :: this
+      type(String),              intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    !> Convert a [[QpointCombinations(type)]] to a [[String(type)]] array.
+    module function write_QpointCombinations(this) result(output)
+      class(QpointCombinations), intent(in) :: this
+      type(String), allocatable             :: output(:)
+    end function
+  end interface
+  
+  interface QpointCombinations
+    !> Convert a [[String(type)]] array to a [[QpointCombinations(type)]].
+    module function new_QpointCombinations_Strings(input) &
+       & result(this)
+      type(String), intent(in) :: input(:)
+      type(QpointCombinations) :: this
+    end function
+    
+    !> Convert a [[StringArray(type)]] to a [[QpointCombinations(type)]].
+    impure elemental module function new_QpointCombinations_StringArray( &
+       & input) result(this)
+      type(StringArray), intent(in) :: input
+      type(QpointCombinations)      :: this
     end function
   end interface
   

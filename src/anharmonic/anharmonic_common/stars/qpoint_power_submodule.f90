@@ -1,5 +1,5 @@
 submodule (caesar_qpoint_power_module) caesar_qpoint_power_submodule
-  use caesar_anharmonic_common_module
+  use caesar_stars_module
 contains
 
 module procedure new_QpointPower
@@ -68,6 +68,7 @@ end procedure
 module procedure equality_QpointPower_QpointPower
   output = this%id_==that%id_               &
    & .and. this%power_==that%power_         &
+   & .and. this%paired_id_==that%paired_id_ &
    & .and. this%paired_power_==that%paired_power_
 end procedure
 

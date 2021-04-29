@@ -1,68 +1,40 @@
-submodule (caesar_qpoint_star_module) caesar_qpoint_star_submodule
-  use caesar_anharmonic_common_module
+!> Provides the implementation of the [[QpointStars(type)]] methods.
+submodule (caesar_qpoint_star_module) caesar_qpoint_stars_submodule
+  use caesar_stars_module
 contains
 
-module procedure new_QpointStar
-  if (size(combinations)==0) then
-    call print_line(CODE_ERROR//': A QpointStar must contain at least one &
-       &QpointCombination.')
-    call err()
-  endif
-  this%combinations_ = combinations(sort(combinations,compare_combinations))
-contains
-  function compare_combinations(this,that) result(output)
-    class(*), intent(in) :: this
-    class(*), intent(in) :: that
-    logical              :: output
-    
-    select type(this); type is(QpointCombination)
-      select type(that); type is(QpointCombination)
-        output = this<that
-      end select
-    end select
-  end function
+module procedure new_QpointStars
+  this%power = power
+  this%stars = stars
 end procedure
 
-module procedure combinations_QpointStar
-  output = this%combinations_
-end procedure
-
-module procedure total_power_QpointStar
-  output = this%combinations_(1)%total_power()
-end procedure
-
-module procedure equality_QpointStar_QpointStar
-  output = this%combinations_(1)==that%combinations_(1)
-end procedure
-
-module procedure non_equality_QpointStar_QpointStar
-  output = .not. this==that
-end procedure
-
-module procedure read_QpointStar
-  type(QpointCombination), allocatable :: combinations(:)
+module procedure read_QpointStars
+  integer                       :: power
+  type(QpointStar), allocatable :: stars(:)
   
-  select type(this); type is(QpointStar)
-    combinations = QpointCombination(input)
-    this = QpointStar(combinations)
+  select type(this); type is(QpointStars)
+    power = int(token(input(1), 6))
+    stars = QpointStar(split_into_sections(input(2:)))
+    this = QpointStars(power, stars)
   class default
     call err()
   end select
 end procedure
 
-module procedure write_QpointStar
-  select type(this); type is(QpointStar)
-    output = str(this%combinations_)
+module procedure write_QpointStars
+  select type(this); type is(QpointStars)
+    output = [ 'q-point stars with power = '//this%power//' :', &
+             & str(this%stars, separating_line='')              ]
   class default
     call err()
   end select
 end procedure
 
-module procedure new_QpointStar_Strings
+module procedure new_QpointStars_Strings
   call this%read(input)
 end procedure
 
-module procedure new_QpointStar_StringArray
+module procedure new_QpointStars_StringArray
   call this%read(str(input))
 end procedure
 

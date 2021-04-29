@@ -1,7 +1,9 @@
 module qpoint_power_test
   use funit
 
-  use caesar_anharmonic_common_module
+  use caesar_common_module
+
+  use caesar_stars_module
   implicit none
 contains
 

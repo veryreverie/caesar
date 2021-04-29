@@ -6,13 +6,11 @@
 !    common anharmonic modules.
 module caesar_anharmonic_common_module
   use caesar_integration_module
+  use caesar_stars_module
   
   use caesar_interpolated_supercell_module
   use caesar_max_displacement_module
   use caesar_subspace_coupling_module
-  use caesar_qpoint_power_module
-  use caesar_qpoint_combination_module
-  use caesar_qpoint_star_module
   use caesar_subspace_monomial_module
   use caesar_degenerate_symmetry_module
   use caesar_anharmonic_data_module

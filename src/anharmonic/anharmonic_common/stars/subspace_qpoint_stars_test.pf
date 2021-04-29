@@ -1,0 +1,173 @@
+module subspace_qpoint_stars_test
+  use funit
+  
+  use caesar_common_module
+
+  use caesar_stars_module
+  implicit none
+contains
+
+! Tests constructor.
+@test
+subroutine test_SubspaceQpointStars()
+  type :: TestCase
+    integer                        :: subspace_id
+    type(QpointStars), allocatable :: powers(:)
+  end type
+  
+  type(QpointStar), allocatable :: stars(:)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: message(:)
+  
+  type(SubspaceQpointStars) :: subspace_stars
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  stars = [                                 &
+     & QpointStar([ str('()') ]),           &
+     & QpointStar([ str('(q1^1)'),          &
+     &              str('(q2^1)')  ]),      &
+     & QpointStar([ str('(q1^2)'),          &
+     &              str('(q2^2)')  ]),      &
+     & QpointStar([ str('(q1^1)*(q2^1)') ]) ]
+  
+  test_cases = [                                                         &
+     & TestCase( subspace_id = 1,                                        &
+     &           powers      = [ QpointStars:: ] ),                      &
+     & TestCase( subspace_id = 2,                                        &
+     &           powers      = [ QpointStars( power = 0,                 &
+     &                                        stars = stars([1]) ) ] ),  &
+     & TestCase( subspace_id = 3,                                        &
+     &           powers      = [ QpointStars( power = 0,                 &
+     &                                        stars = stars([1]) ),      &
+     &                           QpointStars( power = 1,                 &
+     &                                        stars = stars([2]) ),      &
+     &                           QpointStars( power = 2,                 &
+     &                                        stars = stars([3,4]) ) ] ) ]
+  
+  do i=1,size(test_cases)
+    associate( subspace_id => test_cases(i)%subspace_id, &
+             & powers      => test_cases(i)%powers       )
+      subspace_stars = SubspaceQpointStars(subspace_id, powers)
+      
+      message = [ str('subspace_id:'), &
+                & str(subspace_id),    &
+                & str('powers:'),      &
+                & str(powers)          ]
+      
+      @assertTrue(subspace_stars%subspace_id==subspace_id, char(message))
+      @assertTrue(size(subspace_stars%powers)==size(powers), char(message))
+      do j=1,size(powers)
+        associate( qpoint_stars     => powers(j),               &
+                 & new_qpoint_stars => subspace_stars%powers(j) )
+          check = new_qpoint_stars%power==qpoint_stars%power
+          @assertTrue(check, char(message))
+          check = size(new_qpoint_stars%stars)==size(qpoint_stars%stars)
+          @assertTrue(check, char(message))
+          check = all(new_qpoint_stars%stars==qpoint_stars%stars)
+          @assertTrue(check, char(message))
+        end associate
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(SubspaceQpointStars) :: subspace_stars
+    type(String), allocatable :: lines(:)
+  end type
+  
+  type(QpointStar), allocatable :: stars(:)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(SubspaceQpointStars) :: new_subspace_stars
+  type(String), allocatable :: new_lines(:)
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  stars = [                                 &
+     & QpointStar([ str('()') ]),           &
+     & QpointStar([ str('(q1^1)'),          &
+     &              str('(q2^1)')  ]),      &
+     & QpointStar([ str('(q1^2)'),          &
+     &              str('(q2^2)')  ]),      &
+     & QpointStar([ str('(q1^1)*(q2^1)') ]) ]
+  
+  test_cases = [                                                           &
+     & TestCase( SubspaceQpointStars(                                      &
+     &              subspace_id = 1,                                       &
+     &              powers      = [ QpointStars:: ] ),                     &
+     &           [ str('q-point stars in subspace 1 :'),                   &
+     &             str(repeat('-',50)),                                    &
+     &             str(repeat('-',50))                    ] ),             &
+     & TestCase( SubspaceQpointStars(                                      &
+     &              subspace_id = 2,                                       &
+     &              powers      = [ QpointStars( power = 0,                &
+     &                                           stars = stars([1]) ) ] ), &
+     &           [ str('q-point stars in subspace 2 :'),                   &
+     &             str(repeat('-',50)),                                    &
+     &             str('q-point stars with power = 0 :'),                  &
+     &             str('()'),                                              &
+     &             str(repeat('-',50))                    ] ),             &
+     & TestCase( SubspaceQpointStars( &
+     &              subspace_id = 3,                                        &
+     &              powers      = [ QpointStars( power = 0,                 &
+     &                                           stars = stars([1]) ),      &
+     &                              QpointStars( power = 1,                 &
+     &                                           stars = stars([2]) ),      &
+     &                              QpointStars( power = 2,                 &
+     &                                           stars = stars([3,4]) ) ] ), &
+     &           [ str('q-point stars in subspace 3 :'),                   &
+     &             str(repeat('-',50)),                                    &
+     &             str('q-point stars with power = 0 :'),                  &
+     &             str('()'),                                              &
+     &             str(repeat('-',50)),                                    &
+     &             str('q-point stars with power = 1 :'),                  &
+     &             str('(q1^1)'),                                          &
+     &             str('(q2^1)'),                                          &
+     &             str(repeat('-',50)),                                    &
+     &             str('q-point stars with power = 2 :'),                  &
+     &             str('(q1^2)'),                                          &
+     &             str('(q2^2)'),                                          &
+     &             str(''),                                                &
+     &             str('(q1^1)*(q2^1)'),                                   &
+     &             str(repeat('-',50))                    ] )              ]
+  
+  do i=1,size(test_cases)
+    associate( subspace_stars => test_cases(i)%subspace_stars, &
+             & lines          => test_cases(i)%lines           )
+      new_subspace_stars = SubspaceQpointStars(lines)
+      check = new_subspace_stars%subspace_id==subspace_stars%subspace_id
+      @assertTrue(check, char(lines))
+      check = size(new_subspace_stars%powers)==size(subspace_stars%powers)
+      @assertTrue(check, char(lines))
+      do j=1,size(subspace_stars%powers)
+        associate( qpoint_stars     => subspace_stars%powers(j),    &
+                 & new_qpoint_stars => new_subspace_stars%powers(j) )
+          check = new_qpoint_stars%power==qpoint_stars%power
+          @assertTrue(check, char(lines))
+          check = size(new_qpoint_stars%stars)==size(qpoint_stars%stars)
+          @assertTrue(check, char(lines))
+          check = all(new_qpoint_stars%stars==qpoint_stars%stars)
+          @assertTrue(check, char(lines))
+        end associate
+      enddo
+      
+      new_lines = str(subspace_stars)
+      check = size(new_lines)==size(lines)
+      @assertTrue(check, char(lines))
+      check = all(new_lines==lines)
+      @assertTrue(check, char(lines))
+    end associate
+  enddo
+end subroutine
+end module

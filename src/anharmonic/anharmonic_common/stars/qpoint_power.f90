@@ -93,7 +93,6 @@ module caesar_qpoint_power_module
   
   interface operator(==)
     !> Equality comparison between two [[QpointPower(type)]] objects.
-    !> Checks for matching id, power and paired_power.
     impure elemental module function equality_QpointPower_QpointPower(this, &
        & that) result(output)
       type(QpointPower), intent(in) :: this
@@ -104,7 +103,6 @@ module caesar_qpoint_power_module
   
   interface operator(/=)
     !> Non-equality comparison between two [[QpointPower(type)]] objects.
-    !> Checks for matching id, power and paired_power.
     impure elemental module function non_equality_QpointPower_QpointPower( &
        & this,that) result(output)
       type(QpointPower), intent(in) :: this

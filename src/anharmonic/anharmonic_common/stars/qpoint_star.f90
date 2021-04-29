@@ -1,8 +1,8 @@
-!> Provides the [[QpointStar(type)]] class, and related methods.
+!> Provides the [[QpointStar(type)]] and [[QpointStars(type)]] classes,
+!>    and related methods.
 module caesar_qpoint_star_module
   use caesar_common_module
   
-  use caesar_qpoint_power_module
   use caesar_qpoint_combination_module
   implicit none
   
@@ -11,9 +11,11 @@ module caesar_qpoint_star_module
   public :: QpointStar
   public :: operator(==)
   public :: operator(/=)
+  public :: QpointStars
   public :: generate_qpoint_stars
   
-  !> Records the total power of modes at a combination of q-points.
+  !> A star of [[QpointCombination(type)]]s related by symmetry and
+  !>    complex conjugation.
   type, extends(Stringsable) :: QpointStar
     type(QpointCombination), allocatable, private :: combinations_(:)
   contains
@@ -56,8 +58,6 @@ module caesar_qpoint_star_module
   
   interface operator(==)
     !> Equality comparison between two [[QpointStar(type)]] objects.
-    !> Assumes that the two stars are either the same or mutually exclusive,
-    !>    so only compares the first element of `combinations`.
     impure elemental module function &
        & equality_QpointStar_QpointStar(this,that) result(output)
       type(QpointStar), intent(in) :: this
@@ -68,11 +68,8 @@ module caesar_qpoint_star_module
   
   interface operator(/=)
     !> Non-equality comparison between two [[QpointStar(type)]] objects.
-    !> Assumes that the two stars are either the same or mutually exclusive,
-    !>    so only compares the first element of `combinations`.
-    impure elemental module function                                 &
-       & non_equality_QpointStar_QpointStar(this,that) &
-       & result(output)
+    impure elemental module function non_equality_QpointStar_QpointStar(this, &
+       & that) result(output)
       type(QpointStar), intent(in) :: this
       type(QpointStar), intent(in) :: that
       logical                      :: output
@@ -105,9 +102,59 @@ module caesar_qpoint_star_module
     
     !> Convert a [[StringArray(type)]] to a [[QpointStar(type)]].
     impure elemental module function new_QpointStar_StringArray(input) &
-      & result(this)
+       & result(this)
       type(StringArray), intent(in) :: input
       type(QpointStar)              :: this
+    end function
+  end interface
+  
+  !> An array of [[QpointStar(type)]]s with a single `total_power`.
+  type, extends(Stringsable) :: QpointStars
+    integer                       :: power
+    type(QpointStar), allocatable :: stars(:)
+  contains
+    procedure, public :: read  => read_QpointStars
+    procedure, public :: write => write_QpointStars
+  end type
+  
+  interface QpointStars
+    !> Constructor for [[QpointStars(type)]] objects.
+    module function new_QpointStars(power,stars) result(this)
+      integer,          intent(in) :: power
+      type(QpointStar), intent(in) :: stars(:)
+      type(QpointStars)            :: this
+    end function
+  end interface
+  
+  interface
+    !> Convert a [[String(type)]] array to a [[QpointStars(type)]].
+    module subroutine read_QpointStars(this,input)
+      class(QpointStars), intent(out) :: this
+      type(String),       intent(in)  :: input(:)
+    end subroutine
+  end interface
+  
+  interface
+    !> Convert a [[QpointStars(type)]] to a [[String(type)]] array.
+    module function write_QpointStars(this) result(output)
+      class(QpointStars), intent(in) :: this
+      type(String), allocatable      :: output(:)
+    end function
+  end interface
+  
+  interface QpointStars
+    !> Convert a [[String(type)]] array to a [[QpointStars(type)]].
+    module function new_QpointStars_Strings(input) &
+       & result(this)
+      type(String), intent(in) :: input(:)
+      type(QpointStars)        :: this
+    end function
+    
+    !> Convert a [[StringArray(type)]] to a [[QpointStars(type)]].
+    impure elemental module function new_QpointStars_StringArray( &
+       & input) result(this)
+      type(StringArray), intent(in) :: input
+      type(QpointStars)             :: this
     end function
   end interface
   
