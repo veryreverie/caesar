@@ -12,6 +12,7 @@ module caesar_qpoint_star_module
   public :: operator(==)
   public :: operator(/=)
   public :: QpointStars
+  public :: generate_stars
   public :: generate_qpoint_stars
   
   !> A star of [[QpointCombination(type)]]s related by symmetry and
@@ -159,19 +160,33 @@ module caesar_qpoint_star_module
   end interface
   
   interface
-    !> Generates the set of q-point stars with a given `power` from a given set
-    !>    of `qpoints`, based on how these q-points transform under symmetry,
+    !> Groups a set of [[QpointCombination(type)]]s into a set of
+    !>    [[QpointStar]]s.
+    !> Combinations are grouped into stars according to the action of a set of
+    !>    symmetries, as described by `qpoint_groups`.
+    !> Assumes that `combinations` is sorted in ascending order by '<'.
+    module function generate_stars(combinations,qpoint_groups) result(output)
+      type(QpointCombination), intent(in) :: combinations(:)
+      type(Group),             intent(in) :: qpoint_groups(:)
+      type(QpointStar), allocatable       :: output(:)
+    end function
+  end interface
+  
+  interface
+    !> Generates all q-point stars with `total_power` up to `max_power`,
+    !>    from a given set of `qpoints`,
+    !>    based on how these q-points transform under symmetry,
     !>    as described by `qpoint_groups`.
     !> If `conserve_momentum` is `true` then only stars of q-point combinations
     !>    which conserve momentum (i.e. sum q = G) are returned.
     !> `conserve_momentum` defaults to `false`.
-    module function generate_qpoint_stars(qpoints,qpoint_groups,power, &
+    module function generate_qpoint_stars(qpoints,qpoint_groups,max_power, &
        & conserve_momentum) result(output)
       type(QpointData),       intent(in)           :: qpoints(:)
       type(Group),            intent(in)           :: qpoint_groups(:)
-      integer,                intent(in)           :: power
+      integer,                intent(in)           :: max_power
       logical,                intent(in), optional :: conserve_momentum
-      type(QpointStar), allocatable                :: output(:)
+      type(QpointStars), allocatable               :: output(:)
     end function
   end interface
 end module

@@ -226,18 +226,20 @@ module caesar_qpoint_combination_module
   end interface
   
   interface
-    !> Generates all q-point combinations with a given `power` from a given set
-    !>    of `qpoints`.
-    !> The combinations are returned in ascending order by '<'.
+    !> Generates all q-point combinations with `total_power` up to `max_power`,
+    !>    from a given set of `qpoints`.
+    !> Returns an array of [[QpointCombinations(type)]] of length
+    !>    `max_power+1`, in ascending order of power.
+    !> The combinations at each power are returned in ascending order by '<'.
     !> If `conserve_momentum` is `true` then only q-point combinations
     !>    which conserve momentum (i.e. sum q = G) are returned.
     !> `conserve_momentum` defaults to `false`.
-    module function generate_qpoint_combinations(qpoints,power, &
+    module function generate_qpoint_combinations(qpoints,max_power, &
        & conserve_momentum) result(output)
       type(QpointData), intent(in)           :: qpoints(:)
-      integer,          intent(in)           :: power
+      integer,          intent(in)           :: max_power
       logical,          intent(in), optional :: conserve_momentum
-      type(QpointCombination), allocatable   :: output(:)
+      type(QpointCombinations), allocatable  :: output(:)
     end function
   end interface
 end module

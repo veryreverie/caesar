@@ -59,14 +59,24 @@ module procedure generate_qpoint_combinations
   type(CombinationAndWavevector), allocatable :: combinations(:)
   type(CombinationAndWavevector), allocatable :: new_combinations(:)
   
+  integer              :: power
+  integer, allocatable :: no_combinations(:)
+  
   integer :: i,j,k,l,ialloc
   
+  if (max_power<0) then
+    call print_line(ERROR//': max_power must be > 0.')
+    call err()
+  endif
+  
+  allocate(output(max_power+1), stat=ialloc); call err(ialloc)
+  output%power = [(i,i=0,max_power)]
+  
   if (size(qpoints)==0) then
-    if (power==0) then
-      output = [QpointCombination([QpointPower::])]
-    else
-      output = [QpointCombination::]
-    endif
+    output(1)%combinations = [QpointCombination([QpointPower::])]
+    do i=1,max_power
+      output(i+1)%combinations = [QpointCombination::]
+    enddo
     return
   endif
   
@@ -88,7 +98,7 @@ module procedure generate_qpoint_combinations
   !    wavevector of each power.
   allocate(powers(size(key)), stat=ialloc); call err(ialloc)
   do i=1,size(key)
-    powers(i)%powers = generate_qpoint_powers(qpoints(key(i)), power)
+    powers(i)%powers = generate_qpoint_powers(qpoints(key(i)), max_power)
     if (qpoints_real) then
       powers(i)%wavevectors = qpoints(key(i))%qpoint*powers(i)%powers%power()
     else
@@ -103,11 +113,12 @@ module procedure generate_qpoint_combinations
      & combination       = QpointCombination([QpointPower::]), &
      & combination_power = 0,                                  &
      & wavevector        = fracvec(zeroes(3))                  )]
-  ! Construct all q-point combinations at the given power.
+  ! Construct all q-point combinations up to max_power.
   ! After iteration `i` of the loop, `combinations` contains the q-point
   !    combinations corresponding to the first `i` q-points, with
-  !    total_power <= power.
-  ! The final iteration only includes combinations with total_power=power.
+  !    total_power <= max_power.
+  ! If conserve_momentum is true then the final iteration prunes combinations
+  !    which do not conserve momentum.
   do i=1,size(powers)
     ! Allocate `new_combinations` to the maximum size possibly needed.
     if (allocated(new_combinations)) then
@@ -125,9 +136,8 @@ module procedure generate_qpoint_combinations
       new_combinations(l) = combinations(j)
       
       if (i==size(powers)) then
-        if (      new_combinations(l)%combination_power<power            &
-           & .or. (       set_default(conserve_momentum,.false.)         &
-           &        .and. .not. is_int(new_combinations(l)%wavevector) ) ) then
+        if ( set_default(conserve_momentum,.false.)             &
+           & .and. .not. is_int(new_combinations(l)%wavevector) ) then
           l = l-1
         endif
       endif
@@ -135,7 +145,7 @@ module procedure generate_qpoint_combinations
       do k=1,size(powers(i)%powers)
         if ( combinations(j)%combination_power &
          & + powers(i)%powers(k)%total_power() &
-         & > power                             ) then
+         & > max_power                         ) then
           exit
         endif
         
@@ -149,10 +159,8 @@ module procedure generate_qpoint_combinations
         new_combinations(l)%wavevector = combinations(j)%wavevector &
                                      & + powers(i)%wavevectors(k)
         if (i==size(powers)) then
-          if (      new_combinations(l)%combination_power<power              &
-             & .or. (       set_default(conserve_momentum,.false.)           &
-             &        .and. .not. is_int(new_combinations(l)%wavevector) ) ) &
-             & then
+          if ( set_default(conserve_momentum,.false.)             &
+             & .and. .not. is_int(new_combinations(l)%wavevector) ) then
             l = l-1
           endif
         endif
@@ -162,6 +170,23 @@ module procedure generate_qpoint_combinations
     combinations = new_combinations(:l)
   enddo
   
-  output = combinations(l:1:-1)%combination
+  ! Separate the combinations by total power.
+  allocate(no_combinations(max_power+1), stat=ialloc); call err(ialloc)
+  do power=0,max_power
+    no_combinations(power+1) = count(combinations%combination_power==power)
+    allocate( output(power+1)%combinations(no_combinations(power+1)), &
+            & stat=ialloc); call err(ialloc)
+  enddo
+  do i=1,size(combinations)
+    power = combinations(i)%combination_power
+    output(power+1)%combinations(no_combinations(power+1)) = &
+       & combinations(i)%combination
+    no_combinations(power+1) = no_combinations(power+1)-1
+  enddo
+  
+  if (any(no_combinations/=0)) then
+    call print_line(CODE_ERROR//': Inconsistency counting combinations.')
+    call err()
+  endif
 end procedure
 end submodule

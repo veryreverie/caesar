@@ -175,4 +175,88 @@ subroutine test_io()
     end associate
   enddo
 end subroutine
+
+@test
+subroutine test_generate_stars()
+  type :: TestCase
+    type(QpointCombination), allocatable :: combinations(:)
+    type(Group),             allocatable :: qpoint_groups(:)
+    type(QpointStar),        allocatable :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(QpointStar), allocatable :: stars(:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [                                                        &
+     & TestCase(                                                        &
+     &    combinations  = [ QpointCombination(str('()')) ],             &
+     &    qpoint_groups = [ Group:: ],                                  &
+     &    output        = [ QpointStar([ str('()') ]) ]                 &
+     & ),                                                               &
+     & TestCase(                                                        &
+     &    combinations  = [ QpointCombination(str('()')) ],             &
+     &    qpoint_groups = [ Group([1]) ],                               &
+     &    output        = [ QpointStar([ str('()') ]) ]                 &
+     & ),                                                               &
+     & TestCase(                                                        &
+     &    combinations  = [ QpointCombination:: ],                      &
+     &    qpoint_groups = [ Group:: ],                                  &
+     &    output        = [ QpointStar:: ]                              &
+     & ),                                                               &
+     & TestCase(                                                        &
+     &    combinations  = [ QpointCombination:: ],                      &
+     &    qpoint_groups = [ Group([1]) ],                               &
+     &    output        = [ QpointStar:: ]                              &
+     & ),                                                               &
+     & TestCase(                                                        &
+     &    combinations  = [ QpointCombination(str('(q1^1)')),           &
+     &                      QpointCombination(str('(q2^1)'))  ],        &
+     &    qpoint_groups = [ Group:: ],                                  &
+     &    output        = [ QpointStar([ str('(q1^1)') ]),              &
+     &                      QpointStar([ str('(q2^1)') ])  ]            &
+     & ),                                                               &
+     & TestCase(                                                        &
+     &    combinations  = [ QpointCombination(str('(q1^1)')),           &
+     &                      QpointCombination(str('(q2^1)'))  ],        &
+     &    qpoint_groups = [ Group([1,2]),                               &
+     &                      Group([2,1])  ],                            &
+     &    output        = [ QpointStar([ str('(q1^1)'),                 &
+     &                                   str('(q2^1)')  ]) ]            &
+     & ),                                                               &
+     & TestCase(                                                        &
+     &    combinations  = [ QpointCombination(str('(q1^2)')),           &
+     &                      QpointCombination(str('(q1^1)*(q2^1)')),    &
+     &                      QpointCombination(str('(q2^2)'))         ], &
+     &    qpoint_groups = [ Group([1,2]),                               &
+     &                      Group([2,1])  ],                            &
+     &    output        =  [ QpointStar([ str('(q1^2)'),                &
+     &                                    str('(q2^2)')  ]),            &
+     &                       QpointStar([ str('(q1^1)*(q2^1)') ]) ]     &
+     & )                                                                ]
+  
+  do i=1,size(test_cases)
+    associate( combinations   => test_cases(i)%combinations,  &
+             & qpoint_groups  => test_cases(i)%qpoint_groups, &
+             & expected_stars => test_cases(i)%output         )
+      stars = generate_stars(combinations, qpoint_groups)
+      
+      message = [ str('combinations:'),                   &
+                & str(combinations),                      &
+                & str('qpoint_groups:'),                  &
+                & str(qpoint_groups),                     &
+                & str('stars:'),                          &
+                & str(stars, separating_line=''),         &
+                & str('expected stars:'),                 &
+                & str(expected_stars, separating_line='') ]
+      
+      @assertTrue(size(stars)==size(expected_stars), char(message))
+      @assertTrue(all(stars==expected_stars), char(message))
+    end associate
+  enddo
+end subroutine
 end module

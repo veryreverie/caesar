@@ -114,22 +114,24 @@ end subroutine
 @test
 subroutine test_generate_qpoint_stars()
   type :: TestCase
-    type(QpointData), allocatable :: qpoints(:)
-    type(Group),      allocatable :: qpoint_groups(:)
-    integer                       :: power
-    logical,          allocatable :: conserve_momentum
-    type(QpointStar), allocatable :: output(:)
+    type(QpointData),  allocatable :: qpoints(:)
+    type(Group),       allocatable :: qpoint_groups(:)
+    integer                        :: power
+    logical,           allocatable :: conserve_momentum
+    type(QpointStars), allocatable :: output(:)
   end type
   
   type(QpointData), allocatable :: qpoints(:)
   
   type(TestCase), allocatable :: test_cases(:)
   
-  type(QpointStar), allocatable :: stars(:)
+  type(QpointStars), allocatable :: stars(:)
   
   type(String), allocatable :: message(:)
   
-  integer :: i
+  logical :: check
+  
+  integer :: i,j
   
   qpoints = [ QpointData( FractionVector(str('   0    0    0')), 1, 1), &
             & QpointData( FractionVector(str(' 1/2    0    0')), 2, 2), &
@@ -137,81 +139,166 @@ subroutine test_generate_qpoint_stars()
             & QpointData( FractionVector(str('   0    0  1/4')), 4, 5), &
             & QpointData( FractionVector(str('   0    0 -1/4')), 5, 4)  ]
   
-  test_cases = [                                                       &
-     & TestCase(                                                       &
-     &    qpoints           = [ QpointData:: ],                        &
-     &    qpoint_groups     = [ Group([integer::]) ],                  &
-     &    power             = 0,                                       &
-     &    output            = [ QpointStar([str('()')]) ]              &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = [ QpointData:: ],                        &
-     &    qpoint_groups     = [ Group([integer::]) ],                  &
-     &    power             = 1,                                       &
-     &    output            = [ QpointStar:: ]                         &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([1]),                            &
-     &    qpoint_groups     = [ Group([1]) ],                          &
-     &    power             = 0,                                       &
-     &    output            = [ QpointStar([str('()')]) ]              &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([1]),                            &
-     &    qpoint_groups     = [ Group([1]) ],                          &
-     &    power             = 1,                                       &
-     &    output            = [ QpointStar([str('(q1^1)')]) ]          &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([1]),                            &
-     &    qpoint_groups     = [ Group([1]) ],                          &
-     &    power             = 2,                                       &
-     &    output            = [ QpointStar([str('(q1^2)')]) ]          &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([2,3]),                          &
-     &    qpoint_groups     = [ Group([1,2,3]) ],                      &
-     &    power             = 2,                                       &
-     &    output            = [ QpointStar([str('(q2^2)')]),           &
-     &                          QpointStar([str('(q2^1)*(q3^1)')]),    &
-     &                          QpointStar([str('(q3^2)')])         ]  &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([2,3]),                          &
-     &    qpoint_groups     = [ Group([1,2,3]) ],                      &
-     &    power             = 2,                                       &
-     &    conserve_momentum = .true.,                                  &
-     &    output            = [ QpointStar([str('(q2^2)')]),           &
-     &                          QpointStar([str('(q3^2)')])  ]         &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([2,3]),                          &
-     &    qpoint_groups     = [ Group([1,2,3]),                        &
-     &                          Group([1,3,2])  ],                     &
-     &    power             = 2,                                       &
-     &    conserve_momentum = .false.,                                 &
-     &    output            = [ QpointStar([ str('(q2^2)'),            &
-     &                                       str('(q3^2)')  ]),        &
-     &                          QpointStar([ str('(q2^1)*(q3^1)') ]) ] &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([2,3]),                          &
-     &    qpoint_groups     = [ Group([1,2,3]),                        &
-     &                          Group([1,3,2])  ],                     &
-     &    power             = 2,                                       &
-     &    conserve_momentum = .true.,                                  &
-     &    output            = [ QpointStar([ str('(q2^2)'),            &
-     &                                       str('(q3^2)')  ]) ]       &
-     & ),                                                              &
-     & TestCase(                                                       &
-     &    qpoints           = qpoints([4,5]),                          &
-     &    qpoint_groups     = [ Group([1,2,3,4,5]) ],                  &
-     &    power             = 4,                                       &
-     &    conserve_momentum = .true.,                                  &
-     &    output            = [ QpointStar([ str('(q4^4*q5^0)'),       &
-     &                                       str('(q4^0*q5^4)')  ]),   &
-     &                          QpointStar([ str('(q4^2*q5^2)') ])   ] &
-     & )                                                               ]
+  test_cases = [                                                  &
+     & TestCase(                                                  &
+     &    qpoints           = [ QpointData:: ],                   &
+     &    qpoint_groups     = [ Group([integer::]) ],             &
+     &    power             = 0,                                  &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = [ QpointData:: ],                   &
+     &    qpoint_groups     = [ Group([integer::]) ],             &
+     &    power             = 1,                                  &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 1,                                        &
+     &          stars = [ QpointStar:: ]                          &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = qpoints([1]),                       &
+     &    qpoint_groups     = [ Group([1]) ],                     &
+     &    power             = 0,                                  &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = qpoints([1]),                       &
+     &    qpoint_groups     = [ Group([1]) ],                     &
+     &    power             = 1,                                  &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 1,                                        &
+     &          stars = [ QpointStar([ str('(q1^1)') ]) ]         &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = qpoints([1]),                       &
+     &    qpoint_groups     = [ Group([1]) ],                     &
+     &    power             = 2,                                  &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 1,                                        &
+     &          stars = [ QpointStar([ str('(q1^1)') ]) ]         &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 2,                                        &
+     &          stars = [ QpointStar([ str('(q1^2)') ]) ]         &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = qpoints([2,3]),                     &
+     &    qpoint_groups     = [ Group([1,2,3]) ],                 &
+     &    power             = 2,                                  &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 1,                                        &
+     &          stars = [ QpointStar([ str('(q2^1)') ]),          &
+     &                    QpointStar([ str('(q3^1)') ])  ]        &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 2,                                        &
+     &          stars = [ QpointStar([ str('(q2^2)') ]),          &
+     &                    QpointStar([ str('(q2^1)*(q3^1)') ]),   &
+     &                    QpointStar([ str('(q3^2)') ])         ] &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = qpoints([2,3]),                     &
+     &    qpoint_groups     = [ Group([1,2,3]) ],                 &
+     &    power             = 2,                                  &
+     &    conserve_momentum = .true.,                             &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ] ),          &
+     &       QpointStars(                                         &
+     &          power = 1,                                        &
+     &          stars = [ QpointStar:: ]                          &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 2,                                        &
+     &          stars = [ QpointStar([ str('(q2^2)') ]),          &
+     &                    QpointStar([ str('(q3^2)') ])  ]        &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = qpoints([2,3]),                     &
+     &    qpoint_groups     = [ Group([1,2,3]),                   &
+     &                          Group([1,3,2])  ],                &
+     &    power             = 2,                                  &
+     &    conserve_momentum = .false.,                            &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 1,                                        &
+     &          stars = [ QpointStar([ str('(q2^1)'),             &
+     &                                 str('(q3^1)')  ])  ]       &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 2,                                        &
+     &          stars = [ QpointStar([ str('(q2^2)'),             &
+     &                                 str('(q3^2)')  ]),         &
+     &                    QpointStar([ str('(q2^1)*(q3^1)') ]) ]  &
+     &       )                                                    &
+     &    ]                                                       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    qpoints           = qpoints([2,3]),                     &
+     &    qpoint_groups     = [ Group([1,2,3]),                   &
+     &                          Group([1,3,2])  ],                &
+     &    power             = 2,                                  &
+     &    conserve_momentum = .true.,                             &
+     &    output            = [                                   &
+     &       QpointStars(                                         &
+     &          power = 0,                                        &
+     &          stars = [ QpointStar([ str('()') ]) ]             &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 1,                                        &
+     &          stars = [ QpointStar:: ]                          &
+     &       ),                                                   &
+     &       QpointStars(                                         &
+     &          power = 2,                                        &
+     &          stars = [ QpointStar([ str('(q2^2)'),             &
+     &                                 str('(q3^2)')  ]) ]        &
+     &       )                                                    &
+     &    ]                                                       &
+     & )                                                          ]
   
   do i=1,size(test_cases)
     associate( qpoints           => test_cases(i)%qpoints,           &
@@ -236,8 +323,16 @@ subroutine test_generate_qpoint_stars()
                  & str('Expected stars:'),                 &
                  & str(expected_stars, separating_line='') ]
       
-      @assertTrue(size(stars)==size(expected_stars), char(message))
-      @assertTrue(all(stars==expected_stars), char(message))
+      check = size(stars)==size(expected_stars)
+      @assertTrue(check, char(message))
+      check = all(stars%power==expected_stars%power)
+      @assertTrue(check, char(message))
+      do j=1,size(expected_stars)
+        check = size(stars(j)%stars)==size(expected_stars(j)%stars)
+        @assertTrue(check, char(message))
+        check = all(stars(j)%stars==expected_stars(j)%stars)
+        @assertTrue(check, char(message))
+      enddo
     end associate
   enddo
 end subroutine
