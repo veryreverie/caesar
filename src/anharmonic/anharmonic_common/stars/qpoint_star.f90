@@ -12,7 +12,7 @@ module caesar_qpoint_star_module
   public :: operator(==)
   public :: operator(/=)
   public :: QpointStars
-  public :: generate_stars
+  public :: combinations_to_stars
   public :: generate_qpoint_stars
   
   !> A star of [[QpointCombination(type)]]s related by symmetry and
@@ -165,7 +165,8 @@ module caesar_qpoint_star_module
     !> Combinations are grouped into stars according to the action of a set of
     !>    symmetries, as described by `qpoint_groups`.
     !> Assumes that `combinations` is sorted in ascending order by '<'.
-    module function generate_stars(combinations,qpoint_groups) result(output)
+    module function combinations_to_stars(combinations,qpoint_groups) &
+       & result(output)
       type(QpointCombination), intent(in) :: combinations(:)
       type(Group),             intent(in) :: qpoint_groups(:)
       type(QpointStar), allocatable       :: output(:)

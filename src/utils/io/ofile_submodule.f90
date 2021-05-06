@@ -98,7 +98,7 @@ module procedure print_line_complexes
   call this%print_line(join(input, settings=settings))
 end procedure
 
-module procedure print_lines_Strings_character
+module procedure print_lines_Strings_String
   integer :: i
   
   do i=1,size(input)
@@ -109,8 +109,8 @@ module procedure print_lines_Strings_character
   enddo
 end procedure
 
-module procedure print_lines_Strings_String
-  call this%print_lines(input,char(separating_line),settings)
+module procedure print_lines_Strings_character
+  call this%print_lines(input,str(separating_line),settings)
 end procedure
 
 module procedure print_lines_StringWriteables_String
@@ -139,15 +139,11 @@ module procedure print_lines_StringsWriteables_character
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
-module procedure print_lines_logicals_character
-  call this%print_lines(str(input,separating_line,settings))
-end procedure
-
 module procedure print_lines_logicals_String
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
-module procedure print_lines_integers_character
+module procedure print_lines_logicals_character
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
@@ -155,7 +151,7 @@ module procedure print_lines_integers_String
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
-module procedure print_lines_reals_character
+module procedure print_lines_integers_character
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
@@ -163,11 +159,15 @@ module procedure print_lines_reals_String
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
-module procedure print_lines_complexes_character
+module procedure print_lines_reals_character
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 
 module procedure print_lines_complexes_String
+  call this%print_lines(str(input,separating_line,settings))
+end procedure
+
+module procedure print_lines_complexes_character
   call this%print_lines(str(input,separating_line,settings))
 end procedure
 end submodule

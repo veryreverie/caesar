@@ -35,15 +35,7 @@ module procedure str_StringsWriteables_String
 end procedure
 
 module procedure str_StringsWriteables_character
-  if (present(settings)) then
-    call set_print_settings(settings)
-  endif
-  
   output = str(this,str(separating_line))
-  
-  if (present(settings)) then
-    call unset_print_settings()
-  endif
 end procedure
 
 module procedure print_lines_StringsWriteable

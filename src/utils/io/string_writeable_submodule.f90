@@ -84,7 +84,7 @@ module procedure print_line_StringWriteable
   endif
 end procedure
 
-module procedure print_lines_StringWriteables_character
+module procedure print_lines_StringWriteables_String
   if (present(settings)) then
     call set_print_settings(settings)
   endif
@@ -96,7 +96,7 @@ module procedure print_lines_StringWriteables_character
   endif
 end procedure
 
-module procedure print_lines_StringWriteables_String
+module procedure print_lines_StringWriteables_character
   if (present(settings)) then
     call set_print_settings(settings)
   endif

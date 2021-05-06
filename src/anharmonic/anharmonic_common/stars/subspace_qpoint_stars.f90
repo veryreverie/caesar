@@ -8,6 +8,7 @@ module caesar_subspace_qpoint_stars_module
   private
   
   public :: SubspaceQpointStars
+  public :: generate_subspace_qpoint_stars
   
   !> The set of [[QpointStars(type)]]s corresponding to a given
   !>    [[DegenerateSubspace(type)]].
@@ -57,6 +58,28 @@ module caesar_subspace_qpoint_stars_module
        & input) result(this)
       type(StringArray), intent(in) :: input
       type(SubspaceQpointStars)     :: this
+    end function
+  end interface
+  
+  interface
+    !> Generates the q-point stars corresponding to a set of `subspaces`.
+    module function generate_subspace_qpoint_stars(subspaces,modes,qpoints, &
+       & symmetries,max_power,conserve_momentum) result(output)
+      type(DegenerateSubspace), intent(in)           :: subspaces(:)
+      !> A list of complex modes,
+      !>    which must include all modes in the subspaces.
+      type(ComplexMode),        intent(in)           :: modes(:)
+      !> A list of q-points,
+      !>    which must include all q-points corresponding to the modes.
+      type(QpointData),         intent(in)           :: qpoints(:)
+      !> The symmetries of the primitive cell.
+      type(SymmetryOperator),   intent(in)           :: symmetries(:)
+      !> The q-point stars will be generated with total powers <= `max_power`.
+      integer,                  intent(in)           :: max_power
+      !> If true, only q-point stars which conserve momentum (i.e. sum q = G)
+      !>    will be returned. Defaults to `false`.
+      logical,                  intent(in), optional :: conserve_momentum
+      type(SubspaceQpointStars), allocatable         :: output(:)
     end function
   end interface
 end module

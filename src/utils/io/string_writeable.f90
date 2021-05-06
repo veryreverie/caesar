@@ -136,25 +136,25 @@ module caesar_string_writeable_module
     !> Converts a [[StringWriteable]] array to a [[String(type)]] array,
     !>    and prints it according to the settings of
     !>    [[caesar_intrinsics_module:print_lines(interface)]].
-    module subroutine print_lines_StringWriteables_character(this, &
-       & separating_line,settings) 
-      class(StringWriteable), intent(in)           :: this(:)
-      !> If present, `separating_line` will be included between each
-      !>    element of `this`.
-      character(*),           intent(in), optional :: separating_line
-      !> Options controlling formatting.
-      type(PrintSettings),    intent(in), optional :: settings
-    end subroutine
-
-    !> Converts a [[StringWriteable]] array to a [[String(type)]] array,
-    !>    and prints it according to the settings of
-    !>    [[caesar_intrinsics_module:print_lines(interface)]].
     module subroutine print_lines_StringWriteables_String(this, &
        & separating_line,settings) 
       class(StringWriteable), intent(in)           :: this(:)
       !> If present, `separating_line` will be included between each
       !>    element of `this`.
-      type(String),           intent(in)           :: separating_line
+      type(String),           intent(in), optional :: separating_line
+      !> Options controlling formatting.
+      type(PrintSettings),    intent(in), optional :: settings
+    end subroutine
+    
+    !> Converts a [[StringWriteable]] array to a [[String(type)]] array,
+    !>    and prints it according to the settings of
+    !>    [[caesar_intrinsics_module:print_lines(interface)]].
+    module subroutine print_lines_StringWriteables_character(this, &
+       & separating_line,settings) 
+      class(StringWriteable), intent(in)           :: this(:)
+      !> If present, `separating_line` will be included between each
+      !>    element of `this`.
+      character(*),           intent(in)           :: separating_line
       !> Options controlling formatting.
       type(PrintSettings),    intent(in), optional :: settings
     end subroutine

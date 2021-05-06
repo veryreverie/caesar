@@ -124,68 +124,68 @@ module procedure str_complex
   output = complex_string
 end procedure
 
-module procedure str_logicals_character
-  integer :: i,ialloc
-  
-  allocate(output(0), stat=ialloc); call err(ialloc)
-  do i=1,size(input)
-    output = [output, str(input(i))]
-    if (i<size(input) .and. present(separating_line)) then
-      output = [output, str(separating_line)]
-    endif
-  enddo
-end procedure
-
 module procedure str_logicals_String
-  output = str(input,char(separating_line),settings)
-end procedure
-
-module procedure str_integers_character
   integer :: i,ialloc
   
   allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     output = [output, str(input(i))]
     if (i<size(input) .and. present(separating_line)) then
-      output = [output, str(separating_line)]
+      output = [output, separating_line]
     endif
   enddo
+end procedure
+
+module procedure str_logicals_character
+  output = str(input,str(separating_line),settings)
 end procedure
 
 module procedure str_integers_String
-  output = str(input,char(separating_line),settings)
-end procedure
-
-module procedure str_reals_character
   integer :: i,ialloc
   
   allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     output = [output, str(input(i))]
     if (i<size(input) .and. present(separating_line)) then
-      output = [output, str(separating_line)]
+      output = [output, separating_line]
     endif
   enddo
+end procedure
+
+module procedure str_integers_character
+  output = str(input,str(separating_line),settings)
 end procedure
 
 module procedure str_reals_String
-  output = str(input,char(separating_line),settings)
-end procedure
-
-module procedure str_complexes_character
   integer :: i,ialloc
   
   allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,size(input)
     output = [output, str(input(i))]
     if (i<size(input) .and. present(separating_line)) then
-      output = [output, str(separating_line)]
+      output = [output, separating_line]
     endif
   enddo
 end procedure
 
+module procedure str_reals_character
+  output = str(input,str(separating_line),settings)
+end procedure
+
 module procedure str_complexes_String
-  output = str(input,char(separating_line),settings)
+  integer :: i,ialloc
+  
+  allocate(output(0), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    output = [output, str(input(i))]
+    if (i<size(input) .and. present(separating_line)) then
+      output = [output, separating_line]
+    endif
+  enddo
+end procedure
+
+module procedure str_complexes_character
+  output = str(input,str(separating_line),settings)
 end procedure
 
 module procedure left_pad_character
@@ -522,15 +522,11 @@ module procedure print_line_complexes
   call print_line(join(this, settings=settings))
 end procedure
 
-module procedure print_lines_logicals_character
-  call print_lines(str(this,separating_line,settings))
-end procedure
-
 module procedure print_lines_logicals_String
   call print_lines(str(this,separating_line,settings))
 end procedure
 
-module procedure print_lines_integers_character
+module procedure print_lines_logicals_character
   call print_lines(str(this,separating_line,settings))
 end procedure
 
@@ -538,7 +534,7 @@ module procedure print_lines_integers_String
   call print_lines(str(this,separating_line,settings))
 end procedure
 
-module procedure print_lines_reals_character
+module procedure print_lines_integers_character
   call print_lines(str(this,separating_line,settings))
 end procedure
 
@@ -546,11 +542,15 @@ module procedure print_lines_reals_String
   call print_lines(str(this,separating_line,settings))
 end procedure
 
-module procedure print_lines_complexes_character
+module procedure print_lines_reals_character
   call print_lines(str(this,separating_line,settings))
 end procedure
 
 module procedure print_lines_complexes_String
+  call print_lines(str(this,separating_line,settings))
+end procedure
+
+module procedure print_lines_complexes_character
   call print_lines(str(this,separating_line,settings))
 end procedure
 end submodule

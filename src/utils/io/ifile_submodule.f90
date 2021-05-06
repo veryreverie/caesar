@@ -51,7 +51,7 @@ module procedure lines_slice
   output = this%lines_(first_line_number:last_line_number)
 end procedure
 
-module procedure sections_character
+module procedure sections_String
   type(String), allocatable :: lines(:)
   
   lines = this%lines()
@@ -59,8 +59,8 @@ module procedure sections_character
   output = split_into_sections(lines, separating_line)
 end procedure
 
-module procedure sections_String
-  output = this%sections(char(separating_line))
+module procedure sections_character
+  output = this%sections(str(separating_line))
 end procedure
 
 module procedure count_lines

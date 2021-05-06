@@ -49,8 +49,8 @@ module procedure generate_qpoint_stars
   allocate(output(size(combinations)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     output(i)%power = combinations(i)%power
-    output(i)%stars = generate_stars( combinations(i)%combinations, &
-                                    & qpoint_groups                 )
+    output(i)%stars = combinations_to_stars( combinations(i)%combinations, &
+                                           & qpoint_groups                 )
   enddo
 end procedure
 end submodule

@@ -153,19 +153,19 @@ module procedure print_line_String
   call print_line(char(line), settings)
 end procedure
 
-module procedure print_lines_Strings_character
+module procedure print_lines_Strings_String
   integer :: i
   
   do i=1,size(lines)
     call print_line(lines(i), settings)
-    if (present(separating_line)) then
+    if (present(separating_line) .and. i<size(lines)) then
       call print_line(separating_line, settings)
     endif
   enddo
 end procedure
 
-module procedure print_lines_Strings_String
-  call print_lines(lines, char(separating_line), settings)
+module procedure print_lines_Strings_character
+  call print_lines(lines, str(separating_line), settings)
 end procedure
 
 module procedure colour_character_character

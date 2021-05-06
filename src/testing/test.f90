@@ -3,10 +3,6 @@
 ! ======================================================================
 module caesar_test_module
   use caesar_common_module
-  
-  use caesar_anharmonic_common_module
-  use caesar_potential_data_module
-  use caesar_anharmonic_module
   implicit none
   
   private

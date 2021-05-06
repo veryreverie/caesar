@@ -180,8 +180,6 @@ module caesar_symmetry_module
   
   interface
     !> Constructs the group action of this symmetry on an array of q-points.
-    !> N.B. the group `output` is defined in terms of the positions of the
-    !>    q-points in the array `qpoints` rather than their ids.
     module function qpoint_symmetry_group(this,qpoints) result(output)
       class(SymmetryOperator), intent(in) :: this
       type(QpointData),        intent(in) :: qpoints(:)

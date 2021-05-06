@@ -62,10 +62,10 @@ module caesar_intrinsics_module
     !> Converts a `logical` array to a [[String(type)]] array.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module function str_logicals_character(input,separating_line,settings) &
+    module function str_logicals_String(input,separating_line,settings) &
        & result(output) 
       logical,             intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
@@ -74,22 +74,10 @@ module caesar_intrinsics_module
     !> Converts a `logical` array to a [[String(type)]] array.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module function str_logicals_String(input,separating_line,settings) &
+    module function str_logicals_character(input,separating_line,settings) &
        & result(output) 
       logical,             intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
-      !> Controls formatting.
-      type(PrintSettings), intent(in), optional :: settings
-      type(String), allocatable                 :: output(:)
-    end function
-
-    !> Converts an `integer` array to a [[String(type)]] array.
-    !> If `separating_line` is given then it will be inserted between
-    !>    each line of the output.
-    module function str_integers_character(input,separating_line,settings) &
-       & result(output) 
-      integer,             intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
@@ -101,19 +89,19 @@ module caesar_intrinsics_module
     module function str_integers_String(input,separating_line,settings) &
        & result(output) 
       integer,             intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
 
-    !> Converts a `real` array to a [[String(type)]] array.
+    !> Converts an `integer` array to a [[String(type)]] array.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module function str_reals_character(input,separating_line,settings) &
+    module function str_integers_character(input,separating_line,settings) &
        & result(output) 
-      real(dp),            intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      integer,             intent(in)           :: input(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
@@ -125,19 +113,19 @@ module caesar_intrinsics_module
     module function str_reals_String(input,separating_line,settings) &
        & result(output) 
       real(dp),            intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
     end function
 
-    !> Converts a `complex` array to a [[String(type)]] array.
+    !> Converts a `real` array to a [[String(type)]] array.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module function str_complexes_character(input,separating_line,settings) &
+    module function str_reals_character(input,separating_line,settings) &
        & result(output) 
-      complex(dp),         intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      real(dp),            intent(in)           :: input(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
@@ -149,7 +137,19 @@ module caesar_intrinsics_module
     module function str_complexes_String(input,separating_line,settings) &
        & result(output) 
       complex(dp),         intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+      type(String), allocatable                 :: output(:)
+    end function
+
+    !> Converts a `complex` array to a [[String(type)]] array.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module function str_complexes_character(input,separating_line,settings) &
+       & result(output) 
+      complex(dp),         intent(in)           :: input(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
       type(String), allocatable                 :: output(:)
@@ -583,10 +583,10 @@ module caesar_intrinsics_module
     !>    with one line per array element.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_logicals_character(this,separating_line, &
+    module subroutine print_lines_logicals_String(this,separating_line, &
        & settings) 
       logical,             intent(in)           :: this(:)
-      character(*),        intent(in), optional :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -595,22 +595,10 @@ module caesar_intrinsics_module
     !>    with one line per array element.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_logicals_String(this,separating_line, &
+    module subroutine print_lines_logicals_character(this,separating_line, &
        & settings) 
       logical,             intent(in)           :: this(:)
-      type(String),        intent(in)           :: separating_line
-      !> Controls formatting.
-      type(PrintSettings), intent(in), optional :: settings
-    end subroutine
-
-    !> Prints an `integer` array to the terminal,
-    !>    with one line per array element.
-    !> If `separating_line` is given then it will be inserted between
-    !>    each line of the output.
-    module subroutine print_lines_integers_character(this,separating_line, &
-       & settings) 
-      integer,             intent(in)           :: this(:)
-      character(*),        intent(in), optional :: separating_line
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -622,7 +610,30 @@ module caesar_intrinsics_module
     module subroutine print_lines_integers_String(this,separating_line, &
        & settings) 
       integer,             intent(in)           :: this(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
+
+    !> Prints an `integer` array to the terminal,
+    !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_integers_character(this,separating_line, &
+       & settings) 
+      integer,             intent(in)           :: this(:)
+      character(*),        intent(in)           :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
+
+    !> Prints a `real` array to the terminal,
+    !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_reals_String(this,separating_line,settings) 
+      real(dp),            intent(in)           :: this(:)
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -634,30 +645,7 @@ module caesar_intrinsics_module
     module subroutine print_lines_reals_character(this,separating_line, &
        & settings) 
       real(dp),            intent(in)           :: this(:)
-      character(*),        intent(in), optional :: separating_line
-      !> Controls formatting.
-      type(PrintSettings), intent(in), optional :: settings
-    end subroutine
-
-    !> Prints a `real` array to the terminal,
-    !>    with one line per array element.
-    !> If `separating_line` is given then it will be inserted between
-    !>    each line of the output.
-    module subroutine print_lines_reals_String(this,separating_line,settings) 
-      real(dp),            intent(in)           :: this(:)
-      type(String),        intent(in)           :: separating_line
-      !> Controls formatting.
-      type(PrintSettings), intent(in), optional :: settings
-    end subroutine
-
-    !> Prints a `complex` array to the terminal,
-    !>    with one line per array element.
-    !> If `separating_line` is given then it will be inserted between
-    !>    each line of the output.
-    module subroutine print_lines_complexes_character(this,separating_line, &
-       & settings) 
-      complex(dp),         intent(in)           :: this(:)
-      character(*),        intent(in), optional :: separating_line
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -669,7 +657,19 @@ module caesar_intrinsics_module
     module subroutine print_lines_complexes_String(this,separating_line, &
        & settings) 
       complex(dp),         intent(in)           :: this(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
+
+    !> Prints a `complex` array to the terminal,
+    !>    with one line per array element.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_complexes_character(this,separating_line, &
+       & settings) 
+      complex(dp),         intent(in)           :: this(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine

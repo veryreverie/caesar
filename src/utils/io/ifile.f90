@@ -77,20 +77,20 @@ module caesar_ifile_module
       type(String), allocatable :: output(:)
     end function
 
-    !> Returns the sections of the file, using
-    !>    [[split_into_sections(procedure)]].
-    module function sections_character(this,separating_line) result(output) 
-      class(IFile), intent(in)           :: this
-      character(*), intent(in), optional :: separating_line
-      type(StringArray), allocatable     :: output(:)
-    end function
-
     !> Returns the contents of the file as a `[[StringArray(type)]]` array,
     !>    split into sections by `separating_line`.
     !> `separating_line` defaults to an empty string.
     module function sections_String(this,separating_line) result(output) 
+      class(IFile), intent(in)           :: this
+      type(String), intent(in), optional :: separating_line
+      type(StringArray), allocatable     :: output(:)
+    end function
+
+    !> Returns the sections of the file, using
+    !>    [[split_into_sections(procedure)]].
+    module function sections_character(this,separating_line) result(output) 
       class(IFile), intent(in)       :: this
-      type(String), intent(in)       :: separating_line
+      character(*), intent(in)       :: separating_line
       type(StringArray), allocatable :: output(:)
     end function
   end interface

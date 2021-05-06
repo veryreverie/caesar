@@ -8,7 +8,7 @@ target_link_libraries(testing_submodules testing_modules)
 add_dependencies(testing_submodules testing_modules)
 
 # Link against required modules.
-foreach(dir IN ITEMS common harmonic anharmonic)
+foreach(dir IN ITEMS common harmonic anharmonic anharmonic_common)
   target_link_libraries(testing_modules ${dir}_modules)
   target_link_libraries(testing_submodules ${dir}_submodules)
   add_dependencies(testing_modules ${dir}_modules)

@@ -46,23 +46,23 @@ module caesar_print_module
   
   interface print_lines
     !> As print_line, but for printing over multiple lines.
-    module subroutine print_lines_Strings_character(lines,separating_line, &
+    module subroutine print_lines_Strings_String(lines,separating_line, &
        & settings)
       type(String),        intent(in)           :: lines(:)
       !> If present, `separating_line` will be printed between each line.
-      character(*),        intent(in), optional :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Settings determining how the print behaves.
       !> Defaults to the global [[PrintSettings(type)]]
       !>    set by `set_print_settings`.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
-
+    
     !> As print_line, but for printing over multiple lines.
-    module subroutine print_lines_Strings_String(lines,separating_line, &
+    module subroutine print_lines_Strings_character(lines,separating_line, &
        & settings)
       type(String),        intent(in)           :: lines(:)
       !> If present, `separating_line` will be printed between each line.
-      type(String),        intent(in)           :: separating_line
+      character(*),        intent(in)           :: separating_line
       !> Settings determining how the print behaves.
       !> Defaults to the global [[PrintSettings(type)]]
       !>    set by `set_print_settings`.

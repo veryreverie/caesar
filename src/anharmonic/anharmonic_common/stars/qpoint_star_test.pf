@@ -177,7 +177,7 @@ subroutine test_io()
 end subroutine
 
 @test
-subroutine test_generate_stars()
+subroutine test_combinations_to_stars()
   type :: TestCase
     type(QpointCombination), allocatable :: combinations(:)
     type(Group),             allocatable :: qpoint_groups(:)
@@ -243,7 +243,7 @@ subroutine test_generate_stars()
     associate( combinations   => test_cases(i)%combinations,  &
              & qpoint_groups  => test_cases(i)%qpoint_groups, &
              & expected_stars => test_cases(i)%output         )
-      stars = generate_stars(combinations, qpoint_groups)
+      stars = combinations_to_stars(combinations, qpoint_groups)
       
       message = [ str('combinations:'),                   &
                 & str(combinations),                      &

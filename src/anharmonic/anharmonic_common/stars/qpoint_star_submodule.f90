@@ -70,7 +70,7 @@ module procedure new_QpointStar_StringArray
   call this%read(str(input))
 end procedure
 
-module procedure generate_stars
+module procedure combinations_to_stars
   integer              :: no_stars
   integer, allocatable :: star_sizes(:)
   

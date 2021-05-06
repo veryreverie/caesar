@@ -249,9 +249,18 @@ module procedure inverse_transform
 end procedure
 
 module procedure qpoint_symmetry_group
+  integer, allocatable :: elements(:)
+  
+  type(QpointData) :: transformed_qpoint
+  
   integer :: i
   
-  output = Group([(first(this*qpoints(i)==qpoints), i=1, size(qpoints))])
+  elements = [(0, i=1, maxval(qpoints%id))]
+  do i=1,size(qpoints)
+    transformed_qpoint = this*qpoints(i)
+    elements(qpoints(i)%id) = qpoints(first(qpoints==transformed_qpoint))%id
+  enddo
+  output = Group(elements)
 end procedure
 
 module procedure symmetry_order

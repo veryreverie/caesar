@@ -61,36 +61,36 @@ module caesar_ofile_module
     procedure, private :: print_line_complexes
     
     generic,   public  :: print_lines =>                           &
-                        & print_lines_Strings_character,           &
                         & print_lines_Strings_String,              &
-                        & print_lines_StringWriteables_character,  &
+                        & print_lines_Strings_character,           &
                         & print_lines_StringWriteables_String,     &
+                        & print_lines_StringWriteables_character,  &
                         & print_lines_StringsWriteable,            &
-                        & print_lines_StringsWriteables_character, &
                         & print_lines_StringsWriteables_String,    &
-                        & print_lines_logicals_character,          &
+                        & print_lines_StringsWriteables_character, &
                         & print_lines_logicals_String,             &
-                        & print_lines_integers_character,          &
+                        & print_lines_logicals_character,          &
                         & print_lines_integers_String,             &
-                        & print_lines_reals_character,             &
+                        & print_lines_integers_character,          &
                         & print_lines_reals_String,                &
-                        & print_lines_complexes_character,         &
-                        & print_lines_complexes_String
-    procedure, private :: print_lines_Strings_character
+                        & print_lines_reals_character,             &
+                        & print_lines_complexes_String,            &
+                        & print_lines_complexes_character
     procedure, private :: print_lines_Strings_String
-    procedure, private :: print_lines_StringWriteables_character
+    procedure, private :: print_lines_Strings_character
     procedure, private :: print_lines_StringWriteables_String
+    procedure, private :: print_lines_StringWriteables_character
     procedure, private :: print_lines_StringsWriteable
-    procedure, private :: print_lines_StringsWriteables_character
     procedure, private :: print_lines_StringsWriteables_String
-    procedure, private :: print_lines_logicals_character
+    procedure, private :: print_lines_StringsWriteables_character
     procedure, private :: print_lines_logicals_String
-    procedure, private :: print_lines_integers_character
+    procedure, private :: print_lines_logicals_character
     procedure, private :: print_lines_integers_String
-    procedure, private :: print_lines_reals_character
+    procedure, private :: print_lines_integers_character
     procedure, private :: print_lines_reals_String
-    procedure, private :: print_lines_complexes_character
+    procedure, private :: print_lines_reals_character
     procedure, private :: print_lines_complexes_String
+    procedure, private :: print_lines_complexes_character
   end type
   
   interface OFile
@@ -227,11 +227,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_Strings_character(this,input, &
-       & separating_line,settings) 
+    module subroutine print_lines_Strings_String(this,input,separating_line, &
+       & settings) 
       class(OFile),        intent(inout)        :: this
       type(String),        intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -239,11 +239,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_Strings_String(this,input,separating_line, &
-       & settings) 
+    module subroutine print_lines_Strings_character(this,input, &
+       & separating_line,settings) 
       class(OFile),        intent(inout)        :: this
       type(String),        intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -273,8 +273,6 @@ module caesar_ofile_module
     end subroutine
 
     !> Prints `input` to the file, as multiple lines.
-    !> If `separating_line` is given then it will be inserted between
-    !>    each line of the output.
     module subroutine print_lines_StringsWriteable(this,input,settings) 
       class(OFile),            intent(inout)        :: this
       class(StringsWriteable), intent(in)           :: input
@@ -309,23 +307,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_logicals_character(this,input, &
-       & separating_line,settings) 
-      class(OFile),        intent(inout)        :: this
-      logical,             intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
-      !> Controls formatting.
-      type(PrintSettings), intent(in), optional :: settings
-    end subroutine
-
-    !> Prints `input` to the file, as multiple lines.
-    !> If `separating_line` is given then it will be inserted between
-    !>    each line of the output.
     module subroutine print_lines_logicals_String(this,input, &
        & separating_line,settings) 
       class(OFile),        intent(inout)        :: this
       logical,             intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -333,11 +319,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_integers_character(this,input, &
+    module subroutine print_lines_logicals_character(this,input, &
        & separating_line,settings) 
       class(OFile),        intent(inout)        :: this
-      integer,             intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      logical,             intent(in)           :: input(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -349,7 +335,7 @@ module caesar_ofile_module
        & separating_line,settings) 
       class(OFile),        intent(inout)        :: this
       integer,             intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -357,11 +343,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_reals_character(this,input, &
+    module subroutine print_lines_integers_character(this,input, &
        & separating_line,settings) 
       class(OFile),        intent(inout)        :: this
-      real(dp),            intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      integer,             intent(in)           :: input(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -373,7 +359,7 @@ module caesar_ofile_module
        & settings) 
       class(OFile),        intent(inout)        :: this
       real(dp),            intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -381,11 +367,11 @@ module caesar_ofile_module
     !> Prints `input` to the file, as multiple lines.
     !> If `separating_line` is given then it will be inserted between
     !>    each line of the output.
-    module subroutine print_lines_complexes_character(this,input, &
+    module subroutine print_lines_reals_character(this,input, &
        & separating_line,settings) 
       class(OFile),        intent(inout)        :: this
-      complex(dp),         intent(in)           :: input(:)
-      character(*),        intent(in), optional :: separating_line
+      real(dp),            intent(in)           :: input(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
@@ -397,7 +383,19 @@ module caesar_ofile_module
        & separating_line,settings) 
       class(OFile),        intent(inout)        :: this
       complex(dp),         intent(in)           :: input(:)
-      type(String),        intent(in)           :: separating_line
+      type(String),        intent(in), optional :: separating_line
+      !> Controls formatting.
+      type(PrintSettings), intent(in), optional :: settings
+    end subroutine
+
+    !> Prints `input` to the file, as multiple lines.
+    !> If `separating_line` is given then it will be inserted between
+    !>    each line of the output.
+    module subroutine print_lines_complexes_character(this,input, &
+       & separating_line,settings) 
+      class(OFile),        intent(inout)        :: this
+      complex(dp),         intent(in)           :: input(:)
+      character(*),        intent(in)           :: separating_line
       !> Controls formatting.
       type(PrintSettings), intent(in), optional :: settings
     end subroutine
