@@ -230,7 +230,7 @@ subroutine test_complex_monomials()
      &    [ MockComplexMode(1,1,1,1,1),                                       &
      &      MockComplexMode(2,2,2,2,1),                                       &
      &      MockComplexMode(3,3,1,1,2),                                       &
-     &      MockComplexMode(3,3,2,2,2)  ],                                    &
+     &      MockComplexMode(4,4,2,2,2)  ],                                    &
      &    [ ComplexMonomial(str('1*(u1^1)*(u2^1)')) ]                         &
      & ),                                                                     &
      & TestCase(                                                              &

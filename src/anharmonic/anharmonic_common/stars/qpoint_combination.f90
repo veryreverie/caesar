@@ -69,6 +69,8 @@ module caesar_qpoint_combination_module
     
     !> Returns the [[ComplexMonomial(type)]]s containing the given `modes`
     !>    which match the q-point combination.
+    !> The monomials are generated with coefficients such that symmetry
+    !>    operations are unitary.
     module function complex_monomials_QpointCombination(this,modes) &
        & result(output)
       class(QpointCombination), intent(in) :: this

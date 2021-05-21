@@ -167,10 +167,6 @@ end subroutine
 
 @test
 subroutine test_generate_subspace_qpoint_stars()
-  type :: MockSymmetryOperator
-    type(IntMatrix) :: tensor
-  end type
-  
   type :: MockComplexMode
     integer :: id
     integer :: paired_id
@@ -183,7 +179,7 @@ subroutine test_generate_subspace_qpoint_stars()
     type(DegenerateSubspace),   allocatable :: subspaces(:)
     type(MockComplexMode),      allocatable :: mock_modes(:)
     type(QpointData),           allocatable :: qpoints(:)
-    type(MockSymmetryOperator), allocatable :: mock_symmetries(:)
+    type(Group),                allocatable :: qpoint_symmetry_groups(:)
     integer                                 :: max_power
     logical,                    allocatable :: conserve_momentum
     type(SubspaceQpointStars),  allocatable :: output(:)
@@ -192,7 +188,6 @@ subroutine test_generate_subspace_qpoint_stars()
   type(TestCase), allocatable :: test_cases(:)
   
   type(ComplexMode),      allocatable :: modes(:)
-  type(SymmetryOperator), allocatable :: symmetries(:)
   
   type(SubspaceQpointStars), allocatable :: stars(:)
   
@@ -204,50 +199,35 @@ subroutine test_generate_subspace_qpoint_stars()
   
   test_cases = [                                                    &
      & TestCase(                                                    &
-     &    subspaces         = [ DegenerateSubspace:: ],             &
-     &    mock_modes        = [ MockComplexMode:: ],                &
-     &    qpoints           = [ QpointData:: ],                     &
-     &    mock_symmetries   = [ MockSymmetryOperator:: ],           &
-     &    max_power         = 0,                                    &
-     &    output            = [ SubspaceQpointStars:: ]             &
+     &    [ DegenerateSubspace:: ],                                 &
+     &    [ MockComplexMode:: ],                                    &
+     &    [ QpointData:: ],                                         &
+     &    [ Group:: ],                                              &
+     &    0,                                                        &
+     &    output = [ SubspaceQpointStars:: ]                        &
      & ),                                                           &
      & TestCase(                                                    &
-     &    subspaces         = [ DegenerateSubspace:: ],             &
-     &    mock_modes        = [ MockComplexMode:: ],                &
-     &    qpoints           = [ QpointData:: ],                     &
-     &    mock_symmetries   = [ MockSymmetryOperator:: ],           &
-     &    max_power         = 0,                                    &
-     &    conserve_momentum = .true.,                               &
-     &    output            = [ SubspaceQpointStars:: ]             &
+     &    [ DegenerateSubspace:: ],                                 &
+     &    [ MockComplexMode:: ],                                    &
+     &    [ QpointData:: ],                                         &
+     &    [ Group:: ],                                              &
+     &    0,                                                        &
+     &    .true.,                                                   &
+     &    output = [ SubspaceQpointStars:: ]                        &
      & ),                                                           &
      & TestCase(                                                    &
-     &    subspaces         = [                                     &
-     &       DegenerateSubspace(                                    &
-     &          id = 1,                                             &
-     &          frequency = 0.0_dp,                                 &
-     &          mode_ids  = [1],                                    &
-     &          paired_ids = [1]                                    &
-     &       )                                                      &
+     &    [                                                         &
+     &       DegenerateSubspace(1, 0.0_dp, [1], [1])                &
      &    ],                                                        &
-     &    mock_modes        = [                                     &
-     &       MockComplexMode(                                       &
-     &          id               = 1,                               &
-     &          paired_id        = 1,                               &
-     &          qpoint_id        = 1,                               &
-     &          paired_qpoint_id = 1,                               &
-     &          subspace_id      = 1                                &
-     &       )                                                      &
+     &    [                                                         &
+     &       MockComplexMode(1, 1, 1, 1, 1)                         &
      &    ],                                                        &
-     &    qpoints           = [                                     &
-     &       QpointData(                                            &
-     &          qpoint           = FractionVector(str('0 0 0')),    &
-     &          id               = 1,                               &
-     &          paired_qpoint_id = 1                                &
-     &       )                                                      &
+     &    [                                                         &
+     &       QpointData(FractionVector(str('0 0 0')), 1, 1)         &
      &    ],                                                        &
-     &    mock_symmetries   = [ MockSymmetryOperator:: ],           &
-     &    max_power         = 0,                                    &
-     &    output            = [                                     &
+     &    [ Group:: ],                                              &
+     &    0,                                                        &
+     &    output = [                                                &
      &       SubspaceQpointStars([                                  &
      &          str('q-point stars in subspace 1 :'),               &
      &          str('q-point stars with power = 0 :'),              &
@@ -256,50 +236,22 @@ subroutine test_generate_subspace_qpoint_stars()
      &    ]                                                         &
      & ),                                                           &
      & TestCase(                                                    &
-     &    subspaces         = [                                     &
-     &       DegenerateSubspace(                                    &
-     &          id = 1,                                             &
-     &          frequency = 0.0_dp,                                 &
-     &          mode_ids  = [1],                                    &
-     &          paired_ids = [1]                                    &
-     &       ),                                                     &
-     &       DegenerateSubspace(                                    &
-     &          id = 2,                                             &
-     &          frequency = 0.0_dp,                                 &
-     &          mode_ids  = [2],                                    &
-     &          paired_ids = [2]                                    &
-     &       )                                                      &
+     &    [                                                         &
+     &       DegenerateSubspace(1, 0.0_dp, [1], [1]),               &
+     &       DegenerateSubspace(2, 0.0_dp, [2], [2])                &
      &    ],                                                        &
-     &    mock_modes        = [                                     &
-     &       MockComplexMode(                                       &
-     &          id               = 1,                               &
-     &          paired_id        = 1,                               &
-     &          qpoint_id        = 1,                               &
-     &          paired_qpoint_id = 1,                               &
-     &          subspace_id      = 1                                &
-     &       ),                                                     &
-     &       MockComplexMode(                                       &
-     &          id               = 2,                               &
-     &          paired_id        = 2,                               &
-     &          qpoint_id        = 1,                               &
-     &          paired_qpoint_id = 1,                               &
-     &          subspace_id      = 2                                &
-     &       )                                                      &
+     &    [                                                         &
+     &       MockComplexMode(1, 1, 1, 1, 1),                        &
+     &       MockComplexMode(2, 2, 1, 1, 2)                         &
      &    ],                                                        &
-     &    qpoints           = [                                     &
-     &       QpointData(                                            &
-     &          qpoint           = FractionVector(str('0 0 0')),    &
-     &          id               = 1,                               &
-     &          paired_qpoint_id = 1                                &
-     &       )                                                      &
+     &    [                                                         &
+     &       QpointData(FractionVector(str('0 0 0')), 1, 1)         &
      &    ],                                                        &
-     &    mock_symmetries   = [                                     &
-     &       MockSymmetryOperator(mat([ 1,0,0,                      &
-     &                                  0,1,0,                      &
-     &                                  0,0,1], [3,3]))             &
+     &    [                                                         &
+     &       Group([1])                                             &
      &    ],                                                        &
-     &    max_power         = 2,                                    &
-     &    output            = [                                     &
+     &    2,                                                        &
+     &    output = [                                                &
      &       SubspaceQpointStars([                                  &
      &          str('q-point stars in subspace 1 :'),               &
      &          str('q-point stars with power = 0 :'),              &
@@ -325,67 +277,27 @@ subroutine test_generate_subspace_qpoint_stars()
      &    ]                                                         &
      & ),                                                           &
      & TestCase(                                                    &
-     &    subspaces         = [                                     &
-     &       DegenerateSubspace(                                    &
-     &          id = 1,                                             &
-     &          frequency = 0.0_dp,                                 &
-     &          mode_ids  = [1],                                    &
-     &          paired_ids = [1]                                    &
-     &       ),                                                     &
-     &       DegenerateSubspace(                                    &
-     &          id = 2,                                             &
-     &          frequency = 0.0_dp,                                 &
-     &          mode_ids  = [2,3],                                  &
-     &          paired_ids = [3,2]                                  &
-     &       )                                                      &
+     &    [                                                         &
+     &       DegenerateSubspace(1, 0.0_dp, [1], [1]),               &
+     &       DegenerateSubspace(2, 0.0_dp, [2], [2])                &
      &    ],                                                        &
-     &    mock_modes        = [                                     &
-     &       MockComplexMode(                                       &
-     &          id               = 1,                               &
-     &          paired_id        = 1,                               &
-     &          qpoint_id        = 1,                               &
-     &          paired_qpoint_id = 1,                               &
-     &          subspace_id      = 1                                &
-     &       ),                                                     &
-     &       MockComplexMode(                                       &
-     &          id               = 2,                               &
-     &          paired_id        = 3,                               &
-     &          qpoint_id        = 2,                               &
-     &          paired_qpoint_id = 3,                               &
-     &          subspace_id      = 2                                &
-     &       ),                                                     &
-     &       MockComplexMode(                                       &
-     &          id               = 3,                               &
-     &          paired_id        = 2,                               &
-     &          qpoint_id        = 3,                               &
-     &          paired_qpoint_id = 2,                               &
-     &          subspace_id      = 2                                &
-     &       )                                                      &
+     &    [                                                         &
+     &       MockComplexMode(1, 1, 1, 1, 1),                        &
+     &       MockComplexMode(2, 3, 2, 3, 2),                        &
+     &       MockComplexMode(3, 2, 3, 2, 2),                        &
+     &       MockComplexMode(4, 5, 2, 3, 2),                        &
+     &       MockComplexMode(5, 4, 3, 2, 2)                         &
      &    ],                                                        &
-     &    qpoints           = [                                     &
-     &       QpointData(                                            &
-     &          qpoint           = FractionVector(str('0 0 0')),    &
-     &          id               = 1,                               &
-     &          paired_qpoint_id = 1                                &
-     &       ),                                                     &
-     &       QpointData(                                            &
-     &          qpoint           = FractionVector(str('1/3 0 0')),  &
-     &          id               = 2,                               &
-     &          paired_qpoint_id = 3                                &
-     &       ),                                                     &
-     &       QpointData(                                            &
-     &          qpoint           = FractionVector(str('-1/3 0 0')), &
-     &          id               = 3,                               &
-     &          paired_qpoint_id = 2                                &
-     &       )                                                      &
+     &    [                                                         &
+     &       QpointData(FractionVector(str('   0 0 0')), 1, 1),     &
+     &       QpointData(FractionVector(str(' 1/3 0 0')), 2, 3),     &
+     &       QpointData(FractionVector(str('-1/3 0 0')), 3, 2)      &
      &    ],                                                        &
-     &    mock_symmetries   = [                                     &
-     &       MockSymmetryOperator(mat([ 1,0,0,                      &
-     &                                  0,1,0,                      &
-     &                                  0,0,1], [3,3]))             &
+     &    [                                                         &
+     &       Group([1,2,3])                                         &
      &    ],                                                        &
-     &    max_power         = 2,                                    &
-     &    output            = [                                     &
+     &    2,                                                        &
+     &    output = [                                                &
      &       SubspaceQpointStars([                                  &
      &          str('q-point stars in subspace 1 :'),               &
      &          str('q-point stars with power = 0 :'),              &
@@ -413,35 +325,22 @@ subroutine test_generate_subspace_qpoint_stars()
      &          str('(q2^1*q3^1)')                                  &
      &       ])                                                     &
      &    ]                                                         &
-     & )                                                            &
-     &]
+     & )                                                            ]
   
   do i=1,size(test_cases)
-    associate( subspaces         => test_cases(i)%subspaces,         &
-             & mock_modes        => test_cases(i)%mock_modes,        &
-             & qpoints           => test_cases(i)%qpoints,           &
-             & mock_symmetries   => test_cases(i)%mock_symmetries,   &
-             & max_power         => test_cases(i)%max_power,         &
-             & conserve_momentum => test_cases(i)%conserve_momentum, &
-             & expected_stars    => test_cases(i)%output             )
+    associate( subspaces         => test_cases(i)%subspaces,              &
+             & mock_modes        => test_cases(i)%mock_modes,             &
+             & qpoints           => test_cases(i)%qpoints,                &
+             & qpoint_groups     => test_cases(i)%qpoint_symmetry_groups, &
+             & max_power         => test_cases(i)%max_power,              &
+             & conserve_momentum => test_cases(i)%conserve_momentum,      &
+             & expected_stars    => test_cases(i)%output                  )
       modes = mock_to_ComplexMode(mock_modes)
-      symmetries = mock_to_SymmetryOperator(mock_symmetries)
-      
-      message = [ str('subspaces:'),                                  &
-                & str(subspaces),                                     &
-                & str('mode:'),                                       &
-                & str(modes),                                         &
-                & str('qpoints:'),                                    &
-                & str(qpoints),                                       &
-                & str('symmetries:'),                                 &
-                & str(BasicSymmetry(symmetries)),                     &
-                & str('max_power:'),                                  &
-                & str(max_power)                                      ]
       
       stars = generate_subspace_qpoint_stars( subspaces,        &
                                             & modes,            &
                                             & qpoints,          &
-                                            & symmetries,       &
+                                            & qpoint_groups,    &
                                             & max_power,        &
                                             & conserve_momentum )
       
@@ -451,8 +350,8 @@ subroutine test_generate_subspace_qpoint_stars()
                 & str(modes),                                         &
                 & str('qpoints:'),                                    &
                 & str(qpoints),                                       &
-                & str('symmetries:'),                                 &
-                & str(BasicSymmetry(symmetries)),                     &
+                & str('qpoint_groups:'),                              &
+                & str(qpoint_groups),                                 &
                 & str('max_power:'),                                  &
                 & str(max_power),                                     &
                 & str('stars:'),                                      &
@@ -500,26 +399,6 @@ contains
                         & qpoint_id          = mock%qpoint_id,        &
                         & paired_qpoint_id   = mock%paired_qpoint_id, &
                         & subspace_id        = mock%subspace_id       )
-  end function
-  
-  impure elemental function mock_to_SymmetryOperator(mock) result(output)
-    type(MockSymmetryOperator), intent(in) :: mock
-    type(SymmetryOperator)                 :: output
-    
-    type(BasicSymmetry) :: basic_symmetry
-    type(RealMatrix)    :: lattice
-    
-    basic_symmetry = BasicSymmetry( id          = 0,                   &
-                                  & tensor      = mock%tensor,         &
-                                  & translation = dblevec(zeroes(3)),  &
-                                  & atom_group  = Group([integer::]),  &
-                                  & rvectors    = [IntVector::]        )
-    
-    lattice = dblemat(make_identity_matrix(3))
-    
-    output = SymmetryOperator( symmetry      = basic_symmetry, &
-                             & lattice       = lattice,        &
-                             & recip_lattice = lattice         )
   end function
 end subroutine
 end module

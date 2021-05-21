@@ -20,6 +20,9 @@ module caesar_combination_qpoint_star_module
     type(SubspaceCombination)                       :: subspace_combination
     type(CombinationQpointCombination), allocatable :: qpoint_combinations(:)
   contains
+    procedure, public :: complex_monomials => &
+                       & complex_monomials_CombinationQpointStar
+    
     procedure, public :: read  => read_CombinationQpointStar
     procedure, public :: write => write_CombinationQpointStar
   end type
@@ -33,6 +36,15 @@ module caesar_combination_qpoint_star_module
   end interface
   
   interface
+    !> Returns the [[ComplexMonomial(type)]]s containing the given `modes`
+    !>    which match the subspace and q-point combinations in the star.
+    module function complex_monomials_CombinationQpointStar(this,modes) &
+       & result(output)
+      class(CombinationQpointStar), intent(in) :: this
+      type(ComplexMode),            intent(in) :: modes(:)
+      type(ComplexMonomial), allocatable       :: output(:)
+    end function
+    
     !> Convert a [[String(type)]] array to a [[CombinationQpointStar(type)]].
     module subroutine read_CombinationQpointStar(this,input)
       class(CombinationQpointStar), intent(out) :: this

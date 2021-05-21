@@ -44,8 +44,6 @@ module procedure generate_subspace_qpoint_stars
   
   integer, allocatable :: first_qpoint_ids(:)
   
-  type(Group), allocatable :: qpoint_groups(:)
-  
   integer :: i,j,ialloc
   
   allocate( first_qpoint_ids(size(subspaces)), &
@@ -55,6 +53,7 @@ module procedure generate_subspace_qpoint_stars
   do i=1,size(subspaces)
     ! Get the set of q-points corresponding to subspace i.
     subspace_qpoints = subspaces(i)%qpoints(modes, qpoints)
+    subspace_qpoints = subspace_qpoints(set(subspace_qpoints%id))
     
     ! Check if subspace i involves the same q-points as a previously
     !    processed subspace.
@@ -66,17 +65,11 @@ module procedure generate_subspace_qpoint_stars
       cycle
     endif
     
-    ! Construct the action of the symmetries on the q-points in subspace i.
-    qpoint_groups = [(                                          &
-       & symmetries(j)%qpoint_symmetry_group(subspace_qpoints), &
-       & j=1,                                                   &
-       & size(symmetries)                                       )]
-    
     ! Construct the q-point stars for subspace i.
-    output(i)%powers = generate_qpoint_stars( subspace_qpoints, &
-                                            & qpoint_groups,    &
-                                            & max_power,        &
-                                            & conserve_momentum )
+    output(i)%powers = generate_qpoint_stars( subspace_qpoints,       &
+                                            & qpoint_symmetry_groups, &
+                                            & max_power,              &
+                                            & conserve_momentum       )
   enddo
 end procedure
 end submodule

@@ -31,7 +31,7 @@ module caesar_anharmonic_data_module
     logical                                :: vscf_basis_functions_only
     real(dp)                               :: maximum_weighted_displacement
     real(dp)                               :: frequency_of_max_displacement
-    type(SubspaceQpointStars), allocatable :: subspace_qpoint_stars(:)
+    type(Group),               allocatable :: qpoint_symmetry_groups(:)
   contains
     procedure, public :: read  => read_AnharmonicData
     procedure, public :: write => write_AnharmonicData

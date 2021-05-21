@@ -32,7 +32,15 @@ module procedure complex_representation
 end procedure
 
 module procedure generate_basis_functions_SubspaceCombination
+  type(QpointStarProduct),     allocatable :: qpoint_star_products(:)
+  type(CombinationQpointStar), allocatable :: combination_qpoint_stars(:)
+  
   type(ComplexMonomial), allocatable :: complex_monomials(:)
+  
+  integer :: i,j
+  
+  call print_line('Generating basis functions in subspace combination '// &
+     &subspace_combination)
   
   if (sum(subspace_combination%powers())<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
@@ -40,22 +48,53 @@ module procedure generate_basis_functions_SubspaceCombination
     call err()
   endif
   
-  ! Generate the complex monomials corresponding to the subspace combination,
-  !    with coefficients such that symmetries are unitary.
-  complex_monomials = subspace_combination%complex_monomials( &
-       & maximum_coupling_order,                              &
-       & subspaces,                                           &
-       & complex_modes,                                       &
-       & qpoints,                                             &
-       & conserve_momentum=.true.,                            &
-       & conserve_subspace_momentum=vscf_basis_functions_only )
+  output = [BasisFunction::]
   
-  output = monomials_to_basis_functions( complex_monomials,     &
-                                       & structure,             &
-                                       & complex_modes,         &
-                                       & qpoints,               &
-                                       & degenerate_symmetries, &
-                                       & logfile                )
+  ! Generate the products of the single-subspace q-point stars.
+  qpoint_star_products = generate_qpoint_star_products( &
+                                & subspace_combination, &
+                                & subspace_qpoint_stars )
+  do i=1,size(qpoint_star_products)
+    ! From the products of the single-subspace q-point stars,
+    !    generate the multi-subspace q-point stars.
+    combination_qpoint_stars = generate_combination_qpoint_stars( &
+                                       & qpoint_star_products(i), &
+                                       & qpoint_symmetry_groups,  &
+                                       & .true.,                  &
+                                       & qpoints                  )
+    do j=1,size(combination_qpoint_stars)
+      ! For each q-point star, generate the complex monomials associated with
+      !    that star, and generate the symmetry-invariant basis functions
+      !    from these monomials.
+      complex_monomials = combination_qpoint_stars(j)%complex_monomials( &
+                                                         & complex_modes )
+      
+      output = [ output,                                                &
+               & monomials_to_basis_functions( complex_monomials,       &
+               &                               structure,               &
+               &                               complex_modes,           &
+               &                               qpoints,                 &
+               &                               degenerate_symmetries,   &
+               &                               logfile                ) ]
+    enddo
+  enddo
+  
+  !! Generate the complex monomials corresponding to the subspace combination,
+  !!    with coefficients such that symmetries are unitary.
+  !complex_monomials = subspace_combination%complex_monomials( &
+  !     & maximum_coupling_order,                              &
+  !     & subspaces,                                           &
+  !     & complex_modes,                                       &
+  !     & qpoints,                                             &
+  !     & conserve_momentum=.true.,                            &
+  !     & conserve_subspace_momentum=vscf_basis_functions_only )
+  !
+  !output = monomials_to_basis_functions( complex_monomials,     &
+  !                                     & structure,             &
+  !                                     & complex_modes,         &
+  !                                     & qpoints,               &
+  !                                     & degenerate_symmetries, &
+  !                                     & logfile                )
 end procedure
 
 ! Takes an array of complex monomials, and generates the basis functions
@@ -68,7 +107,7 @@ module function monomials_to_basis_functions(complex_monomials,structure, &
   type(QpointData),         intent(in)              :: qpoints(:)
   type(DegenerateSymmetry), intent(in)              :: degenerate_symmetries(:)
   type(OFile),              intent(inout), optional :: logfile
-  type(BasisFunctions)                              :: output
+  type(BasisFunction), allocatable                  :: output(:)
   
   type(BasisConversion) :: basis_conversion
   
@@ -158,11 +197,10 @@ module function monomials_to_basis_functions(complex_monomials,structure, &
     enddo
   enddo
   
-  allocate( output%basis_functions(size(estuff)), &
-          & stat=ialloc); call err(ialloc)
+  allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
   do i=1,size(estuff)
     ! Construct a basis function from the eigenvectors.
-    output%basis_functions(i) = BasisFunction(                       &
+    output(i) = BasisFunction(                                       &
        & basis_conversion%vector_from_basis(estuff(i)%evec, 1e-4_dp) )
   enddo
 end function
@@ -282,7 +320,7 @@ end procedure
 module procedure construct_basis_polynomials
   integer :: order
   
-  type(BasisFunctions) :: basis_functions
+  type(BasisFunction), allocatable :: basis_functions(:)
   
   type(DegenerateSymmetry), allocatable :: symmetries(:)
   
@@ -301,9 +339,9 @@ module procedure construct_basis_polynomials
                  & anharmonic_data%qpoints,       &
                  & symmetries                     )
   
-  output = [( basis_functions%basis_functions(i)%complex_representation_, &
-            & i=1,                                                        &
-            & size(basis_functions%basis_functions)                       )]
+  output = [( basis_functions(i)%complex_representation_, &
+            & i=1,                                        &
+            & size(basis_functions)                       )]
   
   
   ! A term |u|^(2n) scales like (2Nw)^{-n}.

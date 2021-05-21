@@ -32,6 +32,14 @@ contains
   end function
 end procedure
 
+module procedure complex_monomials_CombinationQpointStar
+  integer :: i
+  
+  output = [( this%qpoint_combinations(i)%complex_monomials(modes), &
+            & i=1,                                                  &
+            & size(this%qpoint_combinations)                        )]
+end procedure
+
 module procedure read_CombinationQpointStar
   type(SubspaceCombination)                       :: subspace_combination
   type(CombinationQpointCombination), allocatable :: qpoint_combinations(:)

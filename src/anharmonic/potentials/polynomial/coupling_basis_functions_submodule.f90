@@ -195,15 +195,18 @@ module procedure generate_basis_functions_SubspaceCoupling
           & stat=ialloc); call err(ialloc)
   do i=1,size(subspace_combinations)
     ! Generate all basis functions for the subspace combination.
-    basis_functions(i) = generate_basis_functions( subspace_combinations(i),  &
-                                                 & maximum_coupling_order,    &
-                                                 & structure,                 &
-                                                 & complex_modes,             &
-                                                 & qpoints,                   &
-                                                 & subspaces,                 &
-                                                 & degenerate_symmetries,     &
-                                                 & vscf_basis_functions_only, &
-                                                 & logfile                    )
+    basis_functions(i)%basis_functions = generate_basis_functions( &
+                                      & subspace_combinations(i),  &
+                                      & maximum_coupling_order,    &
+                                      & structure,                 &
+                                      & complex_modes,             &
+                                      & qpoints,                   &
+                                      & subspaces,                 &
+                                      & degenerate_symmetries,     &
+                                      & vscf_basis_functions_only, &
+                                      & qpoint_symmetry_groups,    &
+                                      & subspace_qpoint_stars,     &
+                                      & logfile                    )
   enddo
   
   ! Concatenate the terms from each subspace combination together.

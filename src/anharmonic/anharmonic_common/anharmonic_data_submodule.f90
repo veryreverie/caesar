@@ -3,6 +3,8 @@ submodule (caesar_anharmonic_data_module) caesar_anharmonic_data_submodule
 contains
 
 module procedure new_AnharmonicData
+  integer :: i
+  
   this%structure                     = structure
   this%anharmonic_supercell          = anharmonic_supercell
   this%qpoints                       = qpoints
@@ -17,13 +19,10 @@ module procedure new_AnharmonicData
   this%maximum_weighted_displacement = maximum_weighted_displacement
   this%frequency_of_max_displacement = frequency_of_max_displacement
   
-  this%subspace_qpoint_stars = generate_subspace_qpoint_stars( &
-              & subspaces         = degenerate_subspaces,      &
-              & modes             = complex_modes,             &
-              & qpoints           = qpoints,                   &
-              & symmetries        = structure%symmetries,      &
-              & max_power         = potential_expansion_order, &
-              & conserve_momentum = maximum_coupling_order==1  )
+  this%qpoint_symmetry_groups = [(                                  &
+     & structure%symmetries(i)%qpoint_symmetry_group(this%qpoints), &
+     & i=1,                                                         &
+     & size(structure%symmetries)                                   )]
 end procedure
 
 module procedure new_AnharmonicData_data

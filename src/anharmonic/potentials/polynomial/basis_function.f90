@@ -137,7 +137,7 @@ module caesar_basis_function_module
     module function generate_basis_functions_SubspaceCombination(             &
        & subspace_combination,maximum_coupling_order,structure,complex_modes, &
        & qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only,   &
-       & logfile) result(output) 
+       & qpoint_symmetry_groups,subspace_qpoint_stars,logfile) result(output) 
       type(SubspaceCombination), intent(in)    :: subspace_combination
       integer,                   intent(in)    :: maximum_coupling_order
       type(StructureData),       intent(in)    :: structure
@@ -146,8 +146,10 @@ module caesar_basis_function_module
       type(DegenerateSubspace),  intent(in)    :: subspaces(:)
       type(DegenerateSymmetry),  intent(in)    :: degenerate_symmetries(:)
       logical,                   intent(in)    :: vscf_basis_functions_only
+      type(Group),               intent(in)    :: qpoint_symmetry_groups(:)
+      type(SubspaceQpointStars), intent(in)    :: subspace_qpoint_stars(:)
       type(OFile),               intent(inout) :: logfile
-      type(BasisFunctions)                     :: output
+      type(BasisFunction), allocatable         :: output(:)
     end function
   end interface
   

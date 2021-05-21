@@ -60,7 +60,30 @@ module procedure complex_monomials_QpointCombination
   enddo
   
   output = new
+  
+  do i=1,size(output)
+    output(i)%coefficient = sqrt(no_permutations(output(i)))
+  enddo
 end procedure
+
+function no_permutations(input) result(output) 
+  type(ComplexMonomial), intent(in) :: input
+  real(dp)                          :: output
+  
+  integer, allocatable :: powers(:)
+  
+  integer :: i,ialloc
+  
+  allocate(powers(0), stat=ialloc); call err(ialloc)
+  do i=1,size(input)
+    powers = [powers, input%power(i)]
+    if (input%id(i)/=input%paired_id(i)) then
+      powers = [powers, input%paired_power(i)]
+    endif
+  enddo
+  
+  output = real_multinomial(sum(powers), powers)
+end function
 
 module procedure read_QpointCombination
   type(String),      allocatable :: line(:)

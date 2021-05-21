@@ -28,6 +28,7 @@ end procedure
 
 module procedure generate_sampling_points_PolynomialPotential
   ! Variables used when generating sampling points.
+  type(SubspaceQpointStars),    allocatable :: subspace_qpoint_stars(:)
   type(CouplingBasisFunctions), allocatable :: basis_functions(:)
   type(SamplingPoints),         allocatable :: sampling_points(:)
   
@@ -71,6 +72,15 @@ module procedure generate_sampling_points_PolynomialPotential
   ! Generate basis functions and sampling points.
   ! --------------------------------------------------
   
+  subspace_qpoint_stars = generate_subspace_qpoint_stars(                  &
+     & subspaces              = anharmonic_data%degenerate_subspaces,      &
+     & modes                  = anharmonic_data%complex_modes,             &
+     & qpoints                = anharmonic_data%qpoints,                   &
+     & qpoint_symmetry_groups = anharmonic_data%qpoint_symmetry_groups,    &
+     & max_power              = anharmonic_data%potential_expansion_order, &
+     & conserve_momentum      = anharmonic_data%maximum_coupling_order==1  &
+     &                     .or. anharmonic_data%vscf_basis_functions_only  )
+  
   ! Loop over subspace couplings, generating basis functions and sampling
   !    points for each.
   allocate( basis_functions(size(anharmonic_data%subspace_couplings)), &
@@ -81,7 +91,8 @@ module procedure generate_sampling_points_PolynomialPotential
     !    and the sampling points from which the basis function coefficients
     !    can be constructed.
     call print_line('Generating sampling points in subspace coupling '// &
-       & i//' of '//size(anharmonic_data%subspace_couplings)//'.')
+       & i//' of '//size(anharmonic_data%subspace_couplings)//': '// &
+       & anharmonic_data%subspace_couplings(i))
     basis_functions(i) = generate_basis_functions(  &
        & anharmonic_data%subspace_couplings(i),     &
        & this%potential_expansion_order_,           &
@@ -93,6 +104,8 @@ module procedure generate_sampling_points_PolynomialPotential
        & anharmonic_data%degenerate_subspaces,      &
        & anharmonic_data%degenerate_symmetries,     &
        & anharmonic_data%vscf_basis_functions_only, &
+       & anharmonic_data%qpoint_symmetry_groups,    &
+       & subspace_qpoint_stars,                     &
        & logfile                                    )
     call print_line( 'Coupling contains '//size(basis_functions(i))// &
                    & ' basis functions.' )
@@ -681,11 +694,28 @@ module procedure can_be_interpolated_PolynomialPotential
 end procedure
 
 module procedure interpolate_potential_PolynomialPotential
+  type(SubspaceQpointStars), allocatable :: subspace_qpoint_stars(:)
+  
   type(PolynomialPotential) :: potential_
   
   type(PolynomialInterpolator) :: interpolator
   
   integer :: i,j,ialloc
+  
+  subspace_qpoint_stars = generate_subspace_qpoint_stars(              &
+     & subspaces              =                                        &
+     &         interpolated_anharmonic_data%degenerate_subspaces,      &
+     & modes                  =                                        &
+     &         interpolated_anharmonic_data%complex_modes,             &
+     & qpoints                =                                        &
+     &         interpolated_anharmonic_data%qpoints,                   &
+     & qpoint_symmetry_groups =                                        &
+     &         interpolated_anharmonic_data%qpoint_symmetry_groups,    &
+     & max_power              =                                        &
+     &         interpolated_anharmonic_data%potential_expansion_order, &
+     & conserve_momentum      =                                        &
+     &         interpolated_anharmonic_data%maximum_coupling_order==1  &
+     &    .or. interpolated_anharmonic_data%vscf_basis_functions_only  )
   
   potential_ = PolynomialPotential(potential)
   
@@ -714,6 +744,8 @@ module procedure interpolate_potential_PolynomialPotential
        & interpolated_anharmonic_data%degenerate_subspaces,      &
        & interpolated_anharmonic_data%degenerate_symmetries,     &
        & interpolated_anharmonic_data%vscf_basis_functions_only, &
+       & interpolated_anharmonic_data%qpoint_symmetry_groups,    &
+       & subspace_qpoint_stars,                                  &
        & logfile                                                 )
     call this%basis_functions_(i)%zero_coefficients()
   enddo
