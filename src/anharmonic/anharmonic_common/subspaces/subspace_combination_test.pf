@@ -1,0 +1,394 @@
+module subspace_combination_test
+  use funit
+  
+  use caesar_common_module
+
+  use caesar_subspaces_module
+  implicit none
+contains
+
+! Test constructor, getters and size().
+@test
+subroutine test_SubspaceCombination()
+  type :: TestCase
+    integer, allocatable :: ids(:)
+    integer, allocatable :: powers(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(SubspaceCombination) :: combination
+  
+  type(String), allocatable :: message(:)
+  
+  integer, allocatable :: new_ids(:)
+  integer, allocatable :: new_powers(:)
+  
+  integer :: i,j
+  
+  test_cases = [ TestCase( ids    = [integer::],    &
+               &           powers = [integer::]  ), &
+               & TestCase( ids    = [1],            &
+               &           powers = [2]  ),         &
+               & TestCase( ids    = [3,5,7,8],      &
+               &           powers = [2,5,1,6]  )    ]
+  
+  do i=1,size(test_cases)
+    associate( ids    => test_cases(i)%ids,   &
+             & powers => test_cases(i)%powers )
+      combination = SubspaceCombination(ids, powers)
+      
+      message = [ str('ids:'),    &
+                & str(ids),       &
+                & str('powers:'), &
+                & str(powers)     ]
+      
+      @assertTrue(size(combination)==size(ids), char(message))
+      
+      new_ids = combination%ids()
+      @assertTrue(size(new_ids)==size(ids), char(message))
+      @assertTrue(all(new_ids==ids), char(message))
+      
+      new_powers = combination%powers()
+      @assertTrue(size(new_powers)==size(powers), char(message))
+      @assertTrue(all(new_powers==powers), char(message))
+      
+      do j=1,size(ids)
+        @assertTrue(combination%ids(j)==ids(j), char(message))
+        @assertTrue(combination%powers(j)==powers(j), char(message))
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_subspaces()
+  type :: TestCase
+    type(SubspaceCombination)             :: combination
+    type(DegenerateSubspace), allocatable :: subspaces(:)
+    type(DegenerateSubspace), allocatable :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(DegenerateSubspace), allocatable :: combination_subspaces(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [                                                            &
+     & TestCase(                                                            &
+     &    combination  = SubspaceCombination( [integer::],                  &
+     &                                        [integer::]  ),               &
+     &    subspaces = [ DegenerateSubspace:: ],                             &
+     &    output    = [ DegenerateSubspace:: ]                              &
+     & ),                                                                   &
+     & TestCase(                                                            &
+     &    combination  = SubspaceCombination( [integer::],                  &
+     &                                        [integer::]  ),               &
+     &    subspaces = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ) ],       &
+     &    output    = [ DegenerateSubspace:: ]                              &
+     & ),                                                                   &
+     & TestCase(                                                            &
+     &    combination  = SubspaceCombination( [1],                          &
+     &                                        [2]  ),                       &
+     &    subspaces = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ) ],       &
+     &    output    = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ) ]        &
+     & ),                                                                   &
+     & TestCase(                                                            &
+     &    combination  = SubspaceCombination( [3,6],                        &
+     &                                        [5,1]  ),                     &
+     &    subspaces = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ),         &
+     &                  DegenerateSubspace( id         = 6,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [5],               &
+     &                                      paired_ids = [5]     ),         &
+     &                  DegenerateSubspace( id         = 4,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [3,7],             &
+     &                                      paired_ids = [7,3]   ),         &
+     &                  DegenerateSubspace( id         = 3,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [4,12,16,20],      &
+     &                                      paired_ids = [16,20,4,12]  ) ], &
+     &    output    = [ DegenerateSubspace( id         = 3,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [4,12,16,20],      &
+     &                                      paired_ids = [16,20,4,12]  ),   &
+     &                  DegenerateSubspace( id         = 6,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [5],               &
+     &                                      paired_ids = [5]     )        ] &
+     & )                                                                    ]
+  
+  do i=1,size(test_cases)
+    associate( combination                   => test_cases(i)%combination, &
+             & subspaces                     => test_cases(i)%subspaces,   &
+             & expected_combination_subspaces => test_cases(i)%output      )
+      combination_subspaces = combination%subspaces(subspaces)
+      
+      message = [ str('combination:'),                    &
+                & str(combination),                       &
+                & str('subspaces:'),                      &
+                & str(subspaces),                         &
+                & str('combination_subspaces:'),          &
+                & str(combination_subspaces),             &
+                & str('expected_combination_subspaces:'), &
+                & str(expected_combination_subspaces)     ]
+      
+      check = size(combination_subspaces)==size(expected_combination_subspaces)
+      @assertTrue(check, char(message))
+      check = all(combination_subspaces%id==expected_combination_subspaces%id)
+      @assertTrue(check, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_complex_monomials()
+  ! TODO
+end subroutine
+
+@test
+subroutine test_paired_monomials()
+  ! TODO
+end subroutine
+
+@test
+subroutine test_is_subsidiary_of()
+  type(SubspaceCombination), allocatable :: combinations(:)
+  
+  logical :: check
+  
+  combinations = [ SubspaceCombination( [integer::],    &
+                 &                      [integer::]  ), &
+                 & SubspaceCombination( [1],            &
+                 &                      [1]  ),         &
+                 & SubspaceCombination( [1],            &
+                 &                      [2]  ),         &
+                 & SubspaceCombination( [2],            &
+                 &                      [1]  ),         &
+                 & SubspaceCombination( [1,2],          &
+                 &                      [1,1]  ),       &
+                 & SubspaceCombination( [1,3,6,7],      &
+                 &                      [1,1,5,2]  )    ]
+  check = all( combinations(1)%is_subsidiary_of(combinations)   &
+       & .eqv. [.true., .true., .true., .true., .true., .true.] )
+  @assertTrue(check)
+  check = all( combinations(2)%is_subsidiary_of(combinations)     &
+       & .eqv. [.false., .true., .true., .false., .true., .true.] )
+  @assertTrue(check)
+  check = all( combinations(3)%is_subsidiary_of(combinations)        &
+       & .eqv. [.false., .false., .true., .false., .false., .false.] )
+  @assertTrue(check)
+  check = all( combinations(4)%is_subsidiary_of(combinations)       &
+       & .eqv. [.false., .false., .false., .true., .true., .false.] )
+  @assertTrue(check)
+  check = all( combinations(5)%is_subsidiary_of(combinations)        &
+       & .eqv. [.false., .false., .false., .false., .true., .false.] )
+  @assertTrue(check)
+  check = all( combinations(6)%is_subsidiary_of(combinations)        &
+       & .eqv. [.false., .false., .false., .false., .false., .true.] )
+  @assertTrue(check)
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(SubspaceCombination) :: combination
+    type(String)              :: line
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(SubspaceCombination) :: new_combination
+  type(String)              :: new_line
+  
+  integer :: i
+  
+  test_cases = [ TestCase( SubspaceCombination( [integer::],       &
+               &                                [integer::]  ),    &
+               &           str('()')                            ), &
+               & TestCase( SubspaceCombination( [1],               &
+               &                                [2]  ),            &
+               &           str('(s1^2)')                ),         &
+               & TestCase( SubspaceCombination( [2,5,8],           &
+               &                                [4,2,9]  ),        &
+               &           str('(s2^4*s5^2*s8^9)')          )      ]
+  
+  do i=1,size(test_cases)
+    associate( combination => test_cases(i)%combination, &
+             & line        => test_cases(i)%line         )
+      new_combination = SubspaceCombination(line)
+      @assertTrue(new_combination==combination, char(line))
+      
+      new_line = str(combination)
+      @assertTrue(new_line==line, char(line))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_comparison()
+  type(SubspaceCombination), allocatable :: combinations(:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i,j
+  
+  ! An array of subspace combinations in ascending order.
+  combinations = SubspaceCombination([ str('()'),          &
+                                     & str('(s1^1)'),      &
+                                     & str('(s2^1)'),      &
+                                     & str('(s1^2)'),      &
+                                     & str('(s1^1*s2^1)'), &
+                                     & str('(s1^1*s3^1)'), &
+                                     & str('(s2^2)'),      &
+                                     & str('(s2^1*s3^1)'), &
+                                     & str('(s1^3)')       ])
+  
+  do i=1,size(combinations)
+    do j=1,size(combinations)
+      associate( lhs=>combinations(i), &
+               & rhs=>combinations(j)  )
+        message = [ str('lhs:'), &
+                  & str(lhs),    &
+                  & str('rhs:'), &
+                  & str(rhs)     ]
+        if (i<j) then
+          @assertFalse(lhs==rhs, char(message))
+          @assertTrue(lhs/=rhs, char(message))
+          @assertTrue(lhs<rhs, char(message))
+          @assertTrue(lhs<=rhs, char(message))
+          @assertFalse(lhs>rhs, char(message))
+          @assertFalse(lhs>=rhs, char(message))
+        elseif (i==j) then
+          @assertTrue(lhs==rhs, char(message))
+          @assertFalse(lhs/=rhs, char(message))
+          @assertFalse(lhs<rhs, char(message))
+          @assertTrue(lhs<=rhs, char(message))
+          @assertFalse(lhs>rhs, char(message))
+          @assertTrue(lhs>=rhs, char(message))
+        elseif (i>j) then
+          @assertFalse(lhs==rhs, char(message))
+          @assertTrue(lhs/=rhs, char(message))
+          @assertFalse(lhs<rhs, char(message))
+          @assertFalse(lhs<=rhs, char(message))
+          @assertTrue(lhs>rhs, char(message))
+          @assertTrue(lhs>=rhs, char(message))
+        endif
+      end associate
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_generate_subspace_combinations()
+  type :: TestCase
+    type(SubspaceCoupling)                 :: subspace_coupling
+    integer                                :: minimum_power
+    integer                                :: maximum_power
+    type(SubspaceCombination), allocatable :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(SubspaceCombination), allocatable :: combinations(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [                                                     &
+     & TestCase( SubspaceCoupling(str('()')),                        &
+     &           0,                                                  &
+     &           0,                                                  &
+     &           [ SubspaceCombination(str('()')) ] ),               &
+     & TestCase( SubspaceCoupling(str('()')),                        &
+     &           1,                                                  &
+     &           1,                                                  &
+     &           [ SubspaceCombination:: ] ),                        &
+     & TestCase( SubspaceCoupling(str('()')),                        &
+     &           2,                                                  &
+     &           5,                                                  &
+     &           [ SubspaceCombination:: ] ),                        &
+     & TestCase( SubspaceCoupling(str('(s1)')),                      &
+     &           0,                                                  &
+     &           0,                                                  &
+     &           [ SubspaceCombination:: ] ),                        &
+     & TestCase( SubspaceCoupling(str('(s1)')),                      &
+     &           1,                                                  &
+     &           1,                                                  &
+     &           [ SubspaceCombination(str('(s1^1)')) ] ),           &
+     & TestCase( SubspaceCoupling(str('(s1)')),                      &
+     &           2,                                                  &
+     &           5,                                                  &
+     &           [ SubspaceCombination(str('(s1^2)')),               &
+     &             SubspaceCombination(str('(s1^3)')),               &
+     &             SubspaceCombination(str('(s1^4)')),               &
+     &             SubspaceCombination(str('(s1^5)'))  ] ),          &
+     & TestCase( SubspaceCoupling(str('(s4*s7)')),                   &
+     &           2,                                                  &
+     &           3,                                                  &
+     &           [ SubspaceCombination(str('(s4^1*s7^1)')),          &
+     &             SubspaceCombination(str('(s4^1*s7^2)')),          &
+     &             SubspaceCombination(str('(s4^2*s7^1)'))  ] ),     &
+     & TestCase( SubspaceCoupling(str('(s3*s6*s8)')),                &
+     &           2,                                                  &
+     &           5,                                                  &
+     &           [ SubspaceCombination(str('(s3^1*s6^1*s8^1)')),     &
+     &             SubspaceCombination(str('(s3^1*s6^1*s8^2)')),     &
+     &             SubspaceCombination(str('(s3^1*s6^1*s8^3)')),     &
+     &             SubspaceCombination(str('(s3^1*s6^2*s8^1)')),     &
+     &             SubspaceCombination(str('(s3^1*s6^2*s8^2)')),     &
+     &             SubspaceCombination(str('(s3^1*s6^3*s8^1)')),     &
+     &             SubspaceCombination(str('(s3^2*s6^1*s8^1)')),     &
+     &             SubspaceCombination(str('(s3^2*s6^1*s8^2)')),     &
+     &             SubspaceCombination(str('(s3^2*s6^2*s8^1)')),     &
+     &             SubspaceCombination(str('(s3^3*s6^1*s8^1)'))  ] ) ]
+  
+  do i=1,size(test_cases)
+    associate( subspace_coupling     => test_cases(i)%subspace_coupling, &
+             & minimum_power         => test_cases(i)%minimum_power,     &
+             & maximum_power         => test_cases(i)%maximum_power,     &
+             & expected_combinations => test_cases(i)%output             )
+      combinations = generate_subspace_combinations( subspace_coupling, &
+                                                   & minimum_power,     &
+                                                   & maximum_power      )
+      
+      message = [ str('subspace_coupling:'),     &
+                & str(subspace_coupling),        &
+                & str('minimum_power:'),         &
+                & str(minimum_power),            &
+                & str('maximum_power:'),         &
+                & str(maximum_power),            &
+                & str('combinations:'),          &
+                & str(combinations),             &
+                & str('expected_combinations:'), &
+                & str(expected_combinations)     ]
+      
+      check = size(combinations)==size(expected_combinations)
+      @assertTrue(check, char(message))
+      check = all(combinations==expected_combinations)
+      @assertTrue(check, char(message))
+    end associate
+  enddo
+end subroutine
+end module

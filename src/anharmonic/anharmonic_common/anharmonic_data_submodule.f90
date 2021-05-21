@@ -16,6 +16,14 @@ module procedure new_AnharmonicData
   this%vscf_basis_functions_only     = vscf_basis_functions_only
   this%maximum_weighted_displacement = maximum_weighted_displacement
   this%frequency_of_max_displacement = frequency_of_max_displacement
+  
+  this%subspace_qpoint_stars = generate_subspace_qpoint_stars( &
+              & subspaces         = degenerate_subspaces,      &
+              & modes             = complex_modes,             &
+              & qpoints           = qpoints,                   &
+              & symmetries        = structure%symmetries,      &
+              & max_power         = potential_expansion_order, &
+              & conserve_momentum = maximum_coupling_order==1  )
 end procedure
 
 module procedure new_AnharmonicData_data

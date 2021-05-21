@@ -200,7 +200,7 @@ subroutine test_split_into_sections
   
   type(TestCase), allocatable :: test_cases(:)
   
-  type(StringArray), allocatable :: output(:)
+  type(StringArray), allocatable :: sections(:)
   
   type(String) :: message(3)
   
@@ -250,48 +250,48 @@ subroutine test_split_into_sections
      &                                             str('World!')    ]) ] )  ]
   
   do i=1,size(test_cases)
-    do j=0,4
-      if (j==0 .and. test_cases(i)%separating_line=='') then
-        output = split_into_sections(test_cases(i)%input)
-      elseif (j==1) then
-        output = split_into_sections( test_cases(i)%input,          &
-                                    & test_cases(i)%separating_line )
-      elseif (j==2) then
-        output = split_into_sections( test_cases(i)%input,                &
-                                    & char(test_cases(i)%separating_line) )
-      elseif (j==3) then
-        output = split_into_sections( str(test_cases(i)%input),    &
-                                    & test_cases(i)%separating_line )
-      elseif (j==4) then
-        output = split_into_sections( str(test_cases(i)%input),           &
-                                    & char(test_cases(i)%separating_line) )
-      else
-        cycle
-      endif
-      
-      message(1) = 'Case : '//i
-      if (j==0) then
-        message(2) = 'Input as StringArray, separating_line not present.'
-      elseif (j==1) then
-        message(2) = 'Input as StringArray, separating_line as String.'
-      elseif (j==2 .and. allocated(test_cases(i)%separating_line)) then
-        message(2) = 'Input as StringArray, separating_line as character(*).'
-      elseif (j==3) then
-        message(2) = 'Input as String(:), separating_line as String.'
-      elseif (j==4 .and. allocated(test_cases(i)%separating_line)) then
-        message(2) = 'Input as String(:), separating_line as character(*).'
-      endif
-      message(3) = 'Separating line : '//test_cases(i)%separating_line
-      
-      check = size(output)==size(test_cases(i)%output)
-      @assertTrue(check, char(message))
-      do k=1,size(output)
-        check = size(output(k)%strings)==size(test_cases(i)%output(k)%strings)
+    associate( input             => test_cases(i)%input,           &
+             & separating_line   => test_cases(i)%separating_line, &
+             & expected_sections => test_cases(i)%output           )
+      do j=0,4
+        if (j==0 .and. separating_line=='') then
+          sections = split_into_sections(input)
+        elseif (j==1) then
+          sections = split_into_sections(input, separating_line)
+        elseif (j==2) then
+          sections = split_into_sections(input, char(separating_line))
+        elseif (j==3) then
+          sections = split_into_sections(str(input), separating_line)
+        elseif (j==4) then
+          sections = split_into_sections(str(input), char(separating_line))
+        else
+          cycle
+        endif
+        
+        message(1) = 'Case : '//i
+        if (j==0) then
+          message(2) = 'Input as StringArray, separating_line not present.'
+        elseif (j==1) then
+          message(2) = 'Input as StringArray, separating_line as String.'
+        elseif (j==2 .and. allocated(test_cases(i)%separating_line)) then
+          message(2) = 'Input as StringArray, separating_line as character(*).'
+        elseif (j==3) then
+          message(2) = 'Input as String(:), separating_line as String.'
+        elseif (j==4 .and. allocated(test_cases(i)%separating_line)) then
+          message(2) = 'Input as String(:), separating_line as character(*).'
+        endif
+        message(3) = 'Separating line : '//separating_line
+        
+        check = size(sections)==size(expected_sections)
         @assertTrue(check, char(message))
-        check = all(output(k)%strings==test_cases(i)%output(k)%strings)
-        @assertTrue(check, char(message))
+        do k=1,size(expected_sections)
+          check = size(sections(k)%strings)==size(expected_sections(k)%strings)
+          @assertTrue(check, char(message))
+          check = all(sections(k)%strings==expected_sections(k)%strings)
+          @assertTrue(check, char(message))
+        enddo
       enddo
-    enddo
+    end associate
   enddo
 end subroutine
 

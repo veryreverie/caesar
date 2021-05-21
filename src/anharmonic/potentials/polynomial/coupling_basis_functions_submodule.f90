@@ -27,11 +27,11 @@ module procedure basis_functions_CouplingBasisFunctions
 end procedure
 
 module procedure optimise_CouplingBasisFunctions
-  if (size(this%coupling%ids)/=1) then
+  if (size(this%coupling%ids())/=1) then
     call print_line(CODE_ERROR//': Calling optimise_subspace_potential &
        &on a potential with coupled subspaces.')
     call err()
-  elseif (this%coupling%ids(1)/=subspace%id) then
+  elseif (any(this%coupling%ids()/=subspace%id)) then
     call print_line(CODE_ERROR//': Calling optimise_subspace_potential &
        &with the wrong subspace.')
     call err()
@@ -74,11 +74,11 @@ module procedure braket_SubspaceBraKet_CouplingBasisFunctions
   integer :: i
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==braket%subspace_id, default=0)
+  i = first(this%coupling%ids()==braket%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
-      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+      call this%coupling%remove_subspace(i)
     endif
     
     ! Integrate across the basis function, and simplify it.
@@ -95,11 +95,11 @@ module procedure braket_BasisState_CouplingBasisFunctions
   integer :: i
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  i = first(this%coupling%ids()==bra%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
-      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+      call this%coupling%remove_subspace(i)
     endif
     
     ! Integrate across the basis function, and simplify it.
@@ -119,11 +119,11 @@ module procedure braket_BasisStates_CouplingBasisFunctions
   integer :: i,j
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==states%subspace_id, default=0)
+  i = first(this%coupling%ids()==states%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
-      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+      call this%coupling%remove_subspace(i)
     endif
     
     ! Integrate across the basis function, and simplify it.
@@ -174,7 +174,7 @@ module procedure potential_energy_BasisState_CouplingBasisFunctions
 end procedure
 
 module procedure generate_basis_functions_SubspaceCoupling
-  type(SubspaceMonomial), allocatable :: subspace_monomials(:)
+  type(SubspaceCombination), allocatable :: subspace_combinations(:)
   
   type(BasisFunctions), allocatable :: basis_functions(:)
   
@@ -182,21 +182,20 @@ module procedure generate_basis_functions_SubspaceCoupling
   
   integer :: i,ialloc
   
-  ! Generate the set of subspace monomials corresponding to the subspace
+  ! Generate the set of subspace combinations corresponding to the subspace
   !    coupling.
-  ! e.g. the coupling [1,2] might have monomials [1,2], [1,1,2] and [1,2,2].
-  subspace_monomials = generate_subspace_monomials(        &
-     & coupling,                                           &
-     & subspaces,                                          &
-     & minimum_expansion_order = 2,                        &
-     & maximum_expansion_order = potential_expansion_order )
+  ! e.g. the coupling [1,2] might have combinations [1,2], [1,1,2] and [1,2,2].
+  subspace_combinations = generate_subspace_combinations( &
+              & coupling,                                 &
+              & minimum_power = 2,                        &
+              & maximum_power = potential_expansion_order )
     
-  ! Loop over the subspace monomials corresponding to the coupling.
-  allocate( basis_functions(size(subspace_monomials)), &
+  ! Loop over the subspace combinations corresponding to the coupling.
+  allocate( basis_functions(size(subspace_combinations)), &
           & stat=ialloc); call err(ialloc)
-  do i=1,size(subspace_monomials)
-    ! Generate all basis functions for the subspace monomial.
-    basis_functions(i) = generate_basis_functions( subspace_monomials(i),     &
+  do i=1,size(subspace_combinations)
+    ! Generate all basis functions for the subspace combination.
+    basis_functions(i) = generate_basis_functions( subspace_combinations(i),  &
                                                  & maximum_coupling_order,    &
                                                  & structure,                 &
                                                  & complex_modes,             &
@@ -207,10 +206,10 @@ module procedure generate_basis_functions_SubspaceCoupling
                                                  & logfile                    )
   enddo
   
-  ! Concatenate the terms from each subspace monomial together.
+  ! Concatenate the terms from each subspace combination together.
   coupling_basis_functions = [( basis_functions(i)%basis_functions, &
                               & i=1,                                &
-                              & size(subspace_monomials)            )]
+                              & size(subspace_combinations)         )]
   
   output = CouplingBasisFunctions(coupling, coupling_basis_functions)
 end procedure
@@ -371,7 +370,7 @@ end procedure
 module procedure add_harmonic_contribution_CouplingBasisFunctions
   integer :: i
   
-  if (size(this%coupling%ids)==1) then
+  if (size(this%coupling%ids())==1) then
     do i=1,size(this%basis_functions_)
       call this%basis_functions_(i)%add_harmonic_contribution( &
                                          & dynamical_matrices, &
@@ -385,7 +384,7 @@ module procedure calculate_dynamical_matrices_CouplingBasisFunctions
   
   integer :: i
   
-  subspaces_in_coupling = filter(subspaces%id .in. this%coupling%ids)
+  subspaces_in_coupling = filter(subspaces%id .in. this%coupling%ids())
   
   output = [( DynamicalMatrix(anharmonic_data%structure%no_atoms), &
             & i=1,                                                 &

@@ -8,7 +8,7 @@ module qpoint_star_test
   implicit none
 contains
 
-! Tests constructor and getter.
+! Tests constructor, getters and size().
 @test
 subroutine test_QpointStar()
   type :: TestCase
@@ -23,7 +23,7 @@ subroutine test_QpointStar()
   
   type(String), allocatable :: message(:)
   
-  integer :: i
+  integer :: i,j
   
   test_cases = [                                                       &
      & TestCase( [ QpointCombination([ QpointPower:: ]) ],             &
@@ -74,6 +74,12 @@ subroutine test_QpointStar()
       
       @assertTrue(size(output)==size(expected), char(message))
       @assertTrue(all(output==expected), char(message))
+      
+      @assertTrue(size(star)==size(expected), char(message))
+      
+      do j=1,size(expected)
+        @assertTrue(star%combinations(j)==expected(j), char(message))
+      enddo
     end associate
   enddo
 end subroutine
@@ -87,6 +93,244 @@ subroutine test_total_power()
   
   foo = QpointStar([str('(q1^2)'), str('(q2^2)')])
   @assertTrue(foo%total_power()==2)
+end subroutine
+
+@test
+subroutine test_wavevectors()
+  type :: TestCase
+    type(QpointStar)                  :: qpoint_star
+    type(QpointData),     allocatable :: qpoints(:)
+    type(FractionVector), allocatable :: wavevectors(:)
+  end type
+  
+  type(QpointData), allocatable :: test_qpoints(:)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(FractionVector), allocatable :: wavevectors(:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_qpoints = [                                               &
+     & QpointData( FractionVector(str('   0    0    0')), 1, 1), &
+     & QpointData( FractionVector(str(' 1/2    0    0')), 2, 2), &
+     & QpointData( FractionVector(str('   0  1/2    0')), 3, 3), &
+     & QpointData( FractionVector(str('   0    0  1/2')), 4, 4), &
+     & QpointData( FractionVector(str(' 1/4    0    0')), 5, 6), &
+     & QpointData( FractionVector(str('-1/4    0    0')), 6, 5), &
+     & QpointData( FractionVector(str('   0  1/4    0')), 7, 8), &
+     & QpointData( FractionVector(str('   0 -1/4    0')), 8, 7)  ]
+  
+  test_cases = [                                            &
+     & TestCase( QpointStar([ str('()') ]),                 &
+     &           [QpointData::],                            &
+     &           FractionVector([ str('0 0 0') ]) ),        &
+     & TestCase( QpointStar([ str('()') ]),                 &
+     &           test_qpoints,                              &
+     &           FractionVector([ str('0 0 0') ]) ),        &
+     & TestCase( QpointStar([ str('(q1^1)') ]),             &
+     &           test_qpoints([1]),                         &
+     &           FractionVector([ str('0 0 0') ]) ),        &
+     & TestCase( QpointStar([ str('(q2^5)*(q3^2)'),         &
+     &                        str('(q2^2)*(q4^5)'),         &
+     &                        str('(q3^5)*(q4^2)')  ]),     &
+     &           test_qpoints([5,2,4,7,3]),                 &
+     &           FractionVector([ str('5/2   1   0'),       &
+     &                            str('1     0 5/2'),       &
+     &                            str('0   5/2   1')  ]) ), &
+     & TestCase( QpointStar([ str('(q7^3*q8^2)') ]),        &
+     &           test_qpoints([5,7,4,2]),                   &
+     &           FractionVector([ str('0 1/4 0') ])  )      ]
+  
+  do i=1,size(test_cases)
+    associate( qpoint_star          => test_cases(i)%qpoint_star, &
+             & qpoints              => test_cases(i)%qpoints,     &
+             & expected_wavevectors => test_cases(i)%wavevectors  )
+      wavevectors = qpoint_star%wavevectors(qpoints)
+      
+      message = [ str('qpoint_star:'),          &
+                & str(qpoint_star),             &
+                & str('qpoints:'),              &
+                & str(qpoints),                 &
+                & str('wavevectors:'),          &
+                & str(wavevectors),             &
+                & str('expected_wavevectors:'), &
+                & str(expected_wavevectors)     ]
+      
+      @assertTrue(size(wavevectors)==size(expected_wavevectors), char(message))
+      @assertTrue(all(wavevectors==expected_wavevectors), char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_complex_monomials()
+  type :: MockComplexMode
+    integer :: id
+    integer :: paired_id
+    integer :: qpoint_id
+    integer :: paired_qpoint_id
+    integer :: subspace_id
+  end type
+  
+  type :: TestCase
+    type(QpointStar)                   :: qpoint_star
+    type(MockComplexMode), allocatable :: mock_modes(:)
+    type(ComplexMonomial), allocatable :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(ComplexMode), allocatable :: modes(:)
+  
+  type(ComplexMonomial), allocatable :: monomials(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [                                                             &
+     & TestCase(                                                             &
+     &    QpointStar([ str('()') ]),                                         &
+     &    [ MockComplexMode:: ],                                             &
+     &    [ ComplexMonomial(str(1)) ]                                        &
+     & ),                                                                    &
+     & TestCase(                                                             &
+     &    QpointStar([ str('(q1^1)') ]),                                     &
+     &    [ MockComplexMode:: ],                                             &
+     &    [ ComplexMonomial:: ]                                              &
+     & ),                                                                    &
+     & TestCase(                                                             &
+     &    QpointStar([ str('(q1^1)'),                                        &
+     &                 str('(q2^1)')  ]),                                    &
+     &    [ MockComplexMode(1,1,1,1,1),                                      &
+     &      MockComplexMode(2,2,2,2,1)  ],                                   &
+     &    [ ComplexMonomial(str('1*(u1^1)')),                                &
+     &      ComplexMonomial(str('1*(u2^1)'))  ]                              &
+     & ),                                                                    &
+     & TestCase(                                                             &
+     &    QpointStar([ str('(q1^1)*(q2^1)') ]),                              &
+     &    [ MockComplexMode(1,1,1,1,1),                                      &
+     &      MockComplexMode(2,2,2,2,1)  ],                                   &
+     &    [ ComplexMonomial(str('1*(u1^1)*(u2^1)')) ]                        &
+     & ),                                                                    &
+     & TestCase(                                                             &
+     &    QpointStar([ str('(q3^2)*(q7^1)'),                                 &
+     &                 str('(q3^1)*(q7^2)')  ]),                             &
+     &    [ MockComplexMode(1,1,3,3,1),                                      &
+     &      MockComplexMode(2,2,3,3,1),                                      &
+     &      MockComplexMode(3,3,7,7,1),                                      &
+     &      MockComplexMode(4,4,8,8,1)  ],                                   &
+     &    [ ComplexMonomial(str('1*(u1^2)*(u3^1)')),                         &
+     &      ComplexMonomial(str('1*(u1^1)*(u2^1)*(u3^1)')),                  &
+     &      ComplexMonomial(str('1*(u2^2)*(u3^1)')),                         &
+     &      ComplexMonomial(str('1*(u1^1)*(u3^2)')),                         &
+     &      ComplexMonomial(str('1*(u2^1)*(u3^2)'))         ]                &
+     & )                                                                     ]
+  
+  do i=1,size(test_cases)
+    associate( qpoint_star        => test_cases(i)%qpoint_star, &
+             & mock_modes         => test_cases(i)%mock_modes,  &
+             & expected_monomials => test_cases(i)%output       )
+      modes = mock_to_ComplexMode(mock_modes)
+      
+      monomials = qpoint_star%complex_monomials(modes)
+      
+      message = [ str('qpoint_star:'),            &
+                & str(qpoint_star),               &
+                & str('modes:'),                  &
+                & str(modes, separating_line=''), &
+                & str('monomials:'),              &
+                & str(monomials),                 &
+                & str('expected_monomials:'),     &
+                & str(expected_monomials)         ]
+      
+      check = size(monomials)==size(expected_monomials)
+      @assertTrue(check, char(message))
+      check = all(check_equal(monomials,expected_monomials))
+      @assertTrue(check, char(message))
+    end associate
+  enddo
+contains
+  ! Convert a MockComplexMode to a ComplexMode.
+  impure elemental function mock_to_ComplexMode(input) result(output)
+    type(MockComplexMode), intent(in) :: input
+    type(ComplexMode)                 :: output
+    
+    output = ComplexMode( input%id,               &
+                        & input%paired_id,        &
+                        & 0.0_dp,                 &
+                        & 0.0_dp,                 &
+                        & .false.,                &
+                        & .false.,                &
+                        & [ComplexVector::],      &
+                        & input%qpoint_id,        &
+                        & input%paired_qpoint_id, &
+                        & input%subspace_id       )
+  end function
+  
+  ! Check two complex monomials are equal (ignoring the coefficient).
+  impure elemental function check_equal(this,that) result(output)
+    type(ComplexMonomial), intent(in) :: this
+    type(ComplexMonomial), intent(in) :: that
+    logical                           :: output
+    
+    if (size(this)/=size(that)) then
+      output = .false.
+      return
+    else
+      output = all(this%ids()==that%ids())               &
+       & .and. all(this%paired_ids()==that%paired_ids()) &
+       & .and. all(this%powers()==that%powers())         &
+       & .and. all(this%paired_powers()==that%paired_powers())
+    endif
+  end function
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(QpointStar)          :: star
+    type(String), allocatable :: lines(:)
+  end type
+  
+  type(QpointCombination), allocatable :: combinations(:)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(QpointStar)          :: new_star
+  type(String), allocatable :: new_lines(:)
+  
+  integer :: i
+  
+  combinations = [ QpointCombination(str('()')),                     &
+                 & QpointCombination(str('(q1^2)')),                 &
+                 & QpointCombination(str('(q1^2*q3^4)*(q5^6*q7^8)')) ]
+  
+  test_cases = [ TestCase( QpointStar(combinations([1])),         &
+               &           str(combinations([1]))         ),      &
+               & TestCase( QpointStar(combinations([2])),         &
+               &           str(combinations([2]))         ),      &
+               & TestCase( QpointStar(combinations([3])),         &
+               &           str(combinations([3]))         ),      &
+               & TestCase( QpointStar([combinations([1,2,3])]),   &
+               &           str([combinations([1,2,3])])         ) ]
+  
+  do i=1,size(test_cases)
+    associate( star  => test_cases(i)%star, &
+             & lines => test_cases(i)%lines )
+      new_lines = str(star)
+      @assertTrue(size(new_lines)==size(lines), char(lines))
+      @assertTrue(all(new_lines==lines), char(lines))
+      
+      new_star = QpointStar(lines)
+      @assertTrue(new_star==star, char(lines))
+    end associate
+  enddo
 end subroutine
 
 @test
@@ -131,48 +375,6 @@ subroutine test_comparison()
         @assertTrue(check, char(message))
       end associate
     enddo
-  enddo
-end subroutine
-
-@test
-subroutine test_io()
-  type :: TestCase
-    type(QpointStar)          :: star
-    type(String), allocatable :: lines(:)
-  end type
-  
-  type(QpointCombination), allocatable :: combinations(:)
-  
-  type(TestCase), allocatable :: test_cases(:)
-  
-  type(QpointStar)          :: new_star
-  type(String), allocatable :: new_lines(:)
-  
-  integer :: i
-  
-  combinations = [ QpointCombination(str('()')),                     &
-                 & QpointCombination(str('(q1^2)')),                 &
-                 & QpointCombination(str('(q1^2*q3^4)*(q5^6*q7^8)')) ]
-  
-  test_cases = [ TestCase( QpointStar(combinations([1])),         &
-               &           str(combinations([1]))         ),      &
-               & TestCase( QpointStar(combinations([2])),         &
-               &           str(combinations([2]))         ),      &
-               & TestCase( QpointStar(combinations([3])),         &
-               &           str(combinations([3]))         ),      &
-               & TestCase( QpointStar([combinations([1,2,3])]),   &
-               &           str([combinations([1,2,3])])         ) ]
-  
-  do i=1,size(test_cases)
-    associate( star  => test_cases(i)%star, &
-             & lines => test_cases(i)%lines )
-      new_lines = str(star)
-      @assertTrue(size(new_lines)==size(lines), char(lines))
-      @assertTrue(all(new_lines==lines), char(lines))
-      
-      new_star = QpointStar(lines)
-      @assertTrue(new_star==star, char(lines))
-    end associate
   enddo
 end subroutine
 

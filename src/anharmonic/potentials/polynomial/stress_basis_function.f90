@@ -84,20 +84,20 @@ module caesar_stress_basis_function_module
   
   interface generate_stress_basis_functions
     ! Generate basis functions.
-    module function generate_stress_basis_functions_SubspaceMonomial(       &
-       & subspace_monomial,maximum_coupling_order,structure,complex_modes,  &
-       & qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only, &
+    module function generate_stress_basis_functions_SubspaceCombination(      &
+       & subspace_combination,maximum_coupling_order,structure,complex_modes, &
+       & qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only,   &
        & logfile) result(output) 
-      type(SubspaceMonomial),   intent(in)    :: subspace_monomial
-      integer,                  intent(in)    :: maximum_coupling_order
-      type(StructureData),      intent(in)    :: structure
-      type(ComplexMode),        intent(in)    :: complex_modes(:)
-      type(QpointData),         intent(in)    :: qpoints(:)
-      type(DegenerateSubspace), intent(in)    :: subspaces(:)
-      type(DegenerateSymmetry), intent(in)    :: degenerate_symmetries(:)
-      logical,intent(in) :: vscf_basis_functions_only
-      type(OFile),              intent(inout) :: logfile
-      type(StressBasisFunction), allocatable  :: output(:)
+      type(SubspaceCombination), intent(in)    :: subspace_combination
+      integer,                   intent(in)    :: maximum_coupling_order
+      type(StructureData),       intent(in)    :: structure
+      type(ComplexMode),         intent(in)    :: complex_modes(:)
+      type(QpointData),          intent(in)    :: qpoints(:)
+      type(DegenerateSubspace),  intent(in)    :: subspaces(:)
+      type(DegenerateSymmetry),  intent(in)    :: degenerate_symmetries(:)
+      logical,                   intent(in)    :: vscf_basis_functions_only
+      type(OFile),               intent(inout) :: logfile
+      type(StressBasisFunction), allocatable   :: output(:)
     end function
   end interface
   
@@ -246,7 +246,9 @@ module caesar_stress_basis_function_module
     ! Calculate the contribution to a given monomial from the interpolation of
     !    this basis function.
     ! The result is given as a cartesian tensor.
-    impure elemental module function interpolate_coefficients_StressBasisFunction(this,monomial,interpolator) result(output) 
+    impure elemental module function                                 &
+       & interpolate_coefficients_StressBasisFunction(this,monomial, &
+       & interpolator) result(output) 
       class(StressBasisFunction),   intent(in) :: this
       type(ComplexMonomial),        intent(in) :: monomial
       type(PolynomialInterpolator), intent(in) :: interpolator

@@ -46,11 +46,11 @@ module procedure braket_SubspaceBraKet_CouplingStressBasisFunctions
   integer :: i
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==braket%subspace_id, default=0)
+  i = first(this%coupling%ids()==braket%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
-      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+      call this%coupling%remove_subspace(i)
     endif
     
     ! Integrate across the basis function, and simplify it.
@@ -67,11 +67,11 @@ module procedure braket_BasisState_CouplingStressBasisFunctions
   integer :: i
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==bra%subspace_id, default=0)
+  i = first(this%coupling%ids()==bra%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
-      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+      call this%coupling%remove_subspace(i)
     endif
   
     ! Integrate across the basis function, and simplify it.
@@ -91,11 +91,11 @@ module procedure braket_BasisStates_CouplingStressBasisFunctions
   integer :: i,j
   
   ! Check if the subspace is in this basis function's coupling.
-  i = first(this%coupling%ids==states%subspace_id, default=0)
+  i = first(this%coupling%ids()==states%subspace_id, default=0)
   if (i/=0) then
     ! If whole_subspace is .true., remove the subspace from the coupling.
     if (set_default(whole_subspace,.true.)) then
-      this%coupling%ids = [this%coupling%ids(:i-1),this%coupling%ids(i+1:)]
+      call this%coupling%remove_subspace(i)
     endif
     
     ! Integrate across the basis function, and simplify it.
@@ -154,37 +154,36 @@ module procedure append_CouplingStressBasisFunctions
 end procedure
 
 module procedure generate_stress_basis_functions_SubspaceCoupling
-  type(SubspaceMonomial), allocatable :: subspace_monomials(:)
+  type(SubspaceCombination), allocatable :: subspace_combinations(:)
   
   type(StressBasisFunction), allocatable :: coupling_basis_functions(:)
-  type(StressBasisFunction), allocatable :: monomial_basis_functions(:)
+  type(StressBasisFunction), allocatable :: combination_basis_functions(:)
   
   integer :: i,ialloc
   
-  ! Generate the set of subspace monomials corresponding to the subspace
+  ! Generate the set of subspace combinations corresponding to the subspace
   !    coupling.
-  ! e.g. the coupling [1,2] might have monomials [1,2], [1,1,2] and [1,2,2].
-  subspace_monomials = generate_subspace_monomials(     &
-     & coupling,                                        &
-     & subspaces,                                       &
-     & minimum_expansion_order = 1,                     &
-     & maximum_expansion_order = stress_expansion_order )
+  ! e.g. the coupling [1,2] might have combinations [1,2], [1,1,2] and [1,2,2].
+  subspace_combinations = generate_subspace_combinations( &
+                 & coupling,                              &
+                 & minimum_power = 1,                     &
+                 & maximum_power = stress_expansion_order )
   
-  ! Loop over the subspace monomials corresponding to the coupling.
+  ! Loop over the subspace combinations corresponding to the coupling.
   allocate(coupling_basis_functions(0), stat=ialloc); call err(ialloc)
-  do i=1,size(subspace_monomials)
-    monomial_basis_functions = generate_stress_basis_functions( &
-                                   & subspace_monomials(i),     &
-                                   & maximum_coupling_order,    &
-                                   & structure,                 &
-                                   & complex_modes,             &
-                                   & qpoints,                   &
-                                   & subspaces,                 &
-                                   & degenerate_symmetries,     &
-                                   & vscf_basis_functions_only, &
-                                   & logfile                    )
-    coupling_basis_functions = [ coupling_basis_functions, &
-                               & monomial_basis_functions  ]
+  do i=1,size(subspace_combinations)
+    combination_basis_functions = generate_stress_basis_functions( &
+                                      & subspace_combinations(i),  &
+                                      & maximum_coupling_order,    &
+                                      & structure,                 &
+                                      & complex_modes,             &
+                                      & qpoints,                   &
+                                      & subspaces,                 &
+                                      & degenerate_symmetries,     &
+                                      & vscf_basis_functions_only, &
+                                      & logfile                    )
+    coupling_basis_functions = [ coupling_basis_functions,    &
+                               & combination_basis_functions  ]
   enddo
   
   output = CouplingStressBasisFunctions( coupling,                &
@@ -248,7 +247,7 @@ module procedure calculate_dynamical_matrices_CouplingStressBasisFunctions
   
   integer :: i
   
-  subspaces_in_coupling = filter(subspaces%id .in. this%coupling%ids)
+  subspaces_in_coupling = filter(subspaces%id .in. this%coupling%ids())
   
   output = [( StressDynamicalMatrix(anharmonic_data%structure%no_atoms), &
             & i=1,                                                       &

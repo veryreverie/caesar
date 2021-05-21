@@ -1,0 +1,360 @@
+module subspace_coupling_test
+  use funit
+  
+  use caesar_common_module
+
+  use caesar_subspaces_module
+  implicit none
+contains
+
+! Tests the constructor, getters and size().
+@test
+subroutine test_SubspaceCoupling()
+  type :: TestCase
+    integer, allocatable :: ids(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(String), allocatable :: message(:)
+  
+  type(SubspaceCoupling) :: coupling
+  integer, allocatable   :: new_ids(:)
+  
+  integer :: i,j
+  
+  test_Cases = [ TestCase([integer::]), &
+               & TestCase([1]),         &
+               & TestCase([3,6,13])     ]
+  
+  do i=1,size(test_cases)
+    associate(ids => test_cases(i)%ids)
+      coupling = SubspaceCoupling(ids)
+      
+      message = [ str('ids:'),      &
+                & str(ids),         &
+                & str('coupling:'), &
+                & str(coupling)     ]
+      
+      @assertTrue(size(coupling)==size(ids), char(message))
+      
+      new_ids = coupling%ids()
+      @assertTrue(size(new_ids)==size(ids), char(message))
+      @assertTrue(all(new_ids==ids), char(message))
+      
+      do j=1,size(ids)
+        @assertTrue(coupling%ids(j)==ids(j), char(message))
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_subspaces()
+  type :: TestCase
+    type(SubspaceCoupling)                :: coupling
+    type(DegenerateSubspace), allocatable :: subspaces(:)
+    type(DegenerateSubspace), allocatable :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(DegenerateSubspace), allocatable :: coupled_subspaces(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [                                                            &
+     & TestCase(                                                            &
+     &    coupling  = SubspaceCoupling([integer::]),                        &
+     &    subspaces = [ DegenerateSubspace:: ],                             &
+     &    output    = [ DegenerateSubspace:: ]                              &
+     & ),                                                                   &
+     & TestCase(                                                            &
+     &    coupling  = SubspaceCoupling([integer::]),                        &
+     &    subspaces = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ) ],       &
+     &    output    = [ DegenerateSubspace:: ]                              &
+     & ),                                                                   &
+     & TestCase(                                                            &
+     &    coupling  = SubspaceCoupling([1]),                                &
+     &    subspaces = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ) ],       &
+     &    output    = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ) ]        &
+     & ),                                                                   &
+     & TestCase(                                                            &
+     &    coupling  = SubspaceCoupling([3,6]),                              &
+     &    subspaces = [ DegenerateSubspace( id         = 1,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [1],               &
+     &                                      paired_ids = [1]     ),         &
+     &                  DegenerateSubspace( id         = 6,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [5],               &
+     &                                      paired_ids = [5]     ),         &
+     &                  DegenerateSubspace( id         = 4,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [3,7],             &
+     &                                      paired_ids = [7,3]   ),         &
+     &                  DegenerateSubspace( id         = 3,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [4,12,16,20],      &
+     &                                      paired_ids = [16,20,4,12]  ) ], &
+     &    output    = [ DegenerateSubspace( id         = 3,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [4,12,16,20],      &
+     &                                      paired_ids = [16,20,4,12]  ),   &
+     &                  DegenerateSubspace( id         = 6,                 &
+     &                                      frequency  = 0.0_dp,            &
+     &                                      mode_ids   = [5],               &
+     &                                      paired_ids = [5]     )        ] &
+     & )                                                                    ]
+  
+  do i=1,size(test_cases)
+    associate( coupling                   => test_cases(i)%coupling,  &
+             & subspaces                  => test_cases(i)%subspaces, &
+             & expected_coupled_subspaces => test_cases(i)%output     )
+      coupled_subspaces = coupling%subspaces(subspaces)
+      
+      message = [ str('coupling:'),                   &
+                & str(coupling),                      &
+                & str('subspaces:'),                  &
+                & str(subspaces),                     &
+                & str('coupled_subspaces:'),          &
+                & str(coupled_subspaces),             &
+                & str('expected_coupled_subspaces:'), &
+                & str(expected_coupled_subspaces)     ]
+      
+      check = size(coupled_subspaces)==size(expected_coupled_subspaces)
+      @assertTrue(check, char(message))
+      check = all(coupled_subspaces%id==expected_coupled_subspaces%id)
+      @assertTrue(check, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_remove_subspace()
+  type :: TestCase
+    type(SubspaceCoupling) :: input
+    integer                :: index
+    type(SubspaceCoupling) :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(SubspaceCoupling) :: input
+  type(SubspaceCoupling) :: output
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [ TestCase( input  = SubspaceCoupling([1]),           &
+               &           index  = 1,                               &
+               &           output = SubspaceCoupling([integer::]) ), &
+               & TestCase( input  = SubspaceCoupling([3,5,8]),       &
+               &           index  = 1,                               &
+               &           output = SubspaceCoupling([5,8])    ),    &
+               & TestCase( input  = SubspaceCoupling([3,5,8]),       &
+               &           index  = 2,                               &
+               &           output = SubspaceCoupling([3,8])    ),    &
+               & TestCase( input  = SubspaceCoupling([3,5,8]),       &
+               &           index  = 3,                               &
+               &           output = SubspaceCoupling([3,5])    )     ]
+  
+  do i=1,size(test_cases)
+    associate( input           => test_cases(i)%input, &
+             & index           => test_cases(i)%index, &
+             & expected_output => test_cases(i)%output )
+      output = input
+      call output%remove_subspace(index)
+      
+      message = [ str('input:'),           &
+                & str(input),              &
+                & str('index:'),           &
+                & str(index),              &
+                & str('output:'),          &
+                & str(output),             &
+                & str('expected output:'), &
+                & str(expected_output)     ]
+      
+      @assertTrue(output==expected_output, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(SubspaceCoupling) :: coupling
+    type(String)           :: line
+    type(String)           :: legacy_line
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(SubspaceCoupling) :: new_coupling
+  type(String)           :: new_line
+  
+  integer :: i
+  
+  test_cases = [ TestCase( coupling    = SubspaceCoupling([integer::]),     &
+               &           line        = str('()'),                         &
+               &           legacy_line = str('')                         ), &
+               & TestCase( coupling    = SubspaceCoupling([1]),             &
+               &           line        = str('(s1)'),                       &
+               &           legacy_line = str(' 1')              ),          &
+               & TestCase( coupling    = SubspaceCoupling([3,6,8,12]),      &
+               &           line        = str('(s3*s6*s8*s12)'),             &
+               &           legacy_line = str(' 3  6  8  12')           )    ]
+  
+  do i=1,size(test_cases)
+    associate( coupling    => test_cases(i)%coupling,   &
+             & line        => test_cases(i)%line,       &
+             & legacy_line => test_cases(i)%legacy_line )
+      new_coupling = SubspaceCoupling(line)
+      @assertTrue(new_coupling==coupling, char(line))
+      
+      new_line = str(coupling)
+      @assertTrue(new_line==line, char(line))
+      
+      new_coupling = SubspaceCoupling(legacy_line)
+      @assertTrue(new_coupling==coupling, char(line))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_comparison()
+  type(SubspaceCoupling), allocatable :: couplings(:)
+  
+  type(String) :: message
+  
+  integer :: i,j
+  
+  couplings = [ SubspaceCoupling([integer::]), &
+              & SubspaceCoupling([1]),         &
+              & SubspaceCoupling([2]),         &
+              & SubspaceCoupling([1,2,3]),     &
+              & SubspaceCoupling([1,3,4])      ]
+  
+  do i=1,size(couplings)
+    do j=1,size(couplings)
+      message = 'i='//i//', j='//j
+      @assertTrue(couplings(i)==couplings(j).eqv.i==j, char(message))
+      @assertTrue(couplings(i)/=couplings(j).eqv.i/=j, char(message))
+    enddo
+  enddo
+end subroutine
+
+@test
+subroutine test_generate_coupled_subspaces()
+  type :: TestCase
+    type(DegenerateSubspace), allocatable :: subspaces(:)
+    integer                               :: maximum_coupling_order
+    type(SubspaceCoupling), allocatable   :: output(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(SubspaceCoupling), allocatable :: couplings(:)
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [                                                   &
+     & TestCase(                                                   &
+     &    subspaces              = [ DegenerateSubspace:: ],       &
+     &    maximum_coupling_order = 2,                              &
+     &    output                 = [ SubspaceCoupling:: ]          &
+     & ),                                                          &
+     & TestCase(                                                   &
+     &    subspaces              = [ DegenerateSubspace(           &
+     &                                  id         = 1,            &
+     &                                  frequency  = 0.0_dp,       &
+     &                                  mode_ids   = [1],          &
+     &                                  paired_ids = [1]     ) ],  &
+     &    maximum_coupling_order = 2,                              &
+     &    output                 = [ SubspaceCoupling([1]) ]       &
+     & ),                                                          &
+     & TestCase(                                                   &
+     &    subspaces              = [ DegenerateSubspace(           &
+     &                                  id         = 3,            &
+     &                                  frequency  = 0.0_dp,       &
+     &                                  mode_ids   = [1],          &
+     &                                  paired_ids = [1]     ),    &
+     &                               DegenerateSubspace(           &
+     &                                  id         = 5,            &
+     &                                  frequency  = 0.0_dp,       &
+     &                                  mode_ids   = [2],          &
+     &                                  paired_ids = [2]     ),    &
+     &                               DegenerateSubspace(           &
+     &                                  id         = 8,            &
+     &                                  frequency  = 0.0_dp,       &
+     &                                  mode_ids   = [3],          &
+     &                                  paired_ids = [3]     ) ],  &
+     &    maximum_coupling_order = 1,                              &
+     &    output                 = [ SubspaceCoupling([3]),        &
+     &                               SubspaceCoupling([5]),        &
+     &                               SubspaceCoupling([8])  ]      &
+     & ),                                                          &
+     & TestCase(                                                   &
+     &    subspaces              = [ DegenerateSubspace(           &
+     &                                  id         = 3,            &
+     &                                  frequency  = 0.0_dp,       &
+     &                                  mode_ids   = [1],          &
+     &                                  paired_ids = [1]     ),    &
+     &                               DegenerateSubspace(           &
+     &                                  id         = 5,            &
+     &                                  frequency  = 0.0_dp,       &
+     &                                  mode_ids   = [2],          &
+     &                                  paired_ids = [2]     ),    &
+     &                               DegenerateSubspace(           &
+     &                                  id         = 8,            &
+     &                                  frequency  = 0.0_dp,       &
+     &                                  mode_ids   = [3],          &
+     &                                  paired_ids = [3]     ) ],  &
+     &    maximum_coupling_order = 2,                              &
+     &    output                 = [ SubspaceCoupling([3]),        &
+     &                               SubspaceCoupling([5]),        &
+     &                               SubspaceCoupling([8]),        &
+     &                               SubspaceCoupling([3,5]),      &
+     &                               SubspaceCoupling([3,8]),      &
+     &                               SubspaceCoupling([5,8])  ]    &
+     & )                                                           ]
+  
+  do i=1,size(test_cases)
+    associate( subspaces              => test_cases(i)%subspaces, &
+             & maximum_coupling_order =>                          &
+             &    test_cases(i)%maximum_coupling_order,           &
+             & expected_couplings     => test_cases(i)%output     )
+      couplings = generate_coupled_subspaces( subspaces,             &
+                                            & maximum_coupling_order )
+      
+      message = [ str('subspaces:'),              &
+                & str(subspaces),                 &
+                & str('maximum_coupling_order:'), &
+                & str(maximum_coupling_order),    &
+                & str('couplings:'),              &
+                & str(couplings),                 &
+                & str('expected_couplings:'),     &
+                & str(expected_couplings)         ]
+      
+      @assertTrue(size(couplings)==size(expected_couplings), char(message))
+      @assertTrue(all(couplings==expected_couplings), char(message))
+    end associate
+  enddo
+end subroutine
+end module

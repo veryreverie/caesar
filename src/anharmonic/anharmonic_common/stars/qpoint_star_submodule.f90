@@ -27,20 +27,26 @@ module procedure combinations_QpointStar
   output = this%combinations_
 end procedure
 
+module procedure combinations_index_QpointStar
+  output = this%combinations_(index)
+end procedure
+
 module procedure total_power_QpointStar
   output = this%combinations_(1)%total_power()
 end procedure
 
-module procedure equality_QpointStar_QpointStar
-  if (size(this%combinations_)==size(that%combinations_)) then
-    output = all(this%combinations_==that%combinations_)
-  else
-    output = .false.
-  endif
+module procedure wavevectors_QpointStar
+  integer :: i
+  
+  output = [(this%combinations_(i)%wavevector(qpoints), i=1, size(this))]
 end procedure
 
-module procedure non_equality_QpointStar_QpointStar
-  output = .not. this==that
+module procedure complex_monomials_QpointStar
+  integer :: i
+  
+  output = [( this%combinations_(i)%complex_monomials(modes), &
+            & i=1,                                            &
+            & size(this%combinations_)                        )]
 end procedure
 
 module procedure read_QpointStar
@@ -68,6 +74,22 @@ end procedure
 
 module procedure new_QpointStar_StringArray
   call this%read(str(input))
+end procedure
+
+module procedure size_QpointStar
+  output = size(this%combinations_)
+end procedure
+
+module procedure equality_QpointStar_QpointStar
+  if (size(this%combinations_)==size(that%combinations_)) then
+    output = all(this%combinations_==that%combinations_)
+  else
+    output = .false.
+  endif
+end procedure
+
+module procedure non_equality_QpointStar_QpointStar
+  output = .not. this==that
 end procedure
 
 module procedure combinations_to_stars
@@ -130,7 +152,7 @@ module procedure combinations_to_stars
       endif
     enddo
     
-    ! If `combinations(i)` is not in an existing star. Create a new star.
+    ! If `combinations(i)` is not in an existing star, create a new star.
     if (star_id(i)==0) then
       no_stars = no_stars + 1
       star_sizes(no_stars) = 1

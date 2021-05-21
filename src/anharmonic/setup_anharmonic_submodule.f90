@@ -193,7 +193,13 @@ module procedure setup_anharmonic_subroutine
   use_hessians = lgcl(arguments%value('use_hessians'))
   calculate_stress = lgcl(arguments%value('calculate_stress'))
   
-  if (calculate_stress .and. potential_expansion_order<4) then
+  if (potential_expansion_order<2) then
+    call print_line(ERROR//': potential_expansion_order must be at least 2.')
+    call quit()
+  elseif (maximum_coupling_order<1) then
+    call print_line(ERROR//': maximum_coupling_order must be at least 1.')
+    call quit()
+  elseif (calculate_stress .and. potential_expansion_order<4) then
     call print_line(ERROR//': calculate_stress may only be true if &
        &potential_expansion_order is at least 4.')
     call quit()

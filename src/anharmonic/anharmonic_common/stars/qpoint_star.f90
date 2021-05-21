@@ -9,6 +9,7 @@ module caesar_qpoint_star_module
   private
   
   public :: QpointStar
+  public :: size
   public :: operator(==)
   public :: operator(/=)
   public :: QpointStars
@@ -20,9 +21,17 @@ module caesar_qpoint_star_module
   type, extends(Stringsable) :: QpointStar
     type(QpointCombination), allocatable, private :: combinations_(:)
   contains
-    procedure, public :: combinations => combinations_QpointStar
+    generic,   public  :: combinations =>          &
+                        & combinations_QpointStar, &
+                        & combinations_index_QpointStar
+    procedure, private :: combinations_QpointStar
+    procedure, private :: combinations_index_QpointStar
     
     procedure, public :: total_power => total_power_QpointStar
+    
+    procedure, public :: wavevectors => wavevectors_QpointStar
+    
+    procedure, public :: complex_monomials => complex_monomials_QpointStar
     
     procedure, public :: read  => read_QpointStar
     procedure, public :: write => write_QpointStar
@@ -45,13 +54,71 @@ module caesar_qpoint_star_module
       class(QpointStar), intent(in)        :: this
       type(QpointCombination), allocatable :: output(:)
     end function
-  end interface
+    
+    !> Getter for `this%combinations_(index)`.
+    impure elemental module function combinations_index_QpointStar(this, &
+       & index) result(output)
+      class(QpointStar), intent(in) :: this
+      integer,           intent(in) :: index
+      type(QpointCombination)       :: output
+    end function
   
-  interface
     !> Returns the total power of modes at each combination in the star.
     !> Assumes that the total power is the same for all combinations.
     impure elemental module function total_power_QpointStar(this) &
        & result(output)
+      class(QpointStar), intent(in) :: this
+      integer                       :: output
+    end function
+    
+    !> Returns the wavevectors corresponding to the combinations in the star.
+    !> `output(i)` = `this%qpoints_(wavevector(qpoints))`.
+    module function wavevectors_QpointStar(this,qpoints) result(output)
+      class(QpointStar), intent(in)     :: this
+      type(QpointData),  intent(in)     :: qpoints(:)
+      type(FractionVector), allocatable :: output(:)
+    end function
+    
+    !> Returns the [[ComplexMonomial(type)]]s containing the given `modes`
+    !>    which match the q-point star.
+    module function complex_monomials_QpointStar(this,modes) result(output)
+      class(QpointStar), intent(in)      :: this
+      type(ComplexMode), intent(in)      :: modes(:)
+      type(ComplexMonomial), allocatable :: output(:)
+    end function
+  
+    !> Convert a [[String(type)]] array to a [[QpointStar(type)]].
+    module subroutine read_QpointStar(this,input)
+      class(QpointStar), intent(out) :: this
+      type(String),      intent(in)  :: input(:)
+    end subroutine
+  
+    !> Convert a [[QpointStar(type)]] to a [[String(type)]] array.
+    module function write_QpointStar(this) result(output)
+      class(QpointStar), intent(in) :: this
+      type(String), allocatable     :: output(:)
+    end function
+  end interface
+  
+  interface QpointStar
+    !> Convert a [[String(type)]] array to a [[QpointStar(type)]].
+    module function new_QpointStar_Strings(input) &
+       & result(this)
+      type(String), intent(in) :: input(:)
+      type(QpointStar)         :: this
+    end function
+    
+    !> Convert a [[StringArray(type)]] to a [[QpointStar(type)]].
+    impure elemental module function new_QpointStar_StringArray(input) &
+       & result(this)
+      type(StringArray), intent(in) :: input
+      type(QpointStar)              :: this
+    end function
+  end interface
+  
+  interface size
+    !> Returns the number of combinations in the star.
+    module function size_QpointStar(this) result(output)
       class(QpointStar), intent(in) :: this
       integer                       :: output
     end function
@@ -74,38 +141,6 @@ module caesar_qpoint_star_module
       type(QpointStar), intent(in) :: this
       type(QpointStar), intent(in) :: that
       logical                      :: output
-    end function
-  end interface
-  
-  interface
-    !> Convert a [[String(type)]] array to a [[QpointStar(type)]].
-    module subroutine read_QpointStar(this,input)
-      class(QpointStar), intent(out) :: this
-      type(String),      intent(in)  :: input(:)
-    end subroutine
-  end interface
-  
-  interface
-    !> Convert a [[QpointStar(type)]] to a [[String(type)]] array.
-    module function write_QpointStar(this) result(output)
-      class(QpointStar), intent(in) :: this
-      type(String), allocatable     :: output(:)
-    end function
-  end interface
-  
-  interface QpointStar
-    !> Convert a [[String(type)]] array to a [[QpointStar(type)]].
-    module function new_QpointStar_Strings(input) &
-       & result(this)
-      type(String), intent(in) :: input(:)
-      type(QpointStar)         :: this
-    end function
-    
-    !> Convert a [[StringArray(type)]] to a [[QpointStar(type)]].
-    impure elemental module function new_QpointStar_StringArray(input) &
-       & result(this)
-      type(StringArray), intent(in) :: input
-      type(QpointStar)              :: this
     end function
   end interface
   

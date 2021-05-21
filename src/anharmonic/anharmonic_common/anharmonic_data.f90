@@ -5,10 +5,12 @@
 module caesar_anharmonic_data_module
   use caesar_common_module
   
+  use caesar_subspaces_module
+  use caesar_stars_module
+  
   use caesar_interpolated_supercell_module
   use caesar_max_displacement_module
   use caesar_degenerate_symmetry_module
-  use caesar_subspace_coupling_module
   implicit none
   
   private
@@ -16,19 +18,20 @@ module caesar_anharmonic_data_module
   public :: AnharmonicData
   
   type, extends(Stringsable) :: AnharmonicData
-    type(StructureData)                   :: structure
-    type(StructureData)                   :: anharmonic_supercell
-    type(QpointData),         allocatable :: qpoints(:)
-    type(ComplexMode),        allocatable :: complex_modes(:)
-    type(RealMode),           allocatable :: real_modes(:)
-    type(DegenerateSubspace), allocatable :: degenerate_subspaces(:)
-    type(DegenerateSymmetry), allocatable :: degenerate_symmetries(:)
-    type(SubspaceCoupling),   allocatable :: subspace_couplings(:)
-    integer                               :: maximum_coupling_order
-    integer                               :: potential_expansion_order
-    logical                               :: vscf_basis_functions_only
-    real(dp)                              :: maximum_weighted_displacement
-    real(dp)                              :: frequency_of_max_displacement
+    type(StructureData)                    :: structure
+    type(StructureData)                    :: anharmonic_supercell
+    type(QpointData),          allocatable :: qpoints(:)
+    type(ComplexMode),         allocatable :: complex_modes(:)
+    type(RealMode),            allocatable :: real_modes(:)
+    type(DegenerateSubspace),  allocatable :: degenerate_subspaces(:)
+    type(DegenerateSymmetry),  allocatable :: degenerate_symmetries(:)
+    type(SubspaceCoupling),    allocatable :: subspace_couplings(:)
+    integer                                :: maximum_coupling_order
+    integer                                :: potential_expansion_order
+    logical                                :: vscf_basis_functions_only
+    real(dp)                               :: maximum_weighted_displacement
+    real(dp)                               :: frequency_of_max_displacement
+    type(SubspaceQpointStars), allocatable :: subspace_qpoint_stars(:)
   contains
     procedure, public :: read  => read_AnharmonicData
     procedure, public :: write => write_AnharmonicData

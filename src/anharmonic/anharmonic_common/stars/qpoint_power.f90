@@ -34,6 +34,10 @@ module caesar_qpoint_power_module
     
     procedure, public :: total_power => total_power_QpointPower
     
+    procedure, public :: wavevector => wavevector_QpointPower
+    
+    procedure, public :: complex_monomials => complex_monomials_QpointPower
+    
     procedure, public :: read  => read_QpointPower
     procedure, public :: write => write_QpointPower
   end type
@@ -80,14 +84,49 @@ module caesar_qpoint_power_module
       class(QpointPower), intent(in) :: this
       integer                        :: output
     end function
-  end interface
   
-  interface
     !> Returns the total power of modes at the q-point pair.
     impure elemental module function total_power_QpointPower(this) &
        & result(output)
       class(QpointPower), intent(in) :: this
       integer                        :: output
+    end function
+    
+    !> For the q-point power (q1^n1), returns the wavevector n1*q1.
+    !> For the q-point power (q1^n1*q2^n2), returns the wavevector (n1-n2)*q2.
+    !> N.B. this is equivalent to q1*n1+q2*n2 by a G-vector.
+    module function wavevector_QpointPower(this,qpoints) result(output)
+      class(QpointPower), intent(in) :: this
+      type(QpointData),   intent(in) :: qpoints(:)
+      type(FractionVector)           :: output
+    end function
+    
+    !> Returns the [[ComplexMonomial(type)]]s containing the given `modes`
+    !>    which match the q-point power.
+    module function complex_monomials_QpointPower(this,modes) result(output)
+      class(QpointPower), intent(in)     :: this
+      type(ComplexMode),  intent(in)     :: modes(:)
+      type(ComplexMonomial), allocatable :: output(:)
+    end function
+  
+    !> Convert a [[String(type)]] to a [[QpointPower(type)]].
+    module subroutine read_QpointPower(this,input)
+      class(QpointPower), intent(out) :: this
+      type(String),       intent(in)  :: input
+    end subroutine
+  
+    !> Convert a [[QpointPower(type)]] to a [[String(type)]].
+    module function write_QpointPower(this) result(output)
+      class(QpointPower), intent(in) :: this
+      type(String)                   :: output
+    end function
+  end interface
+  
+  interface QpointPower
+    !> Convert a [[String(type)]] to a [[QpointPower(type)]].
+    impure elemental module function new_QpointPower_String(input) result(this)
+      type(String), intent(in) :: input
+      type(QpointPower)        :: this
     end function
   end interface
   
@@ -153,30 +192,6 @@ module caesar_qpoint_power_module
       type(QpointPower), intent(in) :: this
       type(QpointPower), intent(in) :: that
       logical                       :: output
-    end function
-  end interface
-  
-  interface
-    !> Convert a [[String(type)]] to a [[QpointPower(type)]].
-    module subroutine read_QpointPower(this,input)
-      class(QpointPower), intent(out) :: this
-      type(String),       intent(in)  :: input
-    end subroutine
-  end interface
-  
-  interface
-    !> Convert a [[QpointPower(type)]] to a [[String(type)]].
-    module function write_QpointPower(this) result(output)
-      class(QpointPower), intent(in) :: this
-      type(String)                   :: output
-    end function
-  end interface
-  
-  interface QpointPower
-    !> Convert a [[String(type)]] to a [[QpointPower(type)]].
-    impure elemental module function new_QpointPower_String(input) result(this)
-      type(String), intent(in) :: input
-      type(QpointPower)        :: this
     end function
   end interface
   

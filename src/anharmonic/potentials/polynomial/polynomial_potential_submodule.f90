@@ -224,7 +224,7 @@ module procedure generate_potential_PolynomialPotential
   do i=1,size(anharmonic_data%subspace_couplings)
     call print_line('Fitting potential in subspace coupling '//i//' of ' // &
        &size(anharmonic_data%subspace_couplings)//', containing &
-       &subspaces '//anharmonic_data%subspace_couplings(i)%ids//'.')
+       &subspaces '//anharmonic_data%subspace_couplings(i)%ids()//'.')
     
     coupling = anharmonic_data%subspace_couplings(i)
     
@@ -295,7 +295,7 @@ module procedure generate_stress_PolynomialPotential
   do i=1,size(basis_functions)
     call print_line('Fitting stress in subspace coupling '//i//' of ' // &
        &size(stress_subspace_coupling)//', containing &
-       &subspaces '//stress_subspace_coupling(i)%ids//'.')
+       &subspaces '//stress_subspace_coupling(i)%ids()//'.')
     basis_functions(i) = generate_stress_basis_functions( &
                 & stress_subspace_coupling(i),            &
                 & stress_expansion_order,                 &

@@ -15,7 +15,7 @@ module procedure representation_StressBasisFunction
   output = 'Polynomial stress basis function'
 end procedure
 
-module procedure generate_stress_basis_functions_SubspaceMonomial
+module procedure generate_stress_basis_functions_SubspaceCombination
   ! Complex monomials, and the indices of their conjugates, such that
   !    complex_monomials(conjugates(i)) == conjg(complex_monomials(i)).
   type(ComplexMonomial), allocatable :: complex_monomials(:)
@@ -49,16 +49,15 @@ module procedure generate_stress_basis_functions_SubspaceMonomial
   x = [1,2,3,1,1,2]
   y = [1,2,3,2,3,3]
   
-  ! Generate the complex monomials corresponding to the subspace monomial,
+  ! Generate the complex monomials corresponding to the subspace combination,
   !    with coefficients such that symmetries are unitary.
-  complex_monomials = generate_complex_monomials(            &
-      & subspace_monomial,                                   &
-      & maximum_coupling_order,                              &
-      & subspaces,                                           &
-      & complex_modes,                                       &
-      & qpoints,                                             &
-      & conserve_momentum=.true.,                            &
-      & conserve_subspace_momentum=vscf_basis_functions_only )
+  complex_monomials = subspace_combination%complex_monomials( &
+       & maximum_coupling_order,                              &
+       & subspaces,                                           &
+       & complex_modes,                                       &
+       & qpoints,                                             &
+       & conserve_momentum=.true.,                            &
+       & conserve_subspace_momentum=vscf_basis_functions_only )
   
   if (size(complex_monomials)==0) then
     allocate(output(0), stat=ialloc); call err(ialloc)

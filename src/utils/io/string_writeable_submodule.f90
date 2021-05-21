@@ -21,7 +21,7 @@ module procedure str_StringWriteables_String
   endif
   
   if (present(separating_line)) then
-    allocate(output(2*size(this)-1), stat=ialloc); call err(ialloc)
+    allocate(output(max(2*size(this)-1,0)), stat=ialloc); call err(ialloc)
     do i=1,size(this)
       output(2*i-1) = str(this(i))
       if (i<size(this)) then

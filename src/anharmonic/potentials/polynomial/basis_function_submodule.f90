@@ -31,35 +31,45 @@ module procedure complex_representation
   output = this%coefficient_*this%complex_representation_
 end procedure
 
-module procedure generate_basis_functions_SubspaceMonomial
+module procedure generate_basis_functions_SubspaceCombination
   type(ComplexMonomial), allocatable :: complex_monomials(:)
   
-  if (sum(subspace_monomial%powers)<2) then
+  if (sum(subspace_combination%powers())<2) then
     call print_line(CODE_ERROR//': Trying to generate basis functions with &
        &power less than 2.')
     call err()
   endif
   
-  ! Generate the complex monomials corresponding to the subspace monomial,
+  ! Generate the complex monomials corresponding to the subspace combination,
   !    with coefficients such that symmetries are unitary.
-  complex_monomials = generate_complex_monomials(            &
-      & subspace_monomial,                                   &
-      & maximum_coupling_order,                              &
-      & subspaces,                                           &
-      & complex_modes,                                       &
-      & qpoints,                                             &
-      & conserve_momentum=.true.,                            &
-      & conserve_subspace_momentum=vscf_basis_functions_only )
+  complex_monomials = subspace_combination%complex_monomials( &
+       & maximum_coupling_order,                              &
+       & subspaces,                                           &
+       & complex_modes,                                       &
+       & qpoints,                                             &
+       & conserve_momentum=.true.,                            &
+       & conserve_subspace_momentum=vscf_basis_functions_only )
   
-  output = generate_basis_functions( complex_monomials,     &
-                                   & structure,             &
-                                   & complex_modes,         &
-                                   & qpoints,               &
-                                   & degenerate_symmetries, &
-                                   & logfile                )
+  output = monomials_to_basis_functions( complex_monomials,     &
+                                       & structure,             &
+                                       & complex_modes,         &
+                                       & qpoints,               &
+                                       & degenerate_symmetries, &
+                                       & logfile                )
 end procedure
 
-module procedure generate_basis_functions_ComplexMonomials
+! Takes an array of complex monomials, and generates the basis functions
+!    containing these monomials.
+module function monomials_to_basis_functions(complex_monomials,structure, &
+   & complex_modes,qpoints,degenerate_symmetries,logfile) result(output)
+  type(ComplexMonomial),    intent(in)              :: complex_monomials(:)
+  type(StructureData),      intent(in)              :: structure
+  type(ComplexMode),        intent(in)              :: complex_modes(:)
+  type(QpointData),         intent(in)              :: qpoints(:)
+  type(DegenerateSymmetry), intent(in)              :: degenerate_symmetries(:)
+  type(OFile),              intent(inout), optional :: logfile
+  type(BasisFunctions)                              :: output
+  
   type(BasisConversion) :: basis_conversion
   
   ! Symmetry data.
@@ -155,7 +165,7 @@ module procedure generate_basis_functions_ComplexMonomials
     output%basis_functions(i) = BasisFunction(                       &
        & basis_conversion%vector_from_basis(estuff(i)%evec, 1e-4_dp) )
   enddo
-end procedure
+end function
 
 module procedure projection_matrix
   type(ComplexMatrix) :: identity
@@ -186,7 +196,7 @@ end procedure
 module procedure optimise_BasisFunctions
   integer :: order
   
-  type(SubspaceMonomial)               :: subspace_monomial
+  type(SubspaceCombination)            :: subspace_combination
   type(ComplexMonomial),   allocatable :: complex_monomials(:)
   type(ComplexPolynomial), allocatable :: complex_polynomials(:)
   
@@ -245,16 +255,15 @@ module procedure optimise_BasisFunctions
          &           j=1,                                                &
          &           size(basis_polynomials)                         )]) )
     else
-      subspace_monomial = SubspaceMonomial( ids    = [subspace%id], &
-                                          & powers = [i]            )
-      complex_monomials = generate_complex_monomials( &
-          & subspace_monomial,                        &
-          & anharmonic_data%maximum_coupling_order,   &
-          & [subspace],                               &
-          & anharmonic_data%complex_modes,            &
-          & anharmonic_data%qpoints,                  &
-          & conserve_momentum=.true.,                 &
-          & conserve_subspace_momentum=.true.         )
+      subspace_combination = SubspaceCombination( ids    = [subspace%id], &
+                                                & powers = [i]            )
+      complex_monomials = subspace_combination%complex_monomials( &
+                      & anharmonic_data%maximum_coupling_order,   &
+                      & [subspace],                               &
+                      & anharmonic_data%complex_modes,            &
+                      & anharmonic_data%qpoints,                  &
+                      & conserve_momentum=.true.,                 &
+                      & conserve_subspace_momentum=.true.         )
       order_polynomials = construct_basis_polynomials( &
                                   & complex_monomials, &
                                   & subspace,          &
@@ -285,12 +294,12 @@ module procedure construct_basis_polynomials
         & anharmonic_data%degenerate_symmetries, &
         & anharmonic_data                        )
   
-  basis_functions = generate_basis_functions( &
-             & monomials,                     &
-             & anharmonic_data%structure,     &
-             & anharmonic_data%complex_modes, &
-             & anharmonic_data%qpoints,       &
-             & symmetries                     )
+  basis_functions = monomials_to_basis_functions( &
+                 & monomials,                     &
+                 & anharmonic_data%structure,     &
+                 & anharmonic_data%complex_modes, &
+                 & anharmonic_data%qpoints,       &
+                 & symmetries                     )
   
   output = [( basis_functions%basis_functions(i)%complex_representation_, &
             & i=1,                                                        &
@@ -368,7 +377,7 @@ module procedure fit_basis_functions
   output = output(filter(basis_functions_present))
   output%coefficient_ = dble( inverse_conversion                       &
                           & * vec(basis_conversion%vector_to_basis(    &
-                          &                 monomials%coefficient )) )
+                          &                   monomials%coefficient )) )
 end procedure
 
 module procedure energy_RealModeDisplacement_BasisFunction

@@ -16,50 +16,50 @@ module procedure total_power_QpointCombination
   output = sum(this%qpoints_%total_power())
 end procedure
 
-module procedure equality_QpointCombination_QpointCombination
-  if (size(this%qpoints_)==size(that%qpoints_)) then
-    output = all(this%qpoints_==that%qpoints_)
-  else
-    output = .false.
-  endif
-end procedure
-
-module procedure non_equality_QpointCombination_QpointCombination
-  output = .not. this==that
-end procedure
-
-module procedure lt_QpointCombination_QpointCombination
+module procedure wavevector_QpointCombination
   integer :: i
   
-  if (this%total_power()<that%total_power()) then
-    output = .true.
-  elseif (this%total_power()>that%total_power()) then
-    output = .false.
+  if (size(this%qpoints_)==0) then
+    output = fracvec(zeroes(3))
   else
-    do i=1,min(size(this%qpoints_),size(that%qpoints_))
-      if (this%qpoints_(i)<that%qpoints_(i)) then
-        output = .true.
-        return
-      elseif (this%qpoints_(i)>that%qpoints_(i)) then
-        output = .false.
-        return
-      endif
-      
-      output = .false.
-    enddo
+    output = sum([( this%qpoints_(i)%wavevector(qpoints), &
+                  & i=1,                                  &
+                  & size(this%qpoints_)                   )])
   endif
 end procedure
 
-module procedure le_QpointCombination_QpointCombination
-  output = this==that .or. this<that
-end procedure
-
-module procedure gt_QpointCombination_QpointCombination
-  output = .not. this<=that
-end procedure
-
-module procedure ge_QpointCombination_QpointCombination
-  output = .not. this<that
+module procedure complex_monomials_QpointCombination
+  type(ComplexMonomial), allocatable :: old(:)
+  type(ComplexMonomial), allocatable :: new(:)
+  
+  type(ComplexMonomial), allocatable :: qpoint_monomials(:)
+  
+  integer :: i,j,k,l,ialloc
+  
+  new = [ComplexMonomial((1.0_dp,0.0_dp), [ComplexUnivariate::])]
+  do i=1,size(this%qpoints_)
+    ! Calculate the monomials at qpoint i.
+    qpoint_monomials = this%qpoints_(i)%complex_monomials(modes)
+    
+    ! Copy the array "new" to "old", and re-allocate "new" to be large enough
+    !    to store the monomials for this iteration.
+    old = new
+    deallocate(new, stat=ialloc); call err(ialloc)
+    allocate( new(size(old)*(size(qpoint_monomials))), &
+            & stat=ialloc); call err(ialloc)
+    
+    ! Loop over "old" and "qpoint_monomials",
+    !    and construct all monomials which are products of the two.
+    l = 0
+    do j=1,size(old)
+      do k=1,size(qpoint_monomials)
+        l = l+1
+        new(l) = old(j)*qpoint_monomials(k)
+      enddo
+    enddo
+  enddo
+  
+  output = new
 end procedure
 
 module procedure read_QpointCombination
@@ -115,6 +115,52 @@ end procedure
 
 module procedure new_QpointCombination_String
   call this%read(input)
+end procedure
+
+module procedure equality_QpointCombination_QpointCombination
+  if (size(this%qpoints_)==size(that%qpoints_)) then
+    output = all(this%qpoints_==that%qpoints_)
+  else
+    output = .false.
+  endif
+end procedure
+
+module procedure non_equality_QpointCombination_QpointCombination
+  output = .not. this==that
+end procedure
+
+module procedure lt_QpointCombination_QpointCombination
+  integer :: i
+  
+  if (this%total_power()<that%total_power()) then
+    output = .true.
+  elseif (this%total_power()>that%total_power()) then
+    output = .false.
+  else
+    do i=1,min(size(this%qpoints_),size(that%qpoints_))
+      if (this%qpoints_(i)<that%qpoints_(i)) then
+        output = .true.
+        return
+      elseif (this%qpoints_(i)>that%qpoints_(i)) then
+        output = .false.
+        return
+      endif
+    enddo
+    
+    output = .false.
+  endif
+end procedure
+
+module procedure le_QpointCombination_QpointCombination
+  output = this==that .or. this<that
+end procedure
+
+module procedure gt_QpointCombination_QpointCombination
+  output = .not. this<=that
+end procedure
+
+module procedure ge_QpointCombination_QpointCombination
+  output = .not. this<that
 end procedure
 
 module procedure conjg_QpointCombination

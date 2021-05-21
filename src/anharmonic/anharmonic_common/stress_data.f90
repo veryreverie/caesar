@@ -6,7 +6,8 @@
 module caesar_stress_data_module
   use caesar_common_module
   
-  use caesar_subspace_coupling_module
+  use caesar_subspaces_module
+  
   use caesar_anharmonic_data_module
   use caesar_subspace_state_module
   use caesar_subspace_braket_module

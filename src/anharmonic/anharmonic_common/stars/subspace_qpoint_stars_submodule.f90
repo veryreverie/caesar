@@ -5,7 +5,7 @@ contains
 
 module procedure new_SubspaceQpointStars
   this%subspace_id = subspace_id
-  this%powers = powers
+  this%powers      = powers
 end procedure
 
 module procedure read_SubspaceQpointStars
