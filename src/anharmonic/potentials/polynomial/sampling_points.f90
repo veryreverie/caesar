@@ -70,17 +70,18 @@ module caesar_sampling_points_module
   
   interface
     ! Generates a set of sampling points for sampling a set of basis functions.
-    module function generate_sampling_points(basis_functions,            &
-       & potential_expansion_order,maximum_weighted_displacement,        &
-       & frequency_of_max_displacement,real_modes,energy_to_force_ratio) &
-       & result(output) 
-      type(BasisFunction) ,intent(in) :: basis_functions(:) 
-      integer,             intent(in) :: potential_expansion_order
-      real(dp),            intent(in) :: maximum_weighted_displacement
-      real(dp),            intent(in) :: frequency_of_max_displacement
-      type(RealMode),      intent(in) :: real_modes(:)
-      real(dp),            intent(in) :: energy_to_force_ratio
-      type(SamplingPoints)            :: output
+    module function generate_sampling_points(subspace_coupling,       &
+       & basis_functions,potential_expansion_order,                   &
+       & maximum_weighted_displacement,frequency_of_max_displacement, &
+       & real_modes,energy_to_force_ratio) result(output) 
+      type(SubspaceCoupling), intent(in) :: subspace_coupling
+      type(BasisFunction),    intent(in) :: basis_functions(:) 
+      integer,                intent(in) :: potential_expansion_order
+      real(dp),               intent(in) :: maximum_weighted_displacement
+      real(dp),               intent(in) :: frequency_of_max_displacement
+      type(RealMode),         intent(in) :: real_modes(:)
+      real(dp),               intent(in) :: energy_to_force_ratio
+      type(SamplingPoints)               :: output
     end function
   end interface
   
@@ -94,16 +95,6 @@ module caesar_sampling_points_module
       real(dp),            intent(in)         :: frequency_of_max_displacement
       type(RealMode),      intent(in)         :: modes(:)
       type(RealModeDisplacement), allocatable :: output(:)
-    end function
-  end interface
-  
-  interface
-    ! Calculates the geometric average of the absolute eigenvalues of A^T . A,
-    !    the matrix which must be inverted to calculate
-    !    basis function coefficients.
-    module function calculate_average_eigenvalue(matrix) result(output) 
-      type(RealMatrix), intent(in) :: matrix
-      real(dp)                     :: output
     end function
   end interface
   

@@ -433,7 +433,7 @@ module procedure read_CouplingBasisFunctions
       call quit()
     endif
     
-    coupling = SubspaceCoupling(int(line(3:)))
+    coupling = SubspaceCoupling(join(line(3:)))
     
     basis_functions = BasisFunction(split_into_sections(input(3:)))
     

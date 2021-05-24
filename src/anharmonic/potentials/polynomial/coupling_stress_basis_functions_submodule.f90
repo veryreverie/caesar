@@ -286,7 +286,7 @@ module procedure read_CouplingStressBasisFunctions
   
   select type(this); type is(CouplingStressBasisFunctions)
     line = split_line(input(1))
-    coupling = SubspaceCoupling(int(line(3:)))
+    coupling = SubspaceCoupling(join(line(3:)))
     
     basis_functions = StressBasisFunction(split_into_sections( &
                               & input(3:),                     &

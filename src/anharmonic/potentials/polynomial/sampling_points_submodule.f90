@@ -57,6 +57,8 @@ module procedure make_sample_vector
 end procedure
 
 module procedure generate_sampling_points
+  type(RealMode), allocatable :: coupling_modes(:)
+  
   type(RealModeDisplacement), allocatable :: basis_points(:)
   logical,                    allocatable :: basis_points_used(:)
   real(dp),                   allocatable :: determinants(:)
@@ -66,36 +68,60 @@ module procedure generate_sampling_points
   integer :: points_per_basis_function
   
   real(dp), allocatable :: sample_matrix(:,:)
+  real(dp), allocatable :: old_fitting_matrix(:,:)
+  real(dp), allocatable :: new_fitting_matrix(:,:)
+  
+  type(RealVector), allocatable :: reduced_sampling_vector
+  type(RealMatrix), allocatable :: reduced_sampling_matrix
+  
+  type(RealQRDecomposition) :: qr
+  real(dp), allocatable     :: evals(:)
   
   integer :: dims
   
-  integer :: i,j,k,l,ialloc
+  integer :: i,j,k,l,m,ialloc
   
-  dims = 1+size(real_modes)
+  coupling_modes = real_modes(                                   &
+     & filter(real_modes%subspace_id.in.subspace_coupling%ids()) )
+  
+  dims = 1+size(coupling_modes)
   
   points_per_basis_function = 2
   
-  allocate( sampling_points( size(basis_functions)       &
-          &                * points_per_basis_function), &
-          & sample_matrix( size(sampling_points)         &
-          &              * dims,                         &
-          &                size(basis_functions)         &
-          &              * points_per_basis_function),   &
+  allocate( sampling_points( size(basis_functions)            &
+          &                * points_per_basis_function ),     &
+          & sample_matrix( size(sampling_points)              &
+          &              * dims,                              &
+          &                size(basis_functions)              &
+          &              * points_per_basis_function ),       &
+          & old_fitting_matrix( size(basis_functions)         &
+          &                   * points_per_basis_function,    &
+          &                     size(basis_functions)         &
+          &                   * points_per_basis_function  ), &
+          & new_fitting_matrix( size(basis_functions)         &
+          &                   * points_per_basis_function,    &
+          &                     size(basis_functions)         &
+          &                   * points_per_basis_function  ), &
           & stat=ialloc); call err(ialloc)
   l = 0
   do i=1,size(basis_functions)
     sample_matrix(:l*dims,i:i) = construct_sample_matrix( &
                                  & basis_functions(i:i),  &
                                  & sampling_points(:l),   &
-                                 & real_modes,            &
+                                 & coupling_modes,        &
                                  & energy_to_force_ratio  )
+    reduced_sampling_vector = vec(sample_matrix(:l*dims,i))
+    reduced_sampling_matrix = mat(sample_matrix(:l*dims,:i))
+    old_fitting_matrix(i,:i) = dble( reduced_sampling_vector &
+                                 & * reduced_sampling_matrix )
+    old_fitting_matrix(:i-1,i) = old_fitting_matrix(i,:i-1)
     
     ! Generate the possible sampling points for this basis function.
     basis_points = generate_basis_points( basis_functions(i),            &
                                         & potential_expansion_order,     &
                                         & maximum_weighted_displacement, &
                                         & frequency_of_max_displacement, &
-                                        & real_modes                     )
+                                        & coupling_modes                 )
     basis_points_used = [(.false., j=1, size(basis_points))]
     determinants = [(0.0_dp, j=1, size(basis_points))]
     
@@ -110,26 +136,42 @@ module procedure generate_sampling_points
           sample_matrix((l-1)*dims+1:l*dims,:i) = construct_sample_matrix( &
                                                   & basis_functions(:i),   &
                                                   & sampling_points(l:l),  &
-                                                  & real_modes,            &
+                                                  & coupling_modes,        &
                                                   & energy_to_force_ratio  )
-          determinants(k) = calculate_average_eigenvalue( &
-                         & mat(sample_matrix(:l*dims,:i)) )
+          reduced_sampling_matrix = mat(sample_matrix((l-1)*dims+1:l*dims,:i))
+          new_fitting_matrix(:i,:i) = dble(         &
+             &   transpose(reduced_sampling_matrix) &
+             & * reduced_sampling_matrix            )
+  
+          qr = qr_decomposition( old_fitting_matrix(:i,:i) &
+                             & + new_fitting_matrix(:i,:i) )
+          
+          evals = [(abs(qr%r(m,m)), m=1, size(qr%r,1))]
+  
+          if (any(evals<1e-200_dp)) then
+            determinants(k) = 0.0_dp
+          else
+            determinants(k) = product(evals**(1.0_dp/size(qr%r,1)))
+          endif
         endif
       enddo
       k = maxloc(abs(determinants), 1, mask=.not.basis_points_used)
       sampling_points(l) = basis_points(k)
       basis_points_used(k) = .true.
-      
-      sample_matrix((l-1)*dims+1:l*dims,:i) = construct_sample_matrix( &
-                                               & basis_functions(:i),  &
-                                               & basis_points(k:k),    &
-                                               & real_modes,           &
-                                               & energy_to_force_ratio )
-      
       if (i==size(basis_functions) .and. j==points_per_basis_function) then
         call print_line( 'Average |eigenvalue| of fitting matrix: '// &
                        & determinants(k)*energy_to_force_ratio//' (Ha).')
       endif
+      
+      sample_matrix((l-1)*dims+1:l*dims,:i) = construct_sample_matrix( &
+                                               & basis_functions(:i),  &
+                                               & basis_points(k:k),    &
+                                               & coupling_modes,       &
+                                               & energy_to_force_ratio )
+      reduced_sampling_matrix = mat(sample_matrix((l-1)*dims+1:l*dims,:i))
+      old_fitting_matrix(:i,:i) = old_fitting_matrix(:i,:i)                &
+                              & + dble( transpose(reduced_sampling_matrix) &
+                              &       * reduced_sampling_matrix            )
     enddo
   enddo
   
@@ -180,28 +222,6 @@ module procedure generate_basis_points
                         & -RealModeDisplacement(displacement)  ]
     deallocate(displacement, stat=ialloc); call err(ialloc)
   enddo
-end procedure
-
-module procedure calculate_average_eigenvalue
-  type(RealQRDecomposition) :: qr
-  real(dp), allocatable     :: evals(:)
-  
-  integer :: i
-  
-  qr = qr_decomposition(transpose(matrix)*matrix)
-  
-  ! The eigenvalues are the diagonal entries of the R matrix
-  !    in a QR decomposition.
-  evals = [(qr%r(i,i), i=1, size(qr%r,1))]
-  
-  evals = abs(evals)
-  
-  if (any(evals<1e-200_dp)) then
-    output = 0.0_dp
-    return
-  endif
-  
-  output = product(evals**(1.0_dp/size(qr%r,1)))
 end procedure
 
 module procedure read_SamplingPoints

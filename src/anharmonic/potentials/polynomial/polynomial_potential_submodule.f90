@@ -111,6 +111,7 @@ module procedure generate_sampling_points_PolynomialPotential
                    & ' basis functions.' )
     
     sampling_points(i) = generate_sampling_points(      &
+       & anharmonic_data%subspace_couplings(i),         &
        & basis_functions(i)%basis_functions(),          &
        & this%potential_expansion_order_,               &
        & anharmonic_data%maximum_weighted_displacement, &
