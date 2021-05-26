@@ -10,6 +10,7 @@ module procedure new_HarmonicStates
   this%subspace_id    = subspace_id
   this%frequency      = frequency
   this%thermal_energy = thermal_energy
+  this%expectation_cache = ExpectationCache()
 end procedure
 
 module procedure new_HarmonicStates_BasisStates

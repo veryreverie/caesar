@@ -64,16 +64,25 @@ module procedure integrate_BasisStates
   
   if (any(integrated_modes%total_power()/=0)) then
     sparse = SparseMonomial(integrated_modes)
-    cache_location = states%expectation_cache%cached_location(sparse)
-    if (cache_location==0) then
+    if (states%expectation_cache%is_in_cache(sparse)) then
+      expectation = states%expectation_cache%expectation(sparse)
+    else
       expectation = basis%integrate( states,         &
                                    & sparse,         &
                                    & subspace,       &
                                    & anharmonic_data )
       call states%expectation_cache%cache(sparse, expectation)
-    else
-      expectation = states%expectation_cache%cached_expectation(cache_location)
     endif
+    !cache_location = states%expectation_cache%cached_location(sparse)
+    !if (cache_location==0) then
+    !  expectation = basis%integrate( states,         &
+    !                               & sparse,         &
+    !                               & subspace,       &
+    !                               & anharmonic_data )
+    !  call states%expectation_cache%cache(sparse, expectation)
+    !else
+    !  expectation = states%expectation_cache%cached_expectation(cache_location)
+    !endif
     monomial%coefficient = monomial%coefficient * expectation
   endif
 end procedure
@@ -115,16 +124,25 @@ module procedure integrate_to_constant_BasisStates_ComplexMonomial
      & ids        = basis%mode_ids(subspace,anharmonic_data),       &
      & paired_ids = basis%paired_mode_ids(subspace,anharmonic_data) )
   
-  cache_location = states%expectation_cache%cached_location(sparse_monomial)
-  if (cache_location==0) then
+  if (states%expectation_cache%is_in_cache(sparse_monomial)) then
+    expectation = states%expectation_cache%expectation(sparse_monomial)
+  else
     expectation = basis%integrate( states,          &
                                  & sparse_monomial, &
                                  & subspace,        &
                                  & anharmonic_data  )
     call states%expectation_cache%cache(sparse_monomial, expectation)
-  else
-    expectation = states%expectation_cache%cached_expectation(cache_location)
   endif
+  !cache_location = states%expectation_cache%cached_location(sparse_monomial)
+  !if (cache_location==0) then
+  !  expectation = basis%integrate( states,          &
+  !                               & sparse_monomial, &
+  !                               & subspace,        &
+  !                               & anharmonic_data  )
+  !  call states%expectation_cache%cache(sparse_monomial, expectation)
+  !else
+  !  expectation = states%expectation_cache%cached_expectation(cache_location)
+  !endif
   
   output = monomial%coefficient * expectation
 end procedure

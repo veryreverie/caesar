@@ -115,7 +115,8 @@ module caesar_basis_states_module
       type(BasisStatesPointer) :: this
     end function
   
-    impure elemental module function new_BasisStatesPointer_StringArray(input) result(this) 
+    impure elemental module function new_BasisStatesPointer_StringArray( &
+       & input) result(this) 
       type(StringArray), intent(in) :: input
       type(BasisStatesPointer)      :: this
     end function

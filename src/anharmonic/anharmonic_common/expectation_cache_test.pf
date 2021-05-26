@@ -1,7 +1,86 @@
 module expectation_cache_test
   use funit
 
+  use caesar_expectation_cache_module
   use caesar_anharmonic_common_module
   implicit none
 contains
+
+@test
+subroutine test_expectation_cache()
+  type(SparseMonomial), allocatable :: monomials(:)
+  complex(dp),          allocatable :: expectations(:)
+  
+  type(ExpectationCache) :: cache
+  
+  integer, allocatable :: indices(:)
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  ! A list of monomials in an un-sorted order.
+  ! monomials(1:3) are sorted at the start, ~middle and end
+  !    of the list respectively.
+  monomials = SparseMonomial([ str(''),                     &
+                             & str('(u2^2)'),               &
+                             & str('(u6^3) (u7^4) (u9^5)'), &
+                             & str('(u1^2)'),               &
+                             & str('(u3^1*u4^1)'),          &
+                             & str('(u1^1)'),               &
+                             & str('(u2^1)'),               &
+                             & str('(u3^2*u4^0)'),          &
+                             & str('(u1^1) (u3^0*u4^1)'),   &
+                             & str('(u3^1*u4^0)'),          &
+                             & str('(u1^1) (u2^1)'),        &
+                             & str('(u3^0*u4^1)'),          &
+                             & str('(u1^1) (u3^1*u4^0)'),   &
+                             & str('(u3^0*u4^2)')           ])
+  
+  expectations = [(cmplx(3.0_dp*i,2.0_dp-i,dp), i=1, size(monomials))]
+  
+  ! Check basic functionality.
+  ! Includes calls to cache() and expectation() which match and mis-match
+  !    the previous is_in_cache call.
+  ! i=1 starts with an empty cache, i=2 starts with values in the cache.
+  do i=1,2
+    cache = ExpectationCache()
+    if (i==2) then
+      do j=4,8
+        call cache%cache(monomials(j), expectations(j))
+      enddo
+    endif
+    do j=1,3
+      @assertFalse(cache%is_in_cache(monomials(j)))
+    enddo
+    do j=1,3
+      call cache%cache(monomials(j), expectations(j))
+    enddo
+    do j=1,3
+      @assertTrue(cache%is_in_cache(monomials(j)))
+    enddo
+    do j=1,3
+      check = abs(cache%expectation(monomials(j))-expectations(j))<1e-10_dp
+      @assertTrue(check)
+    enddo
+  enddo
+  
+  ! Check standard workflow.
+  indices = [1,5,2,7,14,2,12,1,7,2,8,10,13,6,9,2,2,2,2,1,13,11,4]
+  cache = ExpectationCache()
+  do i=1,size(indices)
+    associate( monomial    => monomials(indices(i)),   &
+             & expectation => expectations(indices(i)) )
+      if (cache%is_in_cache(monomial)) then
+        @assertTrue(abs(cache%expectation(monomial)-expectation)<1e-10_dp)
+      else
+        call cache%cache(monomial, expectation)
+      endif
+    end associate
+  enddo
+  
+  ! Check the cache constructor correctly erases the cache.
+  cache = ExpectationCache()
+  @assertFalse(cache%is_in_cache(monomials(1)))
+end subroutine
 end module

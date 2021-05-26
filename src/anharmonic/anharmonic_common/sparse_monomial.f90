@@ -2,6 +2,7 @@
 ! A ComplexMonomial in a sparse representation to make it faster to
 !    process.
 ! ======================================================================
+! TODO: why does this exist? Is it really any different to ComplexMonomial?
 module caesar_sparse_monomial_module
   use caesar_common_module
   implicit none

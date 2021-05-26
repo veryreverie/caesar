@@ -212,7 +212,7 @@ subroutine test_complex_monomials()
      &       str('()')                                                        &
      &    ]),                                                                 &
      &    [ MockComplexMode:: ],                                              &
-     &    [ ComplexMonomial(str(1)) ]                                         &
+     &    ComplexMonomial([ str(1) ])                                         &
      & ),                                                                     &
      & TestCase(                                                              &
      &    CombinationQpointCombination([                                      &
@@ -220,7 +220,7 @@ subroutine test_complex_monomials()
      &       str('(q1^1)')                                                    &
      &    ]),                                                                 &
      &    [ MockComplexMode:: ],                                              &
-     &    [ ComplexMonomial:: ]                                               &
+     &    ComplexMonomial([ String:: ])                                       &
      & ),                                                                     &
      & TestCase(                                                              &
      &    CombinationQpointCombination([                                      &
@@ -231,7 +231,7 @@ subroutine test_complex_monomials()
      &      MockComplexMode(2,2,2,2,1),                                       &
      &      MockComplexMode(3,3,1,1,2),                                       &
      &      MockComplexMode(4,4,2,2,2)  ],                                    &
-     &    [ ComplexMonomial(str('1*(u1^1)*(u2^1)')) ]                         &
+     &    ComplexMonomial([ sqrt(2.0_dp)//'*(u1^1)*(u2^1)' ])                 &
      & ),                                                                     &
      & TestCase(                                                              &
      &    CombinationQpointCombination([                                      &
@@ -242,7 +242,7 @@ subroutine test_complex_monomials()
      &      MockComplexMode(2,2,2,2,1),                                       &
      &      MockComplexMode(3,3,1,1,2),                                       &
      &      MockComplexMode(4,4,2,2,2)  ],                                    &
-     &    [ ComplexMonomial(str('1*(u1^1)*(u4^1)')) ]                         &
+     &    ComplexMonomial([ sqrt(1.0_dp)//'*(u1^1)*(u4^1)' ])                 &
      & ),                                                                     &
      & TestCase(                                                              &
      &    CombinationQpointCombination([                                      &
@@ -254,9 +254,10 @@ subroutine test_complex_monomials()
      &      MockComplexMode(3,3,7,7,3),                                       &
      &      MockComplexMode(4,4,8,8,3),                                       &
      &      MockComplexMode(6,6,3,3,5)  ],                                    &
-     &    [ ComplexMonomial(str('1*(u1^2)*(u3^2)*(u6^2)')),                   &
-     &      ComplexMonomial(str('1*(u1^1)*(u2^1)*(u3^2)*(u6^2)')),            &
-     &      ComplexMonomial(str('1*(u2^2)*(u3^2)*(u6^2)'))         ]          &
+     &    ComplexMonomial([                                                   &
+     &       sqrt(6.0_dp)//'*(u1^2)*(u3^2)*(u6^2)',                           &
+     &       sqrt(12.0_dp)//'*(u1^1)*(u2^1)*(u3^2)*(u6^2)',                   &
+     &       sqrt(6.0_dp)//'*(u2^2)*(u3^2)*(u6^2)'          ])                &
      & ),                                                                     &
      & TestCase(                                                              &
      &    CombinationQpointCombination([                                      &
@@ -269,10 +270,11 @@ subroutine test_complex_monomials()
      &      MockComplexMode(7,5,6,5,1),                                       &
      &      MockComplexMode(8,9,7,8,3),                                       &
      &      MockComplexMode(9,8,8,7,3)  ],                                    &
-     &    [ ComplexMonomial(str('1*(u4^1*u6^1)*(u8^1*u9^1)')),                &
-     &      ComplexMonomial(str('1*(u4^1*u6^0)*(u5^0*u7^1)*(u8^1*u9^1)')),    &
-     &      ComplexMonomial(str('1*(u4^0*u6^1)*(u5^1*u7^0)*(u8^1*u9^1)')),    &
-     &      ComplexMonomial(str('1*(u5^1*u7^1)*(u8^1*u9^1)'))              ]  &
+     &    ComplexMonomial([                                                   &
+     &       sqrt(4.0_dp)//'*(u4^1*u6^1)*(u8^1*u9^1)',                        &
+     &       sqrt(4.0_dp)//'*(u4^1*u6^0)*(u5^0*u7^1)*(u8^1*u9^1)',            &
+     &       sqrt(4.0_dp)//'*(u4^0*u6^1)*(u5^1*u7^0)*(u8^1*u9^1)',            &
+     &       sqrt(4.0_dp)//'*(u5^1*u7^1)*(u8^1*u9^1)'              ])         &
      & )                                                                      ]
   
   do i=1,size(test_cases)
@@ -316,7 +318,7 @@ contains
                         & input%subspace_id       )
   end function
   
-  ! Check two complex monomials are equal (ignoring the coefficient).
+  ! Check two complex monomials are approximately equal.
   impure elemental function check_equal(this,that) result(output)
     type(ComplexMonomial), intent(in) :: this
     type(ComplexMonomial), intent(in) :: that
@@ -326,9 +328,10 @@ contains
       output = .false.
       return
     else
-      output = all(this%ids()==that%ids())               &
-       & .and. all(this%paired_ids()==that%paired_ids()) &
-       & .and. all(this%powers()==that%powers())         &
+      output = abs(this%coefficient-that%coefficient)<1e-10_dp &
+       & .and. all(this%ids()==that%ids())                     &
+       & .and. all(this%paired_ids()==that%paired_ids())       &
+       & .and. all(this%powers()==that%powers())               &
        & .and. all(this%paired_powers()==that%paired_powers())
     endif
   end function

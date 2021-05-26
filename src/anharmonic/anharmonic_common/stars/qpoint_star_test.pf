@@ -197,26 +197,26 @@ subroutine test_complex_monomials()
      & TestCase(                                                             &
      &    QpointStar([ str('()') ]),                                         &
      &    [ MockComplexMode:: ],                                             &
-     &    [ ComplexMonomial(str(1)) ]                                        &
+     &    ComplexMonomial([ str(1) ])                                        &
      & ),                                                                    &
      & TestCase(                                                             &
      &    QpointStar([ str('(q1^1)') ]),                                     &
      &    [ MockComplexMode:: ],                                             &
-     &    [ ComplexMonomial:: ]                                              &
+     &    ComplexMonomial([ String:: ])                                      &
      & ),                                                                    &
      & TestCase(                                                             &
      &    QpointStar([ str('(q1^1)'),                                        &
      &                 str('(q2^1)')  ]),                                    &
      &    [ MockComplexMode(1,1,1,1,1),                                      &
      &      MockComplexMode(2,2,2,2,1)  ],                                   &
-     &    [ ComplexMonomial(str('1*(u1^1)')),                                &
-     &      ComplexMonomial(str('1*(u2^1)'))  ]                              &
+     &    ComplexMonomial([ str('1*(u1^1)'),                                 &
+     &                      str('1*(u2^1)')  ])                              &
      & ),                                                                    &
      & TestCase(                                                             &
      &    QpointStar([ str('(q1^1)*(q2^1)') ]),                              &
      &    [ MockComplexMode(1,1,1,1,1),                                      &
      &      MockComplexMode(2,2,2,2,1)  ],                                   &
-     &    [ ComplexMonomial(str('1*(u1^1)*(u2^1)')) ]                        &
+     &    ComplexMonomial([ sqrt(2.0_dp)//'*(u1^1)*(u2^1)' ])                &
      & ),                                                                    &
      & TestCase(                                                             &
      &    QpointStar([ str('(q3^2)*(q7^1)'),                                 &
@@ -225,11 +225,11 @@ subroutine test_complex_monomials()
      &      MockComplexMode(2,2,3,3,1),                                      &
      &      MockComplexMode(3,3,7,7,1),                                      &
      &      MockComplexMode(4,4,8,8,1)  ],                                   &
-     &    [ ComplexMonomial(str('1*(u1^2)*(u3^1)')),                         &
-     &      ComplexMonomial(str('1*(u1^1)*(u2^1)*(u3^1)')),                  &
-     &      ComplexMonomial(str('1*(u2^2)*(u3^1)')),                         &
-     &      ComplexMonomial(str('1*(u1^1)*(u3^2)')),                         &
-     &      ComplexMonomial(str('1*(u2^1)*(u3^2)'))         ]                &
+     &    ComplexMonomial([ sqrt(3.0_dp)//'*(u1^2)*(u3^1)',                  &
+     &                      sqrt(6.0_dp)//'*(u1^1)*(u2^1)*(u3^1)',           &
+     &                      sqrt(3.0_dp)//'*(u2^2)*(u3^1)',                  &
+     &                      sqrt(3.0_dp)//'*(u1^1)*(u3^2)',                  &
+     &                      sqrt(3.0_dp)//'*(u2^1)*(u3^2)'         ])        &
      & )                                                                     ]
   
   do i=1,size(test_cases)
@@ -273,7 +273,7 @@ contains
                         & input%subspace_id       )
   end function
   
-  ! Check two complex monomials are equal (ignoring the coefficient).
+  ! Check two complex monomials are approximately equal.
   impure elemental function check_equal(this,that) result(output)
     type(ComplexMonomial), intent(in) :: this
     type(ComplexMonomial), intent(in) :: that
@@ -283,9 +283,10 @@ contains
       output = .false.
       return
     else
-      output = all(this%ids()==that%ids())               &
-       & .and. all(this%paired_ids()==that%paired_ids()) &
-       & .and. all(this%powers()==that%powers())         &
+      output = abs(this%coefficient-that%coefficient)<1e-10_dp &
+       & .and. all(this%ids()==that%ids())                     &
+       & .and. all(this%paired_ids()==that%paired_ids())       &
+       & .and. all(this%powers()==that%powers())               &
        & .and. all(this%paired_powers()==that%paired_powers())
     endif
   end function

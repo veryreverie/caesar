@@ -123,6 +123,7 @@ module procedure complex_monomials_QpointPower
     old = new
     deallocate(new, stat=ialloc); call err(ialloc)
     allocate(new(no_terms), stat=ialloc); call err(ialloc)
+    no_terms = 0
     m = 0
     do j=1,size(old)
       do k=0,this%power_-old(j)%total_power
@@ -150,6 +151,7 @@ module procedure complex_monomials_QpointPower
     
     if (m/=size(new)) then
       call print_line(CODE_ERROR//': Inconsistent number of terms.')
+      call err()
     endif
   enddo
   

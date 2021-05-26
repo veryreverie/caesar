@@ -19,6 +19,7 @@ module caesar_anharmonic_common_module
   use caesar_subspace_state_module
   use caesar_subspace_braket_module
   use caesar_basis_state_module
+  use caesar_expectation_cache_module
   use caesar_basis_states_module
   use caesar_pulay_module
   use caesar_abstract_classes_module

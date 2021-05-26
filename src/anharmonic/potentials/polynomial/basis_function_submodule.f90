@@ -232,10 +232,10 @@ module procedure simplify_BasisFunction
 end procedure
 
 module procedure optimise_BasisFunctions
+  type(ComplexMode), allocatable :: subspace_modes(:)
+  
   integer :: order
   
-  type(SubspaceCombination)            :: subspace_combination
-  type(ComplexMonomial),   allocatable :: complex_monomials(:)
   type(ComplexPolynomial), allocatable :: complex_polynomials(:)
   
   type(ComplexMonomial) :: no_complex_monomials(0)
@@ -244,9 +244,14 @@ module procedure optimise_BasisFunctions
   type(BasisFunction),        allocatable :: basis_functions(:)
   type(ComplexPolynomial),    allocatable :: basis_polynomials(:)
   
+  type(SubspaceQpointStars), allocatable :: subspace_qpoint_stars(:)
+  
   type(ComplexPolynomial), allocatable :: order_polynomials(:)
   
   integer :: i,j,ialloc
+  
+  subspace_modes = anharmonic_data%complex_modes(                     &
+     & filter(anharmonic_data%complex_modes%subspace_id==subspace%id) )
   
   order = anharmonic_data%potential_expansion_order
   
@@ -262,8 +267,8 @@ module procedure optimise_BasisFunctions
           !    accounted for in the reference energy.
           cycle
         elseif (.not. is_int(term%wavevector( &
-             & anharmonic_data%complex_modes, &
-             & anharmonic_data%qpoints        ))) then
+                    & subspace_modes,         &
+                    & anharmonic_data%qpoints ))) then
           ! The terms with (sum q/=0) are dropped as they are not invariant
           !    under translational symmetry.
           cycle
@@ -285,6 +290,16 @@ module procedure optimise_BasisFunctions
     basis_polynomials = basis_functions%complex_representation_
   endif
   
+  if (.not. allocated(basis_polynomials)) then
+    subspace_qpoint_stars = generate_subspace_qpoint_stars(                  &
+       & subspaces              = [subspace],                                &
+       & modes                  = anharmonic_data%complex_modes,             &
+       & qpoints                = anharmonic_data%qpoints,                   &
+       & qpoint_symmetry_groups = anharmonic_data%qpoint_symmetry_groups,    &
+       & max_power              = anharmonic_data%potential_expansion_order, &
+       & conserve_momentum      = .true.                                     )
+  endif
+  
   allocate(output(0), stat=ialloc); call err(ialloc)
   do i=1,order
     if (allocated(basis_polynomials)) then
@@ -293,20 +308,13 @@ module procedure optimise_BasisFunctions
          &           j=1,                                                &
          &           size(basis_polynomials)                         )]) )
     else
-      subspace_combination = SubspaceCombination( ids    = [subspace%id], &
-                                                & powers = [i]            )
-      complex_monomials = subspace_combination%complex_monomials( &
-                      & anharmonic_data%maximum_coupling_order,   &
-                      & [subspace],                               &
-                      & anharmonic_data%complex_modes,            &
-                      & anharmonic_data%qpoints,                  &
-                      & conserve_momentum=.true.,                 &
-                      & conserve_subspace_momentum=.true.         )
       order_polynomials = construct_basis_polynomials( &
-                                  & complex_monomials, &
-                                  & subspace,          &
-                                  & subspace_basis,    &
-                                  & anharmonic_data    )
+                           & subspace,                 &
+                           & i,                        &
+                           & subspace_basis,           &
+                           & subspace_qpoint_stars(1), &
+                           & subspace_modes,           &
+                           & anharmonic_data           )
     endif
     
     if (size(order_polynomials)>0) then
@@ -317,12 +325,25 @@ module procedure optimise_BasisFunctions
   enddo
 end procedure
 
-module procedure construct_basis_polynomials
-  integer :: order
-  
-  type(BasisFunction), allocatable :: basis_functions(:)
+! Construct the basis functions at a given order.
+module function construct_basis_polynomials(subspace,order,               &
+   & subspace_basis,subspace_qpoint_stars,subspace_modes,anharmonic_data) &
+   & result(output) 
+  type(DegenerateSubspace),  intent(in) :: subspace
+  integer,                   intent(in) :: order
+  class(SubspaceBasis),      intent(in) :: subspace_basis
+  type(SubspaceQpointStars), intent(in) :: subspace_qpoint_stars
+  type(ComplexMode),         intent(in) :: subspace_modes(:)
+  type(AnharmonicData),      intent(in) :: anharmonic_data
+  type(ComplexPolynomial), allocatable  :: output(:)
   
   type(DegenerateSymmetry), allocatable :: symmetries(:)
+  
+  type(QpointStar), allocatable :: qpoint_stars(:)
+  
+  type(ComplexMonomial), allocatable :: complex_monomials(:)
+  
+  type(BasisFunction), allocatable :: basis_functions(:)
   
   real(dp) :: energy_scale
   
@@ -332,17 +353,46 @@ module procedure construct_basis_polynomials
         & anharmonic_data%degenerate_symmetries, &
         & anharmonic_data                        )
   
-  basis_functions = monomials_to_basis_functions( &
-                 & monomials,                     &
-                 & anharmonic_data%structure,     &
-                 & anharmonic_data%complex_modes, &
-                 & anharmonic_data%qpoints,       &
-                 & symmetries                     )
+  output = [ComplexPolynomial::]
   
-  output = [( basis_functions(i)%complex_representation_, &
-            & i=1,                                        &
-            & size(basis_functions)                       )]
+  qpoint_stars = subspace_qpoint_stars%powers(order+1)%stars
+  do i=1,size(qpoint_stars)
+    complex_monomials = qpoint_stars(i)%complex_monomials( &
+                                          & subspace_modes )
+    
+    basis_functions = monomials_to_basis_functions( &
+                       & complex_monomials,         &
+                       & anharmonic_data%structure, &
+                       & subspace_modes,            &
+                       & anharmonic_data%qpoints,   &
+                       & symmetries                 )
+    
+    output = [ output,                                         &
+             & ( basis_functions(i)%complex_representation_,   &
+             &   i=1,                                          &
+             &   size(basis_functions)                       ) ]
+  enddo
   
+  !subspace_combination = SubspaceCombination( ids    = [subspace%id], &
+  !                                          & powers = [order]        )
+  !complex_monomials = subspace_combination%complex_monomials( &
+  !                & anharmonic_data%maximum_coupling_order,   &
+  !                & [subspace],                               &
+  !                & anharmonic_data%complex_modes,            &
+  !                & anharmonic_data%qpoints,                  &
+  !                & conserve_momentum=.true.,                 &
+  !                & conserve_subspace_momentum=.true.         )
+  !
+  !basis_functions = monomials_to_basis_functions( &
+  !               & complex_monomials,             &
+  !               & anharmonic_data%structure,     &
+  !               & anharmonic_data%complex_modes, &
+  !               & anharmonic_data%qpoints,       &
+  !               & symmetries                     )
+  !
+  !output = [( basis_functions(i)%complex_representation_, &
+  !          & i=1,                                        &
+  !          & size(basis_functions)                       )]
   
   ! A term |u|^(2n) scales like (2Nw)^{-n}.
   ! w must be capped so that it is not considered to be too small, otherwise
@@ -359,7 +409,7 @@ module procedure construct_basis_polynomials
     output(i)%terms%coefficient = &
        & output(i)%terms%coefficient * energy_scale
   enddo
-end procedure
+end function
 
 module procedure fit_basis_functions
   logical, allocatable :: basis_functions_present(:)

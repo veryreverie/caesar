@@ -131,13 +131,13 @@ module caesar_coupling_basis_functions_module
   end interface
   
   interface
-    impure elemental module subroutine optimise_CouplingBasisFunctions(this, &
-       & subspace,subspace_basis,old_subspace_potential,anharmonic_data) 
-      class(CouplingBasisFunctions), intent(inout)        :: this
-      type(DegenerateSubspace),      intent(in)           :: subspace
-      class(SubspaceBasis),          intent(in)           :: subspace_basis
-      class(PotentialData),          intent(in), optional :: old_subspace_potential
-      type(AnharmonicData),          intent(in)           :: anharmonic_data
+    module subroutine optimise_CouplingBasisFunctions(this,subspace, &
+       & subspace_basis,old_subspace_potential,anharmonic_data)
+      class(CouplingBasisFunctions), intent(inout) :: this
+      type(DegenerateSubspace),      intent(in)    :: subspace
+      class(SubspaceBasis),          intent(in)    :: subspace_basis
+      class(PotentialData),   intent(in), optional :: old_subspace_potential
+      type(AnharmonicData),          intent(in)    :: anharmonic_data
     end subroutine
   end interface
   

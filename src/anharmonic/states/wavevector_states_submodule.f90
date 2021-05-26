@@ -9,6 +9,7 @@ module procedure new_WavevectorStates
   if (present(weights)) then
     this%weights = weights
   endif
+  this%expectation_cache = ExpectationCache()
 end procedure
 
 module procedure new_WavevectorStates_BasisStates

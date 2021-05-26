@@ -480,10 +480,10 @@ module procedure optimise_subspace_potential_PolynomialPotential
   this%reference_energy_ = this%reference_energy_ &
                        & + this%basis_functions_(1)%undisplaced_energy()
   
-  call this%basis_functions_(1)%optimise( subspace,               &
-                                        & subspace_basis,         &
-                                        & old_subspace_potential, &
-                                        & anharmonic_data         )
+  call this%basis_functions_(1)%optimise( subspace,                 &
+                                        & subspace_basis,           &
+                                        & old_subspace_potential,   &
+                                        & anharmonic_data           )
 end procedure
 
 module procedure energy_RealModeDisplacement_PolynomialPotential

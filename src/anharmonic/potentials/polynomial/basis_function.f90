@@ -177,25 +177,13 @@ module caesar_basis_function_module
   
   interface optimise
     module function optimise_BasisFunctions(input,subspace,subspace_basis, &
-       & old_subspace_potential,anharmonic_data) result(output) 
-      type(BasisFunction),      intent(in)           :: input(:)
-      type(DegenerateSubspace), intent(in)           :: subspace
-      class(SubspaceBasis),     intent(in)           :: subspace_basis
-      class(PotentialData),     intent(in), optional :: old_subspace_potential
-      type(AnharmonicData),     intent(in)           :: anharmonic_data
-      type(BasisFunction), allocatable               :: output(:)
-    end function
-  end interface
-  
-  interface
-    ! Construct the basis functions at a given order.
-    module function construct_basis_polynomials(monomials,subspace, &
-       & subspace_basis,anharmonic_data) result(output) 
-      type(ComplexMonomial),    intent(in) :: monomials(:)
-      type(DegenerateSubspace), intent(in) :: subspace
-      class(SubspaceBasis),     intent(in) :: subspace_basis
-      type(AnharmonicData),     intent(in) :: anharmonic_data
-      type(ComplexPolynomial), allocatable :: output(:)
+       & old_subspace_potential,anharmonic_data) result(output)
+      type(BasisFunction),       intent(in)           :: input(:)
+      type(DegenerateSubspace),  intent(in)           :: subspace
+      class(SubspaceBasis),      intent(in)           :: subspace_basis
+      class(PotentialData),      intent(in), optional :: old_subspace_potential
+      type(AnharmonicData),      intent(in)           :: anharmonic_data
+      type(BasisFunction), allocatable                :: output(:)
     end function
   end interface
   

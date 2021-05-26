@@ -12,6 +12,7 @@ module procedure new_BasisStatesPointer
     allocate( this%states_, source=states, &
             & stat=ialloc); call err(ialloc)
     this%subspace_id = this%states_%subspace_id
+    this%expectation_cache = states%expectation_cache
   end select
 end procedure
 
