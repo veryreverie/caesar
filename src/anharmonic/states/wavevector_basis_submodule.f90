@@ -1234,8 +1234,10 @@ module procedure calculate_states
       call print_line(WARNING//': State energy differences in subspace '// &
          &subspace%id//' are very large compared to the temperature. This may &
          &block convergence.')
-      call print_line('Relative Energies / (kB T):')
-      call print_line((energies-minval(energies))/thermal_energy)
+      i = minloc(energies, 1)
+      call print_line('(First excited energy - ground state energy) &
+         &/ (kB T): '// (minval([energies(:i-1),energies(i+1:)])-energies(i)) &
+         &            / thermal_energy)
     endif
   endif
   

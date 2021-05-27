@@ -160,16 +160,6 @@ subroutine test_subspaces()
 end subroutine
 
 @test
-subroutine test_complex_monomials()
-  ! TODO
-end subroutine
-
-@test
-subroutine test_paired_monomials()
-  ! TODO
-end subroutine
-
-@test
 subroutine test_is_subsidiary_of()
   type(SubspaceCombination), allocatable :: combinations(:)
   

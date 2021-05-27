@@ -272,6 +272,8 @@ module procedure generate_potential_PolynomialPotential
 end procedure
 
 module procedure generate_stress_PolynomialPotential
+  type(SubspaceQpointStars),    allocatable :: subspace_qpoint_stars(:)
+  
   ! Electronic structure results corresponding to the un-displaced structure.
   type(CouplingStressBasisFunctions) :: zero_basis_functions(0)
   type(RealModeDisplacement)         :: equilibrium_sampling_point
@@ -290,6 +292,15 @@ module procedure generate_stress_PolynomialPotential
   
   ! Temporary variables.
   integer :: i,j,ialloc
+  
+  subspace_qpoint_stars = generate_subspace_qpoint_stars(                  &
+     & subspaces              = anharmonic_data%degenerate_subspaces,      &
+     & modes                  = anharmonic_data%complex_modes,             &
+     & qpoints                = anharmonic_data%qpoints,                   &
+     & qpoint_symmetry_groups = anharmonic_data%qpoint_symmetry_groups,    &
+     & max_power              = anharmonic_data%potential_expansion_order, &
+     & conserve_momentum      = anharmonic_data%maximum_coupling_order==1  &
+     &                     .or. anharmonic_data%vscf_basis_functions_only  )
   
   ! Generate the stress tensor at zero displacement.
   call print_line('Generating stress at zero displacement.')
@@ -320,6 +331,8 @@ module procedure generate_stress_PolynomialPotential
                 & anharmonic_data%degenerate_subspaces,   &
                 & anharmonic_data%degenerate_symmetries,  &
                 & vscf_basis_functions_only,              &
+                & anharmonic_data%qpoint_symmetry_groups, &
+                & subspace_qpoint_stars,                  &
                 & logfile                                 )
     
     j = first(anharmonic_data%subspace_couplings==stress_subspace_coupling(i))

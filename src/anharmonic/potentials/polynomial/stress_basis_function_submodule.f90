@@ -16,6 +16,9 @@ module procedure representation_StressBasisFunction
 end procedure
 
 module procedure generate_stress_basis_functions_SubspaceCombination
+  type(QpointStarProduct),     allocatable :: qpoint_star_products(:)
+  type(CombinationQpointStar), allocatable :: combination_qpoint_stars(:)
+  
   ! Complex monomials, and the indices of their conjugates, such that
   !    complex_monomials(conjugates(i)) == conjg(complex_monomials(i)).
   type(ComplexMonomial), allocatable :: complex_monomials(:)
@@ -40,7 +43,7 @@ module procedure generate_stress_basis_functions_SubspaceCombination
   integer :: y(6)
   
   ! Temporary variables.
-  integer  :: i,j,k,l,m,n,o,ialloc
+  integer  :: i,j,k,l,m,n,o,p,q,ialloc
   real(dp) :: tensor(3,3)
   
   type(BasisConversion) :: basis_conversion
@@ -49,131 +52,147 @@ module procedure generate_stress_basis_functions_SubspaceCombination
   x = [1,2,3,1,1,2]
   y = [1,2,3,2,3,3]
   
-  ! Generate the complex monomials corresponding to the subspace combination,
-  !    with coefficients such that symmetries are unitary.
-  complex_monomials = subspace_combination%complex_monomials( &
-       & maximum_coupling_order,                              &
-       & subspaces,                                           &
-       & complex_modes,                                       &
-       & qpoints,                                             &
-       & conserve_momentum=.true.,                            &
-       & conserve_subspace_momentum=vscf_basis_functions_only )
+  output = [StressBasisFunction::]
   
-  if (size(complex_monomials)==0) then
-    allocate(output(0), stat=ialloc); call err(ialloc)
-    return
-  endif
-  
-  ! Locate the conjugate of each complex monomial.
-  basis_conversion = BasisConversion(complex_monomials)
-  
-  ! Construct projection matrix, which has allowed basis functions as
-  !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
-  projection = dblemat(make_identity_matrix(size(complex_monomials)*6))
-  allocate( symmetry(size(complex_monomials)*6,size(complex_monomials)*6), &
-          & stat=ialloc); call err(ialloc)
-  do i=1,size(degenerate_symmetries)
-    ! Construct the symmetry acting on the complex monomials.
-    complex_scalar_symmetry = degenerate_symmetries(i)%calculate_symmetry( &
-                                             & complex_monomials,          &
-                                             & complex_modes,              &
-                                             & include_coefficients=.true. )
-    call check_unitary( complex_scalar_symmetry,              &
-                      & 'symmetry in complex monomial basis', &
-                      & logfile                               )
-    
-    ! Transform the symmetry into real co-ordinates.
-    real_scalar_symmetry = dble(basis_conversion%matrix_to_basis( &
-                                       & complex_scalar_symmetry, &
-                                       & lhs=.true.,              &
-                                       & rhs=.true.               ))
-    
-    ! Construct the symmetry acting on the tensor components.
-    do j=1,6
-      tensor = 0.0_dp
-      if (x(j)==y(j)) then
-        tensor(x(j),y(j)) = 1.0_dp
-      else
-        tensor(x(j),y(j)) = 1/sqrt(2.0_dp)
-        tensor(y(j),x(j)) = 1/sqrt(2.0_dp)
+  ! Generate the products of the single-subspace q-point stars.
+  qpoint_star_products = generate_qpoint_star_products( &
+                                & subspace_combination, &
+                                & subspace_qpoint_stars )
+  do i=1,size(qpoint_star_products)
+    ! From the products of the single-subspace q-point stars,
+    !    generate the multi-subspace q-point stars.
+    combination_qpoint_stars = generate_combination_qpoint_stars( &
+                                       & qpoint_star_products(i), &
+                                       & qpoint_symmetry_groups,  &
+                                       & .true.,                  &
+                                       & qpoints                  )
+    do j=1,size(combination_qpoint_stars)
+      ! For each q-point star, generate the complex monomials associated with
+      !    that star, and generate the symmetry-invariant basis functions
+      !    from these monomials.
+      complex_monomials = combination_qpoint_stars(j)%complex_monomials( &
+                                                         & complex_modes )
+      
+      if (size(complex_monomials)==0) then
+        cycle
       endif
-      tensor = dble( structure%symmetries(i)%cartesian_tensor         &
-                 & * mat(tensor)                                      &
-                 & * invert(structure%symmetries(i)%cartesian_tensor) )
-      do k=1,6
-        if (x(k)==y(k)) then
-          tensor_symmetry(k,j) = tensor(x(k),y(k))
-        else
-          tensor_symmetry(k,j) = (tensor(x(k),y(k)) + tensor(y(k),x(k))) &
-                             & / sqrt(2.0_dp)
-        endif
-      enddo
-    enddo
-    call check_orthogonal( mat(tensor_symmetry),                     &
-                         & 'symmetry in basis of tensor components', &
-                         & logfile                                   )
-    
-    ! Construct the full symmetry, transforming both scalar and tensor
-    !    compontents.
-    l = 0
-    do j=1,6
-      do k=1,size(complex_monomials)
-        l = l+1
+      
+      ! Locate the conjugate of each complex monomial.
+      basis_conversion = BasisConversion(complex_monomials)
+      
+      ! Construct projection matrix, which has allowed basis functions as
+      !    eigenvectors with eigenvalue 1, and sends all other functions to 0.
+      projection = dblemat(make_identity_matrix(size(complex_monomials)*6))
+      allocate( symmetry( size(complex_monomials)*6,    &
+              &           size(complex_monomials)*6  ), &
+              & stat=ialloc); call err(ialloc)
+      do k=1,size(degenerate_symmetries)
+        ! Construct the symmetry acting on the complex monomials.
+        complex_scalar_symmetry =                         &
+           & degenerate_symmetries(k)%calculate_symmetry( &
+           &                  complex_monomials,          &
+           &                  complex_modes,              &
+           &                  include_coefficients=.true. )
+        call check_unitary( complex_scalar_symmetry,              &
+                          & 'symmetry in complex monomial basis', &
+                          & logfile                               )
         
-        o = 0
-        do m=1,6
-          do n=1,size(complex_monomials)
-            o = o+1
-            
-            symmetry(o,l) = tensor_symmetry(m,j) * real_scalar_symmetry(n,k)
+        ! Transform the symmetry into real co-ordinates.
+        real_scalar_symmetry = dble(basis_conversion%matrix_to_basis( &
+                                           & complex_scalar_symmetry, &
+                                           & lhs=.true.,              &
+                                           & rhs=.true.               ))
+        
+        ! Construct the symmetry acting on the tensor components.
+        do l=1,6
+          tensor = 0.0_dp
+          if (x(l)==y(l)) then
+            tensor(x(l),y(l)) = 1.0_dp
+          else
+            tensor(x(l),y(l)) = 1/sqrt(2.0_dp)
+            tensor(y(l),x(l)) = 1/sqrt(2.0_dp)
+          endif
+          tensor = dble( structure%symmetries(k)%cartesian_tensor         &
+                     & * mat(tensor)                                      &
+                     & * invert(structure%symmetries(k)%cartesian_tensor) )
+          do m=1,6
+            if (x(m)==y(m)) then
+              tensor_symmetry(m,l) = tensor(x(m),y(m))
+            else
+              tensor_symmetry(m,l) = (tensor(x(m),y(m)) + tensor(y(m),x(m))) &
+                                 & / sqrt(2.0_dp)
+            endif
           enddo
         enddo
+        call check_orthogonal( mat(tensor_symmetry),                     &
+                             & 'symmetry in basis of tensor components', &
+                             & logfile                                   )
+        
+        ! Construct the full symmetry, transforming both scalar and tensor
+        !    compontents.
+        n = 0
+        do l=1,6
+          do m=1,size(complex_monomials)
+            n = n+1
+            
+            q = 0
+            do o=1,6
+              do p=1,size(complex_monomials)
+                q = q+1
+                
+                symmetry(q,n) = tensor_symmetry(o,l) &
+                            & * real_scalar_symmetry(p,m)
+              enddo
+            enddo
+          enddo
+        enddo
+        
+        ! Construct the projection matrix for this symmetry,
+        !    and multiply the total projection matrix by this.
+        projection = projection                                  &
+                 & * projection_matrix(                          &
+                 &      mat(symmetry),                           &
+                 &      structure%symmetries(k)%symmetry_order() )
+      enddo
+      call check_symmetric( projection,               &
+                          & 'projection matrix',      &
+                          & logfile,                  &
+                          & ignore_threshold=1e-10_dp )
+      
+      ! Diagonalise the projection matrix,
+      !    check its eigenvalues are either 0 or 1,
+      !    and select only the eigenvectors with eigenvalue 1.
+      estuff = diagonalise_symmetric(projection)
+      if (any(abs(estuff%eval-1)>1e-2_dp .and. abs(estuff%eval)>1e-2_dp)) then
+        call print_line(ERROR//': Projection matrix has eigenvalues which are &
+           &neither 0 nor 1.')
+        call print_line('Eigenvalues:')
+        call print_line(estuff%eval)
+        call err()
+      endif
+      estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
+      
+      ! Construct basis functions from coefficients.
+      do k=1,size(estuff)
+        do l=1,6
+          basis_function = basis_conversion%vector_from_basis(    &
+             & estuff(k)%evec( size(complex_monomials)*(l-1)+1    &
+             &               : size(complex_monomials)*l       ), &
+             & 1e-4_dp                                            )
+          call basis_function%simplify()
+          
+          if (x(l)==y(l)) then
+            elements(x(l),y(l)) = basis_function
+          else
+            elements(x(l),y(l)) = basis_function / sqrt(2.0_dp)
+            elements(y(l),x(l)) = elements(x(l),y(l))
+          endif
+        enddo
+        
+        output = [ output,                       &
+                 & StressBasisFunction(elements) ]
       enddo
     enddo
-    
-    ! Construct the projection matrix for this symmetry,
-    !    and multiply the total projection matrix by this.
-    projection = projection                                                  &
-             & * projection_matrix( mat(symmetry),                           &
-             &                      structure%symmetries(i)%symmetry_order() )
-  enddo
-  call check_symmetric( projection,               &
-                      & 'projection matrix',      &
-                      & logfile,                  &
-                      & ignore_threshold=1e-10_dp )
-  
-  ! Diagonalise the projection matrix,
-  !    check its eigenvalues are either 0 or 1,
-  !    and select only the eigenvectors with eigenvalue 1.
-  estuff = diagonalise_symmetric(projection)
-  if (any(abs(estuff%eval-1)>1e-2_dp .and. abs(estuff%eval)>1e-2_dp)) then
-    call print_line(ERROR//': Projection matrix has eigenvalues which are &
-       &neither 0 nor 1.')
-    call print_line('Eigenvalues:')
-    call print_line(estuff%eval)
-    call err()
-  endif
-  estuff = estuff(filter(abs(estuff%eval-1)<1e-2_dp))
-  
-  ! Construct basis functions from coefficients.
-  allocate(output(size(estuff)), stat=ialloc); call err(ialloc)
-  do i=1,size(estuff)
-    do j=1,6
-      basis_function = basis_conversion%vector_from_basis(    &
-         & estuff(i)%evec( size(complex_monomials)*(j-1)+1    &
-         &               : size(complex_monomials)*j       ), &
-         & 1e-4_dp                                            )
-      call basis_function%simplify()
-      
-      if (x(j)==y(j)) then
-        elements(x(j),y(j)) = basis_function
-      else
-        elements(x(j),y(j)) = basis_function / sqrt(2.0_dp)
-        elements(y(j),x(j)) = elements(x(j),y(j))
-      endif
-    enddo
-    
-    output(i) = StressBasisFunction(elements)
   enddo
 end procedure
 

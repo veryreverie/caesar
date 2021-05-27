@@ -50,7 +50,6 @@ module procedure integrate_BasisStates
   type(ComplexUnivariate), allocatable :: integrated_modes(:)
   type(SparseMonomial)                 :: sparse
   
-  integer     :: cache_location
   complex(dp) :: expectation
   
   unintegrated_modes = monomial%modes(                        &
@@ -73,16 +72,6 @@ module procedure integrate_BasisStates
                                    & anharmonic_data )
       call states%expectation_cache%cache(sparse, expectation)
     endif
-    !cache_location = states%expectation_cache%cached_location(sparse)
-    !if (cache_location==0) then
-    !  expectation = basis%integrate( states,         &
-    !                               & sparse,         &
-    !                               & subspace,       &
-    !                               & anharmonic_data )
-    !  call states%expectation_cache%cache(sparse, expectation)
-    !else
-    !  expectation = states%expectation_cache%cached_expectation(cache_location)
-    !endif
     monomial%coefficient = monomial%coefficient * expectation
   endif
 end procedure
@@ -117,7 +106,6 @@ end procedure
 module procedure integrate_to_constant_BasisStates_ComplexMonomial
   type(SparseMonomial) :: sparse_monomial
   
-  integer     :: cache_location
   complex(dp) :: expectation
   
   sparse_monomial%modes = monomial%modes(                           &
@@ -133,16 +121,6 @@ module procedure integrate_to_constant_BasisStates_ComplexMonomial
                                  & anharmonic_data  )
     call states%expectation_cache%cache(sparse_monomial, expectation)
   endif
-  !cache_location = states%expectation_cache%cached_location(sparse_monomial)
-  !if (cache_location==0) then
-  !  expectation = basis%integrate( states,          &
-  !                               & sparse_monomial, &
-  !                               & subspace,        &
-  !                               & anharmonic_data  )
-  !  call states%expectation_cache%cache(sparse_monomial, expectation)
-  !else
-  !  expectation = states%expectation_cache%cached_expectation(cache_location)
-  !endif
   
   output = monomial%coefficient * expectation
 end procedure

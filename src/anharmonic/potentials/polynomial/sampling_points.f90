@@ -45,7 +45,7 @@ module caesar_sampling_points_module
     !    a given basis function.
     module function construct_sample_matrix(basis_functions,sampling_points, &
        & modes,energy_force_ratio,sample_weights) result(output) 
-      type(BasisFunction) ,intent(in) :: basis_functions(:) 
+      type(BasisFunction),        intent(in)           :: basis_functions(:) 
       type(RealModeDisplacement), intent(in)           :: sampling_points(:)
       type(RealMode),             intent(in)           :: modes(:)
       real(dp),                   intent(in)           :: energy_force_ratio

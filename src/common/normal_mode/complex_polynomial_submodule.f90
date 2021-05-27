@@ -436,7 +436,30 @@ module procedure energy_ComplexSingleDisplacement_ComplexUnivariate
 end procedure
 
 module procedure energy_RealModeDisplacement_ComplexMonomial
-  integer :: i,j,k
+  integer              :: max_mode_id
+  integer, allocatable :: indices(:)
+  
+  integer :: i,j,k,ialloc
+  
+  ! Generate `indices`, such that
+  !    indices(i) = first(displacement%vectors%id==i, default=0)
+  !    for all i in this%modes_%id and this%modes_%paired_id.
+  ! N.B. this is only for optimisation purposes.
+  ! As such, indices(i) is only initialised if `i` is in
+  !    displacement%vectors%id, this%modes_%id or this%modes_%paired_id.
+  ! This reduces a double loop across this%modes_ and displacement%vectors
+  !    to two single loops.
+  max_mode_id = maxval([ maxval(displacement%vectors%id), &
+                       & maxval(this%modes_%id),          &
+                       & maxval(this%modes_%paired_id)    ])
+  allocate(indices(max_mode_id), stat=ialloc); call err(ialloc)
+  do i=1,size(this%modes_)
+    indices(this%modes_(i)%id) = 0
+    indices(this%modes_(i)%paired_id) = 0
+  enddo
+  do i=1,size(displacement%vectors)
+    indices(displacement%vectors(i)%id) = i
+  enddo
   
   output = this%coefficient
   
@@ -448,7 +471,7 @@ module procedure energy_RealModeDisplacement_ComplexMonomial
     associate (mode => this%modes_(i))
       if (mode%id==mode%paired_id) then
         if (mode%power/=0) then
-          j = first(displacement%vectors%id==mode%id, default=0)
+          j = indices(mode%id)
           
           if (j==0) then
             ! If the mode is not present in the displacement,
@@ -463,8 +486,8 @@ module procedure energy_RealModeDisplacement_ComplexMonomial
         endif
       else
         if (mode%power/=0 .or. mode%paired_power/=0) then
-          j = first(displacement%vectors%id==mode%id, default=0)
-          k = first(displacement%vectors%id==mode%paired_id, default=0)
+          j = indices(mode%id)
+          k = indices(mode%paired_id)
           
           if (j==0 .and. k==0) then
             ! If both modes are not present in the displacement,
@@ -490,7 +513,30 @@ module procedure energy_RealModeDisplacement_ComplexMonomial
 end procedure
 
 module procedure energy_ComplexModeDisplacement_ComplexMonomial
-  integer :: i,j,k
+  integer              :: max_mode_id
+  integer, allocatable :: indices(:)
+  
+  integer :: i,j,k,ialloc
+  
+  ! Generate `indices`, such that
+  !    indices(i) = first(displacement%vectors%id==i, default=0)
+  !    for all i in this%modes_%id and this%modes_%paired_id.
+  ! N.B. this is only for optimisation purposes.
+  ! As such, indices(i) is only initialised if `i` is in
+  !    displacement%vectors%id, this%modes_%id or this%modes_%paired_id.
+  ! This reduces a double loop across this%modes_ and displacement%vectors
+  !    to two single loops.
+  max_mode_id = maxval([ maxval(displacement%vectors%id), &
+                       & maxval(this%modes_%id),          &
+                       & maxval(this%modes_%paired_id)    ])
+  allocate(indices(max_mode_id), stat=ialloc); call err(ialloc)
+  do i=1,size(this%modes_)
+    indices(this%modes_(i)%id) = 0
+    indices(this%modes_(i)%paired_id) = 0
+  enddo
+  do i=1,size(displacement%vectors)
+    indices(displacement%vectors(i)%id) = i
+  enddo
   
   output = this%coefficient
   
@@ -502,7 +548,7 @@ module procedure energy_ComplexModeDisplacement_ComplexMonomial
     associate (mode => this%modes_(i))
       if (mode%id==mode%paired_id) then
         if (mode%power/=0) then
-          j = first(displacement%vectors%id==mode%id, default=0)
+          j = indices(mode%id)
           
           if (j==0) then
             ! If the mode is not present in the displacement,
@@ -517,8 +563,8 @@ module procedure energy_ComplexModeDisplacement_ComplexMonomial
         endif
       else
         if (mode%power/=0 .or. mode%paired_power/=0) then
-          j = first(displacement%vectors%id==mode%id, default=0)
-          k = first(displacement%vectors%id==mode%paired_id, default=0)
+          j = indices(mode%id)
+          k = indices(mode%paired_id)
           
           if (      (j==0 .and. mode%power/=0)        &
              & .or. (k==0 .and. mode%paired_power/=0) ) then
@@ -695,7 +741,10 @@ module procedure force_ComplexSingleDisplacement_ComplexUnivariate
 end procedure
 
 module procedure force_RealModeDisplacement_ComplexMonomial
-  logical, allocatable :: value_is_zero(:)
+  integer              :: max_mode_id
+  integer, allocatable :: indices(:)
+  
+  integer :: value_is_zero
   logical, allocatable :: force_is_zero(:)
   
   type(RealSingleDisplacement), allocatable :: displacements(:)
@@ -709,127 +758,154 @@ module procedure force_RealModeDisplacement_ComplexMonomial
   
   integer :: no_modes
   
+  ! Generate `indices`, such that
+  !    indices(i) = first(displacement%vectors%id==i, default=0)
+  !    for all i in this%modes_%id and this%modes_%paired_id.
+  ! N.B. this is only for optimisation purposes.
+  ! As such, indices(i) is only initialised if `i` is in
+  !    displacement%vectors%id, this%modes_%id or this%modes_%paired_id.
+  ! This reduces a double loop across this%modes_ and displacement%vectors
+  !    to two single loops.
+  max_mode_id = maxval([ maxval(displacement%vectors%id), &
+                       & maxval(this%modes_%id),          &
+                       & maxval(this%modes_%paired_id)    ])
+  allocate(indices(max_mode_id), stat=ialloc); call err(ialloc)
+  do i=1,size(this%modes_)
+    indices(this%modes_(i)%id) = 0
+    indices(this%modes_(i)%paired_id) = 0
+  enddo
+  do i=1,size(displacement%vectors)
+    indices(displacement%vectors(i)%id) = i
+  enddo
+  
   ! Match each mode in the monomial with the matching mode(s)
   !    in the displacement.
   allocate( displacements(size(this)),        &
           & paired_displacements(size(this)), &
-          & value_is_zero(size(this)),        &
           & force_is_zero(size(this)),        &
           & stat=ialloc); call err(ialloc)
+  value_is_zero = 0
   no_modes = 0
   do i=1,size(this)
     associate (mode => this%modes_(i))
-      j = first(displacement%vectors%id==mode%id, default=0)
+      j = indices(mode%id)
       if (j/=0) then
         displacements(i) = displacement%vectors(j)
       else
         displacements(i) = RealSingleDisplacement(mode%id, 0.0_dp)
       endif
       if (mode%id==mode%paired_id) then
-        value_is_zero(i) = j==0 .and. mode%power/=0
+        if (j==0 .and. mode%power/=0) then
+          if (value_is_zero/=0) then
+            ! If U_i is zero for more than one i, then
+            !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
+            !    so all derivatives are zero.
+            output = RealModeForce([RealSingleForce::])
+            return
+          endif
+          value_is_zero = i
+        endif
         force_is_zero(i) = j==0 .and. mode%power/=1
         if (.not. force_is_zero(i)) then
           no_modes = no_modes+1
         endif
       else
-        k = first(displacement%vectors%id==mode%paired_id, default=0)
+        k = indices(mode%paired_id)
         if (k/=0) then
           paired_displacements(i) = displacement%vectors(k)
         else
           paired_displacements(i) = RealSingleDisplacement( mode%paired_id, &
                                                           & 0.0_dp          )
         endif
-        value_is_zero(i) = (j==0 .and. k==0) &
-                   & .and. (mode%power/=0 .or. mode%paired_power/=0)
+        if (       (j==0 .and. k==0)                         &
+           & .and. (mode%power/=0 .or. mode%paired_power/=0) ) then
+          if (value_is_zero/=0) then
+            ! If U_i is zero for more than one i, then
+            !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
+            !    so all derivatives are zero.
+            output = RealModeForce([RealSingleForce::])
+            return
+          endif
+          value_is_zero = i
+        endif
         force_is_zero(i) = (j==0 .and. mode%power/=1) &
                    & .and. (k==0 .and. mode%paired_power/=1)
         if (.not. force_is_zero(i)) then
           no_modes = no_modes+2
         endif
       endif
+      if (force_is_zero(i) .and. value_is_zero==i) then
+        ! U_i and the derivative are zero along mode i,
+        !    so all derivatives are zero.
+        output = RealModeForce([RealSingleForce::])
+        return
+      endif
     end associate
   enddo
   
-  if (count(value_is_zero)>1) then
-    ! If U_i is zero for more than one i, then
-    !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
-    !    so all derivatives are zero.
-    allocate( ids(0),    &
-            & forces(0), &
-            & stat=ialloc); call err(ialloc)
-  else
-    i = first(value_is_zero, default=0)
-    if (i/=0) then
-      ! Only one U_i is zero.
-      if (force_is_zero(i)) then
-        ! The derivative is also zero along mode i.
-        allocate( ids(0),    &
-                & forces(0), &
-                & stat=ialloc); call err(ialloc)
-      else
-        ! The derivative is not zero along mode i.
-        associate (mode => this%modes_(i))
-        if (mode%id==mode%paired_id) then
-          ids = [mode%id]
-          forces = mode%force_real(displacements(i))
-        else
-          ids = [mode%id, mode%paired_id]
-          forces = mode%force_real(displacements(i), paired_displacements(i))
-        endif
-        end associate
-        do j=1,size(this)
-          if (j/=i) then
-            associate (mode => this%modes_(j))
-              if (mode%id==mode%paired_id) then
-                forces = forces &
-                     & * mode%energy_real(displacements(j))
-              else
-                forces = forces                                    &
-                     & * mode%energy_real( displacements(j),       &
-                     &                     paired_displacements(j) )
-              endif
-            end associate
-          endif
-        enddo
-      endif
+  i = value_is_zero
+  if (i/=0) then
+    ! Only one U_i is zero.
+    associate (mode => this%modes_(i))
+    if (mode%id==mode%paired_id) then
+      ids = [mode%id]
+      forces = mode%force_real(displacements(i))
     else
-      ! The force is non-zero along multiple modes.
-      allocate( ids(no_modes),    &
-              & forces(no_modes), &
-              & stat=ialloc); call err(ialloc)
-      forces = 1.0_dp
-      j = 0
-      do i=1,size(this)
-        associate (mode => this%modes_(i))
+      ids = [mode%id, mode%paired_id]
+      forces = mode%force_real(displacements(i), paired_displacements(i))
+    endif
+    end associate
+    do j=1,size(this)
+      if (j/=i) then
+        associate (mode => this%modes_(j))
           if (mode%id==mode%paired_id) then
-            energy = mode%energy_real(displacements(i))
+            forces = forces &
+                 & * mode%energy_real(displacements(j))
           else
-            energy = mode%energy_real( displacements(i),       &
-                                     & paired_displacements(i) )
-          endif
-          
-          if (force_is_zero(i)) then
-            forces = forces * energy
-          else
-            if (mode%id==mode%paired_id) then
-              j = j+1
-              ids(j) = mode%id
-              forces(j:j) = forces(j:j) * mode%force_real(displacements(i))
-              forces(:j-1) = forces(:j-1) * energy
-              forces(j+1:) = forces(j+1:) * energy
-            else
-              j = j+2
-              ids(j-1) = mode%id
-              ids(j) = mode%paired_id
-              forces(j-1:j) = mode%force_real( displacements(i),       &
-                                             & paired_displacements(i) )
-              forces(:j-2) = forces(:j-2) * energy
-              forces(j+1:) = forces(j+1:) * energy
-            endif
+            forces = forces                                    &
+                 & * mode%energy_real( displacements(j),       &
+                 &                     paired_displacements(j) )
           endif
         end associate
-      enddo
-    endif
+      endif
+    enddo
+  else
+    ! The force is non-zero along multiple modes.
+    allocate( ids(no_modes),    &
+            & forces(no_modes), &
+            & stat=ialloc); call err(ialloc)
+    forces = 1.0_dp
+    j = 0
+    do i=1,size(this)
+      associate (mode => this%modes_(i))
+        if (mode%id==mode%paired_id) then
+          energy = mode%energy_real(displacements(i))
+        else
+          energy = mode%energy_real( displacements(i),       &
+                                   & paired_displacements(i) )
+        endif
+        
+        if (force_is_zero(i)) then
+          forces = forces * energy
+        else
+          if (mode%id==mode%paired_id) then
+            j = j+1
+            ids(j) = mode%id
+            forces(j:j) = forces(j:j) * mode%force_real(displacements(i))
+            forces(:j-1) = forces(:j-1) * energy
+            forces(j+1:) = forces(j+1:) * energy
+          else
+            j = j+2
+            ids(j-1) = mode%id
+            ids(j) = mode%paired_id
+            forces(j-1:j) = mode%force_real( displacements(i),       &
+                                           & paired_displacements(i) )
+            forces(:j-2) = forces(:j-2) * energy
+            forces(j+1:) = forces(j+1:) * energy
+          endif
+        endif
+      end associate
+    enddo
   endif
   
   ! Construct output from components along each mode.
@@ -837,7 +913,10 @@ module procedure force_RealModeDisplacement_ComplexMonomial
 end procedure
 
 module procedure force_ComplexModeDisplacement_ComplexMonomial
-  logical, allocatable :: value_is_zero(:)
+  integer              :: max_mode_id
+  integer, allocatable :: indices(:)
+  
+  integer :: value_is_zero
   logical, allocatable :: force_is_zero(:)
   
   type(ComplexSingleDisplacement), allocatable :: displacements(:)
@@ -851,17 +930,37 @@ module procedure force_ComplexModeDisplacement_ComplexMonomial
   
   integer :: no_modes
   
+  ! Generate `indices`, such that
+  !    indices(i) = first(displacement%vectors%id==i, default=0)
+  !    for all i in this%modes_%id and this%modes_%paired_id.
+  ! N.B. this is only for optimisation purposes.
+  ! As such, indices(i) is only initialised if `i` is in
+  !    displacement%vectors%id, this%modes_%id or this%modes_%paired_id.
+  ! This reduces a double loop across this%modes_ and displacement%vectors
+  !    to two single loops.
+  max_mode_id = maxval([ maxval(displacement%vectors%id), &
+                       & maxval(this%modes_%id),          &
+                       & maxval(this%modes_%paired_id)    ])
+  allocate(indices(max_mode_id), stat=ialloc); call err(ialloc)
+  do i=1,size(this%modes_)
+    indices(this%modes_(i)%id) = 0
+    indices(this%modes_(i)%paired_id) = 0
+  enddo
+  do i=1,size(displacement%vectors)
+    indices(displacement%vectors(i)%id) = i
+  enddo
+  
   ! Match each mode in the monomial with the matching mode(s)
   !    in the displacement.
   allocate( displacements(size(this)),        &
           & paired_displacements(size(this)), &
-          & value_is_zero(size(this)),        &
           & force_is_zero(size(this)),        &
           & stat=ialloc); call err(ialloc)
+  value_is_zero = 0
   no_modes = 0
   do i=1,size(this)
     associate (mode => this%modes_(i))
-      j = first(displacement%vectors%id==mode%id, default=0)
+      j = indices(mode%id)
       if (j/=0) then
         displacements(i) = displacement%vectors(j)
       else
@@ -870,13 +969,22 @@ module procedure force_ComplexModeDisplacement_ComplexMonomial
                             & cmplx(0.0_dp,0.0_dp,dp) )
       endif
       if (mode%id==mode%paired_id) then
-        value_is_zero(i) = j==0 .and. mode%power/=0
+        if (j==0 .and. mode%power/=0) then
+          if (value_is_zero/=0) then
+            ! If U_i is zero for more than one i, then
+            !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
+            !    so all derivatives are zero.
+            output = ComplexModeForce([ComplexSingleForce::])
+            return
+          endif
+          value_is_zero = i
+        endif
         force_is_zero(i) = j==0 .and. mode%power/=1
         if (.not. force_is_zero(i)) then
           no_modes = no_modes+1
         endif
       else
-        k = first(displacement%vectors%id==mode%paired_id, default=0)
+        k = indices(mode%paired_id)
         if (k/=0) then
           paired_displacements(i) = displacement%vectors(k)
         else
@@ -884,98 +992,96 @@ module procedure force_ComplexModeDisplacement_ComplexMonomial
                                      & mode%paired_id,         &
                                      & cmplx(0.0_dp,0.0_dp,dp) )
         endif
-        value_is_zero(i) = (j==0 .and. mode%power/=0) &
-                    & .or. (k==0 .and. mode%paired_power/=0)
+        if (      (j==0 .and. mode%power/=0)        &
+           & .or. (k==0 .and. mode%paired_power/=0) ) then
+          if (value_is_zero/=0) then
+            ! If U_i is zero for more than one i, then
+            !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
+            !    so all derivatives are zero.
+            output = ComplexModeForce([ComplexSingleForce::])
+            return
+          endif
+          value_is_zero = i
+        endif
         force_is_zero(i) = (j==0 .and. mode%power/=1) &
                    & .and. (k==0 .and. mode%paired_power/=1)
         if (.not. force_is_zero(i)) then
           no_modes = no_modes+2
         endif
       endif
+      if (force_is_zero(i) .and. value_is_zero==i) then
+        ! U_i and the derivative are zero along mode i,
+        !    so all derivatives are zero.
+        output = ComplexModeForce([ComplexSingleForce::])
+        return
+      endif
     end associate
   enddo
   
-  if (count(value_is_zero)>1) then
-    ! If U_i is zero for more than one i, then
-    !    prod_{j/=i}[ {U_j}^{n_j} ] is always zero,
-    !    so all derivatives are zero.
-    allocate( ids(0),    &
-            & forces(0), &
-            & stat=ialloc); call err(ialloc)
-  else
-    i = first(value_is_zero, default=0)
-    if (i/=0) then
-      ! Only one U_i is zero.
-      if (force_is_zero(i)) then
-        ! The derivative is also zero along mode i.
-        allocate( ids(0),    &
-                & forces(0), &
-                & stat=ialloc); call err(ialloc)
-      else
-        ! The derivative is not zero along mode i.
-        associate (mode => this%modes_(i))
-        if (mode%id==mode%paired_id) then
-          ids = [mode%id]
-          forces = mode%force_complex(displacements(i))
-        else
-          ids = [mode%id, mode%paired_id]
-          forces = mode%force_complex( displacements(i),       &
-                                     & paired_displacements(i) )
-        endif
-        end associate
-        do j=1,size(this)
-          if (j/=i) then
-            associate (mode => this%modes_(j))
-              if (mode%id==mode%paired_id) then
-                forces = forces &
-                     & * mode%energy_complex(displacements(j))
-              else
-                forces = forces &
-                     & * mode%energy_complex( displacements(j),       &
-                     &                        paired_displacements(j) )
-              endif
-            end associate
-          endif
-        enddo
-      endif
+  i = value_is_zero
+  if (i/=0) then
+    ! Only one U_i is zero.
+    associate (mode => this%modes_(i))
+    if (mode%id==mode%paired_id) then
+      ids = [mode%id]
+      forces = mode%force_complex(displacements(i))
     else
-      ! The force is non-zero along multiple modes.
-      allocate( ids(no_modes),    &
-              & forces(no_modes), &
-              & stat=ialloc); call err(ialloc)
-      forces = 1.0_dp
-      j = 0
-      do i=1,size(this)
-        associate (mode => this%modes_(i))
+      ids = [mode%id, mode%paired_id]
+      forces = mode%force_complex( displacements(i),       &
+                                 & paired_displacements(i) )
+    endif
+    end associate
+    do j=1,size(this)
+      if (j/=i) then
+        associate (mode => this%modes_(j))
           if (mode%id==mode%paired_id) then
-            energy = mode%energy_complex(displacements(i))
+            forces = forces &
+                 & * mode%energy_complex(displacements(j))
           else
-            energy = mode%energy_complex( displacements(i),       &
-                                        & paired_displacements(i) )
-          endif
-          
-          if (force_is_zero(i)) then
-            forces = forces * energy
-          else
-            if (mode%id==mode%paired_id) then
-              j = j+1
-              ids(j) = mode%id
-              forces(j:j) = forces(j:j) * mode%force_complex(displacements(i))
-              forces(:j-1) = forces(:j-1) * energy
-              forces(j+1:) = forces(j+1:) * energy
-            else
-              j = j+2
-              ids(j-1) = mode%id
-              ids(j) = mode%paired_id
-              forces(j-1:j) = mode%force_complex( displacements(i),       &
-                                                & paired_displacements(i) )
-              forces(:j-2) = forces(:j-2) * energy
-              forces(j+1:) = forces(j+1:) * energy
-            endif
+            forces = forces &
+                 & * mode%energy_complex( displacements(j),       &
+                 &                        paired_displacements(j) )
           endif
         end associate
-      enddo
-    endif
+      endif
+    enddo
+  else
+    ! The force is non-zero along multiple modes.
+    allocate( ids(no_modes),    &
+            & forces(no_modes), &
+            & stat=ialloc); call err(ialloc)
+    forces = 1.0_dp
+    j = 0
+    do i=1,size(this)
+      associate (mode => this%modes_(i))
+        if (mode%id==mode%paired_id) then
+          energy = mode%energy_complex(displacements(i))
+        else
+          energy = mode%energy_complex( displacements(i),       &
+                                      & paired_displacements(i) )
+        endif
+        
+        if (force_is_zero(i)) then
+          forces = forces * energy
+        else
+          if (mode%id==mode%paired_id) then
+            j = j+1
+            ids(j) = mode%id
+            forces(j:j) = forces(j:j) * mode%force_complex(displacements(i))
+            forces(:j-1) = forces(:j-1) * energy
+            forces(j+1:) = forces(j+1:) * energy
+          else
+            j = j+2
+            ids(j-1) = mode%id
+            ids(j) = mode%paired_id
+            forces(j-1:j) = mode%force_complex( displacements(i),       &
+                                              & paired_displacements(i) )
+            forces(:j-2) = forces(:j-2) * energy
+            forces(j+1:) = forces(j+1:) * energy
+          endif
+        endif
+      end associate
+    enddo
   endif
   
   ! Construct output from components along each mode.

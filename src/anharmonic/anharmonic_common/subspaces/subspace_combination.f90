@@ -40,11 +40,6 @@ module caesar_subspace_combination_module
     
     procedure, public :: subspaces => subspaces_SubspaceCombination
     
-    procedure, public :: complex_monomials => &
-                       & complex_monomials_SubspaceCombination
-    procedure, public :: paired_monomials => &
-                       & paired_monomials_SubspaceCombination
-    
     procedure, public :: is_subsidiary_of
     
     ! I/O.
@@ -97,40 +92,6 @@ module caesar_subspace_combination_module
       class(SubspaceCombination), intent(in) :: this
       type(DegenerateSubspace),   intent(in) :: subspaces(:)
       type(DegenerateSubspace), allocatable  :: output(:)
-    end function
-  
-    !> Generate the [[ComplexMonomial(type)]]s corresponding to a given
-    !>    SubspaceCombination.
-    !> The coefficients are chosen such that symmetry operations are unitary
-    !>    in the basis of monomials.
-    module function complex_monomials_SubspaceCombination(this,            &
-       & maximum_coupling_order,subspaces,modes,qpoints,conserve_momentum, &
-       & conserve_subspace_momentum) result(output)
-      class(SubspaceCombination), intent(in) :: this
-      integer,                    intent(in) :: maximum_coupling_order
-      type(DegenerateSubspace),   intent(in) :: subspaces(:)
-      type(ComplexMode),          intent(in) :: modes(:)
-      type(QpointData),           intent(in) :: qpoints(:)
-      logical,                    intent(in) :: conserve_momentum
-      logical,                    intent(in) :: conserve_subspace_momentum
-      type(ComplexMonomial), allocatable     :: output(:)
-    end function
-  
-    !> Generate the [[PairedMonomial(type)]]s corresponding to a given
-    !>    SubspaceCombination.
-    !> The coefficients are chosen such that symmetry operations are unitary
-    !>    in the basis of monomials.
-    module function paired_monomials_SubspaceCombination(this,             &
-       & maximum_coupling_order,subspaces,modes,qpoints,conserve_momentum, &
-       & conserve_subspace_momentum) result(output)
-      class(SubspaceCombination), intent(in) :: this
-      integer,                    intent(in) :: maximum_coupling_order
-      type(DegenerateSubspace),   intent(in) :: subspaces(:)
-      type(ComplexMode),          intent(in) :: modes(:)
-      type(QpointData),           intent(in) :: qpoints(:)
-      logical,                    intent(in) :: conserve_momentum
-      logical,                    intent(in) :: conserve_subspace_momentum
-      type(PairedMonomial), allocatable      :: output(:)
     end function
   
     !> Check if this is subsidiary to the given combination,

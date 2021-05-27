@@ -181,6 +181,8 @@ module procedure generate_stress_basis_functions_SubspaceCoupling
                                       & subspaces,                 &
                                       & degenerate_symmetries,     &
                                       & vscf_basis_functions_only, &
+                                      & qpoint_symmetry_groups,    &
+                                      & subspace_qpoint_stars,     &
                                       & logfile                    )
     coupling_basis_functions = [ coupling_basis_functions,    &
                                & combination_basis_functions  ]
