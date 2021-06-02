@@ -207,7 +207,6 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   type(QeInputFile) :: qe_file
   
   type(KpointGrid) :: kpoint_grid
-  real(dp)         :: kpoint_spacing
   
   type(String), allocatable :: line(:)
   
@@ -261,12 +260,6 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
   
   line = split_line(qe_file%k_points(2))
   kpoint_grid = KpointGrid(int(line(1:3)))
-  kpoint_spacing = calculate_kpoint_spacing( &
-     & kpoint_grid,                          &
-     & dble(structure%prim_recip_lattice())  )
-  kpoint_grid = calculate_kpoint_grid( &
-     & kpoint_spacing,                 &
-     & dble(structure%recip_lattice)   )
   
   if (size(line)==3) then
     qe_file%k_points(2) = str(kpoint_grid)
@@ -277,7 +270,6 @@ subroutine write_input_file_qe(structure,old_qe_in_filename,new_qe_in_filename)
        &entries.')
     call quit()
   endif
-  
   
   ! Write out new QE file.
   new_qe_in_file = OFile(new_qe_in_filename)

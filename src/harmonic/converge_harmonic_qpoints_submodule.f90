@@ -34,17 +34,20 @@ module procedure converge_harmonic_qpoints_mode
   
   ! Add keywords for the modes called by converge_harmonic_qpoints.
   mode = setup_harmonic_mode()
-  output%keywords = [output%keywords, mode%keywords]
-  mode = run_harmonic_mode()
-  output%keywords = [output%keywords, mode%keywords]
-  mode = calculate_normal_modes_mode()
-  output%keywords = [output%keywords, mode%keywords]
-  mode = calculate_harmonic_observables_mode()
-  output%keywords = [output%keywords, mode%keywords]
   call mode%remove_keyword('q-point_grid')
+  output%keywords = [output%keywords, mode%keywords]
+  
+  mode = run_harmonic_mode()
   call mode%remove_keyword('supercells_to_run')
   call mode%remove_keyword('calculations_to_run')
   call mode%remove_keyword('exit_on_error')
+  output%keywords = [output%keywords, mode%keywords]
+  
+  mode = calculate_normal_modes_mode()
+  output%keywords = [output%keywords, mode%keywords]
+  
+  mode = calculate_harmonic_observables_mode()
+  output%keywords = [output%keywords, mode%keywords]
 end procedure
 
 module procedure converge_harmonic_qpoints_subroutine
@@ -126,13 +129,12 @@ module procedure converge_harmonic_qpoints_subroutine
                      &   + (i-1)/minimum_spacing           )
     
     ! Calculate the q-point grid corresponding to each spacing.
-    qpoint_grids(i) = calculate_kpoint_grid( qpoint_spacings(i),           &
-                                           & dble(structure%recip_lattice) )
+    qpoint_grids(i) = KpointGrid( qpoint_spacings(i),     &
+                                & structure%recip_lattice )
     
     ! Re-calculate spacing to reflect the actual q-point grid.
-    qpoint_spacings(i) = calculate_kpoint_spacing( &
-                   & qpoint_grids(i),              &
-                   & dble(structure%recip_lattice) )
+    qpoint_spacings(i) = qpoint_grids(i)%kpoint_spacing( &
+                               & structure%recip_lattice )
   enddo
   
   ! Remove duplicate q-point grids.

@@ -191,7 +191,8 @@ module procedure call_caesar_character
   type(String) :: command
   integer      :: result_code
   
-  command = 'cd '//current_working_directory()//'; '//executable_location()
+  command = 'cd '//current_working_directory()//'; ' &
+       & // executable_location()//'/caesar'
   if (present(arguments)) then
     command = command//' '//escape_bash_characters(arguments)
   endif

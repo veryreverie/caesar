@@ -254,8 +254,8 @@ module procedure converge_harmonic_frequencies_subroutine
                      &   + (i-1)/minimum_spacing           )
     
     ! Calculate the k-point grid corresponding to each spacing.
-    kpoint_grids(i) = calculate_kpoint_grid( kpoint_spacings(i),           &
-                                           & dble(structure%recip_lattice) )
+    kpoint_grids(i) = KpointGrid( kpoint_spacings(i),     &
+                                & structure%recip_lattice )
     
     ! Increase any grid elements which have the wrong parity.
     if (kpoint_parity=='both') then
@@ -278,9 +278,8 @@ module procedure converge_harmonic_frequencies_subroutine
     endif
     
     ! Re-calculate spacing to reflect the actual k-point grid.
-    kpoint_spacings(i) = calculate_kpoint_spacing( &
-                   & kpoint_grids(i),              &
-                   & dble(structure%recip_lattice) )
+    kpoint_spacings(i) = kpoint_grids(i)%kpoint_spacing( &
+                               & structure%recip_lattice )
   enddo
   
   ! Remove duplicate k-point grids.

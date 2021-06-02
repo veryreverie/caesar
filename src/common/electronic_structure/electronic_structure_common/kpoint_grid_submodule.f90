@@ -3,49 +3,19 @@ submodule (caesar_kpoint_grid_module) caesar_kpoint_grid_submodule
 contains
 
 module procedure new_KpointGrid
+  if (any(grid<1)) then
+    call print_line(ERROR//': The elements of a k-point grid must be >= 1.')
+    call err()
+  endif
   this%grid = grid
 end procedure
 
-module procedure calculate_kpoint_spacing
-  type(RealVector) :: a
-  type(RealVector) :: b
-  type(RealVector) :: c
+module procedure kpoint_spacing_KpointGrid
+  integer :: i
   
-  a = vec(recip_lattice(1,:))
-  b = vec(recip_lattice(2,:))
-  c = vec(recip_lattice(3,:))
-  
-  output = minval([ l2_norm(a)/kpoint_grid%grid(1), &
-                  & l2_norm(b)/kpoint_grid%grid(2), &
-                  & l2_norm(c)/kpoint_grid%grid(3)  ])
-end procedure
-
-module procedure calculate_kpoint_grid
-  type(RealVector) :: a
-  type(RealVector) :: b
-  type(RealVector) :: c
-  
-  a = vec(recip_lattice(1,:))
-  b = vec(recip_lattice(2,:))
-  c = vec(recip_lattice(3,:))
-  
-  ! N.B. the -0.1 is to ensure that calculating a grid from a spacing which
-  !    was in turn calculated from a grid will give the same answer.
-  ! The max(x,1) is to ensure the above correction does not lead to a k-point
-  !    grid with 0 k-points.
-  output = KpointGrid(max(                                  &
-     & ceiling( [ l2_norm(a)/kpoint_spacing,                &
-     &            l2_norm(b)/kpoint_spacing,                &
-     &            l2_norm(c)/kpoint_spacing  ] - 0.1_dp  ), &
-     & 1                                                    ))
-end procedure
-
-module procedure equality_KpointGrid
-  output = all(this%grid==that%grid)
-end procedure
-
-module procedure non_equality_KpointGrid
-  output = .not. this==that
+  output = maxval([( l2_norm(recip_lattice%row(i))/this%grid(i), &
+                   & i=1,                                        &
+                   & 3                                           )])
 end procedure
 
 module procedure read_KpointGrid
@@ -62,5 +32,23 @@ end procedure
 
 module procedure new_KpointGrid_String
   call this%read(input)
+end procedure
+
+module procedure new_KpointGrid_spacing
+  integer :: i
+  
+  this%grid = [(                                                      &
+     & max( ceiling(l2_norm(recip_lattice%row(i))/kpoint_spacing),    &
+     &      1                                                      ), &
+     & i=1,                                                           &
+     & 3                                                              )]
+end procedure
+
+module procedure equality_KpointGrid
+  output = all(this%grid==that%grid)
+end procedure
+
+module procedure non_equality_KpointGrid
+  output = .not. this==that
 end procedure
 end submodule

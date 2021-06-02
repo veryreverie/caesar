@@ -1,7 +1,208 @@
 module kpoint_grid_test
   use funit
+  
+  use caesar_utils_module
 
   use caesar_electronic_structure_common_module
   implicit none
 contains
+
+@test
+subroutine test_KpointGrid()
+  type :: TestCase
+    integer :: grid(3)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(KpointGrid) :: kpoint_grid
+  
+  type(String) :: message
+  
+  integer :: i
+  
+  test_cases = [ TestCase([1,2,3]), &
+               & TestCase([4,5,6])  ]
+  
+  do i=1,size(test_cases)
+    associate(grid=>test_cases(i)%grid)
+      kpoint_grid = KpointGrid(grid)
+      
+      message = join(str(grid))
+      @assertTrue(size(kpoint_grid%grid)==size(grid), char(message))
+      @assertTrue(all(kpoint_grid%grid==grid), char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_kpoint_spacing()
+  type :: TestCase
+    type(KpointGrid) :: grid
+    type(RealMatrix) :: recip_lattice
+    real(dp)         :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  real(dp) :: kpoint_spacing
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [                                 &
+     & TestCase( KpointGrid([1,1,1]),            &
+     &           mat( [1._dp,0._dp,0._dp,        &
+     &                 0._dp,1._dp,0._dp,        &
+     &                 0._dp,0._dp,1._dp],       &
+     &                [3,3]                ),    &
+     &           1._dp                        ), &
+     & TestCase( KpointGrid([2,3,4]),            &
+     &           mat( [1._dp,2._dp,3._dp,        &
+     &                 2._dp,3._dp,1._dp,        &
+     &                 3._dp,1._dp,2._dp],       &
+     &                [3,3]                ),    &
+     &           sqrt(14._dp)/2               ), &
+     & TestCase( KpointGrid([4,4,4]),            &
+     &           mat( [2._dp,0._dp,0._dp,        &
+     &                 0._dp,3._dp,0._dp,        &
+     &                 0._dp,0._dp,4._dp],       &
+     &                [3,3]                ),    &
+     &           1._dp                        )  ]
+  
+  do i=1,size(test_cases)
+    associate( grid                    => test_cases(i)%grid,          &
+             & recip_lattice           => test_cases(i)%recip_lattice, &
+             & expected_kpoint_spacing => test_cases(i)%output         )
+      kpoint_spacing = grid%kpoint_spacing(recip_lattice)
+      
+      message = [ str('grid:'),                    &
+                & str(grid),                       &
+                & str('recip_lattice:'),           &
+                & str(recip_lattice),              &
+                & str('kpoint_spacing:'),          &
+                & str(kpoint_spacing),             &
+                & str('expected_kpoint_spacing:'), &
+                & str(expected_kpoint_spacing)     ]
+      
+      check = abs(kpoint_spacing-expected_kpoint_spacing)<1e-10_dp
+      @assertTrue(check, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(KpointGrid) :: grid
+    type(String)     :: line
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(KpointGrid) :: new_grid
+  type(String)     :: new_line
+  
+  integer :: i
+  
+  test_cases = [ TestCase( KpointGrid([1,2,3]),    &
+               &           str('1 2 3')         ), &
+               & TestCase( KpointGrid([4,5,6]),    &
+               &           str('4 5 6')         )  ]
+  
+  do i=1,size(test_cases)
+    associate( grid => test_cases(i)%grid, &
+             & line => test_cases(i)%line  )
+      new_grid = Kpointgrid(line)
+      @assertTrue(new_grid==grid, char(line))
+      
+      new_line = str(grid)
+      @assertTrue(new_line==line, char(line))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_KpointGrid_spacing
+  type :: TestCase
+    real(dp)         :: kpoint_spacing
+    type(RealMatrix) :: recip_lattice
+    type(KpointGrid) :: output
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(KpointGrid) :: grid
+  
+  type(String), allocatable :: message(:)
+  
+  integer :: i
+  
+  test_cases = [                                 &
+     & TestCase( 1._dp,                          &
+     &           mat( [1._dp,0._dp,0._dp,        &
+     &                 0._dp,1._dp,0._dp,        &
+     &                 0._dp,0._dp,1._dp],       &
+     &                [3,3]                ),    &
+     &           KpointGrid([1,1,1])          ), &
+     & TestCase( sqrt(14._dp)/3,                 &
+     &           mat( [1._dp,2._dp,3._dp,        &
+     &                 2._dp,3._dp,1._dp,        &
+     &                 3._dp,1._dp,2._dp],       &
+     &                [3,3]                ),    &
+     &           KpointGrid([3,3,3])          ), &
+     & TestCase( 0.1_dp,                         &
+     &           mat( [2._dp,0._dp,0._dp,        &
+     &                 0._dp,3._dp,0._dp,        &
+     &                 0._dp,0._dp,4._dp],       &
+     &                [3,3]                ),    &
+     &           KpointGrid([20,30,40])       )  ]
+  
+  do i=1,size(test_cases)
+    associate( kpoint_spacing => test_cases(i)%kpoint_spacing, &
+             & recip_lattice  => test_cases(i)%recip_lattice,  &
+             & expected_grid  => test_cases(i)%output          )
+      ! The 1e-10 is added to avoid precision errors.
+      grid = KpointGrid(kpoint_spacing+1e-10_dp, recip_lattice)
+      
+      message = [ str('kpoint_spacing:'), &
+                & str(kpoint_spacing),    &
+                & str('recip_lattice:'),  &
+                & str(recip_lattice),     &
+                & str('grid:'),           &
+                & str(grid),              &
+                & str('expected_grid:'),  &
+                & str(expected_grid)      ]
+      
+      @assertTrue(grid==expected_grid, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_comparison()
+  type(KpointGrid), allocatable :: grids(:)
+  
+  integer :: i,j
+  
+  grids = [ KpointGrid([1,1,1]), &
+          & KpointGrid([1,2,1]), &
+          & KpointGrid([2,1,2]), &
+          & KpointGrid([1,2,3]), &
+          & KpointGrid([1,3,2])  ]
+  
+  do i=1,size(grids)
+    associate(lhs => grids(i))
+      do j=1,size(grids)
+        associate(rhs => grids(j))
+          @assertTrue(lhs==rhs .eqv. i==j)
+          @assertTrue(lhs/=rhs .eqv. i/=j)
+        end associate
+      enddo
+    end associate
+  enddo
+end subroutine
 end module

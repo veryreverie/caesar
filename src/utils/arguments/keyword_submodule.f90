@@ -286,7 +286,7 @@ end procedure
 module procedure process_and_check
   if (this%default_type_==0 .and. .not. this%is_set()) then
     call print_line(ERROR//': the keyword '//this%keyword_//' has not been &
-       &set. this keyword is not optional.')
+       &set. This keyword is not optional.')
     call quit()
   endif
   

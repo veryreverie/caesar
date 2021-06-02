@@ -52,7 +52,11 @@ module procedure remove_keyword_String
   integer :: i
   
   i = first(this%keywords%keyword()==keyword, default=0)
-  if (i/=0) then
+  if (i==0) then
+    call print_line(CODE_ERROR//': Program mode does not contain keyword '// &
+       &keyword)
+    call err()
+  else
     this%keywords = [this%keywords(:i-1), this%keywords(i+1:)]
   endif
 end procedure
