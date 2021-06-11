@@ -45,19 +45,22 @@ module procedure generate_qpoint_combinations
     type(FractionVector), allocatable :: wavevectors(:)
   end type
   
-  type :: CombinationAndWavevector
+  type :: CombinationData
     type(QpointCombination) :: combination
-    integer                 :: combination_power
+    integer                 :: total_power
+    integer                 :: no_qpoints
     type(FractionVector)    :: wavevector
   end type
+  
+  integer :: max_qpoints
   
   logical              :: qpoints_real
   integer, allocatable :: key(:)
   
   type(PowerArray), allocatable :: powers(:)
   
-  type(CombinationAndWavevector), allocatable :: combinations(:)
-  type(CombinationAndWavevector), allocatable :: new_combinations(:)
+  type(CombinationData), allocatable :: combinations(:)
+  type(CombinationData), allocatable :: new_combinations(:)
   
   integer              :: power
   integer, allocatable :: no_combinations(:)
@@ -68,6 +71,8 @@ module procedure generate_qpoint_combinations
     call print_line(ERROR//': max_power must be > 0.')
     call err()
   endif
+  
+  max_qpoints = set_default(max_qpoint_coupling, max_power)
   
   allocate(output(max_power+1), stat=ialloc); call err(ialloc)
   output%power = [(i,i=0,max_power)]
@@ -109,14 +114,15 @@ module procedure generate_qpoint_combinations
   enddo
   
   ! Initialise `combinations` to the empty combination.
-  combinations = [CombinationAndWavevector(                    &
-     & combination       = QpointCombination([QpointPower::]), &
-     & combination_power = 0,                                  &
-     & wavevector        = fracvec(zeroes(3))                  )]
+  combinations = [CombinationData(                       &
+     & combination = QpointCombination([QpointPower::]), &
+     & total_power = 0,                                  &
+     & no_qpoints  = 0,                                  &
+     & wavevector  = fracvec(zeroes(3))                  )]
   ! Construct all q-point combinations up to max_power.
   ! After iteration `i` of the loop, `combinations` contains the q-point
   !    combinations corresponding to the first `i` q-points, with
-  !    total_power <= max_power.
+  !    total_power <= max_power and no_qpoints <= max_qpoints.
   ! If conserve_momentum is true then the final iteration prunes combinations
   !    which do not conserve momentum.
   do i=1,size(powers)
@@ -124,8 +130,11 @@ module procedure generate_qpoint_combinations
     if (allocated(new_combinations)) then
       deallocate(new_combinations, stat=ialloc); call err(ialloc)
     endif
-    allocate( new_combinations( size(combinations)            &
-            &                 * (1+size(powers(i)%powers)) ), &
+    allocate( new_combinations(                                   &
+            &      size(combinations)                             &
+            &    * (1+size(powers(i)%powers))                     &
+            &    - count(combinations%no_qpoints==max_qpoints)    &
+            &    * size(powers(i)%powers)                      ), &
             & stat=ialloc); call err(ialloc)
     
     ! Loop over the combinations from the previous `i` loop iteration,
@@ -142,8 +151,12 @@ module procedure generate_qpoint_combinations
         endif
       endif
       
+      if (combinations(j)%no_qpoints==max_qpoints) then
+        cycle
+      endif
+      
       do k=1,size(powers(i)%powers)
-        if ( combinations(j)%combination_power &
+        if ( combinations(j)%total_power       &
          & + powers(i)%powers(k)%total_power() &
          & > max_power                         ) then
           exit
@@ -153,9 +166,10 @@ module procedure generate_qpoint_combinations
         new_combinations(l)%combination%qpoints_ = [ &
              & combinations(j)%combination%qpoints_, &
              & powers(i)%powers(k)                   ]
-        new_combinations(l)%combination_power =  &
-           &   combinations(j)%combination_power &
+        new_combinations(l)%total_power =  &
+           &   combinations(j)%total_power &
            & + powers(i)%powers(k)%total_power()
+        new_combinations(l)%no_qpoints = new_combinations(l)%no_qpoints + 1
         new_combinations(l)%wavevector = combinations(j)%wavevector &
                                      & + powers(i)%wavevectors(k)
         if (i==size(powers)) then
@@ -173,12 +187,12 @@ module procedure generate_qpoint_combinations
   ! Separate the combinations by total power.
   allocate(no_combinations(max_power+1), stat=ialloc); call err(ialloc)
   do power=0,max_power
-    no_combinations(power+1) = count(combinations%combination_power==power)
+    no_combinations(power+1) = count(combinations%total_power==power)
     allocate( output(power+1)%combinations(no_combinations(power+1)), &
             & stat=ialloc); call err(ialloc)
   enddo
   do i=1,size(combinations)
-    power = combinations(i)%combination_power
+    power = combinations(i)%total_power
     output(power+1)%combinations(no_combinations(power+1)) = &
        & combinations(i)%combination
     no_combinations(power+1) = no_combinations(power+1)-1

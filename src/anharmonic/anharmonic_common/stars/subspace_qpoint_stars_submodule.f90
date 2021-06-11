@@ -69,6 +69,7 @@ module procedure generate_subspace_qpoint_stars
     output(i)%powers = generate_qpoint_stars( subspace_qpoints,       &
                                             & qpoint_symmetry_groups, &
                                             & max_power,              &
+                                            & max_qpoint_coupling,    &
                                             & conserve_momentum       )
   enddo
 end procedure

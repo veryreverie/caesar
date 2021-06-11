@@ -114,6 +114,7 @@ subroutine test_generate_qpoint_combinations()
   type :: TestCase
     type(QpointData),         allocatable :: qpoints(:)
     integer                               :: max_power
+    integer,                  allocatable :: max_qpoint_coupling
     logical,                  allocatable :: conserve_momentum
     type(QpointCombinations), allocatable :: output(:)
   end type
@@ -121,6 +122,7 @@ subroutine test_generate_qpoint_combinations()
   type(QpointData),         allocatable :: qpoints(:)
   type(QpointCombinations), allocatable :: qpoint_combinations(:)
   
+  type(TestCase)              :: test_case
   type(TestCase), allocatable :: test_cases(:)
   
   type(QpointCombinations), allocatable :: combinations(:)
@@ -129,7 +131,7 @@ subroutine test_generate_qpoint_combinations()
   
   logical :: check
   
-  integer :: i,j
+  integer :: i,j,k,l,ialloc
   
   qpoints = [ QpointData( FractionVector(str('   0    0    0')), 1, 1), &
             & QpointData( FractionVector(str(' 1/2    0    0')), 2, 2), &
@@ -148,34 +150,40 @@ subroutine test_generate_qpoint_combinations()
      &    power        = 1,                                  &
      &    combinations = [ QpointCombination:: ] )           ]
   
-  test_cases = [ test_cases,                                &
-     & TestCase(                                            &
-     &    qpoints           = [ QpointData:: ],             &
-     &    max_power         = 0,                            &
-     &    output            = qpoint_combinations([1]) ),   &
-     & TestCase(                                            &
-     &    qpoints           = [ QpointData:: ],             &
-     &    max_power         = 0,                            &
-     &    conserve_momentum = .true.,                       &
-     &    output            = qpoint_combinations([1]) ),   &
-     & TestCase(                                            &
-     &    qpoints           = qpoints([1]),                 &
-     &    max_power         = 0,                            &
-     &    output            = qpoint_combinations([1]) ),   &
-     & TestCase(                                            &
-     &    qpoints           = qpoints([1]),                 &
-     &    max_power         = 0,                            &
-     &    conserve_momentum = .true.,                       &
-     &    output            = qpoint_combinations([1]) ),   &
-     & TestCase(                                            &
-     &    qpoints           = [ QpointData:: ],             &
-     &    max_power         = 1,                            &
-     &    output            = qpoint_combinations([1,2]) ), &
-     & TestCase(                                            &
-     &    qpoints           = [ QpointData:: ],             &
-     &    max_power         = 1,                            &
-     &    conserve_momentum = .true.,                       &
-     &    output            = qpoint_combinations([1,2]) )  ]
+  do i=1,2
+    do j=1,2
+      do k=1,3
+        do l=1,2
+          test_case = TestCase( qpoints   = [QpointData::],         &
+                              & max_power = j-1,                    &
+                              & output    = qpoint_combinations(:j) )
+          
+          if (i==2) then
+            test_case%qpoints = qpoints([1])
+          endif
+          
+          if (k==2) then
+            test_case%max_qpoint_coupling = 1
+          elseif (k==3) then
+            test_case%max_qpoint_coupling = 0
+          endif
+          
+          if (l==2) then
+            test_case%conserve_momentum = .false.
+          elseif (l==3) then
+            test_case%conserve_momentum = .true.
+          endif
+          
+          ! Skip non-trivial cases.
+          if (i==2 .and. j==2 .and. k<3) then
+            cycle
+          endif
+          
+          test_cases = [test_cases, test_case]
+        enddo
+      enddo
+    enddo
+  enddo
   
   ! Add test cases containing only q1.
   qpoint_combinations = [                                        &
@@ -189,50 +197,66 @@ subroutine test_generate_qpoint_combinations()
      &    power        = 2,                                      &
      &    combinations = [ QpointCombination(str('(q1^2)')) ] )  ]
   
-  test_cases = [ test_cases,                              &
-     & TestCase(                                          &
-     &    qpoints           = qpoints([1]),               &
-     &    max_power         = 1,                          &
-     &    output            = qpoint_combinations(:2) ),  &
-     & TestCase(                                          &
-     &    qpoints           = qpoints([1]),               &
-     &    max_power         = 1,                          &
-     &    conserve_momentum = .true.,                     &
-     &    output            = qpoint_combinations(:2) ),  &
-     & TestCase(                                          &
-     &    qpoints           = qpoints([1]),               &
-     &    max_power         = 2,                          &
-     &    output            = qpoint_combinations(:3) ),  &
-     & TestCase(                                          &
-     &    qpoints           = qpoints([1]),               &
-     &    max_power         = 2,                          &
-     &    conserve_momentum = .true.,                     &
-     &    output            = qpoint_combinations(:3) )   ]
+  do i=1,2
+    do j=1,3
+      do k=1,3
+        test_case = TestCase( qpoints   = qpoints([1]),             &
+                            & max_power = i,                        &
+                            & output    = qpoint_combinations(:i+1) )
+        
+        if (j==2) then
+          test_case%max_qpoint_coupling = 1
+        elseif (j==3) then
+          test_case%max_qpoint_coupling = 0
+          do l=2,size(test_case%output)
+            test_case%output(l)%combinations = [QpointCombination::]
+          enddo
+        endif
+        
+        if (k==2) then
+          test_case%conserve_momentum = .false.
+        elseif (k==3) then
+          test_case%conserve_momentum = .true.
+        endif
+        
+        test_cases = [test_cases, test_case]
+      enddo
+    enddo
+  enddo
   
   ! Add test cases for q2 and q3 without conserved momentum.
-  qpoint_combinations = [                                               &
-     & QpointCombinations(                                              &
-     &    power        = 0,                                             &
-     &    combinations = [ QpointCombination(str('()')) ] ),            &
-     & QpointCombinations(                                              &
-     &    power        = 1,                                             &
-     &    combinations = [ QpointCombination(str('(q2^1)')),            &
-     &                     QpointCombination(str('(q3^1)'))  ] ),       &
-     & QpointCombinations(                                              &
-     &    power        = 2,                                             &
-     &    combinations = [ QpointCombination(str('(q2^2)')),            &
-     &                     QpointCombination(str('(q2^1)*(q3^1)')),     &
-     &                     QpointCombination(str('(q3^2)'))         ] ) ]
+  qpoint_combinations = [                                                &
+     & QpointCombinations(                                               &
+     &    power        = 0,                                              &
+     &    combinations = [ QpointCombination(str('()')) ] ),             &
+     & QpointCombinations(                                               &
+     &    power        = 1,                                              &
+     &    combinations = [ QpointCombination(str('(q2^1)')),             &
+     &                     QpointCombination(str('(q3^1)'))  ] ),        &
+     & QpointCombinations(                                               &
+     &    power        = 2,                                              &
+     &    combinations = [ QpointCombination(str('(q2^2)')),             &
+     &                     QpointCombination(str('(q2^1)*(q3^1)')),      &
+     &                     QpointCombination(str('(q3^2)'))         ] ), &
+     & QpointCombinations(                                               &
+     &    power        = 2,                                              &
+     &    combinations = [ QpointCombination(str('(q2^2)')),             &
+     &                     QpointCombination(str('(q3^2)'))  ] )         ]
   
-  test_cases = [ test_cases,                             &
-     & TestCase(                                         &
-     &    qpoints           = qpoints([2,3]),            &
-     &    max_power         = 1,                         &
-     &    output            = qpoint_combinations(:2) ), &
-     & TestCase(                                         &
-     &    qpoints           = qpoints([2,3]),            &
-     &    max_power         = 2,                         &
-     &    output            = qpoint_combinations(:3) )  ]
+  test_cases = [ test_cases,                                   &
+     & TestCase(                                               &
+     &    qpoints             = qpoints([2,3]),                &
+     &    max_power           = 1,                             &
+     &    output              = qpoint_combinations(:2) ),     &
+     & TestCase(                                               &
+     &    qpoints             = qpoints([2,3]),                &
+     &    max_power           = 2,                             &
+     &    output              = qpoint_combinations(:3) ),     &
+     & TestCase(                                               &
+     &    qpoints             = qpoints([2,3]),                &
+     &    max_power           = 2,                             &
+     &    max_qpoint_coupling = 1,                             &
+     &    output              = qpoint_combinations([1,2,4]) ) ]
   
   ! Add test cases for q2 and q3 with conserved momentum.
   qpoint_combinations = [                                        &
@@ -308,23 +332,47 @@ subroutine test_generate_qpoint_combinations()
      &    output            = qpoint_combinations(:4) ) ]
   
   do i=1,size(test_cases)
-    associate( qpoints               => test_cases(i)%qpoints,           &
-             & max_power             => test_cases(i)%max_power,         &
-             & conserve_momentum     => test_cases(i)%conserve_momentum, &
-             & expected_combinations => test_cases(i)%output             )
+    associate( qpoints               => test_cases(i)%qpoints,             &
+             & max_power             => test_cases(i)%max_power,           &
+             & max_qpoint_coupling   => test_cases(i)%max_qpoint_coupling, &
+             & conserve_momentum     => test_cases(i)%conserve_momentum,   &
+             & expected_combinations => test_cases(i)%output               )
       
-      combinations = generate_qpoint_combinations( qpoints,          &
-                                                 & max_power,        &
-                                                 & conserve_momentum )
+      combinations = generate_qpoint_combinations( qpoints,             &
+                                                 & max_power,           &
+                                                 & max_qpoint_coupling, &
+                                                 & conserve_momentum    )
       
-      message =  [ str('q-points:'),              &
-                 & str(qpoints),                  &
-                 & str('Max power:'),             &
-                 & str(max_power),                &
-                 & str('Combinations:'),          &
-                 & str(combinations),             &
-                 & str('Expected combinations:'), &
-                 & str(expected_combinations)     ]
+      message = [ str('q-points:'),              &
+                & str(qpoints),                  &
+                & str('Max power:'),             &
+                & str(max_power)                 ]
+      
+      if (allocated(test_cases(i)%max_qpoint_coupling)) then
+        message = [ message,                     &
+                  & str('max_qpoint_coupling:'), &
+                  & str(max_qpoint_coupling)     ]
+      else
+        message = [ message,                     &
+                  & str('max_qpoint_coupling:'), &
+                  & str('Not allocated')         ]
+      endif
+      
+      if (allocated(test_cases(i)%conserve_momentum)) then
+        message = [ message,                     &
+                  & str('conserve_momentum:'), &
+                  & str(conserve_momentum)     ]
+      else
+        message = [ message,                     &
+                  & str('conserve_momentum:'), &
+                  & str('Not allocated')         ]
+      endif
+      
+      message = [ message,                       &
+                & str('Combinations:'),          &
+                & str(combinations),             &
+                & str('Expected combinations:'), &
+                & str(expected_combinations)     ]
       
       check = size(combinations)==size(expected_combinations)
       @assertTrue(check, char(message))

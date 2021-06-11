@@ -456,15 +456,27 @@ module caesar_logic_module
       logical, intent(in), optional :: mask(:)
       integer, allocatable          :: output(:)
     end function
-
+  end interface
+  
+  interface set_default
     !> Takes an `optional_argument`, and its `default_value`.
     !> Returns the `optional_argument` if present, or the `default_value`
     !>    if not.
-    impure elemental module function set_default(optional_argument, &
+    impure elemental module function set_default_logical(optional_argument, &
        & default_value) result(output) 
       logical, intent(in), optional :: optional_argument
       logical, intent(in)           :: default_value
       logical                       :: output
+    end function
+    
+    !> Takes an `optional_argument`, and its `default_value`.
+    !> Returns the `optional_argument` if present, or the `default_value`
+    !>    if not.
+    impure elemental module function set_default_integer(optional_argument, &
+       & default_value) result(output) 
+      integer, intent(in), optional :: optional_argument
+      integer, intent(in)           :: default_value
+      integer                       :: output
     end function
   end interface
   

@@ -60,6 +60,7 @@ module procedure generate_basis_functions_SubspaceCombination
     combination_qpoint_stars = generate_combination_qpoint_stars( &
                                        & qpoint_star_products(i), &
                                        & qpoint_symmetry_groups,  &
+                                       & max_qpoint_coupling,     &
                                        & .true.,                  &
                                        & qpoints                  )
     do j=1,size(combination_qpoint_stars)
@@ -78,23 +79,6 @@ module procedure generate_basis_functions_SubspaceCombination
                &                               logfile                ) ]
     enddo
   enddo
-  
-  !! Generate the complex monomials corresponding to the subspace combination,
-  !!    with coefficients such that symmetries are unitary.
-  !complex_monomials = subspace_combination%complex_monomials( &
-  !     & maximum_coupling_order,                              &
-  !     & subspaces,                                           &
-  !     & complex_modes,                                       &
-  !     & qpoints,                                             &
-  !     & conserve_momentum=.true.,                            &
-  !     & conserve_subspace_momentum=vscf_basis_functions_only )
-  !
-  !output = monomials_to_basis_functions( complex_monomials,     &
-  !                                     & structure,             &
-  !                                     & complex_modes,         &
-  !                                     & qpoints,               &
-  !                                     & degenerate_symmetries, &
-  !                                     & logfile                )
 end procedure
 
 ! Takes an array of complex monomials, and generates the basis functions
@@ -296,6 +280,7 @@ module procedure optimise_BasisFunctions
        & modes                  = anharmonic_data%complex_modes,             &
        & qpoints                = anharmonic_data%qpoints,                   &
        & qpoint_symmetry_groups = anharmonic_data%qpoint_symmetry_groups,    &
+       & max_qpoint_coupling    = anharmonic_data%max_qpoint_coupling,       &
        & max_power              = anharmonic_data%potential_expansion_order, &
        & conserve_momentum      = .true.                                     )
   endif
@@ -372,27 +357,6 @@ module function construct_basis_polynomials(subspace,order,               &
              &   i=1,                                          &
              &   size(basis_functions)                       ) ]
   enddo
-  
-  !subspace_combination = SubspaceCombination( ids    = [subspace%id], &
-  !                                          & powers = [order]        )
-  !complex_monomials = subspace_combination%complex_monomials( &
-  !                & anharmonic_data%maximum_coupling_order,   &
-  !                & [subspace],                               &
-  !                & anharmonic_data%complex_modes,            &
-  !                & anharmonic_data%qpoints,                  &
-  !                & conserve_momentum=.true.,                 &
-  !                & conserve_subspace_momentum=.true.         )
-  !
-  !basis_functions = monomials_to_basis_functions( &
-  !               & complex_monomials,             &
-  !               & anharmonic_data%structure,     &
-  !               & anharmonic_data%complex_modes, &
-  !               & anharmonic_data%qpoints,       &
-  !               & symmetries                     )
-  !
-  !output = [( basis_functions(i)%complex_representation_, &
-  !          & i=1,                                        &
-  !          & size(basis_functions)                       )]
   
   ! A term |u|^(2n) scales like (2Nw)^{-n}.
   ! w must be capped so that it is not considered to be too small, otherwise

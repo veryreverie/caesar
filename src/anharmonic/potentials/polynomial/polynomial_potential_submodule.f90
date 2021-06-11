@@ -78,7 +78,8 @@ module procedure generate_sampling_points_PolynomialPotential
      & qpoints                = anharmonic_data%qpoints,                   &
      & qpoint_symmetry_groups = anharmonic_data%qpoint_symmetry_groups,    &
      & max_power              = anharmonic_data%potential_expansion_order, &
-     & conserve_momentum      = anharmonic_data%maximum_coupling_order==1  &
+     & max_qpoint_coupling    = anharmonic_data%max_qpoint_coupling,       &
+     & conserve_momentum      = anharmonic_data%max_subspace_coupling==1   &
      &                     .or. anharmonic_data%vscf_basis_functions_only  )
   
   ! Loop over subspace couplings, generating basis functions and sampling
@@ -96,7 +97,8 @@ module procedure generate_sampling_points_PolynomialPotential
     basis_functions(i) = generate_basis_functions(  &
        & anharmonic_data%subspace_couplings(i),     &
        & this%potential_expansion_order_,           &
-       & anharmonic_data%maximum_coupling_order,    &
+       & anharmonic_data%max_subspace_coupling,     &
+       & anharmonic_data%max_qpoint_coupling,       &
        & anharmonic_data%structure,                 &
        & anharmonic_data%complex_modes,             &
        & anharmonic_data%real_modes,                &
@@ -110,14 +112,13 @@ module procedure generate_sampling_points_PolynomialPotential
     call print_line( 'Coupling contains '//size(basis_functions(i))// &
                    & ' basis functions.' )
     
-    sampling_points(i) = generate_sampling_points(      &
-       & anharmonic_data%subspace_couplings(i),         &
-       & basis_functions(i)%basis_functions(),          &
-       & this%potential_expansion_order_,               &
-       & anharmonic_data%maximum_weighted_displacement, &
-       & anharmonic_data%frequency_of_max_displacement, &
-       & anharmonic_data%real_modes,                    &
-       & energy_to_force_ratio                          )
+    sampling_points(i) = generate_sampling_points( &
+       & anharmonic_data%subspace_couplings(i),    &
+       & basis_functions(i)%basis_functions(),     &
+       & this%potential_expansion_order_,          &
+       & anharmonic_data%max_displacement,         &
+       & anharmonic_data%real_modes,               &
+       & energy_to_force_ratio                     )
   enddo
   
   ! --------------------------------------------------
@@ -299,7 +300,8 @@ module procedure generate_stress_PolynomialPotential
      & qpoints                = anharmonic_data%qpoints,                   &
      & qpoint_symmetry_groups = anharmonic_data%qpoint_symmetry_groups,    &
      & max_power              = anharmonic_data%potential_expansion_order, &
-     & conserve_momentum      = anharmonic_data%maximum_coupling_order==1  &
+     & max_qpoint_coupling    = anharmonic_data%max_qpoint_coupling,       &
+     & conserve_momentum      = anharmonic_data%max_subspace_coupling==1   &
      &                     .or. anharmonic_data%vscf_basis_functions_only  )
   
   ! Generate the stress tensor at zero displacement.
@@ -324,7 +326,8 @@ module procedure generate_stress_PolynomialPotential
     basis_functions(i) = generate_stress_basis_functions( &
                 & stress_subspace_coupling(i),            &
                 & stress_expansion_order,                 &
-                & anharmonic_data%maximum_coupling_order, &
+                & anharmonic_data%max_subspace_coupling,  &
+                & anharmonic_data%max_qpoint_coupling,    &
                 & anharmonic_data%structure,              &
                 & anharmonic_data%complex_modes,          &
                 & anharmonic_data%qpoints,                &
@@ -727,8 +730,10 @@ module procedure interpolate_potential_PolynomialPotential
      &         interpolated_anharmonic_data%qpoint_symmetry_groups,    &
      & max_power              =                                        &
      &         interpolated_anharmonic_data%potential_expansion_order, &
+     & max_qpoint_coupling    =                                        &
+     &         interpolated_anharmonic_data%max_qpoint_coupling,       &
      & conserve_momentum      =                                        &
-     &         interpolated_anharmonic_data%maximum_coupling_order==1  &
+     &         interpolated_anharmonic_data%max_subspace_coupling==1   &
      &    .or. interpolated_anharmonic_data%vscf_basis_functions_only  )
   
   potential_ = PolynomialPotential(potential)
@@ -750,7 +755,8 @@ module procedure interpolate_potential_PolynomialPotential
     this%basis_functions_(i) = generate_basis_functions(         &
        & interpolated_anharmonic_data%subspace_couplings(i),     &
        & this%potential_expansion_order_,                        &
-       & interpolated_anharmonic_data%maximum_coupling_order,    &
+       & interpolated_anharmonic_data%max_subspace_coupling,     &
+       & interpolated_anharmonic_data%max_qpoint_coupling,       &
        & interpolated_anharmonic_data%structure,                 &
        & interpolated_anharmonic_data%complex_modes,             &
        & interpolated_anharmonic_data%real_modes,                &

@@ -43,9 +43,10 @@ module procedure generate_qpoint_stars
   
   integer :: i,ialloc
   
-  combinations = generate_qpoint_combinations( qpoints,          &
-                                             & max_power,        &
-                                             & conserve_momentum )
+  combinations = generate_qpoint_combinations( qpoints,             &
+                                             & max_power,           &
+                                             & max_qpoint_coupling, &
+                                             & conserve_momentum    )
   allocate(output(size(combinations)), stat=ialloc); call err(ialloc)
   do i=1,size(output)
     output(i)%power = combinations(i)%power

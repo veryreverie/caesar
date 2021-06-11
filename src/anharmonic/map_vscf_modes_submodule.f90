@@ -25,13 +25,13 @@ module procedure map_vscf_modes_subroutine
   type(ComplexMode),        allocatable :: complex_modes(:)
   type(RealMode),           allocatable :: real_modes(:)
   type(DegenerateSubspace), allocatable :: subspaces(:)
-  real(dp)                              :: frequency_of_max_displacement
+  type(MaxDisplacement)                 :: max_displacement
   
   ! Single-subspace potentials.
   type(PotentialPointer), allocatable :: subspace_potentials(:)
   
   ! Variables for calculating displacements.
-  real(dp),      allocatable  :: unscaled_mode_displacements(:)
+  real(dp),      allocatable  :: fractional_mode_displacements(:)
   real(dp),      allocatable  :: mode_displacements(:)
   real(dp),      allocatable  :: l2_cartesian_displacements(:)
   type(RealMode)              :: mode
@@ -58,7 +58,7 @@ module procedure map_vscf_modes_subroutine
   complex_modes = anharmonic_data%complex_modes
   real_modes = anharmonic_data%real_modes
   subspaces = anharmonic_data%degenerate_subspaces
-  frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
+  max_displacement = anharmonic_data%max_displacement
   
   ! Read in single-subspace potentials.
   subspace_potentials_file = IFile('subspace_potentials.dat')
@@ -68,18 +68,16 @@ module procedure map_vscf_modes_subroutine
   ! --------------------------------------------------
   ! Calculate the value of the VSCF potential along each mode.
   ! --------------------------------------------------
-  unscaled_mode_displacements =                               &
+  fractional_mode_displacements =                             &
      & [(i,i=-no_single_mode_samples,no_single_mode_samples)] &
-     & * anharmonic_data%maximum_weighted_displacement        &
      & / no_single_mode_samples
-  allocate( l2_cartesian_displacements(size(unscaled_mode_displacements)), &
+  allocate( l2_cartesian_displacements(size(fractional_mode_displacements)), &
           & stat=ialloc); call err(ialloc)
   do i=1,size(subspaces)
-    ! Scale displacement by 1/sqrt(frequency).
-    mode_displacements = unscaled_mode_displacements                &
-                     & * sqrt( frequency_of_max_displacement        &
-                     &       / max( subspaces(i)%frequency,         &
-                     &              frequency_of_max_displacement ) )
+    ! Scale displacement by the maximum displacement along the mode.
+    mode_displacements = fractional_mode_displacements      &
+                     & * max_displacement%max_displacement( &
+                     &               subspaces(i)%frequency )
     
     
     allocate(mode_maps(size(subspaces(i))), stat=ialloc); call err(ialloc)

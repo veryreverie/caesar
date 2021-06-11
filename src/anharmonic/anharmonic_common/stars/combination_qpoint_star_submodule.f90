@@ -104,6 +104,7 @@ module procedure generate_combination_qpoint_stars
   
   combinations = generate_combination_qpoint_combinations( &
                                     & qpoint_star_product, &
+                                    & max_qpoint_coupling, &
                                     & conserve_momentum,   &
                                     & qpoints              )
   

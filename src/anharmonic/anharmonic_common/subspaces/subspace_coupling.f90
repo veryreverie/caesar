@@ -126,13 +126,13 @@ module caesar_subspace_coupling_module
   interface
     !> Generates the set of all [[SubspaceCombination(type)]]s
     !>    containing subspaces from the list `subspaces`.
-    !> The couplings contain between `1` and `maximum_coupling_order`
+    !> The couplings contain between `1` and `max_subspace_coupling`
     !>    separate subspaces.
-    !> `maximum_coupling_order` must be at least 1.
+    !> `max_subspace_coupling` must be at least 1.
     module function generate_coupled_subspaces(subspaces, &
-       & maximum_coupling_order) result(output) 
+       & max_subspace_coupling) result(output) 
       type(DegenerateSubspace), intent(in) :: subspaces(:)
-      integer,                  intent(in) :: maximum_coupling_order
+      integer,                  intent(in) :: max_subspace_coupling
       type(SubspaceCoupling), allocatable  :: output(:)
     end function
   end interface

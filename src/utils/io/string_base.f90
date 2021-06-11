@@ -54,14 +54,16 @@ module caesar_string_base_module
     end subroutine
 
     !> Equality comparison between [[StringBase(type)]] and `character(*)`.
-    module function equality_StringBase_character(this,that) result(output)
+    impure elemental module function equality_StringBase_character(this,that) &
+       & result(output)
       class(StringBase), intent(in) :: this
       character(*),      intent(in) :: that
       logical                       :: output
     end function
     
     !> Equality comparison between `character(*)` and [[StringBase(type)]].
-    module function equality_character_StringBase(this,that) result(output)
+    impure elemental module function equality_character_StringBase(this,that) &
+       & result(output)
       character(*),      intent(in) :: this
       class(StringBase), intent(in) :: that
       logical                       :: output
@@ -77,16 +79,16 @@ module caesar_string_base_module
     end function
 
     !> Non-equality comparison between [[StringBase(type)]] and `character(*)`.
-    module function non_equality_StringBase_character(this,that) &
-       & result(output)
+    impure elemental module function non_equality_StringBase_character(this, &
+       & that) result(output)
       class(StringBase), intent(in) :: this
       character(*),      intent(in) :: that
       logical                       :: output
     end function
     
     !> Non-equality comparison between `character(*)` and [[StringBase(type)]].
-    module function non_equality_character_StringBase(this,that) &
-       & result(output)
+    impure elemental module function non_equality_character_StringBase(this, &
+       & that) result(output)
       character(*),      intent(in) :: this
       class(StringBase), intent(in) :: that
       logical                       :: output

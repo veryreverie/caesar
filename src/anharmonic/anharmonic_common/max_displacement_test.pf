@@ -4,4 +4,308 @@ module max_displacement_test
   use caesar_anharmonic_common_module
   implicit none
 contains
+
+@test
+subroutine test_MaxDisplacement()
+  type :: TestCase
+    real(dp) :: maximum_weighted_displacement
+    real(dp) :: frequency_of_max_displacement
+    real(dp) :: max_energy_of_displacement
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(MaxDisplacement) :: max_displacement
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j
+  
+  test_cases = [ TestCase(1.0_dp, 1.0_dp, 0.5_dp), &
+               & TestCase(2.0_dp, 0.1_dp, 0.02_dp) ]
+  
+  do i=1,size(test_cases)
+    associate( maximum_weighted_displacement =>                &
+             &    test_cases(i)%maximum_weighted_displacement, &
+             & frequency_of_max_displacement =>                &
+             &    test_cases(i)%frequency_of_max_displacement, &
+             & max_energy_of_displacement    =>                &
+             &    test_cases(i)%max_energy_of_displacement     )
+      do j=1,4
+        if (j==1) then
+          max_displacement = MaxDisplacement( maximum_weighted_displacement, &
+                                            & frequency_of_max_displacement, &
+                                            & max_energy_of_displacement     )
+          message = [ str('maximum_weighted_displacement:'), &
+                    & str(maximum_weighted_displacement),    &
+                    & str('frequency_of_max_displacement:'), &
+                    & str(frequency_of_max_displacement),    &
+                    & str('max_energy_of_displacement:'),    &
+                    & str(max_energy_of_displacement)        ]
+        elseif (j==2) then
+          max_displacement = MaxDisplacement(                                 &
+             & maximum_weighted_displacement = maximum_weighted_displacement, &
+             & frequency_of_max_displacement = frequency_of_max_displacement  )
+          message = [ str('maximum_weighted_displacement:'), &
+                    & str(maximum_weighted_displacement),    &
+                    & str('frequency_of_max_displacement:'), &
+                    & str(frequency_of_max_displacement)     ]
+        elseif (j==3) then
+          max_displacement = MaxDisplacement(                                 &
+             & maximum_weighted_displacement = maximum_weighted_displacement, &
+             & max_energy_of_displacement    = max_energy_of_displacement     )
+          message = [ str('maximum_weighted_displacement:'), &
+                    & str(maximum_weighted_displacement),    &
+                    & str('max_energy_of_displacement:'),    &
+                    & str(max_energy_of_displacement)        ]
+        else
+          max_displacement = MaxDisplacement(                                 &
+             & frequency_of_max_displacement = frequency_of_max_displacement, &
+             & max_energy_of_displacement    = max_energy_of_displacement     )
+          message = [ str('frequency_of_max_displacement:'), &
+                    & str(frequency_of_max_displacement),    &
+                    & str('max_energy_of_displacement:'),    &
+                    & str(max_energy_of_displacement)        ]
+        endif
+        
+        check = abs( max_displacement%maximum_weighted_displacement &
+                 & - maximum_weighted_displacement                  )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = abs( max_displacement%frequency_of_max_displacement &
+                 & - frequency_of_max_displacement                  )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = abs( max_displacement%max_energy_of_displacement &
+                 & - max_energy_of_displacement                  )<1e-10_dp
+        @assertTrue(check, char(message))
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine check_MaxDisplacement_displacement()
+  type :: TestCase
+    real(dp)            :: maximum_displacement
+    type(StructureData) :: structure
+    real(dp)            :: frequency_of_max_displacement
+    real(dp)            :: max_energy_of_displacement
+    real(dp)            :: maximum_weighted_displacement
+  end type
+  
+  type(BasicStructure), allocatable :: basic_structures(:)
+  type(StructureData),  allocatable :: structures(:)
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(MaxDisplacement) :: max_displacement
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i,j,ialloc
+  
+  basic_structures = [                                                    &
+     & BasicStructure(                                                    &
+     &   mat([1.0_dp,0.0_dp,0.0_dp,                                       &
+     &        0.0_dp,1.0_dp,0.0_dp,                                       &
+     &        0.0_dp,0.0_dp,1.0_dp],                                      &
+     &       [3,3]                   ),                                   &
+     &   [                                                                &
+     &     BasicAtom(str('H'), 1837.5_dp, vec([0.0_dp,0.0_dp,0.0_dp]))    &
+     &   ]                                                                &
+     & ),                                                                 &
+     & BasicStructure(                                                    &
+     &   mat([2.1_dp,1.6_dp,3.2_dp,                                       &
+     &        5.1_dp,9.0_dp,8.1_dp,                                       &
+     &        3.2_dp,6.0_dp,1.2_dp],                                      &
+     &       [3,3]                   ),                                   &
+     &   [                                                                &
+     &     BasicAtom(str('C'),  21894.1_dp, vec([0.0_dp,0.0_dp,0.0_dp])), &
+     &     BasicAtom(str('Li'), 12652.7_dp, vec([1.0_dp,0.2_dp,3.1_dp])), &
+     &     BasicAtom(str('Li'), 12652.7_dp, vec([0.2_dp,1.0_dp,3.1_dp]))  &
+     &   ]                                                                &
+     &)                                                                   ]
+  
+  allocate(structures(size(basic_structures)), stat=ialloc); call err(ialloc)
+  do i=1,size(basic_structures)
+    structures(i) = StructureData(basic_structures(i))
+  enddo
+  
+  test_cases = [ TestCase( 1.0_dp,                   &
+               &           structures(1),            &
+               &           1.0_dp,                   &
+               &           0.5_dp*1837.5_dp,         &
+               &           1.0_dp*sqrt(1837.5_dp) ), &
+               & TestCase( 2.0_dp,                   &
+               &           structures(1),            &
+               &           0.1_dp,                   &
+               &           0.02_dp*1837.5_dp,        &
+               &           2.0_dp*sqrt(1837.5_dp) ), &
+               & TestCase( 1.0_dp,                   &
+               &           structures(2),            &
+               &           1.0_dp,                   &
+               &           0.5_dp*12652.7_dp,        &
+               &           1.0_dp*sqrt(12652.7_dp) ) ]
+  
+  do i=1,size(test_cases)
+    associate( maximum_displacement          =>                &
+             &    test_cases(i)%maximum_displacement,          &
+             & structure                     =>                &
+             &    test_cases(i)%structure,                     &
+             & frequency_of_max_displacement =>                &
+             &    test_cases(i)%frequency_of_max_displacement, &
+             & max_energy_of_displacement    =>                &
+             &    test_cases(i)%max_energy_of_displacement,    &
+             & maximum_weighted_displacement =>                &
+             &    test_cases(i)%maximum_weighted_displacement  )
+      do j=1,3
+        message = [ str('maximum_displacement:'), &
+                  & str(maximum_displacement),    &
+                  & str('structure:'),            &
+                  & str(structure)                ]
+        if (j==1) then
+          max_displacement = MaxDisplacement( maximum_displacement,          &
+                                            & structure,                     &
+                                            & frequency_of_max_displacement, &
+                                            & max_energy_of_displacement     )
+          message = [ message, &
+                    & str('frequency_of_max_displacement:'), &
+                    & str(frequency_of_max_displacement),    &
+                    & str('max_energy_of_displacement:'),    &
+                    & str(max_energy_of_displacement)        ]
+        elseif (j==2) then
+          max_displacement = MaxDisplacement(                                &
+             & maximum_displacement,                                         &
+             & structure,                                                    &
+             & frequency_of_max_displacement = frequency_of_max_displacement )
+          message = [ message, &
+                    & str('frequency_of_max_displacement:'), &
+                    & str(frequency_of_max_displacement)     ]
+        else
+          max_displacement = MaxDisplacement(                          &
+             & maximum_displacement,                                   &
+             & structure,                                              &
+             & max_energy_of_displacement = max_energy_of_displacement )
+          message = [ message,                            &
+                    & str('max_energy_of_displacement:'), &
+                    & str(max_energy_of_displacement)     ]
+        endif
+        
+        message = [ message,                               &
+                  & str('maximum_weighted_displacement:'), &
+                  & str(maximum_weighted_displacement)     ]
+        
+        check = abs( max_displacement%maximum_weighted_displacement &
+                 & - maximum_weighted_displacement                  )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = abs( max_displacement%frequency_of_max_displacement &
+                 & - frequency_of_max_displacement                  )<1e-10_dp
+        @assertTrue(check, char(message))
+        check = abs( max_displacement%max_energy_of_displacement &
+                 & - max_energy_of_displacement                  )<1e-10_dp
+        @assertTrue(check, char(message))
+      enddo
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_max_displacement()
+  type :: TestCase
+    type(MaxDisplacement) :: max_displacement
+    real(dp), allocatable :: frequencies(:)
+    real(dp), allocatable :: outputs(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  real(dp), allocatable :: displacements(:)
+  
+  type(String), allocatable :: message(:)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [ &
+     & TestCase( MaxDisplacement(1.0_dp, 1.0_dp, 0.5_dp),        &
+     &           [-1.0_dp, 0.0_dp, 1.0_dp, 2.0_dp, 3.0_dp],      &
+     &           [1.0_dp, 1.0_dp, 1.0_dp, 1/2.0_dp, 1/3.0_dp] ), &
+     & TestCase( MaxDisplacement(0.1_dp, 2.0_dp, 0.02_dp),       &
+     &           [(0.1_dp*i-1.0_dp,i=1,100)],                    &
+     &           [(0.1_dp,i=1,30),                               &
+     &            (0.1_dp*2.0_dp/(0.1_dp*i-1.0_dp),i=31,100)] )  ]
+  
+  do i=1,size(test_cases)
+    associate( max_displacement       => test_cases(i)%max_displacement, &
+             & frequencies            => test_cases(i)%frequencies,      &
+             & expected_displacements => test_cases(i)%outputs           )
+      displacements = max_displacement%max_displacement(frequencies)
+      
+      message = [ str('max_displacement:'),       &
+                & str(max_displacement),          &
+                & str('frequencies:'),            &
+                & str(frequencies),               &
+                & str('displacements:'),          &
+                & str(displacements),             &
+                & str('expected_displacements:'), &
+                & str(expected_displacements)     ]
+      
+      check = size(displacements)==size(expected_displacements)
+      @assertTrue(check, char(message))
+      
+      check = all(abs(displacements-expected_displacements)<1e-10_dp)
+      @assertTrue(check, char(message))
+    end associate
+  enddo
+end subroutine
+
+@test
+subroutine test_io()
+  type :: TestCase
+    type(MaxDisplacement)     :: max_displacement
+    type(String), allocatable :: lines(:)
+  end type
+  
+  type(TestCase), allocatable :: test_cases(:)
+  
+  type(MaxDisplacement)     :: new_max_displacement
+  type(String), allocatable :: new_lines(:)
+  
+  logical :: check
+  
+  integer :: i
+  
+  test_cases = [                                                     &
+     & TestCase( MaxDisplacement(1.0_dp, 0.1_dp, 0.005_dp),          &
+     &           [ 'Max. weighted displacement     : '//1.0_dp,      &
+     &             'Frequency of max. displacement : '//0.1_dp,      &
+     &             'Max. energy of displacement    : '//0.005_dp ] ) ]
+  
+  do i=1,size(test_cases)
+    associate( max_displacement => test_cases(i)%max_displacement, &
+             & lines            => test_cases(i)%lines             )
+      new_max_displacement = MaxDisplacement(lines)
+      check = abs( new_max_displacement%maximum_weighted_displacement   &
+          &      - max_displacement%maximum_weighted_displacement     ) &
+          & < 1e-10_dp
+      @assertTrue(check, char(lines))
+      check = abs( new_max_displacement%frequency_of_max_displacement   &
+          &      - max_displacement%frequency_of_max_displacement     )  &
+          & < 1e-10_dp
+      @assertTrue(check, char(lines))
+      check = abs( new_max_displacement%max_energy_of_displacement   &
+          &      - max_displacement%max_energy_of_displacement     ) &
+          & < 1e-10_dp
+      @assertTrue(check, char(lines))
+      
+      new_lines = str(max_displacement)
+      @assertTrue(size(new_lines)==size(lines), char(lines))
+      @assertTrue(all(new_lines==lines), char(lines))
+    end associate
+  enddo
+end subroutine
 end module

@@ -429,11 +429,12 @@ module procedure calculate_anharmonic_observables_subroutine
   ! The starting frequencies must be at least equal to a number of values
   !    to ensure that convergence isn't falsely reached early
   !    because the frequency changes with each step are too small.
-  starting_frequencies = [max(                                    &
-     & subspaces%frequency,                                       &
-     & maxval([ anharmonic_data%frequency_of_max_displacement,    &
-     &          min_frequency,                                    &
-     &          energy_convergence                             ]) )]
+  starting_frequencies = [max(                                               &
+     & subspaces%frequency,                                                  &
+     & maxval([                                                              &
+     &    anharmonic_data%max_displacement%frequency_of_max_displacement,    &
+     &    min_frequency,                                                     &
+     &    energy_convergence                                              ]) )]
   
   ! Construct convergence data.
   convergence_data = ConvergenceData( pre_pulay_iterations,     &

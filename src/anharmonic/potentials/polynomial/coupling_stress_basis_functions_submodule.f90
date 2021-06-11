@@ -174,7 +174,8 @@ module procedure generate_stress_basis_functions_SubspaceCoupling
   do i=1,size(subspace_combinations)
     combination_basis_functions = generate_stress_basis_functions( &
                                       & subspace_combinations(i),  &
-                                      & maximum_coupling_order,    &
+                                      & max_subspace_coupling,     &
+                                      & max_qpoint_coupling,       &
                                       & structure,                 &
                                       & complex_modes,             &
                                       & qpoints,                   &

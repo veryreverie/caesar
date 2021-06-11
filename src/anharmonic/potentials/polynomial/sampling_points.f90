@@ -70,15 +70,13 @@ module caesar_sampling_points_module
   
   interface
     ! Generates a set of sampling points for sampling a set of basis functions.
-    module function generate_sampling_points(subspace_coupling,       &
-       & basis_functions,potential_expansion_order,                   &
-       & maximum_weighted_displacement,frequency_of_max_displacement, &
+    module function generate_sampling_points(subspace_coupling,      &
+       & basis_functions,potential_expansion_order,max_displacement, &
        & real_modes,energy_to_force_ratio) result(output) 
       type(SubspaceCoupling), intent(in) :: subspace_coupling
       type(BasisFunction),    intent(in) :: basis_functions(:) 
       integer,                intent(in) :: potential_expansion_order
-      real(dp),               intent(in) :: maximum_weighted_displacement
-      real(dp),               intent(in) :: frequency_of_max_displacement
+      type(MaxDisplacement),  intent(in) :: max_displacement
       type(RealMode),         intent(in) :: real_modes(:)
       real(dp),               intent(in) :: energy_to_force_ratio
       type(SamplingPoints)               :: output
@@ -86,14 +84,12 @@ module caesar_sampling_points_module
   end interface
   
   interface
-    module function generate_basis_points(basis_function,         &
-       & potential_expansion_order,maximum_weighted_displacement, &
-       & frequency_of_max_displacement,modes) result(output) 
-      type(BasisFunction), intent(in)         :: basis_function
-      integer,             intent(in)         :: potential_expansion_order
-      real(dp),            intent(in)         :: maximum_weighted_displacement
-      real(dp),            intent(in)         :: frequency_of_max_displacement
-      type(RealMode),      intent(in)         :: modes(:)
+    module function generate_basis_points(basis_function, &
+       & potential_expansion_order,max_displacement,modes) result(output) 
+      type(BasisFunction),   intent(in)       :: basis_function
+      integer,               intent(in)       :: potential_expansion_order
+      type(MaxDisplacement), intent(in)       :: max_displacement
+      type(RealMode),        intent(in)       :: modes(:)
       type(RealModeDisplacement), allocatable :: output(:)
     end function
   end interface

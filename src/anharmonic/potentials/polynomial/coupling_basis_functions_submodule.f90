@@ -197,7 +197,8 @@ module procedure generate_basis_functions_SubspaceCoupling
     ! Generate all basis functions for the subspace combination.
     basis_functions(i)%basis_functions = generate_basis_functions( &
                                       & subspace_combinations(i),  &
-                                      & maximum_coupling_order,    &
+                                      & max_subspace_coupling,     &
+                                      & max_qpoint_coupling,       &
                                       & structure,                 &
                                       & complex_modes,             &
                                       & qpoints,                   &
@@ -260,7 +261,7 @@ module procedure fit_coefficients_CouplingBasisFunctions
   
   ! Calculate the weights to give to each sample.
   energy_differences = sample_results%energy-minval(sample_results%energy)
-  sample_weights = min( 0.00003_dp/(0.00003_dp+energy_differences), &
+  sample_weights = min( 0.0003_dp/(0.0003_dp+energy_differences), &
                       & 0.01_dp)
   
   ! Calculate the energies and forces due to each basis function at each

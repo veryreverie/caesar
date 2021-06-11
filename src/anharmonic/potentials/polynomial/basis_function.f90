@@ -134,12 +134,14 @@ module caesar_basis_function_module
     ! ----------------------------------------------------------------------
     ! Generate basis functions.
     ! ----------------------------------------------------------------------
-    module function generate_basis_functions_SubspaceCombination(             &
-       & subspace_combination,maximum_coupling_order,structure,complex_modes, &
-       & qpoints,subspaces,degenerate_symmetries,vscf_basis_functions_only,   &
-       & qpoint_symmetry_groups,subspace_qpoint_stars,logfile) result(output) 
+    module function generate_basis_functions_SubspaceCombination(         &
+       & subspace_combination,max_subspace_coupling,max_qpoint_coupling,  &
+       & structure,complex_modes,qpoints,subspaces,degenerate_symmetries, &
+       & vscf_basis_functions_only,qpoint_symmetry_groups,                &
+       & subspace_qpoint_stars,logfile) result(output) 
       type(SubspaceCombination), intent(in)    :: subspace_combination
-      integer,                   intent(in)    :: maximum_coupling_order
+      integer,                   intent(in)    :: max_subspace_coupling
+      integer,                   intent(in)    :: max_qpoint_coupling
       type(StructureData),       intent(in)    :: structure
       type(ComplexMode),         intent(in)    :: complex_modes(:)
       type(QpointData),          intent(in)    :: qpoints(:)

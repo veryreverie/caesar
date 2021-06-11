@@ -240,14 +240,15 @@ module caesar_coupling_basis_functions_module
   end interface
   
   interface generate_basis_functions
-    module function generate_basis_functions_SubspaceCoupling(coupling,    &
-       & potential_expansion_order,maximum_coupling_order,structure,       &
-       & complex_modes,real_modes,qpoints,subspaces,degenerate_symmetries, &
-       & vscf_basis_functions_only,qpoint_symmetry_groups,                 &
-       & subspace_qpoint_stars,logfile) result(output) 
+    module function generate_basis_functions_SubspaceCoupling(coupling,  &
+       & potential_expansion_order,max_subspace_coupling,                &
+       & max_qpoint_coupling,structure,complex_modes,real_modes,qpoints, &
+       & subspaces,degenerate_symmetries,vscf_basis_functions_only,      &
+       & qpoint_symmetry_groups,subspace_qpoint_stars,logfile) result(output) 
       type(SubspaceCoupling),    intent(in)    :: coupling
       integer,                   intent(in)    :: potential_expansion_order
-      integer,                   intent(in)    :: maximum_coupling_order
+      integer,                   intent(in)    :: max_subspace_coupling
+      integer,                   intent(in)    :: max_qpoint_coupling
       type(StructureData),       intent(in)    :: structure
       type(ComplexMode),         intent(in)    :: complex_modes(:)
       type(RealMode),            intent(in)    :: real_modes(:)

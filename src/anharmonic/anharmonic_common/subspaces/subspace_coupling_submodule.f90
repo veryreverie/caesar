@@ -94,8 +94,8 @@ module procedure generate_coupled_subspaces
   integer :: i,j,k,ialloc
   
   ! Check input.
-  if (maximum_coupling_order<1) then
-    call print_line(ERROR//': maximum_coupling_order must be at least 1.')
+  if (max_subspace_coupling<1) then
+    call print_line(ERROR//': max_subspace_coupling must be at least 1.')
     call quit()
   endif
   
@@ -104,7 +104,7 @@ module procedure generate_coupled_subspaces
   ! Calculate the number of terms for order=2.
   no_new_terms = (size(subspaces)*(size(subspaces)-1))/2
   
-  do order=2,maximum_coupling_order
+  do order=2,max_subspace_coupling
     ! Move `new` to `old`, and allocate new to be large enough to hold
     !    `old` plus the terms from the next order.
     old = new

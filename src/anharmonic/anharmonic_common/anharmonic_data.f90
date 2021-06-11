@@ -26,11 +26,11 @@ module caesar_anharmonic_data_module
     type(DegenerateSubspace),  allocatable :: degenerate_subspaces(:)
     type(DegenerateSymmetry),  allocatable :: degenerate_symmetries(:)
     type(SubspaceCoupling),    allocatable :: subspace_couplings(:)
-    integer                                :: maximum_coupling_order
+    integer                                :: max_subspace_coupling
+    integer                                :: max_qpoint_coupling
     integer                                :: potential_expansion_order
     logical                                :: vscf_basis_functions_only
-    real(dp)                               :: maximum_weighted_displacement
-    real(dp)                               :: frequency_of_max_displacement
+    type(MaxDisplacement)                  :: max_displacement
     type(Group),               allocatable :: qpoint_symmetry_groups(:)
   contains
     procedure, public :: read  => read_AnharmonicData
@@ -38,12 +38,11 @@ module caesar_anharmonic_data_module
   end type
   
   interface AnharmonicData
-    module function new_AnharmonicData(structure,anharmonic_supercell,    &
-       & qpoints,complex_modes,real_modes,degenerate_subspaces,           &
-       & degenerate_symmetries,subspace_couplings,maximum_coupling_order, &
-       & potential_expansion_order,vscf_basis_functions_only,             &
-       & maximum_weighted_displacement,frequency_of_max_displacement)     &
-       & result(this) 
+    module function new_AnharmonicData(structure,anharmonic_supercell,   &
+       & qpoints,complex_modes,real_modes,degenerate_subspaces,          &
+       & degenerate_symmetries,subspace_couplings,max_subspace_coupling, &
+       & max_qpoint_coupling,potential_expansion_order,                  &
+       & vscf_basis_functions_only,max_displacement) result(this)
       type(StructureData),      intent(in) :: structure
       type(StructureData),      intent(in) :: anharmonic_supercell
       type(QpointData),         intent(in) :: qpoints(:)
@@ -52,25 +51,25 @@ module caesar_anharmonic_data_module
       type(DegenerateSubspace), intent(in) :: degenerate_subspaces(:)
       type(DegenerateSymmetry), intent(in) :: degenerate_symmetries(:)
       type(SubspaceCoupling),   intent(in) :: subspace_couplings(:)
-      integer,                  intent(in) :: maximum_coupling_order
+      integer,                  intent(in) :: max_subspace_coupling
+      integer,                  intent(in) :: max_qpoint_coupling
       integer,                  intent(in) :: potential_expansion_order
       logical,                  intent(in) :: vscf_basis_functions_only
-      real(dp),                 intent(in) :: maximum_weighted_displacement
-      real(dp),                 intent(in) :: frequency_of_max_displacement
+      type(MaxDisplacement),    intent(in) :: max_displacement
       type(AnharmonicData)                 :: this
     end function
   
-    module function new_AnharmonicData_data(structure,                      &
-       & interpolated_supercell,max_displacement,potential_expansion_order, &
-       & maximum_coupling_order,vscf_basis_functions_only,                  &
-       & energy_to_force_ratio) result(this) 
+    module function new_AnharmonicData_data(structure,                        &
+       & interpolated_supercell,potential_expansion_order,                    &
+       & max_subspace_coupling,max_qpoint_coupling,vscf_basis_functions_only, &
+       & max_displacement) result(this) 
       type(StructureData),         intent(in) :: structure
       type(InterpolatedSupercell), intent(in) :: interpolated_supercell
-      type(MaxDisplacement),       intent(in) :: max_displacement
       integer,                     intent(in) :: potential_expansion_order
-      integer,                     intent(in) :: maximum_coupling_order
+      integer,                     intent(in) :: max_subspace_coupling
+      integer,                     intent(in) :: max_qpoint_coupling
       logical,                     intent(in) :: vscf_basis_functions_only
-      real(dp),                    intent(in) :: energy_to_force_ratio
+      type(MaxDisplacement),       intent(in) :: max_displacement
       type(AnharmonicData)                    :: this
     end function
   end interface

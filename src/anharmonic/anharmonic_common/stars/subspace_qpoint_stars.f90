@@ -64,7 +64,8 @@ module caesar_subspace_qpoint_stars_module
   interface
     !> Generates the q-point stars corresponding to a set of `subspaces`.
     module function generate_subspace_qpoint_stars(subspaces,modes,qpoints, &
-       & qpoint_symmetry_groups,max_power,conserve_momentum) result(output)
+       & qpoint_symmetry_groups,max_power,max_qpoint_coupling,              &
+       & conserve_momentum) result(output)
       type(DegenerateSubspace), intent(in) :: subspaces(:)
       !> A list of complex modes,
       !>    which must include all modes in the subspaces.
@@ -76,6 +77,9 @@ module caesar_subspace_qpoint_stars_module
       type(Group),              intent(in) :: qpoint_symmetry_groups(:)
       !> The q-point stars will be generated with total powers <= `max_power`.
       integer,                  intent(in) :: max_power
+      !> Each q-point combination will contain up to `max_qpoint_coupling`
+      !>    separate q-points. Defaults to `max_power`.
+      integer,                  intent(in), optional :: max_qpoint_coupling
       !> If true, only q-point stars which conserve momentum (i.e. sum q = G)
       !>    will be returned. Defaults to `false`.
       logical,                  intent(in), optional :: conserve_momentum

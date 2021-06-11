@@ -24,17 +24,24 @@ module procedure setup_anharmonic_mode
   &the potential which will be used for calculations. Options are &
   &"polynomial".',                                                            &
   &              default_value='polynomial'),                                 &
-  & KeywordData( 'maximum_coupling_order',                                    &
-  &              'maximum_coupling_order is the maximum number of degenerate &
-  &subspaces which may be coupled together. Must be at least 1. This &
-  &parameter should be converged, although 1 will often be sufficient.', &
+  & KeywordData( 'max_subspace_coupling',                                     &
+  &              'Each term in the potential will contain modes from up to &
+  &max_subspace_coupling separate degenerate subspaces. max_subspace_coupling &
+  &must be at least 1. This parameter should be converged, although 1 will &
+  &often be sufficient.',                                                     &
+  &              default_value='1'),                                          &
+  & KeywordData( 'max_q-point_coupling',                                      &
+  &              'Each term in the potential will contain modes at up to &
+  &max_q-point_coupling separate q-points. max_q-point_coupling must be at &
+  &least 1. This parameter should be converged, although 1 will often be &
+  &sufficient.',                                                              &
   &              default_value='1'),                                          &
   & KeywordData( 'potential_expansion_order',                                 &
   &              'potential_expansion_order is the order up to which the &
   &potential is expanded. e.g. if potential_expansion_order=4 then terms up &
   &to and including u^4 are included. Must be at least 2, and at least as &
-  &large as maximum_coupling_order. This parameter should be converged, &
-  &although 4 will often be sufficient.',                                     &
+  &large as max_subspace_coupling and max_q-point coupling. This parameter &
+  &should be converged, although 4 will often be sufficient.',                &
   &              default_value='4'),                                          &
   & KeywordData( 'vscf_basis_functions_only',                                 &
   &              'vscf_basis_functions_only specifies that the potential will &
@@ -114,7 +121,8 @@ module procedure setup_anharmonic_subroutine
   integer               :: qpoint_grid(3)
   type(String)          :: potential_representation
   integer               :: potential_expansion_order
-  integer               :: maximum_coupling_order
+  integer               :: max_subspace_coupling
+  integer               :: max_qpoint_coupling
   logical               :: vscf_basis_functions_only
   real(dp)              :: maximum_displacement
   real(dp), allocatable :: max_energy_of_displacement
@@ -177,7 +185,8 @@ module procedure setup_anharmonic_subroutine
   qpoint_grid = int(split_line(arguments%value('q-point_grid')))
   potential_representation = arguments%value('potential_representation')
   potential_expansion_order = int(arguments%value('potential_expansion_order'))
-  maximum_coupling_order = int(arguments%value('maximum_coupling_order'))
+  max_subspace_coupling = int(arguments%value('max_subspace_coupling'))
+  max_qpoint_coupling = int(arguments%value('max_q-point_coupling'))
   vscf_basis_functions_only = &
      & lgcl(arguments%value('vscf_basis_functions_only'))
   maximum_displacement = dble(arguments%value('maximum_displacement'))
@@ -196,8 +205,11 @@ module procedure setup_anharmonic_subroutine
   if (potential_expansion_order<2) then
     call print_line(ERROR//': potential_expansion_order must be at least 2.')
     call quit()
-  elseif (maximum_coupling_order<1) then
-    call print_line(ERROR//': maximum_coupling_order must be at least 1.')
+  elseif (max_subspace_coupling<1) then
+    call print_line(ERROR//': max_subspace_coupling must be at least 1.')
+    call quit()
+  elseif (max_qpoint_coupling<1) then
+    call print_line(ERROR//': max_q-point_coupling must be at least 1.')
     call quit()
   elseif (calculate_stress .and. potential_expansion_order<4) then
     call print_line(ERROR//': calculate_stress may only be true if &
@@ -267,14 +279,14 @@ module procedure setup_anharmonic_subroutine
      & max_energy_of_displacement    = max_energy_of_displacement     )
   
   ! Construct and collate common data.
-  anharmonic_data = AnharmonicData(                                   &
-     & structure                     = structure,                     &
-     & interpolated_supercell        = interpolated_supercell,        &
-     & max_displacement              = max_displacement,              &
-     & potential_expansion_order     = potential_expansion_order,     &
-     & maximum_coupling_order        = maximum_coupling_order,        &
-     & vscf_basis_functions_only     = vscf_basis_functions_only,     &
-     & energy_to_force_ratio         = energy_to_force_ratio          )
+  anharmonic_data = AnharmonicData(                           &
+     & structure                 = structure,                 &
+     & interpolated_supercell    = interpolated_supercell,    &
+     & potential_expansion_order = potential_expansion_order, &
+     & max_subspace_coupling     = max_subspace_coupling,     &
+     & max_qpoint_coupling       = max_qpoint_coupling,       &
+     & vscf_basis_functions_only = vscf_basis_functions_only, &
+     & max_displacement          = max_displacement           )
   
   ! Write out anharmonic data.
   call print_line('Writing anharmonic data.')

@@ -79,9 +79,16 @@ module caesar_combination_qpoint_star_module
     !>    [[QpointStarProduct]], based on how the [[QpointCombination(type)]]s
     !>    transform under symmetry, as described by `qpoint_groups`.
     module function generate_combination_qpoint_stars(qpoint_star_product, &
-       & qpoint_groups,conserve_momentum,qpoints) result(output)
+       & qpoint_groups,max_qpoint_coupling,conserve_momentum,qpoints)      &
+       & result(output)
       type(QpointStarProduct), intent(in)           :: qpoint_star_product
       type(Group),             intent(in)           :: qpoint_groups(:)
+      !> If `max_qpoint_coupling` is given then only q-point combinations
+      !>    containing up to `max_qpoint_coupling` distinct q-points
+      !>    are returned.
+      !> For the purposes of `max_qpoint_coupling`, a q-point and its pair are
+      !>    counted as a single q-point.
+      integer,                 intent(in), optional   :: max_qpoint_coupling
       !> If `conserve_momentum` is `.true.` then only q-point combinations
       !>    which conserve momentum (i.e. sum q=G) are included in the stars.
       !> `conserve_momentum` defaults to `.false.`.

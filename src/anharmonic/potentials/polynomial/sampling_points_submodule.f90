@@ -117,11 +117,10 @@ module procedure generate_sampling_points
     old_fitting_matrix(:i-1,i) = old_fitting_matrix(i,:i-1)
     
     ! Generate the possible sampling points for this basis function.
-    basis_points = generate_basis_points( basis_functions(i),            &
-                                        & potential_expansion_order,     &
-                                        & maximum_weighted_displacement, &
-                                        & frequency_of_max_displacement, &
-                                        & coupling_modes                 )
+    basis_points = generate_basis_points( basis_functions(i),        &
+                                        & potential_expansion_order, &
+                                        & max_displacement,          &
+                                        & coupling_modes             )
     basis_points_used = [(.false., j=1, size(basis_points))]
     determinants = [(0.0_dp, j=1, size(basis_points))]
     
@@ -181,45 +180,91 @@ end procedure
 module procedure generate_basis_points
   type(ComplexMonomial), allocatable :: monomials(:)
   
+  integer :: monomial_power
+  
   type(RealSingleDisplacement), allocatable :: displacement(:)
   
   type(RealMode) :: mode
-  real(dp)       :: frequency
+  integer        :: sign_power
+  real(dp)       :: sign
   real(dp)       :: magnitude
   
   integer :: i,j,ialloc
   
   monomials = basis_function%terms()
+  
   allocate(output(2*size(monomials)), stat=ialloc); call err(ialloc)
   do i=1,size(monomials)
+    ! Each monomial `prod_j (u_j)^(n_j)` is converted to a displacement
+    !    sum_j s_j*sqrt(n_j/n_total)*u_j,
+    ! where n_total = sum_j n_j
+    ! s_j is a sign, which is
+    !    -> +1 if (j==1 and n_total even) or (j/=1 and n_j even).
+    !    -> -1 otherwise.
+    ! The choice of sign is to help reduce duplication if the system has an
+    !    inversion symmetry.
+    monomial_power = monomials(i)%total_power()
     allocate(displacement(0), stat=ialloc); call err(ialloc)
     do j=1,size(monomials(i))
+      mode = modes(first(modes%id==monomials(i)%id(j)))
+      
       if (monomials(i)%power(j)>0) then
-        mode = modes(first(modes%id==monomials(i)%id(j)))
-        frequency = max(mode%frequency, frequency_of_max_displacement)
-        magnitude = maximum_weighted_displacement         &
-                & * sqrt( monomials(i)%power(j)           &
-                &       * frequency_of_max_displacement   &
-                &       / frequency                     ) &
-                & / potential_expansion_order
-        displacement = [displacement, RealSingleDisplacement(mode, magnitude)]
+        if (j==1) then
+          sign_power = monomial_power
+        else
+          sign_power = monomials(i)%power(j)
+        endif
+        
+        if (modulo(sign_power,2)==1) then
+          sign = -1.0_dp
+        else
+          sign = 1.0_dp
+        endif
+        
+        magnitude = sign                                              &
+                & * max_displacement%max_displacement(mode%frequency) &
+                & * sqrt(monomials(i)%power(j)*1.0_dp/monomial_power)
+        displacement = [ displacement,                              &
+                       & RealSingleDisplacement(mode%id, magnitude) ]
       endif
+      
       if (monomials(i)%id(j)/=monomials(i)%paired_id(j)) then
         if (monomials(i)%paired_power(j)>0) then
-          mode = modes(first(modes%id==monomials(i)%paired_id(j)))
-          frequency = max(mode%frequency, frequency_of_max_displacement)
-          magnitude = maximum_weighted_displacement         &
-                  & * sqrt( monomials(i)%paired_power(j)    &
-                  &       * frequency_of_max_displacement   &
-                  &       / frequency                     ) &
-                  & / potential_expansion_order
-          displacement = [ displacement,                           &
-                         & RealSingleDisplacement(mode, magnitude) ]
+          if (j==1 .and. monomials(i)%power(j)==0) then
+            sign_power = monomial_power
+          else
+            sign_power = monomials(i)%power(j)
+          endif
+          
+          if (modulo(sign_power,2)==1) then
+            sign = -1.0_dp
+          else
+            sign = 1.0_dp
+          endif
+          
+          magnitude = sign                                              &
+                  & * max_displacement%max_displacement(mode%frequency) &
+                  & * sqrt(monomials(i)%paired_power(j)*1.0_dp/monomial_power)
+          displacement = [ displacement,                                     &
+                         & RealSingleDisplacement(mode%paired_id, magnitude) ]
         endif
       endif
     enddo
-    output(2*i-1:2*i) = [  RealModeDisplacement(displacement), &
-                        & -RealModeDisplacement(displacement)  ]
+    
+    ! The displacements are included with two lengths.
+    !    -> n_total and n_total+1 if n_total is odd.
+    !    -> n_total-1 and n_total if n_total is even.
+    if (modulo(monomial_power,2)==1) then
+      output(2*i-1) = RealModeDisplacement(displacement) &
+                  & * (monomial_power*1.0_dp/potential_expansion_order)
+      output(2*i) = RealModeDisplacement(displacement) &
+                & * ((monomial_power+1)*1.0_dp/potential_expansion_order)
+    else
+      output(2*i-1) = RealModeDisplacement(displacement) &
+                  & * ((monomial_power-1)*1.0_dp/potential_expansion_order)
+      output(2*i) = RealModeDisplacement(displacement) &
+                & * (monomial_power*1.0_dp/potential_expansion_order)
+    endif
     deallocate(displacement, stat=ialloc); call err(ialloc)
   enddo
 end procedure

@@ -901,7 +901,15 @@ function set_ComparisonLambda(input,lambda,mask) result(output)
   output = output(:no_unique_elements)
 end function
 
-module procedure set_default
+module procedure set_default_logical
+  if (present(optional_argument)) then
+    output = optional_argument
+  else
+    output = default_value
+  endif
+end procedure
+
+module procedure set_default_integer
   if (present(optional_argument)) then
     output = optional_argument
   else

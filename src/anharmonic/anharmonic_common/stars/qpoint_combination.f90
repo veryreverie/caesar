@@ -248,13 +248,19 @@ module caesar_qpoint_combination_module
     !> Returns an array of [[QpointCombinations(type)]] of length
     !>    `max_power+1`, in ascending order of power.
     !> The combinations at each power are returned in ascending order by '<'.
-    !> If `conserve_momentum` is `true` then only q-point combinations
-    !>    which conserve momentum (i.e. sum q = G) are returned.
-    !> `conserve_momentum` defaults to `false`.
     module function generate_qpoint_combinations(qpoints,max_power, &
-       & conserve_momentum) result(output)
+       & max_qpoint_coupling,conserve_momentum) result(output)
       type(QpointData), intent(in)           :: qpoints(:)
       integer,          intent(in)           :: max_power
+      !> If `max_qpoint_coupling` is given then only q-point combinations
+      !>    containing up to `max_qpoint_coupling` distinct q-points
+      !>    are returned.
+      !> For the purposes of `max_qpoint_coupling`, a q-point and its pair are
+      !>    counted as a single q-point.
+      integer,          intent(in), optional :: max_qpoint_coupling
+      !> If `conserve_momentum` is `true` then only q-point combinations
+      !>    which conserve momentum (i.e. sum q = G) are returned.
+      !> `conserve_momentum` defaults to `false`.
       logical,          intent(in), optional :: conserve_momentum
       type(QpointCombinations), allocatable  :: output(:)
     end function

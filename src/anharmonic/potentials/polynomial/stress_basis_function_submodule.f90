@@ -64,6 +64,7 @@ module procedure generate_stress_basis_functions_SubspaceCombination
     combination_qpoint_stars = generate_combination_qpoint_stars( &
                                        & qpoint_star_products(i), &
                                        & qpoint_symmetry_groups,  &
+                                       & max_qpoint_coupling,     &
                                        & .true.,                  &
                                        & qpoints                  )
     do j=1,size(combination_qpoint_stars)

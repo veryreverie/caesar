@@ -181,6 +181,7 @@ subroutine test_generate_subspace_qpoint_stars()
     type(QpointData),           allocatable :: qpoints(:)
     type(Group),                allocatable :: qpoint_symmetry_groups(:)
     integer                                 :: max_power
+    integer,                    allocatable :: max_qpoint_coupling
     logical,                    allocatable :: conserve_momentum
     type(SubspaceQpointStars),  allocatable :: output(:)
   end type
@@ -212,7 +213,7 @@ subroutine test_generate_subspace_qpoint_stars()
      &    [ QpointData:: ],                                         &
      &    [ Group:: ],                                              &
      &    0,                                                        &
-     &    .true.,                                                   &
+     &    conserve_momentum = .true.,                               &
      &    output = [ SubspaceQpointStars:: ]                        &
      & ),                                                           &
      & TestCase(                                                    &
@@ -328,21 +329,23 @@ subroutine test_generate_subspace_qpoint_stars()
      & )                                                            ]
   
   do i=1,size(test_cases)
-    associate( subspaces         => test_cases(i)%subspaces,              &
-             & mock_modes        => test_cases(i)%mock_modes,             &
-             & qpoints           => test_cases(i)%qpoints,                &
-             & qpoint_groups     => test_cases(i)%qpoint_symmetry_groups, &
-             & max_power         => test_cases(i)%max_power,              &
-             & conserve_momentum => test_cases(i)%conserve_momentum,      &
-             & expected_stars    => test_cases(i)%output                  )
+    associate( subspaces           => test_cases(i)%subspaces,              &
+             & mock_modes          => test_cases(i)%mock_modes,             &
+             & qpoints             => test_cases(i)%qpoints,                &
+             & qpoint_groups       => test_cases(i)%qpoint_symmetry_groups, &
+             & max_power           => test_cases(i)%max_power,              &
+             & max_qpoint_coupling => test_cases(i)%max_qpoint_coupling,    &
+             & conserve_momentum   => test_cases(i)%conserve_momentum,      &
+             & expected_stars      => test_cases(i)%output                  )
       modes = mock_to_ComplexMode(mock_modes)
       
-      stars = generate_subspace_qpoint_stars( subspaces,        &
-                                            & modes,            &
-                                            & qpoints,          &
-                                            & qpoint_groups,    &
-                                            & max_power,        &
-                                            & conserve_momentum )
+      stars = generate_subspace_qpoint_stars( subspaces,           &
+                                            & modes,               &
+                                            & qpoints,             &
+                                            & qpoint_groups,       &
+                                            & max_power,           &
+                                            & max_qpoint_coupling, &
+                                            & conserve_momentum    )
       
       message = [ str('subspaces:'),                                  &
                 & str(subspaces),                                     &

@@ -24,16 +24,24 @@ module procedure calculate_potential_mode
      &each direction in the Monkhorst-Pack grid onto which the potential will &
      &be interpolated. This should be specified as three integers separated &
      &by spaces.'),                                                           &
-     & KeywordData( 'interpolated_maximum_coupling_order',                    &
-     &              'interpolated_maximum_coupling_order is the maximum &
-     &number of degenerate subspaces which may be coupled together in the &
-     &interpolated potential. Must be at least 1.'),                          &
+     & KeywordData( 'interpolated_max_subspace_coupling',                     &
+     &              'Each term in the interpolated potential will contain &
+     &modes from up to interpolated_max_subspace_coupling separate degenerate &
+     &subspaces. interpolated_max_subspace_coupling must be at least 1. This &
+     &parameter should be converged, although 1 will often be sufficient.',   &
+     &              default_value='1'),                                       &
+     & KeywordData( 'interpolated_max_q-point_coupling',                      &
+     &              'Each term in the interpolated potential will contain &
+     &modes at up to interpolated_max_q-point_coupling separate q-points. &
+     &interpolated_max_q-point_coupling must be at least 1. This parameter &
+     &should be converged, although 1 will often be sufficient.',             &
+     &              default_value='1'),                                       &
      & KeywordData( 'interpolated_potential_expansion_order',                 &
      &              'interpolated_potential_expansion_order is the order up &
      &to which the interpolated potential is expanded. e.g. if &
      &interpolated_potential_expansion_order=4 then terms up to and including &
      &u^4 are included. Must be at least 2, and at least as large as &
-     &interpolated_maximum_coupling_order, and no larger than &
+     &interpolated_max_subspace_coupling, and no larger than &
      &potential_expansion_order from setup_anharmonic.'),                     &
      & KeywordData( 'interpolated_vscf_basis_functions_only',                 &
      &              'interpolated_vscf_basis_functions_only specifies that &
@@ -57,7 +65,8 @@ module procedure calculate_potential_subroutine
   real(dp)             :: weighted_energy_force_ratio
   logical              :: interpolate_potential
   integer              :: interpolated_qpoint_grid(3)
-  integer              :: interpolated_coupling_order
+  integer              :: interpolated_subspace_coupling
+  integer              :: interpolated_qpoint_coupling
   integer              :: interpolated_expansion_order
   logical              :: interpolated_vscf_only
   type(Fractionvector) :: loto_direction
@@ -125,8 +134,10 @@ module procedure calculate_potential_subroutine
   if (interpolate_potential) then
     interpolated_qpoint_grid = int(split_line(        &
        & arguments%value('interpolated_q-point_grid') ))
-    interpolated_coupling_order = int(                          &
-       & arguments%value('interpolated_maximum_coupling_order') )
+    interpolated_subspace_coupling = int(                      &
+       & arguments%value('interpolated_max_subspace_coupling') )
+    interpolated_qpoint_coupling = int(                       &
+       & arguments%value('interpolated_max_q-point_coupling') )
     interpolated_expansion_order = int(                            &
        & arguments%value('interpolated_potential_expansion_order') )
     interpolated_vscf_only = lgcl(                                 &
@@ -267,14 +278,14 @@ module procedure calculate_potential_subroutine
        & frequency_of_max_displacement = 0.0_dp,                    &
        & max_energy_of_displacement    = 0.0_dp                     )
     
-    interpolated_anharmonic_data = AnharmonicData(                     &
-       & structure                     = anharmonic_data%structure,    &
-       & interpolated_supercell        = interpolated_supercell,       &
-       & max_displacement              = max_displacement,             &
-       & potential_expansion_order     = interpolated_expansion_order, &
-       & maximum_coupling_order        = interpolated_coupling_order,  &
-       & vscf_basis_functions_only     = interpolated_vscf_only,       &
-       & energy_to_force_ratio         = 0.0_dp                        )
+    interpolated_anharmonic_data = AnharmonicData(                   &
+       & structure                 = anharmonic_data%structure,      &
+       & interpolated_supercell    = interpolated_supercell,         &
+       & potential_expansion_order = interpolated_expansion_order,   &
+       & max_subspace_coupling     = interpolated_subspace_coupling, &
+       & max_qpoint_coupling       = interpolated_qpoint_coupling,   &
+       & vscf_basis_functions_only = interpolated_vscf_only,         &
+       & max_displacement          = max_displacement                )
     
     interpolated_anharmonic_data_file = OFile( &
           & 'interpolated_anharmonic_data.dat' )

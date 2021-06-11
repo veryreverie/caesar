@@ -204,15 +204,18 @@ module procedure operate_Group_CombinationQpointCombination
 end procedure
 
 module procedure generate_combination_qpoint_combinations
-  type :: CombinationAndWavevector
+  type :: CombinationData
     type(CombinationQpointCombination) :: combination
     type(FractionVector)               :: wavevector
+    integer, allocatable               :: qpoint_ids(:)
   end type
   
-  type(CombinationAndWavevector), allocatable :: old(:)
-  type(CombinationAndWavevector), allocatable :: new(:)
+  type(CombinationData), allocatable :: old(:)
+  type(CombinationData), allocatable :: new(:)
   
   type(FractionVector), allocatable :: wavevectors(:)
+  
+  type(QpointCombination) :: combination
   
   integer :: i,j,k,l,ialloc
   
@@ -235,6 +238,7 @@ module procedure generate_combination_qpoint_combinations
     allocate( new(1)%combination%qpoint_combinations(size(qpoint_stars)), &
             & stat=ialloc); call err(ialloc)
     new(1)%wavevector = fracvec(zeroes(3))
+    new(1)%qpoint_ids = [integer::]
     
     ! Loop over the subspaces.
     ! For each subspace, loop over all previous q-point combinations,
@@ -261,20 +265,74 @@ module procedure generate_combination_qpoint_combinations
         do k=1,size(qpoint_stars(i))
           l = l+1
           new(l) = old(j)
-          new(l)%combination%qpoint_combinations(i) = &
-             & qpoint_stars(i)%combinations(k)
+          combination = qpoint_stars(i)%combinations(k)
+          new(l)%combination%qpoint_combinations(i) = combination
           if (set_default(conserve_momentum,.false.)) then
             new(l)%wavevector = new(l)%wavevector + wavevectors(k)
             if (       i==size(qpoint_stars)              &
                & .and. .not. is_int(new(l)%wavevector) ) then
               l = l-1
+              cycle
+            endif
+          endif
+          if (present(max_qpoint_coupling)) then
+            new(l)%qpoint_ids = merge_qpoint_ids( old(j)%qpoint_ids, &
+                                                & combination        )
+            if (size(new(l)%qpoint_ids)>max_qpoint_coupling) then
+              l = l-1
+              cycle
             endif
           endif
         enddo
       enddo
+      
+      output = new(:l)%combination
     enddo
-    
-    output = new(:l)%combination
   end associate
+contains
+  ! Extract the q-point ids from `combination`, and merge them with `old_ids`
+  !    to give a combined list of q-point ids in ascending order.
+  ! e.g.
+  !    merge([3,5,7], QpointCombination('(q1^4)*(q5^2)*(q8^4)') = [1,3,5,7,8]
+  function merge_qpoint_ids(old_ids,combination) result(output)
+    integer,                 intent(in)  :: old_ids(:)
+    type(QpointCombination), intent(in)  :: combination
+    integer, allocatable                 :: output(:)
+    
+    type(QpointPower), allocatable :: qpoint_powers(:)
+    integer,           allocatable :: new_ids(:)
+    
+    integer :: i,j,k,ialloc
+    
+    qpoint_powers = combination%qpoints()
+    new_ids = qpoint_powers%id()
+    
+    allocate( output(size(old_ids)+size(new_ids)), &
+            & stat=ialloc); call err(ialloc)
+    i = 1
+    j = 1
+    k = 0
+    do while(i<=size(old_ids) .or. j<=size(new_ids))
+      k = k+1
+      if (i>size(old_ids)) then
+        output(k) = new_ids(j)
+        j = j+1
+      elseif (j>size(new_ids)) then
+        output(k) = old_ids(i)
+        i = i+1
+      elseif (old_ids(i)<new_ids(j)) then
+        output(k) = old_ids(i)
+        i = i+1
+      elseif (new_ids(j)<old_ids(i)) then
+        output(k) = new_ids(j)
+        j = j+1
+      else
+        output(k) = old_ids(i)
+        i = i+1
+        j = j+1
+      endif
+    enddo
+    output = output(:k)
+  end function
 end procedure
 end submodule

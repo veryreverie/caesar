@@ -2833,7 +2833,7 @@ contains
 end subroutine
 
 @test
-subroutine test_set_default()
+subroutine test_set_default_logical()
   logical, allocatable :: unallocated_logical
   
   @assertTrue(set_default(.true.,.true.))
@@ -2842,6 +2842,18 @@ subroutine test_set_default()
   @assertFalse(set_default(.false.,.false.))
   @assertTrue(set_default(unallocated_logical,.true.))
   @assertFalse(set_default(unallocated_logical,.false.))
+end subroutine
+
+@test
+subroutine test_set_default_integer()
+  integer, allocatable :: unallocated_integer
+  
+  @assertTrue(set_default(1,1)==1)
+  @assertTrue(set_default(1,0)==1)
+  @assertTrue(set_default(0,1)==0)
+  @assertTrue(set_default(0,0)==0)
+  @assertTrue(set_default(unallocated_integer,1)==1)
+  @assertTrue(set_default(unallocated_integer,0)==0)
 end subroutine
 
 @test

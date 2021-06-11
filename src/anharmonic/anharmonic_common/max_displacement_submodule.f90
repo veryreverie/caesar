@@ -33,6 +33,13 @@ module procedure new_MaxDisplacement
                                   & * ( frequency_of_max_displacement &
                                   &   * maximum_weighted_displacement )**2
   endif
+  
+  if (abs( 0.5_dp*( this%frequency_of_max_displacement      &
+  &               * this%maximum_weighted_displacement )**2 &
+  &      - this%max_energy_of_displacement                  ) > 1e-10_dp) then
+    call print_line(ERROR//': u, w and E do not match.')
+    call err()
+  endif
 end procedure
 
 module procedure new_MaxDisplacement_displacement
@@ -47,6 +54,12 @@ module procedure new_MaxDisplacement_displacement
   this = MaxDisplacement( maximum_weighted_displacement, &
                         & frequency_of_max_displacement, &
                         & max_energy_of_displacement     )
+end procedure
+
+module procedure max_displacement
+  output = this%maximum_weighted_displacement  &
+       & *  this%frequency_of_max_displacement &
+       & / max(this%frequency_of_max_displacement, frequency) 
 end procedure
 
 module procedure read_MaxDisplacement

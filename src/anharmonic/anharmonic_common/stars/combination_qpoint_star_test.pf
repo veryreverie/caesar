@@ -354,6 +354,7 @@ subroutine test_generate_combination_qpoint_stars()
   type :: TestCase
     type(QpointStarProduct)                  :: qpoint_star_product
     type(Group),                 allocatable :: qpoint_groups(:)
+    integer,                     allocatable :: max_qpoint_coupling
     logical,                     allocatable :: conserve_momentum
     type(QpointData),            allocatable :: qpoints(:)
     type(CombinationQpointStar), allocatable :: output(:)
@@ -382,56 +383,53 @@ subroutine test_generate_combination_qpoint_stars()
      & QpointData( FractionVector(str('   0 -1/4    0')), 8, 7)  ]
   
   test_cases = [                                                           &
-     & TestCase(                                                           &
+     & TestCase_(                                                          &
      &    QpointStarProduct([                                              &
      &       str('q-point star product in subspace combination () :')      &
      &    ]),                                                              &
      &    [ Group:: ],                                                     &
-     &    .false.,                                                         &
-     &    [ QpointData:: ],                                                &
-     &    [ CombinationQpointStar:: ]                                      &
+     &    output = [ CombinationQpointStar:: ]                             &
      & ),                                                                  &
-     & TestCase(                                                           &
+     & TestCase_(                                                          &
      &    QpointStarProduct([                                              &
      &       str('q-point star product in subspace combination (s1^1) :'), &
      &       str('(q1^1)')                                                 &
      &    ]),                                                              &
      &    [ Group([1]) ],                                                  &
-     &    .false.,                                                         &
-     &    [ QpointData:: ],                                                &
-     &    [                                                                &
+     &    output = [                                                       &
      &       CombinationQpointStar([                                       &
      &          str('q-point star in subspace combination (s1^1) :'),      &
      &          str('(q1^1)')                                              &
      &       ])                                                            &
      &    ]                                                                &
      & ),                                                                  &
-     & TestCase(                                                           &
+     & TestCase_(                                                          &
      &    QpointStarProduct([                                              &
      &       str('q-point star product in subspace combination (s1^1) :'), &
      &       str('(q1^1)')                                                 &
      &    ]),                                                              &
      &    [ Group([1]) ],                                                  &
-     &    .true.,                                                          &
-     &    test_qpoints,                                                    &
-     &    [                                                                &
+     &    conserve_momentum = .true.,                                      &
+     &    qpoints = test_qpoints,                                          &
+     &    output = [                                                       &
      &       CombinationQpointStar([                                       &
      &          str('q-point star in subspace combination (s1^1) :'),      &
      &          str('(q1^1)')                                              &
      &       ])                                                            &
      &    ]                                                                &
      & ),                                                                  &
-     & TestCase(                                                           &
+     & TestCase_(                                                          &
      &    QpointStarProduct([                                              &
      &       str('q-point star product in subspace combination (s1^1) :'), &
      &       str('(q2^1)')                                                 &
      &    ]),                                                              &
      &    [ Group([1]) ],                                                  &
+     &    1,                                                               &
      &    .true.,                                                          &
      &    test_qpoints,                                                    &
      &    [ CombinationQpointStar:: ]                                      &
      & ),                                                                  &
-     & TestCase(                                                           &
+     & TestCase_(                                                          &
      &    QpointStarProduct([                                              &
      &       str('q-point star product in subspace combination &
      &(s1^3*s2^2) :'),                                                     &
@@ -445,9 +443,9 @@ subroutine test_generate_combination_qpoint_stars()
      &    ]),                                                              &
      &    [ Group([1,2,3,4,5,6,7,8]),                                      &
      &      Group([1,3,2,4,7,8,5,6])  ],                                   &
-     &    .false.,                                                         &
-     &    test_qpoints,                                                    &
-     &    [                                                                &
+     &    conserve_momentum = .false.,                                     &
+     &    qpoints = test_qpoints,                                          &
+     &    output = [                                                       &
      &       CombinationQpointStar([                                       &
      &          str('q-point star in subspace combination (s1^3*s2^2) :'), &
      &          str('(q2^2)*(q4^1) * (q5^2*q6^0)'),                        &
@@ -464,7 +462,7 @@ subroutine test_generate_combination_qpoint_stars()
      &       ])                                                            &
      &    ]                                                                &
      & ),                                                                  &
-     & TestCase(                                                           &
+     & TestCase_(                                                          &
      &    QpointStarProduct([                                              &
      &       str('q-point star product in subspace combination &
      &(s1^3*s2^2) :'),                                                     &
@@ -478,6 +476,7 @@ subroutine test_generate_combination_qpoint_stars()
      &    ]),                                                              &
      &    [ Group([1,2,3,4,5,6,7,8]),                                      &
      &      Group([1,3,2,4,7,8,5,6])  ],                                   &
+     &    5,                                                               &
      &    .true.,                                                          &
      &    test_qpoints,                                                    &
      &    [                                                                &
@@ -489,6 +488,27 @@ subroutine test_generate_combination_qpoint_stars()
      &          str('(q3^1)*(q4^2) * (q7^0*q8^2)')                         &
      &       ])                                                            &
      &    ]                                                                &
+     & ),                                                                  &
+     & TestCase_(                                                          &
+     &    QpointStarProduct([                                              &
+     &       str('q-point star product in subspace combination &
+     &(s5^3*s7^3) :'),                                                     &
+     &       str('(q2^1)*(q4^2)'),                                         &
+     &       str('(q3^1)*(q4^2)'),                                         &
+     &       str('*'),                                                     &
+     &       str('(q2^1)*(q4^2)'),                                         &
+     &       str('(q3^1)*(q4^2)')                                          &
+     &    ]),                                                              &
+     &    [ Group([1,2,3,4,5,6,7,8]),                                      &
+     &      Group([1,3,2,4,7,8,5,6])  ],                                   &
+     &    2,                                                               &
+     &    output = [                                                       &
+     &       CombinationQpointStar([                                       &
+     &          str('q-point star in subspace combination (s5^3*s7^3) :'), &
+     &          str('(q2^1)*(q4^2) * (q2^1)*(q4^2)'),                      &
+     &          str('(q3^1)*(q4^2) * (q3^1)*(q4^2)')                       &
+     &       ])                                                            &
+     &    ]                                                                &
      & )                                                                   ]
   
   do i=1,size(test_cases)
@@ -496,6 +516,8 @@ subroutine test_generate_combination_qpoint_stars()
              &    test_cases(i)%qpoint_star_product, &
              & qpoint_groups                     =>  &
              &    test_cases(i)%qpoint_groups,       &
+             & max_qpoint_coupling               =>  &
+             &    test_cases(i)%max_qpoint_coupling, &
              & conserve_momentum                 =>  &
              &    test_cases(i)%conserve_momentum,   &
              & qpoints                           =>  &
@@ -505,25 +527,52 @@ subroutine test_generate_combination_qpoint_stars()
       combination_qpoint_stars = generate_combination_qpoint_stars( &
                                              & qpoint_star_product, &
                                              & qpoint_groups,       &
+                                             & max_qpoint_coupling, &
                                              & conserve_momentum,   &
                                              & qpoints              )
       
-      message = [ str(repeat('=',50)),                                       &
-                & str('qpoint_star_product:'),                               &
-                & str(repeat('=',50)),                                       &
-                & str(qpoint_star_product),                                  &
-                & str(repeat('=',50)),                                       &
-                & str('qpoint_groups:'),                                     &
-                & str(repeat('=',50)),                                       &
-                & str(qpoint_groups),                                        &
-                & str(repeat('=',50)),                                       &
-                & str('conserve_momentum:'),                                 &
-                & str(repeat('=',50)),                                       &
-                & str(conserve_momentum),                                    &
-                & str(repeat('=',50)),                                       &
-                & str('qpoints:'),                                           &
-                & str(repeat('=',50)),                                       &
-                & str(qpoints),                                              &
+      message = [ str(repeat('=',50)),         &
+                & str('qpoint_star_product:'), &
+                & str(repeat('=',50)),         &
+                & str(qpoint_star_product),    &
+                & str(repeat('=',50)),         &
+                & str('qpoint_groups:'),       &
+                & str(repeat('=',50)),         &
+                & str(qpoint_groups)           ]
+      
+      if (allocated(test_cases(i)%max_qpoint_coupling)) then
+        message = [ message,                     &
+                  & str(repeat('=',50)),         &
+                  & str('max_qpoint_coupling:'), &
+                  & str(repeat('=',50)),         &
+                  & str(max_qpoint_coupling)     ]
+      else
+        message = [ message,                     &
+                  & str(repeat('=',50)),         &
+                  & str('max_qpoint_coupling:'), &
+                  & str(repeat('=',50)),         &
+                  & str('Not allocated.')        ]
+      endif
+      
+      if (allocated(test_cases(i)%conserve_momentum)) then
+        message = [ message,                   &
+                  & str(repeat('=',50)),       &
+                  & str('conserve_momentum:'), &
+                  & str(repeat('=',50)),       &
+                  & str(conserve_momentum),    &
+                  & str(repeat('=',50)),       &
+                  & str('qpoints:'),           &
+                  & str(repeat('=',50)),       &
+                  & str(qpoints)               ]
+      else
+        message = [ message,                   &
+                  & str(repeat('=',50)),       &
+                  & str('conserve_momentum:'), &
+                  & str(repeat('=',50)),       &
+                  & str('Not allocated.')      ]
+      endif
+      
+      message = [ message,                                                   &
                 & str(repeat('=',50)),                                       &
                 & str('combination_qpoint_stars:'),                          &
                 & str(repeat('=',50)),                                       &
@@ -541,5 +590,31 @@ subroutine test_generate_combination_qpoint_stars()
       @assertTrue(check, char(message))
     end associate
   enddo
+contains
+  ! WORKAROUND: gfortran 10.1 doesn't compile this without an explicit
+  !    constructor for TestCase.
+  function TestCase_(qpoint_star_product,qpoint_groups,max_qpoint_coupling, &
+     & conserve_momentum,qpoints,output) result(this)
+    type(QpointStarProduct),     intent(in)           :: qpoint_star_product
+    type(Group),                 intent(in)           :: qpoint_groups(:)
+    integer,                     intent(in), optional :: max_qpoint_coupling
+    logical,                     intent(in), optional :: conserve_momentum
+    type(QpointData),            intent(in), optional :: qpoints(:)
+    type(CombinationQpointStar), intent(in)           :: output(:)
+    type(TestCase)                                    :: this
+    
+    this%qpoint_star_product = qpoint_star_product
+    this%qpoint_groups = qpoint_groups
+    if (present(max_qpoint_coupling)) then
+      this%max_qpoint_coupling = max_qpoint_coupling
+    endif
+    if (present(conserve_momentum)) then
+      this%conserve_momentum = conserve_momentum
+    endif
+    if (present(qpoints)) then
+      this%qpoints = qpoints
+    endif
+    this%output = output
+  end function
 end subroutine
 end module

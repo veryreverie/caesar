@@ -76,8 +76,7 @@ module procedure map_potential_subroutine
   type(QpointData),  allocatable :: qpoints(:)
   type(ComplexMode), allocatable :: complex_modes(:)
   type(RealMode),    allocatable :: real_modes(:)
-  real(dp)                       :: frequency_of_max_displacement
-  real(dp)                       :: maximum_weighted_displacement
+  type(MaxDisplacement)          :: max_displacement
   
   ! Selected real modes.
   type(RealMode), allocatable :: selected_modes(:)
@@ -91,7 +90,7 @@ module procedure map_potential_subroutine
   type(CalculationReader) :: calculation_reader
   
   ! Variables for generating effective mode frequencies.
-  real(dp),                 allocatable :: displacements(:)
+  real(dp),                 allocatable :: fractional_displacements(:)
   real(dp),                 allocatable :: scaled_displacements_i(:)
   real(dp),                 allocatable :: scaled_displacements_j(:)
   type(RealSingleDisplacement)          :: displacement_i
@@ -152,8 +151,7 @@ module procedure map_potential_subroutine
   qpoints = anharmonic_data%qpoints
   complex_modes = anharmonic_data%complex_modes
   real_modes = anharmonic_data%real_modes
-  frequency_of_max_displacement = anharmonic_data%frequency_of_max_displacement
-  maximum_weighted_displacement = anharmonic_data%maximum_weighted_displacement
+  max_displacement = anharmonic_data%max_displacement
   
   ! Read in anharmonic potential.
   potential_file = IFile('potential.dat')
@@ -189,10 +187,9 @@ module procedure map_potential_subroutine
   map_dir = 'mapped_potential'
   call mkdir(map_dir)
   
-  ! Calculate displacements before scaling by 1/sqrt(frequency).
-  displacements =                                               &
+  ! Calculate displacements in fractional co-ordinates.
+  fractional_displacements =                                    &
      &   [(j,j=-no_single_mode_samples,no_single_mode_samples)] &
-     & * maximum_weighted_displacement                          &
      & / no_single_mode_samples
   
   ! Select the specified modes.
@@ -209,9 +206,12 @@ module procedure map_potential_subroutine
     selected_modes = real_modes
   endif
   
-  allocate( harmonic_energy(size(displacements), size(displacements)),   &
-          & anharmonic_energy(size(displacements), size(displacements)), &
-          & sampled_energy(size(displacements), size(displacements)),    &
+  allocate( harmonic_energy( size(fractional_displacements),      &
+          &                  size(fractional_displacements)  ),   &
+          & anharmonic_energy( size(fractional_displacements),    &
+          &                    size(fractional_displacements)  ), &
+          & sampled_energy( size(fractional_displacements),       &
+          &                 size(fractional_displacements)  ),    &
           & stat=ialloc); call err(ialloc)
   do i=1,size(selected_modes)
     do j=i+1,size(selected_modes)
@@ -222,15 +222,13 @@ module procedure map_potential_subroutine
          &           str(maxval(real_modes%id)) )
       call mkdir(modes_dir)
       
-      ! Scale displacement by 1/sqrt(frequency).
-      scaled_displacements_i = displacements                             &
-                           & * sqrt( frequency_of_max_displacement       &
-                           &       / max( selected_modes(i)%frequency,   &
-                           &              frequency_of_max_displacement) )
-      scaled_displacements_j = displacements                             &
-                           & * sqrt( frequency_of_max_displacement       &
-                           &       / max( selected_modes(j)%frequency,   &
-                           &              frequency_of_max_displacement) )
+      ! Scale displacement by the maximum displacement along each mode.
+      scaled_displacements_i = fractional_displacements           &
+                           & * max_displacement%max_displacement( &
+                           &          selected_modes(i)%frequency )
+      scaled_displacements_j = fractional_displacements           &
+                           & * max_displacement%max_displacement( &
+                           &          selected_modes(j)%frequency )
       
       if (validate_potential) then
         qpoints_ij = select_qpoints( [selected_modes(i),selected_modes(j)], &
@@ -268,10 +266,12 @@ module procedure map_potential_subroutine
                                                 & qpoints          )
             displaced_structure = displace_structure(supercell,displacement)
             
-            displacement_dir = modes_dir                                 // &
-                             & '/displacement_'                          // &
-                             & left_pad(k,str(size(displacements)))//'_' // &
-                             & left_pad(l,str(size(displacements)))
+            displacement_dir =                                      &
+               & modes_dir                                       // &
+               & '/displacement_'                                // &
+               & left_pad(k,str(size(fractional_displacements))) // &
+               & '_'                                             // &
+               & left_pad(l,str(size(fractional_displacements)))
             call calculation_writer%write_calculation( displaced_structure, &
                                                      & displacement_dir     )
             call calculation_runner%run_calculation(displacement_dir)

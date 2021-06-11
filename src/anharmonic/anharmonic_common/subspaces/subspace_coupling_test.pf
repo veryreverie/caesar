@@ -262,7 +262,7 @@ end subroutine
 subroutine test_generate_coupled_subspaces()
   type :: TestCase
     type(DegenerateSubspace), allocatable :: subspaces(:)
-    integer                               :: maximum_coupling_order
+    integer                               :: max_subspace_coupling
     type(SubspaceCoupling), allocatable   :: output(:)
   end type
   
@@ -274,83 +274,82 @@ subroutine test_generate_coupled_subspaces()
   
   integer :: i
   
-  test_cases = [                                                   &
-     & TestCase(                                                   &
-     &    subspaces              = [ DegenerateSubspace:: ],       &
-     &    maximum_coupling_order = 2,                              &
-     &    output                 = [ SubspaceCoupling:: ]          &
-     & ),                                                          &
-     & TestCase(                                                   &
-     &    subspaces              = [ DegenerateSubspace(           &
-     &                                  id         = 1,            &
-     &                                  frequency  = 0.0_dp,       &
-     &                                  mode_ids   = [1],          &
-     &                                  paired_ids = [1]     ) ],  &
-     &    maximum_coupling_order = 2,                              &
-     &    output                 = [ SubspaceCoupling([1]) ]       &
-     & ),                                                          &
-     & TestCase(                                                   &
-     &    subspaces              = [ DegenerateSubspace(           &
-     &                                  id         = 3,            &
-     &                                  frequency  = 0.0_dp,       &
-     &                                  mode_ids   = [1],          &
-     &                                  paired_ids = [1]     ),    &
-     &                               DegenerateSubspace(           &
-     &                                  id         = 5,            &
-     &                                  frequency  = 0.0_dp,       &
-     &                                  mode_ids   = [2],          &
-     &                                  paired_ids = [2]     ),    &
-     &                               DegenerateSubspace(           &
-     &                                  id         = 8,            &
-     &                                  frequency  = 0.0_dp,       &
-     &                                  mode_ids   = [3],          &
-     &                                  paired_ids = [3]     ) ],  &
-     &    maximum_coupling_order = 1,                              &
-     &    output                 = [ SubspaceCoupling([3]),        &
-     &                               SubspaceCoupling([5]),        &
-     &                               SubspaceCoupling([8])  ]      &
-     & ),                                                          &
-     & TestCase(                                                   &
-     &    subspaces              = [ DegenerateSubspace(           &
-     &                                  id         = 3,            &
-     &                                  frequency  = 0.0_dp,       &
-     &                                  mode_ids   = [1],          &
-     &                                  paired_ids = [1]     ),    &
-     &                               DegenerateSubspace(           &
-     &                                  id         = 5,            &
-     &                                  frequency  = 0.0_dp,       &
-     &                                  mode_ids   = [2],          &
-     &                                  paired_ids = [2]     ),    &
-     &                               DegenerateSubspace(           &
-     &                                  id         = 8,            &
-     &                                  frequency  = 0.0_dp,       &
-     &                                  mode_ids   = [3],          &
-     &                                  paired_ids = [3]     ) ],  &
-     &    maximum_coupling_order = 2,                              &
-     &    output                 = [ SubspaceCoupling([3]),        &
-     &                               SubspaceCoupling([5]),        &
-     &                               SubspaceCoupling([8]),        &
-     &                               SubspaceCoupling([3,5]),      &
-     &                               SubspaceCoupling([3,8]),      &
-     &                               SubspaceCoupling([5,8])  ]    &
-     & )                                                           ]
+  test_cases = [                                                  &
+     & TestCase(                                                  &
+     &    subspaces             = [ DegenerateSubspace:: ],       &
+     &    max_subspace_coupling = 2,                              &
+     &    output                = [ SubspaceCoupling:: ]          &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    subspaces             = [ DegenerateSubspace(           &
+     &                                 id         = 1,            &
+     &                                 frequency  = 0.0_dp,       &
+     &                                 mode_ids   = [1],          &
+     &                                 paired_ids = [1]     ) ],  &
+     &    max_subspace_coupling = 2,                              &
+     &    output                = [ SubspaceCoupling([1]) ]       &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    subspaces             = [ DegenerateSubspace(           &
+     &                                 id         = 3,            &
+     &                                 frequency  = 0.0_dp,       &
+     &                                 mode_ids   = [1],          &
+     &                                 paired_ids = [1]     ),    &
+     &                              DegenerateSubspace(           &
+     &                                 id         = 5,            &
+     &                                 frequency  = 0.0_dp,       &
+     &                                 mode_ids   = [2],          &
+     &                                 paired_ids = [2]     ),    &
+     &                              DegenerateSubspace(           &
+     &                                 id         = 8,            &
+     &                                 frequency  = 0.0_dp,       &
+     &                                 mode_ids   = [3],          &
+     &                                 paired_ids = [3]     ) ],  &
+     &    max_subspace_coupling = 1,                              &
+     &    output                = [ SubspaceCoupling([3]),        &
+     &                              SubspaceCoupling([5]),        &
+     &                              SubspaceCoupling([8])  ]      &
+     & ),                                                         &
+     & TestCase(                                                  &
+     &    subspaces             = [ DegenerateSubspace(           &
+     &                                 id         = 3,            &
+     &                                 frequency  = 0.0_dp,       &
+     &                                 mode_ids   = [1],          &
+     &                                 paired_ids = [1]     ),    &
+     &                              DegenerateSubspace(           &
+     &                                 id         = 5,            &
+     &                                 frequency  = 0.0_dp,       &
+     &                                 mode_ids   = [2],          &
+     &                                 paired_ids = [2]     ),    &
+     &                              DegenerateSubspace(           &
+     &                                 id         = 8,            &
+     &                                 frequency  = 0.0_dp,       &
+     &                                 mode_ids   = [3],          &
+     &                                 paired_ids = [3]     ) ],  &
+     &    max_subspace_coupling = 2,                              &
+     &    output                = [ SubspaceCoupling([3]),        &
+     &                              SubspaceCoupling([5]),        &
+     &                              SubspaceCoupling([8]),        &
+     &                              SubspaceCoupling([3,5]),      &
+     &                              SubspaceCoupling([3,8]),      &
+     &                              SubspaceCoupling([5,8])  ]    &
+     & )                                                          ]
   
   do i=1,size(test_cases)
-    associate( subspaces              => test_cases(i)%subspaces, &
-             & maximum_coupling_order =>                          &
-             &    test_cases(i)%maximum_coupling_order,           &
-             & expected_couplings     => test_cases(i)%output     )
-      couplings = generate_coupled_subspaces( subspaces,             &
-                                            & maximum_coupling_order )
+    associate( subspaces             => test_cases(i)%subspaces,             &
+             & max_subspace_coupling => test_cases(i)%max_subspace_coupling, &
+             & expected_couplings    => test_cases(i)%output                 )
+      couplings = generate_coupled_subspaces( subspaces,            &
+                                            & max_subspace_coupling )
       
-      message = [ str('subspaces:'),              &
-                & str(subspaces),                 &
-                & str('maximum_coupling_order:'), &
-                & str(maximum_coupling_order),    &
-                & str('couplings:'),              &
-                & str(couplings),                 &
-                & str('expected_couplings:'),     &
-                & str(expected_couplings)         ]
+      message = [ str('subspaces:'),             &
+                & str(subspaces),                &
+                & str('max_subspace_coupling:'), &
+                & str(max_subspace_coupling),    &
+                & str('couplings:'),             &
+                & str(couplings),                &
+                & str('expected_couplings:'),    &
+                & str(expected_couplings)        ]
       
       @assertTrue(size(couplings)==size(expected_couplings), char(message))
       @assertTrue(all(couplings==expected_couplings), char(message))
